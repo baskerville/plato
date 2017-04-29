@@ -38,6 +38,7 @@ pub enum GestureEvent {
     },
     Rotate {
         angle: f32,
+        quarter_turns: i8,
         center: Point,
     },
     Relay(DeviceEvent),
@@ -140,9 +141,11 @@ pub fn parse_gesture_events(rx: Receiver<DeviceEvent>, ty: Sender<GestureEvent>)
                             },
                             (GestureEvent::Swipe { start: s, end: e, .. }, GestureEvent::Tap { center: c, .. }) | 
                             (GestureEvent::Tap { center: c, .. }, GestureEvent::Swipe { start: s, end: e, .. }) => {
-                                let angle = (s - c).angle() - (e - c).angle();
+                                let angle = ((s - c).angle() - (e - c).angle()).to_degrees();
+                                let quarter_turns = (angle.signum() * (angle / 90.0).abs().ceil()) as i8;
                                 ty.send(GestureEvent::Rotate {
                                     angle: angle,
+                                    quarter_turns: quarter_turns,
                                     center: c,
                                 }).unwrap();
                             },
