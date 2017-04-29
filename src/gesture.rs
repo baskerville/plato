@@ -9,7 +9,7 @@ use device::Device;
 use geom::{Point, Dir, Axis};
 
 const JITTER_TOLERANCE_MM: f32 = 1.5;
-const LONG_PRESS_DELAY_MS: u64 = 1200;
+const LONG_PRESS_DELAY_MS: u64 = 700;
 
 #[derive(Debug)]
 pub enum GestureEvent {
@@ -19,7 +19,6 @@ pub enum GestureEvent {
     },
     Hold {
         center: Point,
-        long: bool,
     },
     Swipe {
         dir: Dir,
@@ -71,20 +70,15 @@ pub fn parse_gesture_events(rx: Receiver<DeviceEvent>, ty: Sender<GestureEvent>)
                 let ty = ty.clone();
                 let contacts = contacts.clone();
                 thread::spawn(move || {
-                    for i in 0..2 {
-                        thread::sleep(Duration::from_millis(LONG_PRESS_DELAY_MS / 2));
-                        if let Err(TryRecvError::Empty) = rz.try_recv() {
-                            let ct = contacts.lock().unwrap();
-                            if let Some(ts) = ct.get(&id) {
-                                if (ts.current - position).length() / (dpi as f32) < mm_to_in(JITTER_TOLERANCE_MM) {
-                                    ty.send(GestureEvent::Hold {
-                                        long: i > 0,
-                                        center: position,
-                                    }).unwrap();
-                                }
+                    thread::sleep(Duration::from_millis(LONG_PRESS_DELAY_MS));
+                    if let Err(TryRecvError::Empty) = rz.try_recv() {
+                        let ct = contacts.lock().unwrap();
+                        if let Some(ts) = ct.get(&id) {
+                            if (ts.current - position).length() / (dpi as f32) < mm_to_in(JITTER_TOLERANCE_MM) {
+                                ty.send(GestureEvent::Hold {
+                                    center: position,
+                                }).unwrap();
                             }
-                        } else {
-                            break;
                         }
                     }
                 });
