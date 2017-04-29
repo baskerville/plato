@@ -1,0 +1,9 @@
+[package]
+authors = ["Bastien Dejean <nihilhill@gmail.com>"]
+name = "plato"
+version = "0.1.0"
+
+[dependencies]
+chrono = "0.3.0"
+libc = "0.2.22"
+png = "0.7.0"
