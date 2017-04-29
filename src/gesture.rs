@@ -123,19 +123,19 @@ pub fn parse_gesture_events(rx: Receiver<DeviceEvent>, ty: Sender<GestureEvent>)
                             },
                             (GestureEvent::Swipe { dir: d1, start: s1, end: e1, .. },
                              GestureEvent::Swipe { dir: d2, start: s2, end: e2, .. }) if d1 == d2.opposite() => {
-                                let ds = s1.dist2(&s2);
-                                let de = e1.dist2(&e2);
+                                let ds = (s2 - s1).length();
+                                let de = (e2 - e1).length();
                                 if ds > de {
                                     ty.send(GestureEvent::Pinch {
                                         axis: d1.axis(),
                                         target: (e1 + e2) / 2,
-                                        strength: ds - de,
+                                        strength: (ds - de) as u32,
                                     }).unwrap();
                                 } else {
                                     ty.send(GestureEvent::Spread {
                                         axis: d1.axis(),
                                         target: (s1 + s2) / 2,
-                                        strength: de - ds,
+                                        strength: (de - ds) as u32,
                                     }).unwrap();
                                 }
                             },
