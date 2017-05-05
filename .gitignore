@@ -1,2 +1,4 @@
 target/
+extra/
+NOTES.md
 **/*.rs.bk
