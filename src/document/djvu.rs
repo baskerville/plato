@@ -1,7 +1,7 @@
 extern crate libc;
 
 use std::os::unix::ffi::OsStrExt;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::path::Path;
 use std::rc::Rc;
 use std::mem;
@@ -128,7 +128,7 @@ impl DjvuContext {
 }
 
 impl LayerGrain {
-    pub fn from_detail(name: &[u8]) -> LayerGrain {
+    pub fn from_bytes(name: &[u8]) -> LayerGrain {
         match name {
             b"page" => LayerGrain::Page,
             b"column" => LayerGrain::Column,
@@ -255,13 +255,13 @@ impl DjvuDocument {
             };
             let grain = {
                 let raw = miniexp_to_name(miniexp_nth(0, exp));
-                let vec = raw_to_vec(raw);
-                LayerGrain::from_detail(&vec)
+                let c_str = CStr::from_ptr(raw);
+                LayerGrain::from_bytes(c_str.to_bytes())
             };
             let mut children = Vec::new();
             if miniexp_stringp(miniexp_nth(5, exp)) == 1 {
                 let raw = miniexp_to_str(miniexp_nth(5, exp));
-                let c_str = CString::from_vec_unchecked(raw_to_vec(raw));
+                let c_str = CStr::from_ptr(raw);
                 text = Some(c_str.to_string_lossy().into_owned());
             } else {
                 for i in 5..len {
@@ -303,15 +303,15 @@ impl DjvuDocument {
                 if (itm as libc::size_t) & 3 != 0 {
                     continue;
                 }
-                let mut children = Vec::new();
+                let raw = miniexp_to_str(miniexp_nth(0, itm));
+                let title = CStr::from_ptr(raw).to_string_lossy().into_owned();
                 let raw = miniexp_to_str(miniexp_nth(1, itm));
-                let bytes = slice::from_raw_parts(raw, libc::strlen(raw));
-                let page_s = bytes.iter().map(|v| *v as u8 as char)
+                let bytes = CStr::from_ptr(raw).to_bytes();
+                let digits = bytes.iter().map(|v| *v as u8 as char)
                                          .filter(|c| c.is_digit(10))
                                          .collect::<String>();
-                let page = page_s.parse::<usize>().unwrap_or(1).saturating_sub(1);
-                let raw = miniexp_to_str(miniexp_nth(0, itm));
-                let title = CString::from_vec_unchecked(raw_to_vec(raw)).to_string_lossy().into_owned();
+                let page = digits.parse::<usize>().unwrap_or(1).saturating_sub(1);
+                let mut children = Vec::new();
                 if miniexp_length(itm) > 2 {
                     children = Self::walk_toc(itm);
                 }
@@ -340,14 +340,6 @@ impl DjvuDocument {
                 Some(DjvuPage(page))
             }
         }
-    }
-}
-
-#[inline]
-fn raw_to_vec(raw: *const libc::c_char) -> Vec<u8> {
-    unsafe {
-        slice::from_raw_parts(raw, libc::strlen(raw))
-            .iter().map(|v| *v as u8).collect()
     }
 }
 
