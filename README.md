@@ -4,8 +4,7 @@
 
 - Supported formats:
 	- DJVU via djvulibre.
-	- PDF via poppler-splash.
-	- CBZ via zip-rs and rust-image.
+	- PDF, CBZ and EPUB via mupdf.
 - Features:
 	- Scroll by screen within a stream of pages.
 	- Crop margins.
