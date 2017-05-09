@@ -146,7 +146,7 @@ impl DjvuOpener {
     pub fn new() -> Option<DjvuOpener> {
         unsafe {
             let name = CString::new("plato").unwrap();
-            let ctx = ddjvu_context_create(name.as_ptr() as *const libc::c_char);
+            let ctx = ddjvu_context_create(name.as_ptr());
             if ctx.is_null() {
                 None
             } else {
