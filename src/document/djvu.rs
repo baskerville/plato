@@ -248,9 +248,9 @@ impl DjvuDocument {
             let mut text: Option<String> = None;
             let p_rect = {
                 let min_x = miniexp_nth(1, exp) as i32 >> 2;
-                let min_y = height - (miniexp_nth(2, exp) as i32 >> 2);
-                let max_x = miniexp_nth(3, exp) as i32 >> 2;
-                let max_y = height - (miniexp_nth(4, exp) as i32 >> 2);
+                let max_y = height - (miniexp_nth(2, exp) as i32 >> 2) + 1;
+                let max_x = (miniexp_nth(3, exp) as i32 >> 2) + 1;
+                let min_y = height - (miniexp_nth(4, exp) as i32 >> 2);
                 rect![min_x, min_y, max_x, max_y]
             };
             let grain = {
