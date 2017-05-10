@@ -297,6 +297,14 @@ impl Framebuffer {
         }
     }
 
+    pub fn draw_rectangle(&mut self, rect: &Rectangle, gray: u8) {
+        for x in rect.min.x..rect.max.x {
+            for y in rect.min.y..rect.max.y {
+                self.set_pixel(x as u32, y as u32, gray);
+            }
+        }
+    }
+
     // Tell the driver that the screen needs to be redrawn.
     // The `rect` parameter is ignored for the `Gui` and `Full` modes.
     // The `Fast` mode only understands the following gray levels: 0x00 and 0xFF.
