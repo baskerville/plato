@@ -1,12 +1,12 @@
 extern crate libc;
 
-use std::os::unix::ffi::OsStrExt;
-use std::ffi::{CStr, CString};
-use std::path::Path;
-use std::rc::Rc;
-use std::mem;
-use std::slice;
 use std::ptr;
+use std::mem;
+use std::rc::Rc;
+use std::path::Path;
+use std::io::{self, Write};
+use std::ffi::{CStr, CString};
+use std::os::unix::ffi::OsStrExt;
 use geom::Rectangle;
 use document::{TextLayer, LayerGrain, TocEntry};
 
@@ -14,6 +14,15 @@ const DDJVU_JOB_OK: libc::c_uint = 2;
 const DDJVU_JOB_FAILED: libc::c_uint = 3;
 
 const DDJVU_ERROR: libc::c_uint = 0;
+const DDJVU_INFO: libc::c_uint = 1;
+const DDJVU_NEWSTREAM: libc::c_uint = 2;
+const DDJVU_DOCINFO: libc::c_uint = 3;
+const DDJVU_PAGEINFO: libc::c_uint = 4;
+const DDJVU_RELAYOUT: libc::c_uint = 5;
+const DDJVU_REDISPLAY: libc::c_uint = 6;
+const DDJVU_CHUNK: libc::c_uint = 7;
+const DDJVU_THUMBNAIL: libc::c_uint = 8;
+const DDJVU_PROGRESS: libc::c_uint = 9;
 
 const DDJVU_FORMAT_BGR24: libc::c_uint = 0;
 const DDJVU_FORMAT_RGB24: libc::c_uint = 1;
@@ -29,13 +38,13 @@ const CACHE_SIZE: libc::c_ulong = 32 * 1024 * 1024;
 
 enum Context {}
 enum Document {}
-enum Message {}
 enum Format {}
 enum Job {}
 enum Page {}
 enum MiniExp {}
 
 type Status = libc::c_uint;
+type MessageTag = libc::c_uint;
 type Mode = libc::c_uint;
 type FormatStyle = libc::c_uint;
 
@@ -105,6 +114,85 @@ impl Default for DjvuRect {
     }
 }
 
+#[repr(C)]
+struct Message {
+    tag: MessageTag,
+    context: *mut Context,
+    document: *mut Document,
+    page: *mut Page,
+    job: *mut Job,
+    data: [u64; 4],
+}
+
+#[repr(C)]
+struct MessageError {
+    message: *const libc::c_char,
+    function: *const libc::c_char,
+    filename: *const libc::c_char,
+    lineno: libc::c_int,
+}
+
+#[repr(C)]
+struct MessageInfo {
+    message: *const libc::c_char,
+}
+
+#[repr(C)]
+struct MessageNewStream {
+    streamid: libc::c_int,
+    name: *const libc::c_char,
+    url: *const libc::c_char,
+}
+
+#[repr(C)]
+struct MessageChunk {
+    chunkid: *const libc::c_char,
+}
+
+#[repr(C)]
+struct MessageThumbnail {
+    pagenum: libc::c_int,
+}
+
+#[repr(C)]
+struct MessageProgress {
+    status: Status,
+    percent: libc::c_int,
+}
+
+impl Message {
+    pub fn error(&mut self) -> *mut MessageError {
+        unsafe {
+            mem::transmute(&self.data)
+        }
+    }
+    pub fn info(&mut self) -> *mut MessageInfo {
+        unsafe {
+            mem::transmute(&self.data)
+        }
+    }
+    pub fn new_stream(&mut self) -> *mut MessageNewStream {
+        unsafe {
+            mem::transmute(&self.data)
+        }
+    }
+    pub fn chunk(&mut self) -> *mut MessageChunk {
+        unsafe {
+            mem::transmute(&self.data)
+        }
+    }
+    pub fn thumbnail(&mut self) -> *mut MessageThumbnail {
+        unsafe {
+            mem::transmute(&self.data)
+        }
+    }
+    pub fn progress(&mut self) -> *mut MessageProgress {
+        unsafe {
+            mem::transmute(&self.data)
+        }
+    }
+}
+
 struct DjvuContext(*mut Context);
 
 pub struct DjvuOpener {
@@ -121,7 +209,58 @@ pub struct DjvuPage(*mut Page);
 impl DjvuContext {
     fn handle_message(&self) {
         unsafe {
-            ddjvu_message_wait(self.0);
+            let msg = ddjvu_message_wait(self.0);
+            match (*msg).tag {
+                DDJVU_ERROR => {
+                    let msg = (*msg).error();
+                    let message = CStr::from_ptr((*msg).message).to_string_lossy();
+                    let filename = (*msg).filename;
+                    let lineno = (*msg).lineno;
+                    if filename.is_null() {
+                        writeln!(io::stderr(), "Error: {}.", message);
+                    } else {
+                        let filename = CStr::from_ptr(filename).to_string_lossy();
+                        writeln!(io::stderr(), "Error: {}: '{}:{}'.", message, filename, lineno);
+                    }
+                },
+                DDJVU_INFO => {
+                    let msg = (*msg).info();
+                    let message = CStr::from_ptr((*msg).message).to_string_lossy();
+                    println!("Info: {}.", message);
+                }
+                DDJVU_NEWSTREAM => {
+                    let msg = (*msg).new_stream();
+                    let name = CStr::from_ptr((*msg).name).to_string_lossy();
+                    let url = CStr::from_ptr((*msg).url).to_string_lossy();
+                    println!("NewStream: name {} url {} id {}.", name, url, (*msg).streamid);
+                },
+                DDJVU_DOCINFO => {
+                    println!("DocInfo.");
+                },
+                DDJVU_PAGEINFO => {
+                    println!("PageInfo.");
+                },
+                DDJVU_RELAYOUT => {
+                    println!("Relayout.");
+                },
+                DDJVU_REDISPLAY => {
+                    println!("Redisplay.");
+                },
+                DDJVU_CHUNK => {
+                    let msg = (*msg).chunk();
+                    let chunkid = CStr::from_ptr((*msg).chunkid).to_string_lossy();
+                    println!("Chunk: {}.", chunkid);
+                },
+                DDJVU_THUMBNAIL => {
+                    let msg = (*msg).thumbnail();
+                    println!("Thumbnail: {}.", (*msg).pagenum);
+                },
+                DDJVU_PROGRESS => {
+                    let msg = (*msg).progress();
+                    println!("Progress: {}% ({}).", (*msg).percent, (*msg).status);
+                },
+                _ => (),
+            }
             ddjvu_message_pop(self.0);
         }
     }
@@ -182,43 +321,26 @@ impl DjvuOpener {
     }
 }
 
-impl DjvuPage {
-    pub fn render<R: Into<DjvuRect>>(&self, p_rect: R, r_rect: R) -> Option<Vec<u8>> {
-        unsafe {
-            let r_rect = r_rect.into();
-            let p_rect = p_rect.into();
-            let fmt = ddjvu_format_create(DDJVU_FORMAT_GREY8, 0, ptr::null());
-
-            ddjvu_format_set_row_order(fmt, 1);
-            ddjvu_format_set_y_direction(fmt, 1);
-
-            let len = r_rect.w * r_rect.h;
-            let mut buf: Vec<u8> = Vec::with_capacity(len as usize);
-            ddjvu_page_render(self.0, DDJVU_RENDER_COLOR,
-                              &p_rect, &r_rect, fmt,
-                              r_rect.w as libc::c_ulong, buf.as_mut_ptr());
-            buf.set_len(len as usize);
-            ddjvu_format_release(fmt);
-            Some(buf)
-        }
-    }
-    pub fn dims(&self) -> (u32, u32) {
-        (self.width(), self.height())
-    }
-    pub fn width(&self) -> u32 {
-        unsafe { ddjvu_page_get_width(self.0) as u32 }
-    }
-    pub fn height(&self) -> u32 {
-        unsafe { ddjvu_page_get_height(self.0) as u32 }
-    }
-    pub fn dpi(&self) -> u16 {
-        unsafe { ddjvu_page_get_resolution(self.0) as u16 }
-    }
-}
-
 impl DjvuDocument {
     pub fn pages_count(&self) -> usize {
         unsafe { ddjvu_document_get_pagenum(self.doc) as usize }
+    }
+    pub fn page(&self, page_idx: usize) -> Option<DjvuPage> {
+        unsafe {
+            let page = ddjvu_page_create_by_pageno(self.doc, page_idx as libc::c_int);
+            if page.is_null() {
+                return None;
+            }
+            let job = ddjvu_page_job(page);
+            while ddjvu_job_status(job) < DDJVU_JOB_OK {
+                self.ctx.handle_message();
+            }
+            if ddjvu_job_status(job) >= DDJVU_JOB_FAILED {
+                None
+            } else {
+                Some(DjvuPage(page))
+            }
+        }
     }
     pub fn text(&self, page_idx: usize) -> Option<TextLayer> {
         unsafe {
@@ -236,9 +358,9 @@ impl DjvuDocument {
             if exp == MINIEXP_NIL {
                 None
             } else {
-                let text_layer = Self::walk_text(exp, height);
+                let text_page = Self::walk_text(exp, height);
                 ddjvu_miniexp_release(self.doc, exp);
-                Some(text_layer)
+                Some(text_page)
             }
         }
     }
@@ -324,22 +446,39 @@ impl DjvuDocument {
             vec
         }
     }
-    pub fn page(&self, page_idx: usize) -> Option<DjvuPage> {
+}
+
+impl DjvuPage {
+    pub fn render<R: Into<DjvuRect>>(&self, p_rect: R, r_rect: R) -> Option<Vec<u8>> {
         unsafe {
-            let page = ddjvu_page_create_by_pageno(self.doc, page_idx as libc::c_int);
-            if page.is_null() {
-                return None;
-            }
-            let job = ddjvu_page_job(page);
-            while ddjvu_job_status(job) < DDJVU_JOB_OK {
-                self.ctx.handle_message();
-            }
-            if ddjvu_job_status(job) >= DDJVU_JOB_FAILED {
-                None
-            } else {
-                Some(DjvuPage(page))
-            }
+            let r_rect = r_rect.into();
+            let p_rect = p_rect.into();
+            let fmt = ddjvu_format_create(DDJVU_FORMAT_GREY8, 0, ptr::null());
+
+            ddjvu_format_set_row_order(fmt, 1);
+            ddjvu_format_set_y_direction(fmt, 1);
+
+            let len = r_rect.w * r_rect.h;
+            let mut buf: Vec<u8> = Vec::with_capacity(len as usize);
+            ddjvu_page_render(self.0, DDJVU_RENDER_COLOR,
+                              &p_rect, &r_rect, fmt,
+                              r_rect.w as libc::c_ulong, buf.as_mut_ptr());
+            buf.set_len(len as usize);
+            ddjvu_format_release(fmt);
+            Some(buf)
         }
+    }
+    pub fn dims(&self) -> (u32, u32) {
+        (self.width(), self.height())
+    }
+    pub fn width(&self) -> u32 {
+        unsafe { ddjvu_page_get_width(self.0) as u32 }
+    }
+    pub fn height(&self) -> u32 {
+        unsafe { ddjvu_page_get_height(self.0) as u32 }
+    }
+    pub fn dpi(&self) -> u16 {
+        unsafe { ddjvu_page_get_resolution(self.0) as u16 }
     }
 }
 
