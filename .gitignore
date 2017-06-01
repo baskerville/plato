@@ -1,4 +1,6 @@
 target/
 extra/
+resources/
+libs/
 NOTES.md
 **/*.rs.bk
