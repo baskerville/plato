@@ -1,0 +1,63 @@
+diff --git a/Makefile b/Makefile
+index 7531d39..6c30c62 100644
+--- a/Makefile
++++ b/Makefile
+@@ -322,8 +322,8 @@ $(MUPDF_LIB) : $(MUPDF_OBJ)
+ $(THIRD_LIB) : $(THIRD_OBJ)
+ $(THREAD_LIB) : $(THREAD_OBJ)
+ 
+-INSTALL_LIBS := $(MUPDF_LIB) $(THIRD_LIB)
+-
++INSTALL_LIBS := $(MUPDF_LIB)
++ 	
+ # --- Tools and Apps ---
+ 
+ MUTOOL_EXE := $(OUT)/mutool
+@@ -469,7 +469,7 @@ cscope.files: $(shell find include source platform -name '*.[ch]')
+ cscope.out: cscope.files
+ 	cscope -b
+ 
+-all: libs apps
++all: libs
+ 
+ clean:
+ 	rm -rf $(OUT)
+diff --git a/Makerules b/Makerules
+index 8616f2f..88e5ed0 100644
+--- a/Makerules
++++ b/Makerules
+@@ -174,6 +174,34 @@ endif
+ #   2) do a non cross compile build (e.g. windows in MSVC) first.
+ #   3) download the generated files from mupdf.com.
+ 
++ifeq "$(OS)" "kobo"
++CC = arm-linux-gnueabihf-gcc
++CXX = arm-linux-gnueabihf-gcc++
++LD = arm-linux-gnueabihf-ld
++AR = arm-linux-gnueabihf-ar
++AS = arm-linux-gnueabihf-as
++CFLAGS += -O2 -mcpu=cortex-a9 -mfpu=neon -DTOFU_CJK_LANG -DTOFU_CJK_EXT -DFZ_ENABLE_JS=0
++LDFLAGS += -L../libs
++CROSSCOMPILE=yes
++HAVE_PTHREAD := yes
++HAVE_LIBCRYPTO := no
++HAVE_X11 := no
++HAVE_GLFW := no
++SYS_PTHREAD_CFLAGS :=
++SYS_PTHREAD_LIBS := -lpthread
++SYS_FREETYPE_CFLAGS := -I../freetype2/include
++SYS_FREETYPE_LIBS := -L../freetype2/objs/.libs -lfreetype
++SYS_HARFBUZZ_CFLAGS := -I../harfbuzz/src
++SYS_HARFBUZZ_LIBS := -L../harfbuzz/src/.libs -lharfbuzz
++SYS_OPENJPEG_CFLAGS := -I../openjpeg/src/lib/openjp2
++SYS_OPENJPEG_LIBS := -L../openjpeg/build/bin -lopenjpeg
++SYS_JBIG2DEC_CFLAGS := -I../jbig2dec
++SYS_JBIG2DEC_LIBS := -L../jbig2dec/.libs -ljbig2dec
++SYS_LIBJPEG_CFLAGS := -I../libjpeg
++SYS_LIBJPEG_LIBS := -L../libjpeg/.libs -ljpeg
++SYS_ZLIB_LIBS := -L../zlib -lz
++endif
++
+ ifeq "$(OS)" "beagle-cross"
+ CC = arm-none-linux-gnueabi-gcc
+ LD = arm-none-linux-gnueabi-gcc
