@@ -1,4 +1,5 @@
 use std::cmp;
+use std::f32::consts;
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -19,6 +20,48 @@ pub enum Axis {
 pub struct Point {
     pub x: i32,
     pub y: i32,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum CornerSpec {
+    Uniform(i32),
+    North(i32),
+    East(i32),
+    South(i32),
+    West(i32),
+    Detailed {
+        north_west: i32,
+        north_east: i32,
+        south_east: i32,
+        south_west: i32,
+    }
+}
+
+const HALF_PIXEL_DIAGONAL: f32 = consts::SQRT_2 / 2.0;
+
+// Takes the (signed) distance and angle from the center of a pixel to the closest point on a
+// shape's boundary and returns the approximate shape area contained within that pixel (the
+// boundary is considered flat at the pixel level).
+pub fn surface_area(dist: f32, angle: f32) -> f32 {
+    // Clearly {in,out}side of the shape.
+    if dist.abs() > HALF_PIXEL_DIAGONAL {
+        if dist.is_sign_positive() {
+            return 0.0;
+        } else {
+            return 1.0;
+        }
+    }
+    // If the boundary is parallel to the pixel's diagonals then the area is proportional to `dist²`.
+    // If the boundary is parallel to the pixel's sides then the area is proportional to `dist`.
+    // Hence we compute an interpolated exponent `expo` (`1 <= expo <= 2`) based on `angle`.
+    let expo = 0.5 * (3.0 - (4.0 * angle).cos());
+    // The *radius* of the pixel for the given *angle*
+    let radius = 0.5 * expo.sqrt();
+    if dist.is_sign_positive() {
+        (radius - dist).max(0.0).powf(expo)
+    } else {
+        1.0 - (radius + dist).max(0.0).powf(expo)
+    }
 }
 
 impl Dir {
@@ -83,11 +126,45 @@ impl Into<(f32, f32)> for Point {
     }
 }
 
+impl Into<Vec2> for Point {
+    fn into(self) -> Vec2 {
+        Vec2::new(self.x as f32, self.y as f32)
+    }
+}
+
 #[macro_export]
 macro_rules! pt {
-    ($x:expr, $y:expr) => ($crate::geom::Point::new($x, $y));
+    ($x:expr, $y:expr $(,)* ) => ($crate::geom::Point::new($x, $y));
     ($a:expr) => ($crate::geom::Point::new($a, $a));
 }
+
+#[derive(Debug, Copy, Clone)]
+pub struct Vec2 {
+    pub x: f32,
+    pub y: f32,
+}
+
+#[macro_export]
+macro_rules! vec2 {
+    ($x:expr, $y:expr $(,)* ) => ($crate::geom::Vec2::new($x, $y));
+    ($a:expr) => ($crate::geom::Vec2::new($a, $a));
+}
+
+impl Vec2 {
+    pub fn new(x: f32, y: f32) -> Vec2 {
+        Vec2 {
+            x: x,
+            y: y,
+        }
+    }
+    pub fn length(&self) -> f32 {
+        self.x.hypot(self.y)
+    }
+    pub fn angle(&self) -> f32 {
+        (-self.y).atan2(self.x)
+    }
+}
+
 
 // Based on https://golang.org/pkg/image/#Rectangle
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -109,9 +186,13 @@ impl Rectangle {
             max: *pt + 1,
         }
     }
-    pub fn contains(&self, pt: &Point) -> bool {
+    pub fn include(&self, pt: &Point) -> bool {
         self.min.x <= pt.x && pt.x < self.max.x &&
         self.min.y <= pt.y && pt.y < self.max.y
+    }
+    pub fn contains(&self, rect: &Rectangle) -> bool {
+        rect.min.x >= self.min.x && rect.max.x <= self.max.x &&
+        rect.min.y >= self.min.y && rect.max.y <= self.max.y
     }
     pub fn overlaps(&self, rect: &Rectangle) -> bool {
         self.min.x < rect.max.x && self.max.x >= rect.min.x &&
@@ -163,12 +244,22 @@ impl Rectangle {
     pub fn height(&self) -> u32 {
         (self.max.y - self.min.y) as u32
     }
+    #[inline]
+    pub fn ratio(&self) -> f32 {
+        self.width() as f32 / self.height() as f32
+    }
+}
+
+impl Default for Rectangle {
+    fn default() -> Self {
+        Rectangle::new(Point::default(), Point::default())
+    }
 }
 
 #[macro_export]
 macro_rules! rect {
-    ($x0:expr, $y0:expr, $x1:expr, $y1:expr) => ($crate::geom::Rectangle::new($crate::geom::Point::new($x0, $y0), $crate::geom::Point::new($x1, $y1)));
-    ($min:expr, $max:expr) => ($crate::geom::Rectangle::new($min, $max));
+    ($x0:expr, $y0:expr, $x1:expr, $y1:expr $(,)* ) => ($crate::geom::Rectangle::new($crate::geom::Point::new($x0, $y0), $crate::geom::Point::new($x1, $y1)));
+    ($min:expr, $max:expr $(,)* ) => ($crate::geom::Rectangle::new($min, $max));
 }
 
 impl Add for Point {
@@ -378,5 +469,181 @@ impl SubAssign<Point> for Rectangle {
     fn sub_assign(&mut self, rhs: Point) {
         self.min -= rhs;
         self.max -= rhs;
+    }
+}
+
+impl Add for Vec2 {
+    type Output = Vec2;
+    fn add(self, rhs: Vec2) -> Vec2 {
+        Vec2 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl AddAssign for Vec2 {
+    fn add_assign(&mut self, rhs: Vec2) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+impl Sub for Vec2 {
+    type Output = Vec2;
+    fn sub(self, rhs: Vec2) -> Vec2 {
+        Vec2 {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+impl SubAssign for Vec2 {
+    fn sub_assign(&mut self, rhs: Vec2) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl Mul<Vec2> for Vec2 {
+    type Output = Vec2;
+    fn mul(self, rhs: Vec2) -> Vec2 {
+        Vec2 {
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
+        }
+    }
+}
+
+impl MulAssign<Vec2> for Vec2 {
+    fn mul_assign(&mut self, rhs: Vec2) {
+        self.x *= rhs.x;
+        self.y *= rhs.y;
+    }
+}
+
+impl Div<Vec2> for Vec2 {
+    type Output = Vec2;
+    fn div(self, rhs: Vec2) -> Vec2 {
+        Vec2 {
+            x: self.x / rhs.x,
+            y: self.y / rhs.y,
+        }
+    }
+}
+
+impl DivAssign<Vec2> for Vec2 {
+    fn div_assign(&mut self, rhs: Vec2) {
+        self.x /= rhs.x;
+        self.y /= rhs.y;
+    }
+}
+
+impl Add<f32> for Vec2 {
+    type Output = Vec2;
+    fn add(self, rhs: f32) -> Vec2 {
+        Vec2 {
+            x: self.x + rhs,
+            y: self.y + rhs,
+        }
+    }
+}
+
+impl Add<Vec2> for f32 {
+    type Output = Vec2;
+    fn add(self, rhs: Vec2) -> Vec2 {
+        Vec2 {
+            x: self + rhs.x,
+            y: self + rhs.y,
+        }
+    }
+}
+
+impl AddAssign<f32> for Vec2 {
+    fn add_assign(&mut self, rhs: f32) {
+        self.x += rhs;
+        self.y += rhs;
+    }
+}
+
+impl Sub<f32> for Vec2 {
+    type Output = Vec2;
+    fn sub(self, rhs: f32) -> Vec2 {
+        Vec2 {
+            x: self.x - rhs,
+            y: self.y - rhs,
+        }
+    }
+}
+
+impl Sub<Vec2> for f32 {
+    type Output = Vec2;
+    fn sub(self, rhs: Vec2) -> Vec2 {
+        Vec2 {
+            x: self - rhs.x,
+            y: self - rhs.y,
+        }
+    }
+}
+
+impl SubAssign<f32> for Vec2 {
+    fn sub_assign(&mut self, rhs: f32) {
+        self.x -= rhs;
+        self.y -= rhs;
+    }
+}
+
+impl Mul<f32> for Vec2 {
+    type Output = Vec2;
+    fn mul(self, rhs: f32) -> Vec2 {
+        Vec2 {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        }
+    }
+}
+
+impl Mul<Vec2> for f32 {
+    type Output = Vec2;
+    fn mul(self, rhs: Vec2) -> Vec2 {
+        Vec2 {
+            x: self * rhs.x,
+            y: self * rhs.y,
+        }
+    }
+}
+
+impl MulAssign<f32> for Vec2 {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.x *= rhs;
+        self.y *= rhs;
+    }
+}
+
+impl Div<f32> for Vec2 {
+    type Output = Vec2;
+    fn div(self, rhs: f32) -> Vec2 {
+        Vec2 {
+            x: self.x / rhs,
+            y: self.y / rhs,
+        }
+    }
+}
+
+impl Div<Vec2> for f32 {
+    type Output = Vec2;
+    fn div(self, rhs: Vec2) -> Vec2 {
+        Vec2 {
+            x: self / rhs.x,
+            y: self / rhs.y,
+        }
+    }
+}
+
+impl DivAssign<f32> for Vec2 {
+    fn div_assign(&mut self, rhs: f32) {
+        self.x /= rhs;
+        self.y /= rhs;
     }
 }

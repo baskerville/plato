@@ -14,7 +14,7 @@ use std::ops::Drop;
 
 use libc::ioctl;
 use png::HasParameters;
-use geom::{Point, Rectangle};
+use geom::{Point, Rectangle, Vec2, CornerSpec, surface_area};
 
 const FBIOGET_VSCREENINFO: libc::c_ulong = 0x4600;
 const FBIOGET_FSCREENINFO: libc::c_ulong = 0x4602;
@@ -173,6 +173,7 @@ pub enum Mode {
 }
 
 type SetPixelRgb = fn(&mut Framebuffer, u32, u32, [u8; 3]);
+type GetPixelRgb = fn(&mut Framebuffer, u32, u32) -> [u8; 3];
 type AsRgb = fn(&Framebuffer) -> Vec<u8>;
 
 pub struct Framebuffer {
@@ -182,11 +183,15 @@ pub struct Framebuffer {
     token: u32,
     flags: u32,
     set_pixel_rgb: SetPixelRgb,
+    get_pixel_rgb: GetPixelRgb,
     as_rgb: AsRgb,
     pub bytes_per_pixel: u8,
     pub var_info: VarScreenInfo,
     pub fix_info: FixScreenInfo,
 }
+
+unsafe impl Send for Framebuffer {}
+unsafe impl Sync for Framebuffer {}
 
 impl Framebuffer {
     pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Framebuffer> {
@@ -218,10 +223,10 @@ impl Framebuffer {
         if frame == libc::MAP_FAILED {
             Err(io::Error::last_os_error())
         } else {
-            let (set_pixel_rgb, as_rgb): (SetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
-                (set_pixel_rgb_32, as_rgb_32)
+            let (set_pixel_rgb, get_pixel_rgb, as_rgb): (SetPixelRgb, GetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
+                (set_pixel_rgb_32, get_pixel_rgb_32, as_rgb_32)
             } else {
-                (set_pixel_rgb_16, as_rgb_16)
+                (set_pixel_rgb_16, get_pixel_rgb_16, as_rgb_16)
             };
             Ok(Framebuffer {
                    device: device,
@@ -230,6 +235,7 @@ impl Framebuffer {
                    token: 1,
                    flags: 0,
                    set_pixel_rgb: set_pixel_rgb,
+                   get_pixel_rgb: get_pixel_rgb,
                    as_rgb: as_rgb,
                    bytes_per_pixel: bytes_per_pixel as u8,
                    var_info: var_info,
@@ -240,6 +246,15 @@ impl Framebuffer {
     
     pub fn set_pixel(&mut self, x: u32, y: u32, gray: u8) {
         (self.set_pixel_rgb)(self, x, y, [gray, gray, gray]);
+    }
+
+    pub fn set_blended_pixel(&mut self, x: u32, y: u32, gray: u8, alpha: f32) {
+        let rgb = (self.get_pixel_rgb)(self, x, y);
+        let gray_alpha = gray as f32 * alpha;
+        let r = gray_alpha + (1.0 - alpha) * rgb[0] as f32;
+        let g = gray_alpha + (1.0 - alpha) * rgb[1] as f32;
+        let b = gray_alpha + (1.0 - alpha) * rgb[2] as f32;
+        (self.set_pixel_rgb)(self, x, y, [r as u8, g as u8, b as u8]);
     }
 
     pub fn draw_disk(&mut self, center: &Point, radius: u32, gray: u8) -> Rectangle {
@@ -301,6 +316,48 @@ impl Framebuffer {
         for x in rect.min.x..rect.max.x {
             for y in rect.min.y..rect.max.y {
                 self.set_pixel(x as u32, y as u32, gray);
+            }
+        }
+    }
+
+    pub fn draw_rounded_rectangle(&mut self, rect: &Rectangle, corners: &CornerSpec, gray: u8) {
+        let (nw, ne, se, sw) = match *corners {
+            CornerSpec::Uniform(v) => (v, v, v, v),
+            CornerSpec::North(v) => (v, v, 0, 0),
+            CornerSpec::East(v) => (0, v, v, 0),
+            CornerSpec::South(v) => (0, 0, v, v),
+            CornerSpec::West(v) => (v, 0, 0, v),
+            CornerSpec::Detailed {
+                north_west,
+                north_east,
+                south_east,
+                south_west
+            } => (north_west, north_east, south_east, south_west),
+        };
+        let nw_c = rect.min + nw;
+        let ne_c = pt!(rect.max.x - ne, rect.min.y + ne);
+        let se_c = rect.max - se;
+        let sw_c = pt!(rect.min.x + sw, rect.max.y - sw);
+        for y in rect.min.y..rect.max.y {
+            for x in rect.min.x..rect.max.x {
+                let mut area = 1.0;
+                let mut pole = None;
+                if x < nw_c.x && y < nw_c.y {
+                    pole = Some((nw_c, nw));
+                } else if x >= ne_c.x && y < ne_c.y {
+                    pole = Some((ne_c, ne));
+                } else if x >= se_c.x && y >= se_c.y {
+                    pole = Some((se_c, se));
+                } else if x < sw_c.x && y >= sw_c.y {
+                    pole = Some((sw_c, sw));
+                }
+                if let Some((center, radius)) = pole {
+                    let v = vec2!((x - center.x) as f32, (y - center.y) as f32) + 0.5;
+                    let angle = v.angle();
+                    let dist = v.length() - radius as f32;
+                    area = surface_area(dist, angle);
+                }
+                self.set_pixel(x as u32, y as u32, (area * gray as f32) as u8);
             }
         }
     }
@@ -423,6 +480,28 @@ pub fn set_pixel_rgb_32(fb: &mut Framebuffer, x: u32, y: u32, rgb: [u8; 3]) {
         *spot.offset(1) = rgb[1];
         *spot.offset(2) = rgb[0];
         // *spot.offset(3) = 0x00;
+    }
+}
+
+fn get_pixel_rgb_16(fb: &mut Framebuffer, x: u32, y: u32) -> [u8; 3] {
+    let addr = (fb.var_info.xoffset as isize + x as isize) * (fb.bytes_per_pixel as isize) +
+               (fb.var_info.yoffset as isize + y as isize) * (fb.fix_info.line_length as isize);
+    let pair = unsafe {
+        let spot = fb.frame.offset(addr) as *mut u8;
+        [*spot.offset(0), *spot.offset(1)]
+    };
+    let r = pair[1] & 0b11111000;
+    let g = ((pair[1] & 0b00000111) << 5) | ((pair[0] & 0b11100000) >> 3);
+    let b = (pair[0] & 0b00011111) << 3;
+    [r, g, b]
+}
+
+fn get_pixel_rgb_32(fb: &mut Framebuffer, x: u32, y: u32) -> [u8; 3] {
+    let addr = (fb.var_info.xoffset as isize + x as isize) * (fb.bytes_per_pixel as isize) +
+               (fb.var_info.yoffset as isize + y as isize) * (fb.fix_info.line_length as isize);
+    unsafe {
+        let spot = fb.frame.offset(addr) as *mut u8;
+        [*spot.offset(2), *spot.offset(1), *spot.offset(0)]
     }
 }
 
