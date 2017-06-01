@@ -1,0 +1,8 @@
+#! /bin/sh
+
+CC=${CC:-gcc}
+AR=${AR:-ar}
+
+$CC $CPPFLAGS $CFLAGS -c mupdf.c
+$AR -cr ../../libs/libmupdfwrapper.a mupdf.o
+rm mupdf.o

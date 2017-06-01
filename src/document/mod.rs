@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use geom::Rectangle;
 
 pub mod djvu;
+pub mod pdf;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum LayerGrain {
