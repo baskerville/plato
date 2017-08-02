@@ -5,13 +5,13 @@ use std::time::Duration;
 use std::thread;
 use unit::mm_to_in;
 use input::{DeviceEvent, FingerStatus};
-use device::Device;
+use device::CURRENT_DEVICE;
 use geom::{Point, Dir, Axis};
 
 const JITTER_TOLERANCE_MM: f32 = 1.5;
 const LONG_PRESS_DELAY_MS: u64 = 700;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum GestureEvent {
     Tap {
         center: Point,
@@ -60,7 +60,7 @@ pub fn parse_gesture_events(rx: Receiver<DeviceEvent>, ty: Sender<GestureEvent>)
     let mut contacts: Arc<Mutex<HashMap<i32, TouchState>>> = Arc::new(Mutex::new(HashMap::new()));
     let mut segments: Vec<(Point, Point)> = Vec::new();
     let mut timeouts: HashMap<i32, Sender<()>> = HashMap::new();
-    let dpi = Device::current().dpi;
+    let dpi = CURRENT_DEVICE.dpi;
     while let Ok(evt) = rx.recv() {
         ty.send(GestureEvent::Relay(evt)).unwrap();
         match evt {
