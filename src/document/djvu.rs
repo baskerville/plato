@@ -4,83 +4,85 @@ use std::ptr;
 use std::mem;
 use std::rc::Rc;
 use std::path::Path;
-use std::io::{self, Write};
 use std::ffi::{CStr, CString};
 use std::os::unix::ffi::OsStrExt;
 use geom::Rectangle;
-use document::{TextLayer, LayerGrain, TocEntry};
+use document::{Document, TextLayer, LayerGrain, TocEntry};
+use app::APP_NAME;
 
-const DDJVU_JOB_OK: libc::c_uint = 2;
-const DDJVU_JOB_FAILED: libc::c_uint = 3;
+const DDJVU_JOB_OK: JobStatus = 2;
+const DDJVU_JOB_FAILED: JobStatus = 3;
 
-const DDJVU_ERROR: libc::c_uint = 0;
-const DDJVU_INFO: libc::c_uint = 1;
-const DDJVU_NEWSTREAM: libc::c_uint = 2;
-const DDJVU_DOCINFO: libc::c_uint = 3;
-const DDJVU_PAGEINFO: libc::c_uint = 4;
-const DDJVU_RELAYOUT: libc::c_uint = 5;
-const DDJVU_REDISPLAY: libc::c_uint = 6;
-const DDJVU_CHUNK: libc::c_uint = 7;
-const DDJVU_THUMBNAIL: libc::c_uint = 8;
-const DDJVU_PROGRESS: libc::c_uint = 9;
+const DDJVU_ERROR: MessageTag = 0;
+const DDJVU_INFO: MessageTag = 1;
+const DDJVU_NEWSTREAM: MessageTag = 2;
+const DDJVU_DOCINFO: MessageTag = 3;
+const DDJVU_PAGEINFO: MessageTag = 4;
+const DDJVU_RELAYOUT: MessageTag = 5;
+const DDJVU_REDISPLAY: MessageTag = 6;
+const DDJVU_CHUNK: MessageTag = 7;
+const DDJVU_THUMBNAIL: MessageTag = 8;
+const DDJVU_PROGRESS: MessageTag = 9;
 
-const DDJVU_FORMAT_BGR24: libc::c_uint = 0;
-const DDJVU_FORMAT_RGB24: libc::c_uint = 1;
-const DDJVU_FORMAT_RGBMASK16: libc::c_uint = 2;
-const DDJVU_FORMAT_RGBMASK32: libc::c_uint = 3;
-const DDJVU_FORMAT_GREY8: libc::c_uint = 4;
+const DDJVU_FORMAT_BGR24: FormatStyle = 0;
+const DDJVU_FORMAT_RGB24: FormatStyle = 1;
+const DDJVU_FORMAT_RGBMASK16: FormatStyle = 2;
+const DDJVU_FORMAT_RGBMASK32: FormatStyle = 3;
+const DDJVU_FORMAT_GREY8: FormatStyle = 4;
 
-const DDJVU_RENDER_COLOR: libc::c_uint = 0;
+const DDJVU_RENDER_COLOR: RenderMode = 0;
+
 const MINIEXP_NIL: *mut MiniExp = 0 as *mut MiniExp;
 const MINIEXP_DUMMY: *mut MiniExp = 2 as *mut MiniExp;
 
 const CACHE_SIZE: libc::c_ulong = 32 * 1024 * 1024;
 
-enum Context {}
-enum Document {}
-enum Format {}
-enum Job {}
-enum Page {}
+enum ExoContext {}
+enum ExoDocument {}
+enum ExoFormat {}
+enum ExoJob {}
+enum ExoPage {}
 enum MiniExp {}
 
-type Status = libc::c_uint;
+type JobStatus = libc::c_uint;
 type MessageTag = libc::c_uint;
-type Mode = libc::c_uint;
+type RenderMode = libc::c_uint;
 type FormatStyle = libc::c_uint;
 
 #[link(name="djvulibre")]
 extern {
-    fn ddjvu_context_create(name: *const libc::c_char) -> *mut Context;
-    fn ddjvu_context_release(ctx: *mut Context);
-    fn ddjvu_cache_set_size(ctx: *mut Context, size: libc::c_ulong);
-    fn ddjvu_cache_clear(ctx: *mut Context);
-    fn ddjvu_message_wait(ctx: *mut Context) -> *mut Message;
-    fn ddjvu_message_pop(ctx: *mut Context);
-    fn ddjvu_document_job(doc: *mut Document) -> *mut Job;
-    fn ddjvu_page_job(page: *mut Page) -> *mut Job;
-    fn ddjvu_job_status(job: *mut Job) -> Status;
-    fn ddjvu_job_release(job: *mut Job);
-    fn ddjvu_document_create_by_filename_utf8(ctx: *mut Context, path: *const libc::c_char, cache: libc::c_int) -> *mut Document;
-    fn ddjvu_document_get_pagenum(doc: *mut Document) -> libc::c_int;
-    fn ddjvu_page_create_by_pageno(doc: *mut Document, page_idx: libc::c_int) -> *mut Page;
-    fn ddjvu_page_create_by_pageid(doc: *mut Document, pageid: *const libc::c_char) -> *mut Page;
-    fn ddjvu_page_get_width(page: *mut Page) -> libc::c_int;
-    fn ddjvu_page_get_height(page: *mut Page) -> libc::c_int;
-    fn ddjvu_page_get_resolution(page: *mut Page) -> libc::c_int;
-    fn ddjvu_page_get_rotation(page: *mut Page) -> libc::c_uint;
-    fn ddjvu_page_render(page: *mut Page, mode: Mode, p_rect: *const DjvuRect, r_rect: *const DjvuRect, fmt: *const Format, row_size: libc::c_ulong, buf: *mut u8) -> libc::c_int;
-    fn ddjvu_format_create(style: FormatStyle, nargs: libc::c_int, args: *const libc::c_uint) -> *mut Format;
-    fn ddjvu_format_release(fmt: *mut Format);
-    fn ddjvu_format_set_row_order(fmt: *mut Format, top_to_bottom: libc::c_int);
-    fn ddjvu_format_set_y_direction(fmt: *mut Format, top_to_bottom: libc::c_int);
-    fn ddjvu_document_get_pagetext(doc: *mut Document, page_idx: libc::c_int, max_detail: *const libc::c_char) -> *mut MiniExp;
-    fn ddjvu_document_get_outline(doc: *mut Document) -> *mut MiniExp;
-    fn ddjvu_document_get_anno(doc: *mut Document, compat: libc::c_int) -> *mut MiniExp;
-    fn ddjvu_document_get_pageanno(doc: *mut Document, page_idx: libc::c_int) -> *mut MiniExp;
+    fn ddjvu_context_create(name: *const libc::c_char) -> *mut ExoContext;
+    fn ddjvu_context_release(ctx: *mut ExoContext);
+    fn ddjvu_cache_set_size(ctx: *mut ExoContext, size: libc::c_ulong);
+    fn ddjvu_cache_clear(ctx: *mut ExoContext);
+    fn ddjvu_message_wait(ctx: *mut ExoContext) -> *mut Message;
+    fn ddjvu_message_pop(ctx: *mut ExoContext);
+    fn ddjvu_document_job(doc: *mut ExoDocument) -> *mut ExoJob;
+    fn ddjvu_page_job(page: *mut ExoPage) -> *mut ExoJob;
+    fn ddjvu_job_status(job: *mut ExoJob) -> JobStatus;
+    fn ddjvu_job_release(job: *mut ExoJob);
+    fn ddjvu_document_create_by_filename_utf8(ctx: *mut ExoContext, path: *const libc::c_char, cache: libc::c_int) -> *mut ExoDocument;
+    fn ddjvu_document_get_pagenum(doc: *mut ExoDocument) -> libc::c_int;
+    fn ddjvu_page_create_by_pageno(doc: *mut ExoDocument, page_idx: libc::c_int) -> *mut ExoPage;
+    fn ddjvu_page_create_by_pageid(doc: *mut ExoDocument, pageid: *const libc::c_char) -> *mut ExoPage;
+    fn ddjvu_page_get_width(page: *mut ExoPage) -> libc::c_int;
+    fn ddjvu_page_get_height(page: *mut ExoPage) -> libc::c_int;
+    fn ddjvu_page_get_resolution(page: *mut ExoPage) -> libc::c_int;
+    fn ddjvu_page_get_rotation(page: *mut ExoPage) -> libc::c_uint;
+    fn ddjvu_page_render(page: *mut ExoPage, mode: RenderMode, p_rect: *const DjvuRect, r_rect: *const DjvuRect, fmt: *const ExoFormat, row_size: libc::c_ulong, buf: *mut u8) -> libc::c_int;
+    fn ddjvu_format_create(style: FormatStyle, nargs: libc::c_int, args: *const libc::c_uint) -> *mut ExoFormat;
+    fn ddjvu_format_release(fmt: *mut ExoFormat);
+    fn ddjvu_format_set_row_order(fmt: *mut ExoFormat, top_to_bottom: libc::c_int);
+    fn ddjvu_format_set_y_direction(fmt: *mut ExoFormat, top_to_bottom: libc::c_int);
+    fn ddjvu_document_get_pagetext(doc: *mut ExoDocument, page_idx: libc::c_int, max_detail: *const libc::c_char) -> *mut MiniExp;
+    fn ddjvu_document_get_outline(doc: *mut ExoDocument) -> *mut MiniExp;
+    fn ddjvu_document_get_anno(doc: *mut ExoDocument, compat: libc::c_int) -> *mut MiniExp;
+    fn ddjvu_document_get_pageanno(doc: *mut ExoDocument, page_idx: libc::c_int) -> *mut MiniExp;
     fn ddjvu_anno_get_hyperlinks(annot: *mut MiniExp) -> *mut *mut MiniExp;
     fn ddjvu_anno_get_metadata_keys(annot: *mut MiniExp) -> *mut *mut MiniExp;
-    fn ddjvu_anno_get_metadata(annot: *mut MiniExp, key: *mut MiniExp) -> *const libc::c_char;
-    fn ddjvu_miniexp_release(document: *mut Document, exp: *mut MiniExp);
+    fn ddjvu_anno_get_metadata(annot: *mut MiniExp, key: *const MiniExp) -> *const libc::c_char;
+    fn ddjvu_miniexp_release(document: *mut ExoDocument, exp: *mut MiniExp);
+    fn miniexp_symbol(s: *const libc::c_char) -> *const MiniExp;
     fn miniexp_length(exp: *mut MiniExp) -> libc::c_int;
     fn miniexp_nth(n: libc::c_int, list: *mut MiniExp) -> *mut MiniExp;
     fn miniexp_stringp(exp: *mut MiniExp) -> libc::c_int;
@@ -117,10 +119,10 @@ impl Default for DjvuRect {
 #[repr(C)]
 struct Message {
     tag: MessageTag,
-    context: *mut Context,
-    document: *mut Document,
-    page: *mut Page,
-    job: *mut Job,
+    context: *mut ExoContext,
+    document: *mut ExoDocument,
+    page: *mut ExoPage,
+    job: *mut ExoJob,
     data: [u64; 4],
 }
 
@@ -156,7 +158,7 @@ struct MessageThumbnail {
 
 #[repr(C)]
 struct MessageProgress {
-    status: Status,
+    status: JobStatus,
     percent: libc::c_int,
 }
 
@@ -193,18 +195,19 @@ impl Message {
     }
 }
 
-struct DjvuContext(*mut Context);
+struct DjvuContext(*mut ExoContext);
 
-pub struct DjvuOpener {
-    ctx: Rc<DjvuContext>,
-}
+pub struct DjvuOpener(Rc<DjvuContext>);
 
 pub struct DjvuDocument {
     ctx: Rc<DjvuContext>,
-    doc: *mut Document,
+    doc: *mut ExoDocument,
 }
 
-pub struct DjvuPage(*mut Page);
+pub struct DjvuPage<'a> {
+    page: *mut ExoPage,
+    doc: &'a DjvuDocument,
+}
 
 impl DjvuContext {
     fn handle_message(&self) {
@@ -217,47 +220,11 @@ impl DjvuContext {
                     let filename = (*msg).filename;
                     let lineno = (*msg).lineno;
                     if filename.is_null() {
-                        writeln!(io::stderr(), "Error: {}.", message);
+                        eprintln!("Error: {}.", message);
                     } else {
                         let filename = CStr::from_ptr(filename).to_string_lossy();
-                        writeln!(io::stderr(), "Error: {}: '{}:{}'.", message, filename, lineno);
+                        eprintln!("Error: {}: '{}:{}'.", message, filename, lineno);
                     }
-                },
-                DDJVU_INFO => {
-                    let msg = (*msg).info();
-                    let message = CStr::from_ptr((*msg).message).to_string_lossy();
-                    println!("Info: {}.", message);
-                }
-                DDJVU_NEWSTREAM => {
-                    let msg = (*msg).new_stream();
-                    let name = CStr::from_ptr((*msg).name).to_string_lossy();
-                    let url = CStr::from_ptr((*msg).url).to_string_lossy();
-                    println!("NewStream: name {} url {} id {}.", name, url, (*msg).streamid);
-                },
-                DDJVU_DOCINFO => {
-                    println!("DocInfo.");
-                },
-                DDJVU_PAGEINFO => {
-                    println!("PageInfo.");
-                },
-                DDJVU_RELAYOUT => {
-                    println!("Relayout.");
-                },
-                DDJVU_REDISPLAY => {
-                    println!("Redisplay.");
-                },
-                DDJVU_CHUNK => {
-                    let msg = (*msg).chunk();
-                    let chunkid = CStr::from_ptr((*msg).chunkid).to_string_lossy();
-                    println!("Chunk: {}.", chunkid);
-                },
-                DDJVU_THUMBNAIL => {
-                    let msg = (*msg).thumbnail();
-                    println!("Thumbnail: {}.", (*msg).pagenum);
-                },
-                DDJVU_PROGRESS => {
-                    let msg = (*msg).progress();
-                    println!("Progress: {}% ({}).", (*msg).percent, (*msg).status);
                 },
                 _ => (),
             }
@@ -284,22 +251,20 @@ impl LayerGrain {
 impl DjvuOpener {
     pub fn new() -> Option<DjvuOpener> {
         unsafe {
-            let name = CString::new("plato").unwrap();
+            let name = CString::new(APP_NAME).unwrap();
             let ctx = ddjvu_context_create(name.as_ptr());
             if ctx.is_null() {
                 None
             } else {
                 ddjvu_cache_set_size(ctx, CACHE_SIZE);
-                Some(DjvuOpener {
-                    ctx: Rc::new(DjvuContext(ctx)),
-                })
+                Some(DjvuOpener(Rc::new(DjvuContext(ctx))))
             }
         }
     }
     pub fn open<P: AsRef<Path>>(&self, path: P) -> Option<DjvuDocument> {
         unsafe {
             let c_path = CString::new(path.as_ref().as_os_str().as_bytes()).unwrap();
-            let doc = ddjvu_document_create_by_filename_utf8(self.ctx.0,
+            let doc = ddjvu_document_create_by_filename_utf8((self.0).0,
                                                              c_path.as_ptr(),
                                                              1);
             if doc.is_null() {
@@ -307,13 +272,13 @@ impl DjvuOpener {
             }
             let job = ddjvu_document_job(doc);
             while ddjvu_job_status(job) < DDJVU_JOB_OK {
-                self.ctx.handle_message();
+                self.0.handle_message();
             }
             if ddjvu_job_status(job) >= DDJVU_JOB_FAILED {
                 None
             } else {
                 Some(DjvuDocument {
-                    ctx: self.ctx.clone(),
+                    ctx: self.0.clone(),
                     doc: doc,
                 })
             }
@@ -321,39 +286,23 @@ impl DjvuOpener {
     }
 }
 
-impl DjvuDocument {
-    pub fn pages_count(&self) -> usize {
+impl Document for DjvuDocument {
+    fn pages_count(&self) -> usize {
         unsafe { ddjvu_document_get_pagenum(self.doc) as usize }
     }
-    pub fn page(&self, page_idx: usize) -> Option<DjvuPage> {
+
+    fn text(&self, index: usize) -> Option<TextLayer> {
         unsafe {
-            let page = ddjvu_page_create_by_pageno(self.doc, page_idx as libc::c_int);
-            if page.is_null() {
-                return None;
-            }
-            let job = ddjvu_page_job(page);
-            while ddjvu_job_status(job) < DDJVU_JOB_OK {
-                self.ctx.handle_message();
-            }
-            if ddjvu_job_status(job) >= DDJVU_JOB_FAILED {
-                None
-            } else {
-                Some(DjvuPage(page))
-            }
-        }
-    }
-    pub fn text(&self, page_idx: usize) -> Option<TextLayer> {
-        unsafe {
-            let page = self.page(page_idx);
+            let page = self.page(index);
             if page.is_none() {
                 return None;
             }
             let height = page.unwrap().height() as i32;
             let grain = CString::new("word").unwrap();
-            let mut exp = ddjvu_document_get_pagetext(self.doc, page_idx as libc::c_int, grain.as_ptr());
+            let mut exp = ddjvu_document_get_pagetext(self.doc, index as libc::c_int, grain.as_ptr());
             while exp == MINIEXP_DUMMY {
                 self.ctx.handle_message();
-                exp = ddjvu_document_get_pagetext(self.doc, page_idx as libc::c_int, grain.as_ptr());
+                exp = ddjvu_document_get_pagetext(self.doc, index as libc::c_int, grain.as_ptr());
             }
             if exp == MINIEXP_NIL {
                 None
@@ -364,6 +313,60 @@ impl DjvuDocument {
             }
         }
     }
+
+    fn toc(&self) -> Option<Vec<TocEntry>> {
+        unsafe {
+            let mut exp = ddjvu_document_get_outline(self.doc);
+            while exp == MINIEXP_DUMMY {
+                self.ctx.handle_message();
+                exp = ddjvu_document_get_outline(self.doc);
+            }
+            if exp == MINIEXP_NIL {
+                None
+            } else {
+                let toc = Self::walk_toc(exp);
+                ddjvu_miniexp_release(self.doc, exp);
+                Some(toc)
+            }
+        }
+    }
+
+    fn title(&self) -> Option<String> {
+        self.info("title")
+    }
+
+    fn author(&self) -> Option<String> {
+        self.info("author")
+    }
+
+    // fn dims(&self, index: usize) -> Option<(u32, u32)> {
+    //     self.page(index).map(|page| page.dims())
+    // }
+
+    fn is_reflowable(&self) -> bool {
+        false
+    }
+}
+
+impl DjvuDocument {
+    pub fn page(&self, index: usize) -> Option<DjvuPage> {
+        unsafe {
+            let page = ddjvu_page_create_by_pageno(self.doc, index as libc::c_int);
+            if page.is_null() {
+                return None;
+            }
+            let job = ddjvu_page_job(page);
+            while ddjvu_job_status(job) < DDJVU_JOB_OK {
+                self.ctx.handle_message();
+            }
+            if ddjvu_job_status(job) >= DDJVU_JOB_FAILED {
+                None
+            } else {
+                Some(DjvuPage { page, doc: self })
+            }
+        }
+    }
+
     fn walk_text(exp: *mut MiniExp, height: i32) -> TextLayer {
         unsafe {
             let len = miniexp_length(exp);
@@ -399,22 +402,7 @@ impl DjvuDocument {
             }
         }
     }
-    pub fn toc(&self) -> Option<Vec<TocEntry>> {
-        unsafe {
-            let mut exp = ddjvu_document_get_outline(self.doc);
-            while exp == MINIEXP_DUMMY {
-                self.ctx.handle_message();
-                exp = ddjvu_document_get_outline(self.doc);
-            }
-            if exp == MINIEXP_NIL {
-                None
-            } else {
-                let toc = Self::walk_toc(exp);
-                ddjvu_miniexp_release(self.doc, exp);
-                Some(toc)
-            }
-        }
-    }
+
     fn walk_toc(exp: *mut MiniExp) -> Vec<TocEntry> {
         unsafe {
             let mut vec = Vec::new();
@@ -446,13 +434,36 @@ impl DjvuDocument {
             vec
         }
     }
+
+    pub fn info(&self, key: &str) -> Option<String> {
+        unsafe {
+            let mut exp = ddjvu_document_get_anno(self.doc, 1);
+            while exp == MINIEXP_DUMMY {
+                self.ctx.handle_message();
+                exp = ddjvu_document_get_anno(self.doc, 1);
+            }
+            if exp == MINIEXP_NIL {
+                None
+            } else {
+                let key = CString::new(key).unwrap();
+                let key = miniexp_symbol(key.as_ptr());
+                let val = ddjvu_anno_get_metadata(exp, key);
+                if val.is_null() {
+                    None
+                } else {
+                    ddjvu_miniexp_release(self.doc, exp);
+                    Some(CStr::from_ptr(val).to_string_lossy().into_owned())
+                }
+            }
+        }
+    }
 }
 
-impl DjvuPage {
-    pub fn render<R: Into<DjvuRect>>(&self, p_rect: R, r_rect: R) -> Option<Vec<u8>> {
+impl<'a> DjvuPage<'a> {
+    pub fn render(&self, p_rect: &Rectangle, r_rect: &Rectangle) -> Option<Vec<u8>> {
         unsafe {
-            let r_rect = r_rect.into();
-            let p_rect = p_rect.into();
+            let r_rect: DjvuRect = (*r_rect).into();
+            let p_rect: DjvuRect = (*p_rect).into();
             let fmt = ddjvu_format_create(DDJVU_FORMAT_GREY8, 0, ptr::null());
 
             ddjvu_format_set_row_order(fmt, 1);
@@ -460,7 +471,7 @@ impl DjvuPage {
 
             let len = r_rect.w * r_rect.h;
             let mut buf: Vec<u8> = Vec::with_capacity(len as usize);
-            ddjvu_page_render(self.0, DDJVU_RENDER_COLOR,
+            ddjvu_page_render(self.page, DDJVU_RENDER_COLOR,
                               &p_rect, &r_rect, fmt,
                               r_rect.w as libc::c_ulong, buf.as_mut_ptr());
             buf.set_len(len as usize);
@@ -468,23 +479,27 @@ impl DjvuPage {
             Some(buf)
         }
     }
+
     pub fn dims(&self) -> (u32, u32) {
         (self.width(), self.height())
     }
+
     pub fn width(&self) -> u32 {
-        unsafe { ddjvu_page_get_width(self.0) as u32 }
+        unsafe { ddjvu_page_get_width(self.page) as u32 }
     }
+
     pub fn height(&self) -> u32 {
-        unsafe { ddjvu_page_get_height(self.0) as u32 }
+        unsafe { ddjvu_page_get_height(self.page) as u32 }
     }
+
     pub fn dpi(&self) -> u16 {
-        unsafe { ddjvu_page_get_resolution(self.0) as u16 }
+        unsafe { ddjvu_page_get_resolution(self.page) as u16 }
     }
 }
 
-impl Drop for DjvuPage {
+impl<'a> Drop for DjvuPage<'a> {
     fn drop(&mut self) {
-        unsafe { ddjvu_job_release(ddjvu_page_job(self.0)); }
+        unsafe { ddjvu_job_release(ddjvu_page_job(self.page)); }
     }
 }
 
@@ -496,6 +511,6 @@ impl Drop for DjvuDocument {
 
 impl Drop for DjvuContext {
     fn drop(&mut self) {
-        unsafe { ddjvu_context_release(self.0) };
+        unsafe { ddjvu_context_release(self.0); }
     }
 }
