@@ -1,4 +1,4 @@
-use std::cmp;
+use std::cmp::{self, Ordering};
 use std::f32::consts;
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign};
 
@@ -10,10 +10,22 @@ pub enum Dir {
     West,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Axis {
     Horizontal,
     Vertical,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum CycleDir {
+    Next,
+    Previous,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum LinearDir {
+    Backward,
+    Forward,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -186,7 +198,13 @@ impl Rectangle {
             max: *pt + 1,
         }
     }
-    pub fn include(&self, pt: &Point) -> bool {
+    pub fn from_disk(center: &Point, radius: i32) -> Rectangle {
+        Rectangle {
+            min: *center - radius,
+            max: *center + radius,
+        }
+    }
+    pub fn includes(&self, pt: &Point) -> bool {
         self.min.x <= pt.x && pt.x < self.max.x &&
         self.min.y <= pt.y && pt.y < self.max.y
     }
@@ -195,8 +213,8 @@ impl Rectangle {
         rect.min.y >= self.min.y && rect.max.y <= self.max.y
     }
     pub fn overlaps(&self, rect: &Rectangle) -> bool {
-        self.min.x < rect.max.x && self.max.x >= rect.min.x &&
-        self.min.y < rect.max.y && self.max.y >= rect.min.y
+        self.min.x < rect.max.x && rect.min.x < self.max.x &&
+        self.min.y < rect.max.y && rect.min.y < self.max.y
     }
     pub fn merge(&mut self, pt: &Point) {
         if pt.x < self.min.x {
@@ -236,6 +254,9 @@ impl Rectangle {
             None
         }
     }
+    pub fn is_empty(&self) -> bool {
+        self.max.x <= self.min.x || self.max.y <= self.min.y
+    }
     #[inline]
     pub fn width(&self) -> u32 {
         (self.max.x - self.min.x) as u32
@@ -248,11 +269,31 @@ impl Rectangle {
     pub fn ratio(&self) -> f32 {
         self.width() as f32 / self.height() as f32
     }
+    #[inline]
+    pub fn area(&self) -> u32 {
+        self.width() * self.height()
+    }
 }
 
 impl Default for Rectangle {
     fn default() -> Self {
         Rectangle::new(Point::default(), Point::default())
+    }
+}
+
+fn rect_cmp(r1: &Rectangle, r2: &Rectangle) -> Ordering {
+    if r1.min.y >= r2.max.y {
+        Ordering::Greater
+    } else if r1.max.y <= r2.min.y {
+        Ordering::Less
+    } else {
+        if r1.min.x >= r2.max.x {
+            Ordering::Greater
+        } else if r1.max.x <= r2.min.x {
+            Ordering::Less
+        } else {
+            Ordering::Equal
+        }
     }
 }
 
@@ -645,5 +686,32 @@ impl DivAssign<f32> for Vec2 {
     fn div_assign(&mut self, rhs: f32) {
         self.x /= rhs;
         self.y /= rhs;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn overlaping_rectangles() {
+        let a = rect![2, 2, 10, 10];
+        let b = rect![2, 5, 3, 6];
+        let c = rect![1, 3, 2, 7];
+        let d = rect![9, 9, 12, 12];
+        let e = rect![4, 3, 5, 6];
+        assert!(b.overlaps(&a));
+        assert!(!c.overlaps(&a));
+        assert!(d.overlaps(&a));
+        assert!(e.overlaps(&a));
+        assert!(a.overlaps(&e));
+    }
+    #[test]
+    fn contained_rectangles() {
+        let a = rect![2, 2, 10, 10];
+        let b = rect![4, 3, 5, 6];
+        let c = rect![4, 3, 12, 9];
+        assert!(a.contains(&b));
+        assert!(!b.contains(&a));
+        assert!(!a.contains(&c));
+        assert!(c.contains(&b));
     }
 }
