@@ -9,7 +9,7 @@ use std::fs::File;
 use std::slice;
 use std::mem;
 use std::env;
-use device::Device;
+use device::CURRENT_DEVICE;
 use geom::Point;
 
 // Event types
@@ -88,8 +88,8 @@ pub enum ButtonCode {
 #[derive(Debug, Copy, Clone)]
 pub enum DeviceEvent {
     Finger {
-        time: f64,
         id: i32,
+        time: f64,
         status: FingerStatus,
         position: Point,
     },
@@ -170,12 +170,12 @@ pub fn parse_device_events(rx: Receiver<InputEvent>, ty: Sender<DeviceEvent>, di
     let mut position = Point::default();
     let mut pressure = 0;
     let mut fingers: HashMap<i32, Point> = HashMap::new();
-    let device = Device::current();
-    let mut tc = if device.proto == TouchProto::Multi { MULTI_TOUCH_CODES } else { SINGLE_TOUCH_CODES };
-    if env::var("SKETCH_UNSWAP_XY").is_err() {
+    let mut tc = if CURRENT_DEVICE.proto == TouchProto::Multi { MULTI_TOUCH_CODES } else { SINGLE_TOUCH_CODES };
+    // Current hypothesis: width > height implies UNSWAP_XY and UNMIRROR_X
+    if env::var("PLATO_UNSWAP_XY").is_err() {
         mem::swap(&mut tc.x, &mut tc.y);
     }
-    let mirror_x = env::var("SKETCH_UNMIRROR_X").is_err();
+    let mirror_x = env::var("PLATO_UNMIRROR_X").is_err();
     while let Ok(evt) = rx.recv() {
         if evt.kind == EV_ABS {
             if evt.code == tc.pressure {
@@ -193,16 +193,16 @@ pub fn parse_device_events(rx: Receiver<InputEvent>, ty: Sender<DeviceEvent>, di
                     if pressure > 0 {
                         if p != position {
                             ty.send(DeviceEvent::Finger {
-                                time: seconds(evt.time),
                                 id: id,
+                                time: seconds(evt.time),
                                 status: FingerStatus::Motion,
                                 position: position,
                             }).unwrap();
                         }
                     } else {
                         ty.send(DeviceEvent::Finger {
-                            time: seconds(evt.time),
                             id: id,
+                            time: seconds(evt.time),
                             status: FingerStatus::Up,
                             position: position,
                         }).unwrap();
@@ -210,8 +210,8 @@ pub fn parse_device_events(rx: Receiver<InputEvent>, ty: Sender<DeviceEvent>, di
                     }
                 } else {
                     ty.send(DeviceEvent::Finger {
-                        time: seconds(evt.time),
                         id: id,
+                        time: seconds(evt.time),
                         status: FingerStatus::Down,
                         position: position,
                     }).unwrap();
