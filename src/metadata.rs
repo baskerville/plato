@@ -1,14 +1,15 @@
 use std::ops::{Deref, DerefMut};
-use std::collections::HashSet;
-use fnv::FnvHashMap;
+use std::collections::BTreeSet;
 use chrono::{Local, DateTime};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Info {
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub title: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub subtitle: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub author: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub year: String,
@@ -30,8 +31,8 @@ pub struct Info {
     // pub issn: String, // International Standard Serial Number
     // #[serde(skip_serializing_if = "String::is_empty")]
     // pub ismn: String, // International Standard Music Number
-    #[serde(skip_serializing_if = "HashSet::is_empty")]
-    pub keywords: HashSet<String>,
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    pub keywords: BTreeSet<String>,
     pub file: FileInfo,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reader: Option<ReaderInfo>,
@@ -87,7 +88,7 @@ impl Default for Info {
             volume: String::default(),
             number: String::default(),
             isbn: String::default(),
-            keywords: HashSet::new(),
+            keywords: BTreeSet::new(),
             file: FileInfo::default(),
             reader: None,
         }
@@ -107,5 +108,11 @@ impl Deref for Metadata {
 impl DerefMut for Metadata {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl Metadata {
+    pub fn keywords(&self) -> BTreeSet<String> {
+        self.0.iter().flat_map(|info| info.keywords.clone()).collect()
     }
 }
