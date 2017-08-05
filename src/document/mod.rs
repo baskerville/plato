@@ -3,6 +3,9 @@ pub mod pdf;
 
 use std::cmp;
 use std::path::Path;
+use fnv::FnvHashSet;
+use unicode_normalization::UnicodeNormalization;
+use unicode_normalization::char::{is_combining_mark};
 use geom::Rectangle;
 use document::djvu::{DjvuOpener};
 use document::pdf::{PdfOpener};
@@ -89,6 +92,10 @@ impl TextLayer {
     }
 }
 
+pub fn detox(name: &str) -> String {
+    name.nfkd().filter(|&c| !is_combining_mark(c)).collect()
+}
+
 pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<Document>> {
     file_kind(path.as_ref()).and_then(|k| {
         match k.as_ref() {
@@ -104,4 +111,59 @@ pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<Document>> {
             },
         }
     })
+}
+
+// cd mupdf/source && awk '/_extensions\[/,/}/' */*.c
+lazy_static! {
+pub static ref ALLOWED_KINDS: FnvHashSet<&'static str> =
+    [
+    // djvu
+    "djvu",
+    "djv",
+    // cbz
+    "cbt",
+    "cbz",
+    "tar",
+    "zip",
+    // img
+    "bmp",
+    "gif",
+    "hdp",
+    "j2k",
+    "jfif",
+    "jfif-tbnl",
+    "jp2",
+    "jpe",
+    "jpeg",
+    "jpg",
+    "jpx",
+    "jxr",
+    "pam",
+    "pbm",
+    "pgm",
+    "png",
+    "pnm",
+    "ppm",
+    "wdp",
+    // tiff
+    "tif",
+    "tiff",
+    // gprf
+    "gproof",
+    // epub
+    "epub",
+    // html
+    "fb2",
+    "htm",
+    "html",
+    "xhtml",
+    "xml",
+    // pdf
+    "pdf",
+    // svg
+    "svg",
+    // xps
+    "oxps",
+    "xps",
+    ].iter().cloned().collect();
 }

@@ -440,7 +440,6 @@ impl Document for PdfDocument {
 
     fn title(&self) -> Option<String> {
         self.info(FZ_META_INFO_TITLE)
-        // self.info("Title")
     }
 
     fn author(&self) -> Option<String> {
