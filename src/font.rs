@@ -9,47 +9,43 @@ use std::mem;
 use geom::Point;
 use framebuffer::Framebuffer;
 
-const THICKNESS_BIG: f32 = 3.0;
-const THICKNESS_MEDIUM: f32 = 2.0;
-const THICKNESS_SMALL: f32 = 1.0;
-
-const BOLD_THICKNESS_RATIO: f32 = 36.0 / 61.0;
+pub const BOLD_THICKNESS_RATIO: f32 = 36.0 / 61.0;
 
 // Font sizes in 1/64th of a point
 // 2, 3, and 4 px at 300 DPI for Noto Sans UI
-const FONT_SIZES: [u32; 3] = [349, 524, 699];
+pub const FONT_SIZES: [u32; 3] = [349, 524, 699];
 
-const KEYBOARD_FONT_SIZES: [u32; 2] = [337, 843]; 
+pub const KEYBOARD_FONT_SIZES: [u32; 2] = [337, 843];
 
-const KEYBOARD_LETTER_SPACING: i32 = 4;
+pub const KEYBOARD_LETTER_SPACING: i32 = 4;
 
-const NORMAL_STYLE: Style = Style {
+pub const NORMAL_STYLE: Style = Style {
     family: Family::SansSerif,
     variant: REGULAR,
     size: FONT_SIZES[1],
 };
 
-const MD_TITLE: Style = Style {
+pub const MD_TITLE: Style = Style {
     family: Family::Serif,
     variant: ITALIC,
     size: FONT_SIZES[2],
 };
 
-const MD_AUTHOR: Style = Style {
+pub const MD_AUTHOR: Style = Style {
     family: Family::Serif,
     variant: REGULAR,
     size: FONT_SIZES[1],
 };
 
-const MD_YEAR: Style = NORMAL_STYLE;
+pub const MD_YEAR: Style = NORMAL_STYLE;
 
-const MD_KIND: Style = Style {
+pub const MD_KIND: Style = Style {
     family: Family::SansSerif,
     variant: BOLD,
     size: FONT_SIZES[0],
 };
 
-const MD_SIZE: Style = Style {
+pub const MD_SIZE: Style = Style {
     family: Family::SansSerif,
     variant: REGULAR,
     size: FONT_SIZES[0],
@@ -123,7 +119,7 @@ pub fn font_from_variant(family: &mut FontFamily, variant: Variant) -> &mut Font
     }
 }
 
-pub fn font_from_style<'a>(fonts: &'a mut Fonts, style: &Style, dpi: u16) -> &'a Font {
+pub fn font_from_style<'a>(fonts: &'a mut Fonts, style: &Style, dpi: u16) -> &'a mut Font {
     let mut font = match style.family {
         Family::SansSerif => {
             let family = &mut fonts.sans_serif;
@@ -456,7 +452,7 @@ pub struct Font {
     // used as truncation mark
     ellipsis: RenderPlan,
     // lowercase and uppercase x heights
-    x_heights: (u32, u32),
+    pub x_heights: (u32, u32),
     space_codepoint: u32,
 }
 
@@ -526,6 +522,7 @@ impl Font {
             FT_Set_Char_Size(self.face, size as FtF26Dot6, 0, dpi as libc::c_uint, 0);
             self.font = hb_ft_font_create(self.face, ptr::null());
             self.ellipsis = self.plan("…", None, None);
+            self.x_heights = (self.height('x'), self.height('X'));
         }
     }
 
@@ -659,7 +656,7 @@ pub struct GlyphPlan {
 
 #[derive(Debug)]
 pub struct RenderPlan {
-    width: u32,
+    pub width: u32,
     glyphs: Vec<GlyphPlan>,
 }
 
