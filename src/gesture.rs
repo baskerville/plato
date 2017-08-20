@@ -1,24 +1,22 @@
-use std::sync::mpsc::{self, Sender, Receiver, TryRecvError};
+use std::sync::mpsc::{self, Sender, Receiver};
 use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 use std::time::Duration;
 use std::thread;
 use unit::mm_to_in;
-use input::{DeviceEvent, FingerStatus};
+use input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use device::CURRENT_DEVICE;
 use geom::{Point, Dir, Axis};
 
 const JITTER_TOLERANCE_MM: f32 = 1.5;
-const LONG_PRESS_DELAY_MS: u64 = 700;
+const FINGER_HOLD_DELAY_MS: u64 = 700;
+const BUTTON_HOLD_DELAY_MS: u64 = 1500;
 
 #[derive(Debug, Copy, Clone)]
 pub enum GestureEvent {
     Tap {
         center: Point,
         fingers_count: usize,
-    },
-    Hold {
-        center: Point,
     },
     Swipe {
         dir: Dir,
@@ -42,10 +40,13 @@ pub enum GestureEvent {
         center: Point,
     },
     Relay(DeviceEvent),
+    HoldFinger(Point),
+    HoldButton(ButtonCode),
 }
 
 #[derive(Debug)]
 pub struct TouchState {
+    time: f64,
     initial: Point,
     current: Point,
 }
@@ -57,33 +58,27 @@ pub fn gesture_events(rx: Receiver<DeviceEvent>) -> Receiver<GestureEvent> {
 }
 
 pub fn parse_gesture_events(rx: Receiver<DeviceEvent>, ty: Sender<GestureEvent>) {
-    let mut contacts: Arc<Mutex<HashMap<i32, TouchState>>> = Arc::new(Mutex::new(HashMap::new()));
+    let contacts: Arc<Mutex<FnvHashMap<i32, TouchState>>> = Arc::new(Mutex::new(FnvHashMap::default()));
+    let buttons: Arc<Mutex<FnvHashMap<ButtonCode, f64>>> = Arc::new(Mutex::new(FnvHashMap::default()));
     let mut segments: Vec<(Point, Point)> = Vec::new();
-    let mut timeouts: HashMap<i32, Sender<()>> = HashMap::new();
-    let dpi = CURRENT_DEVICE.dpi;
+    let jitter = CURRENT_DEVICE.dpi as f32 * mm_to_in(JITTER_TOLERANCE_MM);
     while let Ok(evt) = rx.recv() {
         ty.send(GestureEvent::Relay(evt)).unwrap();
         match evt {
-            DeviceEvent::Finger { status: FingerStatus::Down, position, id, .. } => {
+            DeviceEvent::Finger { status: FingerStatus::Down, position, id, time } => {
                 let mut ct = contacts.lock().unwrap();
-                ct.insert(id, TouchState { initial: position, current: position });
-                let (tz, rz) = mpsc::channel();
+                ct.insert(id, TouchState { time, initial: position, current: position });
                 let ty = ty.clone();
                 let contacts = contacts.clone();
                 thread::spawn(move || {
-                    thread::sleep(Duration::from_millis(LONG_PRESS_DELAY_MS));
-                    if let Err(TryRecvError::Empty) = rz.try_recv() {
-                        let ct = contacts.lock().unwrap();
-                        if let Some(ts) = ct.get(&id) {
-                            if (ts.current - position).length() / (dpi as f32) < mm_to_in(JITTER_TOLERANCE_MM) {
-                                ty.send(GestureEvent::Hold {
-                                    center: position,
-                                }).unwrap();
-                            }
+                    thread::sleep(Duration::from_millis(FINGER_HOLD_DELAY_MS));
+                    let ct = contacts.lock().unwrap();
+                    if let Some(ts) = ct.get(&id) {
+                        if ts.time == time && (ts.current - position).length() < jitter {
+                            ty.send(GestureEvent::HoldFinger(position)).unwrap();
                         }
                     }
                 });
-                timeouts.insert(id, tz);
             },
             DeviceEvent::Finger { status: FingerStatus::Motion, position, id, .. } => {
                 let mut ct = contacts.lock().unwrap();
@@ -93,18 +88,17 @@ pub fn parse_gesture_events(rx: Receiver<DeviceEvent>, ty: Sender<GestureEvent>)
             },
             DeviceEvent::Finger { status: FingerStatus::Up, position, id, .. } => {
                 let mut ct = contacts.lock().unwrap();
-                if let Some(TouchState { initial: pt, .. }) = ct.remove(&id) {
-                    segments.push((pt, position));
+                if let Some(TouchState { initial, .. }) = ct.remove(&id) {
+                    segments.push((initial, position));
                 }
-                timeouts.remove(&id);
                 if ct.is_empty() && !segments.is_empty() {
                     let len = segments.len();
                     if len == 1 {
-                        let ge = interpret_segment(segments.pop().unwrap(), dpi);
+                        let ge = interpret_segment(segments.pop().unwrap(), jitter);
                         ty.send(ge).unwrap();
                     } else if len == 2 {
-                        let ge1 = interpret_segment(segments.pop().unwrap(), dpi);
-                        let ge2 = interpret_segment(segments.pop().unwrap(), dpi);
+                        let ge1 = interpret_segment(segments.pop().unwrap(), jitter);
+                        let ge2 = interpret_segment(segments.pop().unwrap(), jitter);
                         match (ge1, ge2) {
                             (GestureEvent::Tap { center: c1, .. }, GestureEvent::Tap { center: c2, .. }) => {
                                 ty.send(GestureEvent::Tap {
@@ -156,15 +150,32 @@ pub fn parse_gesture_events(rx: Receiver<DeviceEvent>, ty: Sender<GestureEvent>)
                     }
                 }
             },
-            _ => ()
+            DeviceEvent::Button { status: ButtonStatus::Pressed, code, time } => {
+                let mut bt = buttons.lock().unwrap();
+                bt.insert(code, time);
+                let ty = ty.clone();
+                let buttons = buttons.clone();
+                thread::spawn(move || {
+                    thread::sleep(Duration::from_millis(BUTTON_HOLD_DELAY_MS));
+                    let bt = buttons.lock().unwrap();
+                    if let Some(&initial_time) = bt.get(&code) {
+                        if initial_time == time {
+                            ty.send(GestureEvent::HoldButton(code)).unwrap();
+                        }
+                    }
+                });
+            },
+            DeviceEvent::Button { status: ButtonStatus::Released, code, .. } => {
+                let mut bt = buttons.lock().unwrap();
+                bt.remove(&code);
+            },
         }
     }
 }
 
-fn interpret_segment((a, b): (Point, Point), dpi: u16) -> GestureEvent {
+fn interpret_segment((a, b): (Point, Point), jitter: f32) -> GestureEvent {
     let ab = b - a;
-    let d = ab.length();
-    if d / (dpi as f32) < mm_to_in(JITTER_TOLERANCE_MM) {
+    if ab.length() < jitter {
         GestureEvent::Tap {
             center: (a + b) / 2,
             fingers_count: 1,

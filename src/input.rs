@@ -80,9 +80,23 @@ pub enum ButtonStatus {
     Released,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ButtonCode {
     Power,
+    Home,
+    Unknown,
+}
+
+impl ButtonCode {
+    fn from_raw(code: u16) -> ButtonCode {
+        if code == KEY_POWER {
+            ButtonCode::Power
+        } else if code == KEY_HOME {
+            ButtonCode::Home
+        } else {
+            ButtonCode::Unknown
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -219,14 +233,12 @@ pub fn parse_device_events(rx: Receiver<InputEvent>, ty: Sender<DeviceEvent>, di
                 }
             }
         } else if evt.kind == EV_KEY {
-            if evt.code == KEY_POWER {
-                ty.send(DeviceEvent::Button {
-                    time: seconds(evt.time),
-                    code: ButtonCode::Power,
-                    status: if evt.value == 1 { ButtonStatus::Pressed } else
-                                              { ButtonStatus::Released },
-                }).unwrap();
-            }
+            ty.send(DeviceEvent::Button {
+                time: seconds(evt.time),
+                code: ButtonCode::from_raw(evt.code),
+                status: if evt.value == 1 { ButtonStatus::Pressed } else
+                                          { ButtonStatus::Released },
+            }).unwrap();
         }
     }
 }
