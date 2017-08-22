@@ -23,8 +23,11 @@ const FZ_META_INFO_TITLE: &str = "info:Title";
 
 enum FzContext {}
 enum FzDocument {}
+enum FzPool {}
 enum FzPage {}
 enum FzDevice {}
+enum FzFont {}
+enum FzColorspace {}
 enum FzAllocContext {}
 enum FzLocksContext {}
 enum FzTextOptions {}
@@ -60,11 +63,8 @@ extern {
     fn fz_run_page(ctx: *mut FzContext, page: *mut FzPage, dev: *mut FzDevice, mat: *const FzMatrix, cookie: *mut FzCookie);
     fn fz_new_stext_page(ctx: *mut FzContext) -> *mut FzTextPage;
     fn fz_drop_stext_page(ctx: *mut FzContext, tp: *mut FzTextPage);
-    fn fz_new_stext_sheet(ctx: *mut FzContext) -> *mut FzTextSheet;
-    fn fz_drop_stext_sheet(ctx: *mut FzContext, tp: *mut FzTextSheet);
-    fn fz_new_stext_device(ctx: *mut FzContext, ts: *mut FzTextSheet, tp: *mut FzTextPage, options: *const FzTextOptions) -> *mut FzDevice;
+    fn fz_new_stext_device(ctx: *mut FzContext, tp: *mut FzTextPage, options: *const FzTextOptions) -> *mut FzDevice;
     fn fz_new_bbox_device(ctx: *mut FzContext, rect: *mut FzRect) -> *mut FzDevice;
-    fn fz_stext_char_bbox(ctx: *mut FzContext, rect: *mut FzRect, span: *const FzTextSpan, idx: libc::c_int) -> *mut FzRect;
     fn fz_new_draw_device(ctx: *mut FzContext, mat: *const FzMatrix, pixmap: *mut FzPixmap) -> *mut FzDevice;
     fn fz_new_draw_device_with_bbox(ctx: *mut FzContext, mat: *const FzMatrix, pixmap: *mut FzPixmap, clip: *const FzRect) -> *mut FzDevice;
     fn fz_close_device(ctx: *mut FzContext, dev: *mut FzDevice);
@@ -122,6 +122,7 @@ struct FzPoint {
     y: libc::c_float,
 }
 
+#[derive(Copy, Clone)]
 #[repr(C)]
 struct FzMatrix {
     a: libc::c_float,
@@ -164,102 +165,68 @@ impl Default for FzMatrix {
     }
 }
 
-#[repr(C)]
-struct FzTextSheet {
-    maxid: libc::c_int,
-    style: *mut FzTextStyle,
-}
-
-#[repr(C)]
-struct FzTextPage {
-    media_box: FzRect,
-    len: libc::c_int,
-    capacity: libc::c_int,
-    blocks: *const FzPageBlock,
-    next: *const FzTextPage,
-}
-
 const FZ_PAGE_BLOCK_TEXT: libc::c_int = 0;
 const FZ_PAGE_BLOCK_IMAGE: libc::c_int = 1;
 
 #[repr(C)]
-struct FzPageBlock {
-    kind: libc::c_int,
-    data: *mut libc::c_void,
-}
-
-impl FzPageBlock {
-    fn text(&self) -> *const FzTextBlock {
-        self.data as *const FzTextBlock
-    }
-    fn image(&self) -> *const FzImageBlock {
-        self.data as *const FzImageBlock
-    }
+struct FzTextPage {
+    pool: *mut FzPool,
+    media_box: FzRect,
+    first_block: *mut FzTextBlock,
+    last_block: *mut FzTextBlock,
 }
 
 #[repr(C)]
 struct FzTextBlock {
+    kind: libc::c_int,
     bbox: FzRect,
-    len: libc::c_int,
-    cap: libc::c_int,
-    lines: *mut FzTextLine,
+    u: FzTextBlockTextImage,
+    prev: *mut FzTextBlock,
+    next: *mut FzTextBlock,
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+struct FzTextBlockText {
+    first_line: *mut FzTextLine,
+    last_line: *mut FzTextLine,
+}
+
+enum FzImage {}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+struct FzTextBlockImage {
+    transform: FzMatrix,
+    image: *mut FzImage,
+}
+
+#[repr(C)]
+union FzTextBlockTextImage {
+    text: FzTextBlockText,
+    image: FzTextBlockImage,
 }
 
 #[repr(C)]
 struct FzTextLine {
-    first_span: *mut FzTextSpan,
-    last_span: *mut FzTextSpan,
-    distance: libc::c_float,
-    bbox: FzRect,
-    region: *mut libc::c_void,
-}
-
-#[repr(C)]
-struct FzTextSpan {
-    len: libc::c_int,
-    cap: libc::c_int,
-    text: *mut FzTextChar,
-    min: FzPoint,
-    max: FzPoint,
     wmode: libc::c_int,
-    transform: FzMatrix,
-    ascender_max: libc::c_float,
-    descender_min: libc::c_float,
+    dir: FzPoint,
     bbox: FzRect,
-    base_offset: libc::c_float,
-    spacing: libc::c_float,
-    column: libc::c_int,
-    column_width: libc::c_float,
-    align: libc::c_int,
-    indent: libc::c_float,
-    next: *mut FzTextSpan,
+    first_char: *mut FzTextChar,
+    last_char: *mut FzTextChar,
+    prev: *mut FzTextLine,
+    next: *mut FzTextLine,
 }
-
-enum FzTextStyle {}
 
 #[repr(C)]
 struct FzTextChar {
-    p: FzPoint,
     c: libc::c_int,
-    style: *mut FzTextStyle,
-}
-
-#[repr(C)]
-struct FzCharAndBox {
-    c: libc::c_int,
+    rtl: libc::c_int,
+    origin: FzPoint,
     bbox: FzRect,
-}
-
-enum FzColorspace {}
-enum FzImage {}
-
-#[repr(C)]
-struct FzImageBlock {
-    bbox: FzRect,
-    mat: FzMatrix,
-    image: *mut FzImage,
-    cspace: *mut FzColorspace,
-    colors: [libc::c_float; FZ_MAX_COLORS],
+    size: libc::c_float,
+    font: *mut FzFont,
+    next: *mut FzTextChar,
 }
 
 #[repr(C)]
@@ -462,21 +429,14 @@ impl<'a> PdfPage<'a> {
             if tp.is_null() {
                 return None;
             }
-            let ts = fz_new_stext_sheet(self.ctx.0);
-            if ts.is_null() {
-                fz_drop_stext_page(self.ctx.0, tp);
-                return None;
-            }
-            let dev = fz_new_stext_device(self.ctx.0, ts, tp, ptr::null()); 
+            let dev = fz_new_stext_device(self.ctx.0, tp, ptr::null());
             if dev.is_null() {
                 fz_drop_stext_page(self.ctx.0, tp);
-                fz_drop_stext_sheet(self.ctx.0, ts);
                 return None;
             }
             fz_run_page(self.ctx.0, self.page, dev, &fz_identity, ptr::null_mut());
             fz_close_device(self.ctx.0, dev);
             fz_drop_device(self.ctx.0, dev);
-            let blocks_count = (*tp).len as isize;
             let mut text_page = TextLayer {
                 grain: LayerGrain::Page,
                 rect: Rectangle::default(),
@@ -484,41 +444,34 @@ impl<'a> PdfPage<'a> {
                 text: None,
             };
             let mut page_rect = FzRect::default();
-            for i in 0..blocks_count {
-                let block = (*tp).blocks.offset(i);
+            let mut block = (*tp).first_block;
+            while !block.is_null() {
+                fz_union_rect(&mut page_rect, &(*block).bbox);
                 if (*block).kind == FZ_PAGE_BLOCK_TEXT {
-                    let text_block = (*block).text();
-                    fz_union_rect(&mut page_rect, &(*text_block).bbox);
-                    let lines_count = (*text_block).len as isize;
-                    for j in 0..lines_count {
-                        let mut span = (*(*text_block).lines.offset(j)).first_span;
+                    let text_block = (*block).u.text;
+                    let mut line = text_block.first_line;
+                    while !line.is_null() {
+                        let mut chr = (*line).first_char;
                         let mut text_line = TextLayer {
                             grain: LayerGrain::Line,
-                            rect: (*(*text_block).lines.offset(j)).bbox.clone().into(),
+                            rect: (*line).bbox.clone().into(),
                             children: vec![],
                             text: None,
                         };
                         let mut word = String::default();
                         let mut word_rect = FzRect::default();
-                        let mut chars_count = 0;
-                        let mut k = 0;
-                        while !span.is_null() {
-                            if k == 0 {
-                                chars_count = (*span).len as isize;
-                            }
-                            while k < chars_count {
-                                if let Some(c) = char::from_u32((*(*span).text.offset(k)).c as u32) {
+                        while !chr.is_null() {
+                            while !chr.is_null() {
+                                if let Some(c) = char::from_u32((*chr).c as u32) {
                                     if c.is_whitespace() {
-                                        k += 1;
+                                        chr = (*chr).next;
                                         break;
                                     } else {
-                                        let mut char_rect = FzRect::default();
-                                        fz_stext_char_bbox(self.ctx.0, &mut char_rect, span, k as libc::c_int);
-                                        fz_union_rect(&mut word_rect, &char_rect);
+                                        fz_union_rect(&mut word_rect, &(*chr).bbox);
                                         word.push(c);
                                     }
                                 }
-                                k += 1;
+                                chr = (*chr).next;
                             }
                             if !word.is_empty() {
                                 text_line.children.push(
@@ -532,23 +485,17 @@ impl<'a> PdfPage<'a> {
                                 word.clear();
                                 word_rect = FzRect::default();
                             }
-                            if k >= chars_count {
-                                span = (*span).next;
-                                k = 0;
-                            }
                         }
                         if !text_line.children.is_empty() {
                             text_page.children.push(text_line);
                         }
+                        line = (*line).next;
                     }
-                } else {
-                    let image_block = (*block).image();
-                    fz_union_rect(&mut page_rect, &(*image_block).bbox);
                 }
+                block = (*block).next;
             }
             text_page.rect = page_rect.into();
             fz_drop_stext_page(self.ctx.0, tp);
-            fz_drop_stext_sheet(self.ctx.0, ts);
             Some(text_page)
         }
     }
