@@ -1,5 +1,12 @@
+extern crate serde_json;
+
+use std::path::Path;
+use std::fs::File;
 use std::ops::{Deref, DerefMut};
 use std::collections::BTreeSet;
+use std::cmp::{Ordering};
+use fnv::FnvHashMap;
+use regex::Regex;
 use chrono::{Local, DateTime};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,6 +68,7 @@ impl Default for FileInfo {
 pub struct ReaderInfo {
     pub opened: DateTime<Local>,
     pub last_page: usize,
+    pub pages_count: usize,
     pub columns: u8,
 }
 
@@ -69,6 +77,7 @@ impl Default for ReaderInfo {
         ReaderInfo {
             opened: Local::now(),
             last_page: 0,
+            pages_count: 0,
             columns: 1,
         }
     }
@@ -112,7 +121,41 @@ impl DerefMut for Metadata {
 }
 
 impl Metadata {
+    pub fn load<P: AsRef<Path>>(path: P) -> Metadata {
+        let reader = File::open(path).unwrap();
+        serde_json::from_reader(reader).unwrap()
+    }
+
     pub fn keywords(&self) -> BTreeSet<String> {
         self.0.iter().flat_map(|info| info.keywords.clone()).collect()
     }
+}
+
+fn sort_opened(i1: &Info, i2: &Info) -> Ordering {
+    match (&i1.reader, &i2.reader) {
+        (&None, &None) => Ordering::Equal,
+        (&None, &Some(_)) => Ordering::Less,
+        (&Some(_), &None) => Ordering::Greater,
+        (&Some(ref r1), &Some(ref r2)) => r1.opened.cmp(&r2.opened),
+    }
+}
+
+fn combine_sort_methods<'a, T, F1, F2>(mut f1: F1, mut f2: F2) -> Box<FnMut(&T, &T) -> Ordering + 'a>
+where F1: FnMut(&T, &T) -> Ordering + 'a,
+      F2: FnMut(&T, &T) -> Ordering + 'a {
+    Box::new(move |x, y| {
+        match f1(x, y) {
+            ord @ Ordering::Less | ord @ Ordering::Greater => ord,
+            Ordering::Equal => f2(x, y),
+        }
+    })
+}
+
+lazy_static! {
+    pub static ref TITLE_PREFIXES: FnvHashMap<&'static str, Regex> = {
+        let mut p = FnvHashMap::default();
+        p.insert("english", Regex::new(r"^(The|An?)\s").unwrap());
+        p.insert("french", Regex::new(r"^(Les?\s|La\s|L['’]|Une?\s|Des?\s|Du\s)").unwrap());
+        p
+    };
 }
