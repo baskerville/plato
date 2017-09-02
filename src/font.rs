@@ -25,6 +25,18 @@ pub const NORMAL_STYLE: Style = Style {
     size: FONT_SIZES[1],
 };
 
+pub const KBD_CHAR: Style = Style {
+    family: Family::Keyboard,
+    variant: REGULAR,
+    size: KEYBOARD_FONT_SIZES[1],
+};
+
+pub const KBD_LABEL: Style = Style {
+    family: Family::Keyboard,
+    variant: REGULAR,
+    size: FONT_SIZES[0],
+};
+
 pub const MD_TITLE: Style = Style {
     family: Family::Serif,
     variant: ITALIC,
