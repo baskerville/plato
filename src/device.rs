@@ -132,7 +132,6 @@ lazy_static! {
 // HEIGHT = 3 * SMALL_HEIGHT + k * BIG_HEIGHT where k > 3
 // BIG_HEIGHT / SMALL_HEIGHT is as close as possible to 83/63
 // SMALL_HEIGHT / DPI * 2.54 is as close as possible to 1 cm
-// pub const BAR_SIZES: [((u32, u16), (u32, u32)); 6] = [
 pub static ref BAR_SIZES: HashMap<(u32, u16), (u32, u32)> =
     [((1872, 300), (126, 166)),
      ((1448, 300), (121, 155)),
@@ -150,7 +149,6 @@ pub static ref BAR_SIZES: HashMap<(u32, u16), (u32, u32)> =
 // 11 * SIDE + 12 * PADDING <= WIDTH
 //  4 * SIDE +  5 * PADDING <= FACTOR * BIG_HEIGHT
 //                   FACTOR <= 3
-// pub const KEY_SIZES: [((u32, u32, u16), (u32, u32, u8)); 6] = [
 pub static ref KEY_SIZES: HashMap<(u32, u32, u16), (u32, u32, u8)> =
     [((1404, 166, 300), (117, 6, 3)),
      ((1072, 155, 300), ( 92, 5, 3)),
