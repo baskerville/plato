@@ -76,6 +76,13 @@ pub fn surface_area(dist: f32, angle: f32) -> f32 {
     }
 }
 
+#[inline]
+pub fn halves(n: i32) -> (i32, i32) {
+    let small_half = n / 2;
+    let big_half = n - small_half;
+    (small_half, big_half)
+}
+
 impl Dir {
     pub fn opposite(&self) -> Dir {
         match *self {
@@ -100,15 +107,19 @@ impl Point {
             y: y,
         }
     }
+
     pub fn dist2(&self, pt: &Point) -> u32 {
         ((pt.x - self.x).pow(2) + (pt.y - self.y).pow(2)) as u32
     }
+
     pub fn length(&self) -> f32 {
         ((self.x.pow(2) + self.y.pow(2)) as f32).sqrt()
     }
+
     pub fn angle(&self) -> f32 {
         (-self.y as f32).atan2(self.x as f32)
     }
+
     pub fn dir(&self) -> Dir {
         if self.x.abs() > self.y.abs() {
             if self.x.is_positive() {
@@ -192,30 +203,36 @@ impl Rectangle {
             max: max,
         }
     }
+
     pub fn from_point(pt: &Point) -> Rectangle {
         Rectangle {
             min: *pt,
             max: *pt + 1,
         }
     }
+
     pub fn from_disk(center: &Point, radius: i32) -> Rectangle {
         Rectangle {
             min: *center - radius,
             max: *center + radius,
         }
     }
+
     pub fn includes(&self, pt: &Point) -> bool {
         self.min.x <= pt.x && pt.x < self.max.x &&
         self.min.y <= pt.y && pt.y < self.max.y
     }
+
     pub fn contains(&self, rect: &Rectangle) -> bool {
         rect.min.x >= self.min.x && rect.max.x <= self.max.x &&
         rect.min.y >= self.min.y && rect.max.y <= self.max.y
     }
+
     pub fn overlaps(&self, rect: &Rectangle) -> bool {
         self.min.x < rect.max.x && rect.min.x < self.max.x &&
         self.min.y < rect.max.y && rect.min.y < self.max.y
     }
+
     pub fn merge(&mut self, pt: &Point) {
         if pt.x < self.min.x {
             self.min.x = pt.x;
@@ -230,6 +247,7 @@ impl Rectangle {
             self.max.y = pt.y + 1;
         }
     }
+
     pub fn absorb(&mut self, rect: &Rectangle) {
         if self.min.x > rect.min.x {
             self.min.x = rect.min.x;
@@ -244,6 +262,7 @@ impl Rectangle {
             self.max.y = rect.max.y;
         }
     }
+
     pub fn intersection(&self, rect: &Rectangle) -> Option<Rectangle> {
         if self.overlaps(rect) {
             Some(Rectangle::new(Point::new(cmp::max(self.min.x, rect.min.x),
@@ -254,21 +273,26 @@ impl Rectangle {
             None
         }
     }
+
     pub fn is_empty(&self) -> bool {
         self.max.x <= self.min.x || self.max.y <= self.min.y
     }
+
     #[inline]
     pub fn width(&self) -> u32 {
         (self.max.x - self.min.x) as u32
     }
+
     #[inline]
     pub fn height(&self) -> u32 {
         (self.max.y - self.min.y) as u32
     }
+
     #[inline]
     pub fn ratio(&self) -> f32 {
         self.width() as f32 / self.height() as f32
     }
+
     #[inline]
     pub fn area(&self) -> u32 {
         self.width() * self.height()
