@@ -23,18 +23,12 @@ pub fn run() {
     let input = gesture_events(device_events(raw_events(paths), fb.dims()));
 
     let (tx, rx) = mpsc::channel();
-    let (ty, ry) = mpsc::channel();
     let tx2 = tx.clone();
 
+    // forward gesture events on the main receiver
     thread::spawn(move || {
         while let Ok(ge) = input.recv() {
             tx.send(Event::GestureEvent(ge)).unwrap();
-        }
-    });
-
-    thread::spawn(move || {
-        while let Ok(ce) = ry.recv() {
-            tx2.send(Event::ChildEvent(ce)).unwrap();
         }
     });
 
@@ -44,7 +38,7 @@ pub fn run() {
 
     let mut fonts = Fonts::default();
 
-    let mut view: Box<View> = Box::new(Home::new(fb_rect));
+    let mut view: Box<View> = Box::new(Home::new(fb_rect, &mut fonts, &tx2));
     render(view.as_ref(), &mut fb_rect, &mut fb, &mut fonts);
     fb.wait(tok).unwrap();
     let tok = fb.update(&fb_rect, UpdateMode::Gui).unwrap();
@@ -57,25 +51,18 @@ pub fn run() {
     println!("The framebuffer resolution is {}x{}.", fb_rect.width(),
                                                      fb_rect.height());
 
+    let mut bus = Vec::with_capacity(1);
+
     while let Ok(evt) = rx.recv() {
         match evt {
             Event::GestureEvent(ge) => {
                 match ge {
-                    GestureEvent::Relay(de) => {
-                        match de {
-                            DeviceEvent::Button {
-                                code: ButtonCode::Power,
-                                status: ButtonStatus::Pressed, ..
-                            } => break,
-                            _ => (),
-                        }
-                    }
-                    _ => {
-                        handle_gesture(view.as_mut(), &evt, &ty);
-                    },
-                    
+                    GestureEvent::Relay(DeviceEvent::Button { code: ButtonCode::Power,
+                                                              status: ButtonStatus::Pressed, .. }) => break,
+                    _ => { handle_event(view.as_mut(), &evt, &mut bus); },
                 }
             },
+
             Event::ChildEvent(ce) => {
                 match ce {
                     ChildEvent::Render(mut rect, mode) => {
@@ -97,15 +84,19 @@ pub fn run() {
                     ChildEvent::ReplaceRoot(rk) => {
                     },
                     _ => {
-                        handle_event(view.as_mut(), &evt, &ty);
+                        handle_event(view.as_mut(), &evt, &mut bus);
                     },
                 }
             },
         }
+
+        while let Some(ce) = bus.pop() {
+            tx2.send(Event::ChildEvent(ce)).unwrap();
+        }
     }
 }
 
-// Moving from bottom to top
+// From bottom to top
 fn render(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &mut Fonts) {
     if view.len() > 0 {
         for i in 0..view.len() {
@@ -119,21 +110,25 @@ fn render(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &mut F
     }
 }
 
-// Moving from top to bottom
-fn handle_gesture(view: &mut View, evt: &Event, bus: &Sender<ChildEvent>) -> bool {
-    for i in (0..view.len()).rev() {
-        if handle_gesture(view.child_mut(i), evt, bus) {
-            return true;
-        }
+// From top to bottom
+fn handle_event(view: &mut View, evt: &Event, parent_bus: &mut Vec<ChildEvent>) -> bool {
+    if view.might_skip(evt) {
+        return false;
     }
-    view.handle_event(evt, bus)
-}
 
-fn handle_event(view: &mut View, evt: &Event, bus: &Sender<ChildEvent>) -> bool {
-    for i in 0..view.len() {
-        if handle_event(view.child_mut(i), evt, bus) {
-            return true;
+    let mut child_bus: Vec<ChildEvent> = Vec::with_capacity(1);
+
+    for i in (0..view.len()).rev() {
+        if handle_event(view.child_mut(i), evt, &mut child_bus) {
+            break;
         }
     }
-    view.handle_event(evt, bus)
+
+    for child_evt in child_bus {
+        if !view.handle_event(&Event::ChildEvent(child_evt), parent_bus) {
+            parent_bus.push(child_evt);
+        }
+    }
+
+    view.handle_event(evt, parent_bus)
 }
