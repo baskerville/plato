@@ -672,6 +672,18 @@ pub struct RenderPlan {
     glyphs: Vec<GlyphPlan>,
 }
 
+impl RenderPlan {
+    pub fn split_off(&mut self, index: usize, width: u32) -> RenderPlan {
+        let next_width = self.width - width;
+        let next_glyphs = self.glyphs.split_off(index);
+        self.width = width;
+        RenderPlan {
+            width: next_width,
+            glyphs: next_glyphs,
+        }
+    }
+}
+
 impl Default for RenderPlan {
     fn default() -> RenderPlan {
         RenderPlan {
