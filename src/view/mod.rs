@@ -1,14 +1,23 @@
+pub mod filler;
 pub mod icon;
-pub mod home;
+pub mod menu;
 pub mod clock;
 pub mod keyboard;
+pub mod key;
+pub mod home;
+pub mod reader;
 
-use std::sync::mpsc::Sender;
-use framebuffer::{Framebuffer, UpdateMode};
 use std::fmt::{self, Debug};
+use downcast_rs::Downcast;
 use font::Fonts;
+use framebuffer::{Framebuffer, UpdateMode, Bitmap};
 use gesture::GestureEvent;
+use view::key::KeyKind;
 use geom::{LinearDir, CycleDir, Rectangle};
+
+const THICKNESS_BIG: f32 = 3.0;
+const THICKNESS_MEDIUM: f32 = 2.0;
+const THICKNESS_SMALL: f32 = 1.0;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Event {
@@ -19,7 +28,6 @@ pub enum Event {
 #[derive(Debug, Copy, Clone)]
 pub enum RootKind {
     Home,
-    Find,
     Reader,
 }
 
@@ -27,6 +35,7 @@ pub enum RootKind {
 pub enum PopupSource {
     Sort,
     Menu,
+    Frontlight,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -52,6 +61,8 @@ pub enum ChildEvent {
     ReplaceRoot(RootKind),
     Popup(PopupSource),
     Keyboard(KeyboardEvent),
+    Key(KeyKind),
+    ToggleFind,
     ClockTick,
 }
 
@@ -70,14 +81,19 @@ pub enum InputKind {
     Word,
 }
 
-pub trait View: Send + Sync {
+pub trait View: Downcast {
+    fn handle_event(&mut self, evt: &Event, bus: &mut Vec<ChildEvent>) -> bool;
+    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts);
     fn rect(&self) -> &Rectangle;
     fn len(&self) -> usize;
     fn child(&self, index: usize) -> &View;
     fn child_mut(&mut self, index: usize) -> &mut View;
-    fn handle_event(&mut self, evt: &Event, bus: &Sender<ChildEvent>) -> bool;
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts);
+    fn might_skip(&self, evt: &Event) -> bool {
+        false
+    }
 }
+
+impl_downcast!(View);
 
 impl Debug for Box<View> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
