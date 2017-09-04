@@ -104,6 +104,26 @@ impl Default for Info {
     }
 }
 
+impl Info {
+    pub fn title(&self) -> String {
+        let mut title = self.title.clone();
+        if !self.number.is_empty() {
+            title = format!("{} #{}", title, self.number);
+        }
+        if !self.volume.is_empty() {
+            title = format!("{} vol. {}", title, self.volume);
+        }
+        if !self.subtitle.is_empty() {
+            title = if self.subtitle.chars().next().unwrap().is_alphabetic() {
+                format!("{}: {}", title, self.subtitle)
+            } else {
+                format!("{} {}", title, self.subtitle)
+            };
+        }
+        title
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metadata(pub Vec<Info>);
 
