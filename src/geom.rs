@@ -83,6 +83,32 @@ pub fn halves(n: i32) -> (i32, i32) {
     (small_half, big_half)
 }
 
+#[inline]
+pub fn small_half(n: i32) -> i32 {
+    n / 2
+}
+
+#[inline]
+pub fn big_half(n: i32) -> i32 {
+    n - small_half(n)
+}
+
+pub fn divide(n: i32, p: i32) -> Vec<i32> {
+    let k = n.checked_div(p).unwrap_or(0);
+    let mut r = n - p * k;
+    let e = p.checked_div(r).unwrap_or(0);
+    let mut vec = Vec::with_capacity(p as usize);
+    for i in 0..p {
+        if r > 0 && (i+1) % e == 0 {
+            vec.push(k + 1);
+            r -= 1;
+        } else {
+            vec.push(k);
+        }
+    }
+    vec
+}
+
 impl Dir {
     pub fn opposite(&self) -> Dir {
         match *self {
@@ -715,6 +741,8 @@ impl DivAssign<f32> for Vec2 {
 
 #[cfg(test)]
 mod tests {
+    use super::divide;
+
     #[test]
     fn overlaping_rectangles() {
         let a = rect![2, 2, 10, 10];
@@ -728,6 +756,7 @@ mod tests {
         assert!(e.overlaps(&a));
         assert!(a.overlaps(&e));
     }
+
     #[test]
     fn contained_rectangles() {
         let a = rect![2, 2, 10, 10];
@@ -737,5 +766,17 @@ mod tests {
         assert!(!b.contains(&a));
         assert!(!a.contains(&c));
         assert!(c.contains(&b));
+    }
+
+    #[test]
+    fn divide_integers() {
+        let a: i32 = 73;
+        let b: i32 = 23;
+        let v = divide(a, b);
+        let s: i32 = v.iter().sum();
+        assert_eq!(v.len(), b as usize);
+        assert_eq!(s, a);
+        assert_eq!(v.iter().max(), Some(&4));
+        assert_eq!(v.iter().min(), Some(&3));
     }
 }
