@@ -21,31 +21,31 @@ pub const KEYBOARD_LETTER_SPACING: i32 = 4;
 
 pub const NORMAL_STYLE: Style = Style {
     family: Family::SansSerif,
-    variant: REGULAR,
+    variant: Variant::REGULAR,
     size: FONT_SIZES[1],
 };
 
 pub const KBD_CHAR: Style = Style {
     family: Family::Keyboard,
-    variant: REGULAR,
+    variant: Variant::REGULAR,
     size: KEYBOARD_FONT_SIZES[1],
 };
 
 pub const KBD_LABEL: Style = Style {
     family: Family::Keyboard,
-    variant: REGULAR,
+    variant: Variant::REGULAR,
     size: FONT_SIZES[0],
 };
 
 pub const MD_TITLE: Style = Style {
     family: Family::Serif,
-    variant: ITALIC,
+    variant: Variant::ITALIC,
     size: FONT_SIZES[2],
 };
 
 pub const MD_AUTHOR: Style = Style {
     family: Family::Serif,
-    variant: REGULAR,
+    variant: Variant::REGULAR,
     size: FONT_SIZES[1],
 };
 
@@ -53,13 +53,13 @@ pub const MD_YEAR: Style = NORMAL_STYLE;
 
 pub const MD_KIND: Style = Style {
     family: Family::SansSerif,
-    variant: BOLD,
+    variant: Variant::BOLD,
     size: FONT_SIZES[0],
 };
 
 pub const MD_SIZE: Style = Style {
     family: Family::SansSerif,
-    variant: REGULAR,
+    variant: Variant::REGULAR,
     size: FONT_SIZES[0],
 };
 
@@ -99,10 +99,10 @@ impl Default for Fonts {
 }
 
 bitflags! {
-    pub flags Variant: u8 {
-        const REGULAR = 0,
-        const ITALIC = 1,
-        const BOLD = 2,
+    pub struct Variant: u8 {
+        const REGULAR = 0;
+        const ITALIC = 1;
+        const BOLD = 2;
     }
 }
 
@@ -120,11 +120,11 @@ pub struct Style {
 }
 
 pub fn font_from_variant(family: &mut FontFamily, variant: Variant) -> &mut Font {
-    if variant.contains(ITALIC | BOLD) {
+    if variant.contains(Variant::ITALIC | Variant::BOLD) {
         &mut family.bold_italic
-    } else if variant.contains(ITALIC) {
+    } else if variant.contains(Variant::ITALIC) {
         &mut family.italic
-    } else if variant.contains(BOLD) {
+    } else if variant.contains(Variant::BOLD) {
         &mut family.bold
     } else {
         &mut family.regular
@@ -461,6 +461,8 @@ pub struct Font {
     lib: Rc<FontLibrary>,
     face: *mut FtFace,
     font: *mut HbFont,
+    size: u32,
+    dpi: u16,
     // used as truncation mark
     ellipsis: RenderPlan,
     // lowercase and uppercase x heights
@@ -481,46 +483,48 @@ impl RenderPlan {
 }
 
 impl FontOpener {
-    pub fn new() -> Option<FontOpener> {
+    pub fn new() -> Result<FontOpener> {
         unsafe {
             let mut lib = ptr::null_mut();
             let ret = FT_Init_FreeType(&mut lib);
             if ret != FT_ERR_OK {
-                None
+                Err(ret.as_error_kind().into())
             } else {
-                Some(FontOpener(Rc::new(FontLibrary(lib))))
+                Ok(FontOpener(Rc::new(FontLibrary(lib))))
             }
         }
     }
 
-    pub fn open<P: AsRef<Path>>(&self, path: P) -> Option<Font> {
+    pub fn open<P: AsRef<Path>>(&self, path: P) -> Result<Font> {
         unsafe {
             let mut face = ptr::null_mut();
             let c_path = CString::new(path.as_ref().as_os_str().as_bytes()).unwrap();
             let ret = FT_New_Face((self.0).0, c_path.as_ptr(), 0, &mut face);
             if ret != FT_ERR_OK {
-               return None;
+               return Err(ret.as_error_kind().into());
             }
             let font = ptr::null_mut();
             let ellipsis = RenderPlan::default();
             let x_heights = (0, 0);
             let space_codepoint = FT_Get_Char_Index(face, ' ' as libc::c_ulong);
-            Some(Font { lib: self.0.clone(), face, font, ellipsis, x_heights, space_codepoint })
+            Ok(Font { lib: self.0.clone(), face, font,
+                      size: 0, dpi: 0, ellipsis, x_heights, space_codepoint })
         }
     }
 
-    pub fn from_bytes(&self, buf: &[u8]) -> Option<Font> {
+    pub fn from_bytes(&self, buf: &[u8]) -> Result<Font> {
         unsafe {
             let mut face = ptr::null_mut();
             let ret = FT_New_Memory_Face((self.0).0, buf.as_ptr() as *const FtByte, buf.len() as libc::c_long, 0, &mut face);
             if ret != FT_ERR_OK {
-               return None;
+               return Err(ret.as_error_kind().into());
             }
             let ellipsis = RenderPlan::default();
             let font = ptr::null_mut();
             let x_heights = (0, 0);
             let space_codepoint = FT_Get_Char_Index(face, ' ' as libc::c_ulong);
-            Some(Font { lib: self.0.clone(), face, font, ellipsis, x_heights, space_codepoint })
+            Ok(Font { lib: self.0.clone(), face, font,
+                      size: 0, dpi: 0, ellipsis, x_heights, space_codepoint })
         }
     }
 }
@@ -529,8 +533,14 @@ impl Font {
     pub fn set_size(&mut self, size: u32, dpi: u16) {
         unsafe {
             if !self.font.is_null() {
-                hb_font_destroy(self.font);
+                if self.size == size && self.dpi == dpi {
+                    return;
+                } else {
+                    hb_font_destroy(self.font);
+                }
             }
+            self.size = size;
+            self.dpi = dpi;
             FT_Set_Char_Size(self.face, size as FtF26Dot6, 0, dpi as libc::c_uint, 0);
             self.font = hb_ft_font_create(self.face, ptr::null());
             self.ellipsis = self.plan("…", None, None);
@@ -644,6 +654,9 @@ impl Font {
         }
     }
 
+    // This is an approximation of the height of a character.
+    // In the cases of *Noto Sans UI* and *Noto Serif*, the value given
+    // for the height of the letter *x* is the exact height.
     pub fn height(&self, c: char) -> u32 {
         unsafe {
             FT_Load_Char(self.face, c as libc::c_ulong, FT_LOAD_DEFAULT);
@@ -666,7 +679,7 @@ pub struct GlyphPlan {
     advance: Point,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RenderPlan {
     pub width: u32,
     glyphs: Vec<GlyphPlan>,
@@ -706,6 +719,493 @@ impl Drop for Font {
             if !self.font.is_null() {
                 hb_font_destroy(self.font);
             }
+        }
+    }
+}
+
+// fn boubou() -> Result<()> {
+//     Err(ErrorKind::EndfInExecStream.into())
+// }
+
+error_chain! {
+    errors {
+        UnknownError(code: FtError) {
+            description("unknown error")
+            display("unknown error with code {}", code)
+        }
+
+        CannotOpenResource {
+            description("cannot open resource")
+        }
+
+        UnknownFileFormat {
+            description("unknown file format")
+        }
+
+        InvalidFileFormat {
+            description("broken file")
+        }
+
+        InvalidVersion {
+            description("invalid FreeType version")
+        }
+
+        LowerModuleVersion {
+            description("module version is too low")
+        }
+
+        InvalidArgument {
+            description("invalid argument")
+        }
+
+        UnimplementedFeature {
+            description("unimplemented feature")
+        }
+
+        InvalidTable {
+            description("broken table")
+        }
+
+        InvalidOffset {
+            description("broken offset within table")
+        }
+
+        ArrayTooLarge {
+            description("array allocation size too large")
+        }
+
+        MissingModule {
+            description("missing module")
+        }
+
+        MissingProperty {
+            description("missing property")
+        }
+
+        InvalidGlyphIndex {
+            description("invalid glyph index")
+        }
+
+        InvalidCharacterCode {
+            description("invalid character code")
+        }
+
+        InvalidGlyphFormat {
+            description("unsupported glyph image format")
+        }
+
+        CannotRenderGlyph {
+            description("cannot render this glyph format")
+        }
+
+        InvalidOutline {
+            description("invalid outline")
+        }
+
+        InvalidComposite {
+            description("invalid composite glyph")
+        }
+
+        TooManyHints {
+            description("too many hints")
+        }
+
+        InvalidPixelSize {
+            description("invalid pixel size")
+        }
+
+        InvalidHandle {
+            description("invalid object handle")
+        }
+
+        InvalidLibraryHandle {
+            description("invalid library handle")
+        }
+
+        InvalidDriverHandle {
+            description("invalid module handle")
+        }
+
+        InvalidFaceHandle {
+            description("invalid face handle")
+        }
+
+        InvalidSizeHandle {
+            description("invalid size handle")
+        }
+
+        InvalidSlotHandle {
+            description("invalid glyph slot handle")
+        }
+
+        InvalidCharMapHandle {
+            description("invalid charmap handle")
+        }
+
+        InvalidCacheHandle {
+            description("invalid cache manager handle")
+        }
+
+        InvalidStreamHandle {
+            description("invalid stream handle")
+        }
+
+        TooManyDrivers {
+            description("too many modules")
+        }
+
+        TooManyExtensions {
+            description("too many extensions")
+        }
+
+        OutOfMemory {
+            description("out of memory")
+        }
+
+        UnlistedObject {
+            description("unlisted object")
+        }
+
+        CannotOpenStream {
+            description("cannot open stream")
+        }
+
+        InvalidStreamSeek {
+            description("invalid stream seek")
+        }
+
+        InvalidStreamSkip {
+            description("invalid stream skip")
+        }
+
+        InvalidStreamRead {
+            description("invalid stream read")
+        }
+
+        InvalidStreamOperation {
+            description("invalid stream operation")
+        }
+
+        InvalidFrameOperation {
+            description("invalid frame operation")
+        }
+
+        NestedFrameAccess {
+            description("nested frame access")
+        }
+
+        InvalidFrameRead {
+            description("invalid frame read")
+        }
+
+        RasterUninitialized {
+            description("raster uninitialized")
+        }
+
+        RasterCorrupted {
+            description("raster corrupted")
+        }
+
+        RasterOverflow {
+            description("raster overflow")
+        }
+
+        RasterNegativeHeight {
+            description("negative height while rastering")
+        }
+
+        TooManyCaches {
+            description("too many registered caches")
+        }
+
+        InvalidOpcode {
+            description("invalid opcode")
+        }
+
+        TooFewArguments {
+            description("too few arguments")
+        }
+
+        StackOverflow {
+            description("stack overflow")
+        }
+
+        CodeOverflow {
+            description("code overflow")
+        }
+
+        BadArgument {
+            description("bad argument")
+        }
+
+        DivideByZero {
+            description("division by zero")
+        }
+
+        InvalidReference {
+            description("invalid reference")
+        }
+
+        DebugOpCode {
+            description("found debug opcode")
+        }
+
+        ENDFInExecStream {
+            description("found ENDF opcode in execution stream")
+        }
+
+        NestedDEFS {
+            description("nested DEFS")
+        }
+
+        InvalidCodeRange {
+            description("invalid code range")
+        }
+
+        ExecutionTooLong {
+            description("execution context too long")
+        }
+
+        TooManyFunctionDefs {
+            description("too many function definitions")
+        }
+
+        TooManyInstructionDefs {
+            description("too many instruction definitions")
+        }
+
+        TableMissing {
+            description("SFNT font table missing")
+        }
+
+        HorizHeaderMissing {
+            description("horizontal header (hhea) table missing")
+        }
+
+        LocationsMissing {
+            description("locations (loca) table missing")
+        }
+
+        NameTableMissing {
+            description("name table missing")
+        }
+
+        CMapTableMissing {
+            description("character map (cmap) table missing")
+        }
+
+        HmtxTableMissing {
+            description("horizontal metrics (hmtx) table missing")
+        }
+
+        PostTableMissing {
+            description("PostScript (post) table missing")
+        }
+
+        InvalidHorizMetrics {
+            description("invalid horizontal metrics")
+        }
+
+        InvalidCharMapFormat {
+            description("invalid character map (cmap) format")
+        }
+
+        InvalidPPem {
+            description("invalid ppem value")
+        }
+
+        InvalidVertMetrics {
+            description("invalid vertical metrics")
+        }
+
+        CouldNotFindContext {
+            description("could not find context")
+        }
+
+        InvalidPostTableFormat {
+            description("invalid PostScript (post) table format")
+        }
+
+        InvalidPostTable {
+            description("invalid PostScript (post) table")
+        }
+
+        DEFInGlyfBytecode {
+            description("found FDEF or IDEF opcode in glyf bytecode")
+        }
+
+        MissingBitmap {
+            description("missing bitmap in strike")
+        }
+
+        SyntaxError {
+            description("opcode syntax error")
+        }
+
+        StackUnderflow {
+            description("argument stack underflow")
+        }
+
+        Ignore {
+            description("ignore")
+        }
+
+        NoUnicodeGlyphName {
+            description("no Unicode glyph name found")
+        }
+
+        GlyphTooBig {
+            description("glyph too big for hinting")
+        }
+
+        MissingStartfontField {
+            description("`STARTFONT' field missing")
+        }
+
+        MissingFontField {
+            description("`FONT' field missing")
+        }
+
+        MissingSizeField {
+            description("`SIZE' field missing")
+        }
+
+        MissingFontboundingboxField {
+            description("`FONTBOUNDINGBOX' field missing")
+        }
+
+        MissingCharsField {
+            description("`CHARS' field missing")
+        }
+
+        MissingStartcharField {
+            description("`STARTCHAR' field missing")
+        }
+
+        MissingEncodingField {
+            description("`ENCODING' field missing")
+        }
+
+        MissingBbxField {
+            description("`BBX' field missing")
+        }
+
+        BbxTooBig {
+            description("`BBX' too big")
+        }
+
+        CorruptedFontHeader {
+            description("Font header corrupted or missing fields")
+        }
+
+        CorruptedFontGlyphs {
+            description("Font glyphs corrupted or missing fields")
+        }
+    }
+}
+
+
+
+trait AsErrorKind {
+    fn as_error_kind(&self) -> ErrorKind;
+}
+
+impl AsErrorKind for FtError {
+    fn as_error_kind(&self) -> ErrorKind {
+        match *self {
+            0x01 => ErrorKind::CannotOpenResource,
+            0x02 => ErrorKind::UnknownFileFormat,
+            0x03 => ErrorKind::InvalidFileFormat,
+            0x04 => ErrorKind::InvalidVersion,
+            0x05 => ErrorKind::LowerModuleVersion,
+            0x06 => ErrorKind::InvalidArgument,
+            0x07 => ErrorKind::UnimplementedFeature,
+            0x08 => ErrorKind::InvalidTable,
+            0x09 => ErrorKind::InvalidOffset,
+            0x0A => ErrorKind::ArrayTooLarge,
+            0x0B => ErrorKind::MissingModule,
+            0x0C => ErrorKind::MissingProperty,
+            0x10 => ErrorKind::InvalidGlyphIndex,
+            0x11 => ErrorKind::InvalidCharacterCode,
+            0x12 => ErrorKind::InvalidGlyphFormat,
+            0x13 => ErrorKind::CannotRenderGlyph,
+            0x14 => ErrorKind::InvalidOutline,
+            0x15 => ErrorKind::InvalidComposite,
+            0x16 => ErrorKind::TooManyHints,
+            0x17 => ErrorKind::InvalidPixelSize,
+            0x20 => ErrorKind::InvalidHandle,
+            0x21 => ErrorKind::InvalidLibraryHandle,
+            0x22 => ErrorKind::InvalidDriverHandle,
+            0x23 => ErrorKind::InvalidFaceHandle,
+            0x24 => ErrorKind::InvalidSizeHandle,
+            0x25 => ErrorKind::InvalidSlotHandle,
+            0x26 => ErrorKind::InvalidCharMapHandle,
+            0x27 => ErrorKind::InvalidCacheHandle,
+            0x28 => ErrorKind::InvalidStreamHandle,
+            0x30 => ErrorKind::TooManyDrivers,
+            0x31 => ErrorKind::TooManyExtensions,
+            0x40 => ErrorKind::OutOfMemory,
+            0x41 => ErrorKind::UnlistedObject,
+            0x51 => ErrorKind::CannotOpenStream,
+            0x52 => ErrorKind::InvalidStreamSeek,
+            0x53 => ErrorKind::InvalidStreamSkip,
+            0x54 => ErrorKind::InvalidStreamRead,
+            0x55 => ErrorKind::InvalidStreamOperation,
+            0x56 => ErrorKind::InvalidFrameOperation,
+            0x57 => ErrorKind::NestedFrameAccess,
+            0x58 => ErrorKind::InvalidFrameRead,
+            0x60 => ErrorKind::RasterUninitialized,
+            0x61 => ErrorKind::RasterCorrupted,
+            0x62 => ErrorKind::RasterOverflow,
+            0x63 => ErrorKind::RasterNegativeHeight,
+            0x70 => ErrorKind::TooManyCaches,
+            0x80 => ErrorKind::InvalidOpcode,
+            0x81 => ErrorKind::TooFewArguments,
+            0x82 => ErrorKind::StackOverflow,
+            0x83 => ErrorKind::CodeOverflow,
+            0x84 => ErrorKind::BadArgument,
+            0x85 => ErrorKind::DivideByZero,
+            0x86 => ErrorKind::InvalidReference,
+            0x87 => ErrorKind::DebugOpCode,
+            0x88 => ErrorKind::ENDFInExecStream,
+            0x89 => ErrorKind::NestedDEFS,
+            0x8A => ErrorKind::InvalidCodeRange,
+            0x8B => ErrorKind::ExecutionTooLong,
+            0x8C => ErrorKind::TooManyFunctionDefs,
+            0x8D => ErrorKind::TooManyInstructionDefs,
+            0x8E => ErrorKind::TableMissing,
+            0x8F => ErrorKind::HorizHeaderMissing,
+            0x90 => ErrorKind::LocationsMissing,
+            0x91 => ErrorKind::NameTableMissing,
+            0x92 => ErrorKind::CMapTableMissing,
+            0x93 => ErrorKind::HmtxTableMissing,
+            0x94 => ErrorKind::PostTableMissing,
+            0x95 => ErrorKind::InvalidHorizMetrics,
+            0x96 => ErrorKind::InvalidCharMapFormat,
+            0x97 => ErrorKind::InvalidPPem,
+            0x98 => ErrorKind::InvalidVertMetrics,
+            0x99 => ErrorKind::CouldNotFindContext,
+            0x9A => ErrorKind::InvalidPostTableFormat,
+            0x9B => ErrorKind::InvalidPostTable,
+            0x9C => ErrorKind::DEFInGlyfBytecode,
+            0x9D => ErrorKind::MissingBitmap,
+            0xA0 => ErrorKind::SyntaxError,
+            0xA1 => ErrorKind::StackUnderflow,
+            0xA2 => ErrorKind::Ignore,
+            0xA3 => ErrorKind::NoUnicodeGlyphName,
+            0xA4 => ErrorKind::GlyphTooBig,
+            0xB0 => ErrorKind::MissingStartfontField,
+            0xB1 => ErrorKind::MissingFontField,
+            0xB2 => ErrorKind::MissingSizeField,
+            0xB3 => ErrorKind::MissingFontboundingboxField,
+            0xB4 => ErrorKind::MissingCharsField,
+            0xB5 => ErrorKind::MissingStartcharField,
+            0xB6 => ErrorKind::MissingEncodingField,
+            0xB7 => ErrorKind::MissingBbxField,
+            0xB8 => ErrorKind::BbxTooBig,
+            0xB9 => ErrorKind::CorruptedFontHeader,
+            0xBA => ErrorKind::CorruptedFontGlyphs,
+            code @ _ => ErrorKind::UnknownError(code),
         }
     }
 }

@@ -13,6 +13,7 @@ use std::ops::Drop;
 use libc::ioctl;
 use png::HasParameters;
 use geom::{Point, Rectangle, CornerSpec, surface_area};
+use errors::*;
 
 const FBIOGET_VSCREENINFO: libc::c_ulong = 0x4600;
 const FBIOGET_FSCREENINFO: libc::c_ulong = 0x4602;
@@ -145,14 +146,26 @@ struct MxcfbUpdateData {
 
 const WAVEFORM_MODE_AUTO: u32 = 0x101; 
 
-const NTX_WFM_MODE_INIT: u32  = 0;
-const NTX_WFM_MODE_DU: u32    = 1;
-const NTX_WFM_MODE_GC16: u32  = 2;
-const NTX_WFM_MODE_GC4: u32   = 3;
-const NTX_WFM_MODE_A2: u32    = 4;
-const NTX_WFM_MODE_GL16: u32  = 5;
-const NTX_WFM_MODE_GLR16: u32 = 6;
-const NTX_WFM_MODE_GLD16: u32 = 7;
+// Table taken from ice40_eink_controller
+//
+//    Type  │ Initial State │ Final State │ Waveform Period
+//    ──────┼───────────────┼─────────────┼────────────────
+//    INIT  │      0-F      │      F      │    4000 ms 
+//    DU    │      0-F      │     0/F     │     260 ms
+//    GC16  │      0-F      │     0-F     │     760 ms
+//    GC4   │      0-F      │   0/5/A/F   │     500 ms
+//    A2    │      0/F      │     0/F     │     120 ms
+
+// Most of the comments are taken from include/linux/mxcfb.h in
+// the kindle's Oasis sources (Kindle_src_5.8.10_3202110019.tar.gz)
+const NTX_WFM_MODE_INIT: u32  = 0; // Screen goes to white (clears)
+const NTX_WFM_MODE_DU: u32    = 1; // Grey->white/grey->black
+const NTX_WFM_MODE_GC16: u32  = 2; // High fidelity (flashing)
+const NTX_WFM_MODE_GC4: u32   = 3; // For compatibility
+const NTX_WFM_MODE_A2: u32    = 4; // Fast but low fidelity
+const NTX_WFM_MODE_GL16: u32  = 5; // High fidelity from white transition
+const NTX_WFM_MODE_GLR16: u32 = 6; // Used for partial REAGL updates
+const NTX_WFM_MODE_GLD16: u32 = 7; // Dithering REAGL
 
 const UPDATE_MODE_PARTIAL: u32 = 0x0;
 const UPDATE_MODE_FULL: u32    = 0x1;
@@ -186,6 +199,7 @@ pub enum UpdateMode {
     Partial,
     Gui,
     Full,
+    Clear,
 }
 
 #[derive(Debug, Clone)]
@@ -196,9 +210,11 @@ pub struct Bitmap {
 }
 
 impl Framebuffer {
-    pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Framebuffer> {
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<Framebuffer> {
         let device = OpenOptions::new().read(true)
-                                       .write(true).open(path)?;
+                                       .write(true)
+                                       .open(path)
+                                       .chain_err(|| "Can't open framebuffer device")?;
 
         let var_info = var_screen_info(&device)?;
         let fix_info = fix_screen_info(&device)?;
@@ -223,7 +239,7 @@ impl Framebuffer {
         };
 
         if frame == libc::MAP_FAILED {
-            Err(io::Error::last_os_error())
+            bail!(Error::with_chain(io::Error::last_os_error(), "Can't map memory"));
         } else {
             let (set_pixel_rgb, get_pixel_rgb, as_rgb): (SetPixelRgb, GetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
                 (set_pixel_rgb_32, get_pixel_rgb_32, as_rgb_32)
@@ -262,12 +278,13 @@ impl Framebuffer {
     // Tell the driver that the screen needs to be redrawn.
     // The `rect` parameter is ignored for the `Gui` and `Full` modes.
     // The `Fast` mode only understands the following colors: BLACK and WHITE.
-    pub fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> io::Result<u32> {
+    pub fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32> {
         let (update_mode, waveform_mode) = match mode {
             UpdateMode::Fast    => (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2),
             UpdateMode::Partial => (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO),
             UpdateMode::Gui     => (UPDATE_MODE_FULL, WAVEFORM_MODE_AUTO),
             UpdateMode::Full    => (UPDATE_MODE_FULL, NTX_WFM_MODE_GC16),
+            UpdateMode::Clear   => (UPDATE_MODE_FULL, NTX_WFM_MODE_INIT),
         };
         let alt_buffer_data = MxcfbAltBufferData {
             virt_addr: ptr::null(),
@@ -295,7 +312,7 @@ impl Framebuffer {
             libc::ioctl(self.device.as_raw_fd(), MXCFB_SEND_UPDATE, &update_data)
         };
         match result {
-            -1 => Err(io::Error::last_os_error()),
+            -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't update framebuffer")),
             _ => {
                 self.token = self.token.wrapping_add(1);
                 Ok(update_marker)
@@ -304,12 +321,12 @@ impl Framebuffer {
     }
 
     // Wait for a specific update to complete
-    pub fn wait(&self, token: u32) -> io::Result<i32> {
+    pub fn wait(&self, token: u32) -> Result<i32> {
         let result = unsafe {
             libc::ioctl(self.device.as_raw_fd(), MXCFB_WAIT_FOR_UPDATE_COMPLETE, &token)
         };
         match result {
-            -1 => Err(io::Error::last_os_error()),
+            -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't wait for framebuffer update")),
             _ => {
                 Ok(result as i32)
             }
@@ -414,13 +431,14 @@ impl Framebuffer {
         unsafe { slice::from_raw_parts(self.frame as *const u8, self.frame_size) }
     }
 
-    pub fn save<P: AsRef<Path>>(&self, path: P) {
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let (width, height) = self.dims();
-        let file = File::create(path).unwrap();
+        let file = File::create(path).chain_err(|| "Can't create output file")?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set(png::ColorType::RGB).set(png::BitDepth::Eight);
-        let mut writer = encoder.write_header().unwrap();
-        writer.write_image_data(&(self.as_rgb)(self)).unwrap();
+        let mut writer = encoder.write_header().chain_err(|| "Can't write header")?;
+        writer.write_image_data(&(self.as_rgb)(self)).chain_err(|| "Can't write data to file")?;
+        Ok(())
     }
 
     pub fn toggle_inverse(&mut self) {
@@ -539,20 +557,20 @@ fn as_rgb_32(fb: &Framebuffer) -> Vec<u8> {
     rgb888
 }
 
-pub fn fix_screen_info(device: &File) -> io::Result<FixScreenInfo> {
+pub fn fix_screen_info(device: &File) -> Result<FixScreenInfo> {
     let mut info: FixScreenInfo = Default::default();
     let result = unsafe { ioctl(device.as_raw_fd(), FBIOGET_FSCREENINFO, &mut info) };
     match result {
-        -1 => Err(io::Error::last_os_error()),
+        -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't get fixed screen info")),
         _ => Ok(info),
     }
 }
 
-pub fn var_screen_info(device: &File) -> io::Result<VarScreenInfo> {
+pub fn var_screen_info(device: &File) -> Result<VarScreenInfo> {
     let mut info: VarScreenInfo = Default::default();
     let result = unsafe { ioctl(device.as_raw_fd(), FBIOGET_VSCREENINFO, &mut info) };
     match result {
-        -1 => Err(io::Error::last_os_error()),
+        -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't get variable screen info")),
         _ => Ok(info),
     }
 }

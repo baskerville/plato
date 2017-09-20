@@ -1,6 +1,6 @@
 extern crate serde_json;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::ops::{Deref, DerefMut};
 use std::collections::BTreeSet;
@@ -8,6 +8,7 @@ use std::cmp::{Ordering};
 use fnv::FnvHashMap;
 use regex::Regex;
 use chrono::{Local, DateTime};
+use errors::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -48,7 +49,7 @@ pub struct Info {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct FileInfo {
-    pub path: String,
+    pub path: PathBuf,
     pub kind: String,
     pub size: u64,
 }
@@ -56,7 +57,7 @@ pub struct FileInfo {
 impl Default for FileInfo {
     fn default() -> Self {
         FileInfo {
-            path: String::default(),
+            path: PathBuf::default(),
             kind: String::default(),
             size: u64::default(),
         }
@@ -141,9 +142,9 @@ impl DerefMut for Metadata {
 }
 
 impl Metadata {
-    pub fn load<P: AsRef<Path>>(path: P) -> Metadata {
-        let reader = File::open(path).unwrap();
-        serde_json::from_reader(reader).unwrap()
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Metadata> {
+        let reader = File::open(path).chain_err(|| "Can't open metadata file")?;
+        serde_json::from_reader(reader).chain_err(|| "Can't parse metadata file")
     }
 
     pub fn keywords(&self) -> BTreeSet<String> {

@@ -13,11 +13,12 @@ use color::WHITE;
 use view::{View, Event, ChildEvent};
 use view::home::Home;
 use geom::Rectangle;
+use errors::*;
 
 pub const APP_NAME: &str = "Plato";
 
-pub fn run() {
-    let mut fb = Framebuffer::new("/dev/fb0").unwrap();
+pub fn run() -> Result<()> {
+    let mut fb = Framebuffer::new("/dev/fb0")?;
     let paths = vec!["/dev/input/event0".to_string(),
                      "/dev/input/event1".to_string()];
     let input = gesture_events(device_events(raw_events(paths), fb.dims()));
@@ -34,15 +35,15 @@ pub fn run() {
 
     let mut fb_rect = fb.rect();
     fb.clear(WHITE);
-    let tok = fb.update(&fb_rect, UpdateMode::Full).unwrap();
+    let tok = fb.update(&fb_rect, UpdateMode::Full)?;
 
     let mut fonts = Fonts::default();
 
     let mut view: Box<View> = Box::new(Home::new(fb_rect, &mut fonts, &tx2));
     render(view.as_ref(), &mut fb_rect, &mut fb, &mut fonts);
-    fb.wait(tok).unwrap();
-    let tok = fb.update(&fb_rect, UpdateMode::Gui).unwrap();
-    fb.wait(tok).unwrap();
+    fb.wait(tok)?;
+    let tok = fb.update(&fb_rect, UpdateMode::Gui)?;
+    fb.wait(tok)?;
 
     let mut updating = HashMap::new();
 
@@ -70,7 +71,7 @@ pub fn run() {
                         let mut finished = Vec::with_capacity(updating.len());
                         for (tok, urect) in &updating {
                             if rect.overlaps(urect) {
-                                fb.wait(*tok).unwrap();
+                                fb.wait(*tok)?;
                                 finished.push(*tok);
                             }
                         }
@@ -94,6 +95,7 @@ pub fn run() {
             tx2.send(Event::ChildEvent(ce)).unwrap();
         }
     }
+    Ok(())
 }
 
 // From bottom to top
