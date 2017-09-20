@@ -723,10 +723,6 @@ impl Drop for Font {
     }
 }
 
-// fn boubou() -> Result<()> {
-//     Err(ErrorKind::EndfInExecStream.into())
-// }
-
 error_chain! {
     errors {
         UnknownError(code: FtError) {
