@@ -40,10 +40,12 @@ pub struct Info {
     // #[serde(skip_serializing_if = "String::is_empty")]
     // pub ismn: String, // International Standard Music Number
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
-    pub keywords: BTreeSet<String>,
+    pub categories: BTreeSet<String>,
     pub file: FileInfo,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reader: Option<ReaderInfo>,
+    #[serde(with = "simple_date_format")]
+    pub added: DateTime<Local>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,6 +75,23 @@ pub struct ReaderInfo {
     pub columns: u8,
 }
 
+mod simple_date_format {
+    use chrono::{DateTime, Local, TimeZone};
+    use serde::{self, Deserialize, Serializer, Deserializer};
+
+    const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
+
+    pub fn serialize<S>(date: &DateTime<Local>, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let s = format!("{}", date.format(FORMAT));
+        serializer.serialize_str(&s)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Local>, D::Error> where D: Deserializer<'de> {
+        let s = String::deserialize(deserializer)?;
+        Local.datetime_from_str(&s, FORMAT).map_err(serde::de::Error::custom)
+    }
+}
+
 impl Default for ReaderInfo {
     fn default() -> Self {
         ReaderInfo {
@@ -98,8 +117,9 @@ impl Default for Info {
             volume: String::default(),
             number: String::default(),
             isbn: String::default(),
-            keywords: BTreeSet::new(),
+            categories: BTreeSet::new(),
             file: FileInfo::default(),
+            added: Local::now(),
             reader: None,
         }
     }
@@ -143,12 +163,12 @@ impl DerefMut for Metadata {
 
 impl Metadata {
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Metadata> {
-        let reader = File::open(path).chain_err(|| "Can't open metadata file")?;
-        serde_json::from_reader(reader).chain_err(|| "Can't parse metadata file")
+        let file = File::open(path).chain_err(|| "Can't open metadata file")?;
+        serde_json::from_reader(file).chain_err(|| "Can't parse metadata file")
     }
 
-    pub fn keywords(&self) -> BTreeSet<String> {
-        self.0.iter().flat_map(|info| info.keywords.clone()).collect()
+    pub fn categories(&self) -> BTreeSet<String> {
+        self.0.iter().flat_map(|info| info.categories.clone()).collect()
     }
 }
 
