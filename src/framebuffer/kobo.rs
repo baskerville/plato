@@ -12,7 +12,9 @@ use std::os::unix::io::AsRawFd;
 use std::ops::Drop;
 use libc::ioctl;
 use png::HasParameters;
-use geom::{Point, Rectangle, CornerSpec, surface_area};
+use geom::{Point, Rectangle, surface_area, lerp};
+use geom::{CornerSpec, BorderSpec};
+use framebuffer::{UpdateMode, Framebuffer};
 use errors::*;
 
 const FBIOGET_VSCREENINFO: libc::c_ulong = 0x4600;
@@ -175,11 +177,11 @@ const TEMP_USE_AMBIENT: libc::c_int = 0x1000;
 const EPDC_FLAG_ENABLE_INVERSION: libc::c_uint = 0x01;
 const EPDC_FLAG_FORCE_MONOCHROME: libc::c_uint = 0x02;
 
-type SetPixelRgb = fn(&mut Framebuffer, u32, u32, [u8; 3]);
-type GetPixelRgb = fn(&Framebuffer, u32, u32) -> [u8; 3];
-type AsRgb = fn(&Framebuffer) -> Vec<u8>;
+type SetPixelRgb = fn(&mut KoboFramebuffer, u32, u32, [u8; 3]);
+type GetPixelRgb = fn(&KoboFramebuffer, u32, u32) -> [u8; 3];
+type AsRgb = fn(&KoboFramebuffer) -> Vec<u8>;
 
-pub struct Framebuffer {
+pub struct KoboFramebuffer {
     device: File,
     frame: *mut libc::c_void,
     frame_size: libc::size_t, 
@@ -193,80 +195,16 @@ pub struct Framebuffer {
     pub fix_info: FixScreenInfo,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum UpdateMode {
-    Fast,
-    Partial,
-    Gui,
-    Full,
-    Clear,
-}
-
-#[derive(Debug, Clone)]
-pub struct Bitmap {
-    pub buf: Vec<u8>,
-    pub width: i32,
-    pub height: i32,
-}
-
-impl Framebuffer {
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<Framebuffer> {
-        let device = OpenOptions::new().read(true)
-                                       .write(true)
-                                       .open(path)
-                                       .chain_err(|| "Can't open framebuffer device")?;
-
-        let var_info = var_screen_info(&device)?;
-        let fix_info = fix_screen_info(&device)?;
-
-        assert_eq!(var_info.bits_per_pixel % 8, 0);
-
-        let bytes_per_pixel = var_info.bits_per_pixel / 8;
-
-        let mut frame_size = (var_info.xres_virtual *
-                              var_info.yres_virtual * bytes_per_pixel) as libc::size_t;
-
-        if frame_size > fix_info.smem_len as usize {
-            frame_size = fix_info.smem_len as usize;
-        }
-
-        assert!(frame_size as u32 >= var_info.yres * fix_info.line_length);
-
-        let frame = unsafe {
-            libc::mmap(ptr::null_mut(), frame_size,
-                       libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED,
-                       device.as_raw_fd(), 0)
-        };
-
-        if frame == libc::MAP_FAILED {
-            bail!(Error::with_chain(io::Error::last_os_error(), "Can't map memory"));
-        } else {
-            let (set_pixel_rgb, get_pixel_rgb, as_rgb): (SetPixelRgb, GetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
-                (set_pixel_rgb_32, get_pixel_rgb_32, as_rgb_32)
-            } else {
-                (set_pixel_rgb_16, get_pixel_rgb_16, as_rgb_16)
-            };
-            Ok(Framebuffer {
-                   device: device,
-                   frame: frame,
-                   frame_size: frame_size,
-                   token: 1,
-                   flags: 0,
-                   set_pixel_rgb: set_pixel_rgb,
-                   get_pixel_rgb: get_pixel_rgb,
-                   as_rgb: as_rgb,
-                   bytes_per_pixel: bytes_per_pixel as u8,
-                   var_info: var_info,
-                   fix_info: fix_info,
-               })
-        }
-    }
-    
-    pub fn set_pixel(&mut self, x: u32, y: u32, color: u8) {
+impl Framebuffer for KoboFramebuffer {
+    fn set_pixel(&mut self, x: u32, y: u32, color: u8) {
         (self.set_pixel_rgb)(self, x, y, [color, color, color]);
     }
 
-    pub fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32) {
+    fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32) {
+        if alpha == 1.0 {
+            self.set_pixel(x, y, color);
+            return;
+        }
         let rgb = (self.get_pixel_rgb)(self, x, y);
         let color_alpha = color as f32 * alpha;
         let r = color_alpha + (1.0 - alpha) * rgb[0] as f32;
@@ -278,7 +216,7 @@ impl Framebuffer {
     // Tell the driver that the screen needs to be redrawn.
     // The `rect` parameter is ignored for the `Gui` and `Full` modes.
     // The `Fast` mode only understands the following colors: BLACK and WHITE.
-    pub fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32> {
+    fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32> {
         let (update_mode, waveform_mode) = match mode {
             UpdateMode::Fast    => (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2),
             UpdateMode::Partial => (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO),
@@ -321,7 +259,7 @@ impl Framebuffer {
     }
 
     // Wait for a specific update to complete
-    pub fn wait(&self, token: u32) -> Result<i32> {
+    fn wait(&self, token: u32) -> Result<i32> {
         let result = unsafe {
             libc::ioctl(self.device.as_raw_fd(), MXCFB_WAIT_FOR_UPDATE_COMPLETE, &token)
         };
@@ -333,105 +271,7 @@ impl Framebuffer {
         }
     }
 
-    pub fn draw_rectangle(&mut self, rect: &Rectangle, color: u8) {
-        for y in rect.min.y..rect.max.y {
-            for x in rect.min.x..rect.max.x {
-                self.set_pixel(x as u32, y as u32, color);
-            }
-        }
-    }
-
-    pub fn draw_blended_bitmap(&mut self, bitmap: &Bitmap, pt: &Point, color: u8) {
-        for y in 0..bitmap.height {
-            for x in 0..bitmap.width {
-                let px = x + pt.x;
-                let py = y + pt.y;
-                let addr = (y * bitmap.width + x) as usize;
-                let alpha = (255.0 - bitmap.buf[addr] as f32) / 255.0;
-                self.set_blended_pixel(px as u32, py as u32, color, alpha);
-            }
-        }
-    }
-
-    pub fn draw_bitmap(&mut self, bitmap: &Bitmap, pt: &Point) {
-        for y in 0..bitmap.height {
-            for x in 0..bitmap.width {
-                let px = x + pt.x;
-                let py = y + pt.y;
-                let addr = (y * bitmap.width + x) as usize;
-                let color = bitmap.buf[addr];
-                self.set_pixel(px as u32, py as u32, color);
-            }
-        }
-    }
-
-    pub fn clear(&mut self, color: u8) {
-        let rect = self.rect();
-        self.draw_rectangle(&rect, color);
-    }
-
-    pub fn draw_rounded_rectangle(&mut self, rect: &Rectangle, corners: &CornerSpec, color: u8) {
-        let (nw, ne, se, sw) = match *corners {
-            CornerSpec::Uniform(v) => (v, v, v, v),
-            CornerSpec::North(v) => (v, v, 0, 0),
-            CornerSpec::East(v) => (0, v, v, 0),
-            CornerSpec::South(v) => (0, 0, v, v),
-            CornerSpec::West(v) => (v, 0, 0, v),
-            CornerSpec::Detailed {
-                north_west,
-                north_east,
-                south_east,
-                south_west
-            } => (north_west, north_east, south_east, south_west),
-        };
-        let nw_c = rect.min + nw;
-        let ne_c = pt!(rect.max.x - ne, rect.min.y + ne);
-        let se_c = rect.max - se;
-        let sw_c = pt!(rect.min.x + sw, rect.max.y - sw);
-        for y in rect.min.y..rect.max.y {
-            for x in rect.min.x..rect.max.x {
-                let mut area = 1.0;
-                let mut pole = None;
-                if x < nw_c.x && y < nw_c.y {
-                    pole = Some((nw_c, nw));
-                } else if x >= ne_c.x && y < ne_c.y {
-                    pole = Some((ne_c, ne));
-                } else if x >= se_c.x && y >= se_c.y {
-                    pole = Some((se_c, se));
-                } else if x < sw_c.x && y >= sw_c.y {
-                    pole = Some((sw_c, sw));
-                }
-                if let Some((center, radius)) = pole {
-                    let v = vec2!((x - center.x) as f32, (y - center.y) as f32) + 0.5;
-                    let angle = v.angle();
-                    let dist = v.length() - radius as f32;
-                    area = surface_area(dist, angle);
-                }
-                self.set_pixel(x as u32, y as u32, (area * color as f32) as u8);
-            }
-        }
-    }
-
-    pub fn draw_disk(&mut self, center: &Point, radius: i32, color: u8) {
-        let rect = Rectangle::from_disk(center, radius);
-
-        for y in rect.min.y..rect.max.y {
-            for x in rect.min.x..rect.max.x {
-                let pt = Point::new(x, y);
-                let v = vec2!((x - center.x) as f32, (y - center.y) as f32);
-                let angle = v.angle();
-                let dist = v.length() - radius as f32;
-                let area = surface_area(dist, angle);
-                self.set_pixel(x as u32, y as u32, (area * color as f32) as u8);
-            }
-        }
-    }
-
-    fn as_bytes(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.frame as *const u8, self.frame_size) }
-    }
-
-    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+    fn save(&self, path: &str) -> Result<()> {
         let (width, height) = self.dims();
         let file = File::create(path).chain_err(|| "Can't create output file")?;
         let mut encoder = png::Encoder::new(file, width, height);
@@ -439,6 +279,64 @@ impl Framebuffer {
         let mut writer = encoder.write_header().chain_err(|| "Can't write header")?;
         writer.write_image_data(&(self.as_rgb)(self)).chain_err(|| "Can't write data to file")?;
         Ok(())
+    }
+}
+
+impl KoboFramebuffer {
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<KoboFramebuffer> {
+        let device = OpenOptions::new().read(true)
+                                       .write(true)
+                                       .open(path)
+                                       .chain_err(|| "Can't open framebuffer device")?;
+
+        let var_info = var_screen_info(&device)?;
+        let fix_info = fix_screen_info(&device)?;
+
+        assert_eq!(var_info.bits_per_pixel % 8, 0);
+
+        let bytes_per_pixel = var_info.bits_per_pixel / 8;
+
+        let mut frame_size = (var_info.xres_virtual *
+                              var_info.yres_virtual * bytes_per_pixel) as libc::size_t;
+
+        if frame_size > fix_info.smem_len as usize {
+            frame_size = fix_info.smem_len as usize;
+        }
+
+        assert!(frame_size as u32 >= var_info.yres * fix_info.line_length);
+
+        let frame = unsafe {
+            libc::mmap(ptr::null_mut(), frame_size,
+                       libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED,
+                       device.as_raw_fd(), 0)
+        };
+
+        if frame == libc::MAP_FAILED {
+            bail!(Error::with_chain(io::Error::last_os_error(), "Can't map memory"));
+        } else {
+            let (set_pixel_rgb, get_pixel_rgb, as_rgb): (SetPixelRgb, GetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
+                (set_pixel_rgb_32, get_pixel_rgb_32, as_rgb_32)
+            } else {
+                (set_pixel_rgb_16, get_pixel_rgb_16, as_rgb_16)
+            };
+            Ok(KoboFramebuffer {
+                   device: device,
+                   frame: frame,
+                   frame_size: frame_size,
+                   token: 1,
+                   flags: 0,
+                   set_pixel_rgb: set_pixel_rgb,
+                   get_pixel_rgb: get_pixel_rgb,
+                   as_rgb: as_rgb,
+                   bytes_per_pixel: bytes_per_pixel as u8,
+                   var_info: var_info,
+                   fix_info: fix_info,
+               })
+        }
+    }
+    
+    fn as_bytes(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.frame as *const u8, self.frame_size) }
     }
 
     pub fn toggle_inverse(&mut self) {
@@ -464,19 +362,10 @@ impl Framebuffer {
     pub fn height(&self) -> u32 {
         self.var_info.yres
     }
-
-    pub fn dims(&self) -> (u32, u32) {
-        (self.width(), self.height())
-    }
-
-    pub fn rect(&self) -> Rectangle {
-        let (width, height) = self.dims();
-        rect![0, 0, width as i32, height as i32]
-    }
 }
 
 #[inline]
-pub fn set_pixel_rgb_16(fb: &mut Framebuffer, x: u32, y: u32, rgb: [u8; 3]) {
+pub fn set_pixel_rgb_16(fb: &mut KoboFramebuffer, x: u32, y: u32, rgb: [u8; 3]) {
     let addr = (fb.var_info.xoffset as isize + x as isize) * (fb.bytes_per_pixel as isize) +
                (fb.var_info.yoffset as isize + y as isize) * (fb.fix_info.line_length as isize);
 
@@ -490,7 +379,7 @@ pub fn set_pixel_rgb_16(fb: &mut Framebuffer, x: u32, y: u32, rgb: [u8; 3]) {
 }
 
 #[inline]
-pub fn set_pixel_rgb_32(fb: &mut Framebuffer, x: u32, y: u32, rgb: [u8; 3]) {
+pub fn set_pixel_rgb_32(fb: &mut KoboFramebuffer, x: u32, y: u32, rgb: [u8; 3]) {
     let addr = (fb.var_info.xoffset as isize + x as isize) * (fb.bytes_per_pixel as isize) +
                (fb.var_info.yoffset as isize + y as isize) * (fb.fix_info.line_length as isize);
 
@@ -505,7 +394,7 @@ pub fn set_pixel_rgb_32(fb: &mut Framebuffer, x: u32, y: u32, rgb: [u8; 3]) {
     }
 }
 
-fn get_pixel_rgb_16(fb: &Framebuffer, x: u32, y: u32) -> [u8; 3] {
+fn get_pixel_rgb_16(fb: &KoboFramebuffer, x: u32, y: u32) -> [u8; 3] {
     let addr = (fb.var_info.xoffset as isize + x as isize) * (fb.bytes_per_pixel as isize) +
                (fb.var_info.yoffset as isize + y as isize) * (fb.fix_info.line_length as isize);
     let pair = unsafe {
@@ -518,7 +407,7 @@ fn get_pixel_rgb_16(fb: &Framebuffer, x: u32, y: u32) -> [u8; 3] {
     [r, g, b]
 }
 
-fn get_pixel_rgb_32(fb: &Framebuffer, x: u32, y: u32) -> [u8; 3] {
+fn get_pixel_rgb_32(fb: &KoboFramebuffer, x: u32, y: u32) -> [u8; 3] {
     let addr = (fb.var_info.xoffset as isize + x as isize) * (fb.bytes_per_pixel as isize) +
                (fb.var_info.yoffset as isize + y as isize) * (fb.fix_info.line_length as isize);
     unsafe {
@@ -527,7 +416,7 @@ fn get_pixel_rgb_32(fb: &Framebuffer, x: u32, y: u32) -> [u8; 3] {
     }
 }
 
-fn as_rgb_16(fb: &Framebuffer) -> Vec<u8> {
+fn as_rgb_16(fb: &KoboFramebuffer) -> Vec<u8> {
     let (width, height) = fb.dims();
     let mut rgb888 = Vec::with_capacity((width * height * 3) as usize);
     let rgb565 = fb.as_bytes();
@@ -542,7 +431,7 @@ fn as_rgb_16(fb: &Framebuffer) -> Vec<u8> {
     rgb888
 }
 
-fn as_rgb_32(fb: &Framebuffer) -> Vec<u8> {
+fn as_rgb_32(fb: &KoboFramebuffer) -> Vec<u8> {
     let (width, height) = fb.dims();
     let mut rgb888 = Vec::with_capacity((width * height * 3) as usize);
     let bgra8888 = fb.as_bytes();
@@ -575,7 +464,7 @@ pub fn var_screen_info(device: &File) -> Result<VarScreenInfo> {
     }
 }
 
-impl Drop for Framebuffer {
+impl Drop for KoboFramebuffer {
     fn drop(&mut self) {
         unsafe {
             libc::munmap(self.frame, self.frame_size);
