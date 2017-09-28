@@ -1,19 +1,20 @@
-pub const GRAY00: u8 = 00 << 4;
-pub const GRAY01: u8 = 01 << 4;
-pub const GRAY02: u8 = 02 << 4;
-pub const GRAY03: u8 = 03 << 4;
-pub const GRAY04: u8 = 04 << 4;
-pub const GRAY05: u8 = 05 << 4;
-pub const GRAY06: u8 = 06 << 4;
-pub const GRAY07: u8 = 07 << 4;
-pub const GRAY08: u8 = 08 << 4;
-pub const GRAY09: u8 = 09 << 4;
-pub const GRAY10: u8 = 10 << 4;
-pub const GRAY11: u8 = 11 << 4;
-pub const GRAY12: u8 = 12 << 4;
-pub const GRAY13: u8 = 13 << 4;
-pub const GRAY14: u8 = 14 << 4;
-pub const GRAY15: u8 = 15 << 4;
+pub const GRAY00: u8 = 0x00;
+pub const GRAY01: u8 = 0x11;
+pub const GRAY02: u8 = 0x22;
+pub const GRAY03: u8 = 0x33;
+pub const GRAY04: u8 = 0x44;
+pub const GRAY05: u8 = 0x55;
+pub const GRAY06: u8 = 0x66;
+pub const GRAY07: u8 = 0x77;
+pub const GRAY08: u8 = 0x88;
+pub const GRAY09: u8 = 0x99;
+pub const GRAY10: u8 = 0xAA;
+pub const GRAY11: u8 = 0xBB;
+pub const GRAY12: u8 = 0xCC;
+pub const GRAY13: u8 = 0xDD;
+pub const GRAY14: u8 = 0xEE;
+pub const GRAY15: u8 = 0xFF;
+
 pub const BLACK: u8 = GRAY00;
 pub const WHITE: u8 = GRAY15;
 
