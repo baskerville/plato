@@ -63,7 +63,6 @@ pub fn parse_gesture_events(rx: Receiver<DeviceEvent>, ty: Sender<GestureEvent>)
     let mut segments: Vec<(Point, Point)> = Vec::new();
     let jitter = CURRENT_DEVICE.dpi as f32 * mm_to_in(JITTER_TOLERANCE_MM);
     while let Ok(evt) = rx.recv() {
-        ty.send(GestureEvent::Relay(evt)).unwrap();
         match evt {
             DeviceEvent::Finger { status: FingerStatus::Down, position, id, time } => {
                 let mut ct = contacts.lock().unwrap();
@@ -72,11 +71,16 @@ pub fn parse_gesture_events(rx: Receiver<DeviceEvent>, ty: Sender<GestureEvent>)
                 let contacts = contacts.clone();
                 thread::spawn(move || {
                     thread::sleep(Duration::from_millis(FINGER_HOLD_DELAY_MS));
-                    let ct = contacts.lock().unwrap();
+                    let mut ct = contacts.lock().unwrap();
+                    let mut will_remove = None;
                     if let Some(ts) = ct.get(&id) {
                         if ts.time == time && (ts.current - position).length() < jitter {
                             ty.send(GestureEvent::HoldFinger(position)).unwrap();
+                            will_remove = Some(id);
                         }
+                    }
+                    if let Some(id) = will_remove {
+                        ct.remove(&id);
                     }
                 });
             },
@@ -170,6 +174,7 @@ pub fn parse_gesture_events(rx: Receiver<DeviceEvent>, ty: Sender<GestureEvent>)
                 bt.remove(&code);
             },
         }
+        ty.send(GestureEvent::Relay(evt)).unwrap();
     }
 }
 
@@ -177,7 +182,7 @@ fn interpret_segment((a, b): (Point, Point), jitter: f32) -> GestureEvent {
     let ab = b - a;
     if ab.length() < jitter {
         GestureEvent::Tap {
-            center: (a + b) / 2,
+            center: a,
             fingers_count: 1,
         }
     } else {
