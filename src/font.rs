@@ -1,11 +1,11 @@
 extern crate libc;
 
+use std::mem;
 use std::ptr;
 use std::ffi::CString;
 use std::os::unix::ffi::OsStrExt;
-use std::rc::Rc;
 use std::path::Path;
-use std::mem;
+use std::rc::Rc;
 use geom::Point;
 use framebuffer::Framebuffer;
 
@@ -16,8 +16,6 @@ pub const BOLD_THICKNESS_RATIO: f32 = 36.0 / 61.0;
 pub const FONT_SIZES: [u32; 3] = [349, 524, 699];
 
 pub const KEYBOARD_FONT_SIZES: [u32; 2] = [337, 843];
-
-pub const KEYBOARD_LETTER_SPACING: i32 = 4;
 
 pub const NORMAL_STYLE: Style = Style {
     family: Family::SansSerif,
@@ -62,6 +60,14 @@ pub const MD_SIZE: Style = Style {
     variant: Variant::REGULAR,
     size: FONT_SIZES[0],
 };
+
+const CATEGORY_DEPTH_LIMIT: usize = 5;
+
+pub fn category_font_size(depth: usize) -> u32 {
+    let k = (2.0 / 3.0f32).powf(CATEGORY_DEPTH_LIMIT.min(depth) as f32 /
+                                CATEGORY_DEPTH_LIMIT as f32);
+    (k * FONT_SIZES[1] as f32) as u32
+}
 
 pub struct FontFamily {
     regular: Font,
@@ -464,7 +470,7 @@ pub struct Font {
     size: u32,
     dpi: u16,
     // used as truncation mark
-    ellipsis: RenderPlan,
+    pub ellipsis: RenderPlan,
     // lowercase and uppercase x heights
     pub x_heights: (u32, u32),
     space_codepoint: u32,
@@ -594,7 +600,7 @@ impl Font {
             }
 
             if let Some(mw) = max_width {
-                self.crop(&mut render_plan, mw);
+                self.crop_right(&mut render_plan, mw);
             }
 
             hb_buffer_destroy(buf);
@@ -603,7 +609,7 @@ impl Font {
     }
 
     #[inline]
-    pub fn crop(&self, render_plan: &mut RenderPlan, max_width: u32) {
+    pub fn crop_right(&self, render_plan: &mut RenderPlan, max_width: u32) {
         if render_plan.width <= max_width {
             return;
         }
@@ -617,20 +623,70 @@ impl Font {
         render_plan.glyphs.extend_from_slice(&self.ellipsis.glyphs[..]);
     }
 
-    pub fn last_word_before(&self, render_plan: &RenderPlan, max_width: u32) -> (usize, u32) {
+    #[inline]
+    pub fn crop_around(&self, render_plan: &mut RenderPlan, index: usize, max_width: u32) -> usize {
+        if render_plan.width <= max_width {
+            return 0;
+        }
+
+        let len = render_plan.glyphs.len();
+        let mut width = 0;
+        let mut polarity = 0;
+        let mut upper_index = index;
+        let mut lower_index = index as i32 - 1;
+
+        while width <= max_width {
+            if upper_index < len && (polarity % 2 == 0 || lower_index < 0) {
+                width += render_plan.glyphs[upper_index].advance.x as u32;
+                upper_index += 1;
+            } else if lower_index >= 0 && (polarity % 2 == 1 || upper_index == len) {
+                width += render_plan.glyphs[lower_index as usize].advance.x as u32;
+                lower_index -= 1;
+            }
+            polarity += 1;
+        }
+
+        if upper_index < len {
+            width += self.ellipsis.width;
+            upper_index -= 1;
+            while width > max_width && upper_index > (lower_index.max(0) as usize) {
+                width -= render_plan.glyphs[upper_index].advance.x as u32;
+                upper_index -= 1;
+            }
+            render_plan.glyphs.truncate(upper_index + 1);
+            render_plan.glyphs.extend_from_slice(&self.ellipsis.glyphs[..]);
+        }
+
+        if lower_index >= 0 {
+            width += self.ellipsis.width;
+            lower_index += 1;
+            while width > max_width && (lower_index as usize) < upper_index  {
+                width -= render_plan.glyphs[lower_index as usize].advance.x as u32;
+                lower_index += 1;
+            }
+            render_plan.glyphs = self.ellipsis.glyphs.iter()
+                                 .chain(render_plan.glyphs[lower_index as usize..].iter()).cloned().collect();
+        }
+
+        if lower_index < 0 {
+            0
+        } else {
+            lower_index as usize
+        }
+    }
+
+    pub fn cut_point(&self, render_plan: &RenderPlan, max_width: u32) -> (usize, u32) {
         let mut width = render_plan.width;
         let glyphs = &render_plan.glyphs;
         let mut i = glyphs.len() - 1;
+        width -= glyphs[i].advance.x as u32;
         while i > 0 && (width > max_width || glyphs[i].codepoint != self.space_codepoint) {
-            width -= glyphs[i].advance.x as u32;
             i -= 1;
-        }
-        if i > 0 {
             width -= glyphs[i].advance.x as u32;
-            i -= 1;
         }
         (i, width)
     }
+
 
     pub fn render(&mut self, fb: &mut Framebuffer, color: u8, render_plan: &RenderPlan, origin: &Point) {
         unsafe {
@@ -694,6 +750,10 @@ impl RenderPlan {
             width: next_width,
             glyphs: next_glyphs,
         }
+    }
+
+    pub fn advance_at(&self, index: usize) -> i32 {
+        self.glyphs.iter().take(index).map(|g| g.advance.x).sum()
     }
 }
 
