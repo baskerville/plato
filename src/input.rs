@@ -11,6 +11,7 @@ use std::mem;
 use std::env;
 use device::CURRENT_DEVICE;
 use geom::Point;
+use errors::*;
 
 // Event types
 pub const EV_SYN: u16 = 0;
@@ -139,11 +140,11 @@ pub fn raw_events(paths: Vec<String>) -> Receiver<InputEvent> {
     rx
 }
 
-pub fn parse_raw_events(paths: Vec<String>, tx: Sender<InputEvent>) {
+pub fn parse_raw_events(paths: Vec<String>, tx: Sender<InputEvent>) -> Result<()> {
     let mut files = Vec::new();
     let mut pfds = Vec::new();
     for path in paths.iter() {
-        let file = File::open(path).unwrap();
+        let file = File::open(path).chain_err(|| "can't open input file")?;
         let fd = file.as_raw_fd();
         files.push(file);
         pfds.push(libc::pollfd {
@@ -171,6 +172,7 @@ pub fn parse_raw_events(paths: Vec<String>, tx: Sender<InputEvent>) {
             }
         }
     }
+    Ok(())
 }
 
 pub fn device_events(rx: Receiver<InputEvent>, dims: (u32, u32)) -> Receiver<DeviceEvent> {
