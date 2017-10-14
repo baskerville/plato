@@ -19,7 +19,7 @@ impl ImageFramebuffer {
         ImageFramebuffer {
             width,
             height,
-            data: vec![255; len],
+            data: vec![WHITE; len],
         }
     }
 

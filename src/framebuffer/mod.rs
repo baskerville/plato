@@ -51,12 +51,33 @@ pub trait Framebuffer {
         rect![0, 0, width as i32, height as i32]
     }
 
+    #[inline]
     fn draw_rectangle(&mut self, rect: &Rectangle, color: u8) {
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
                 self.set_pixel(x as u32, y as u32, color);
             }
         }
+    }
+
+    fn draw_rectangle_outline(&mut self, rect: &Rectangle, border: &BorderSpec) {
+        let BorderSpec { thickness: border_thickness,
+                         color: border_color } = *border;
+        self.draw_rectangle(&rect![rect.min.x, rect.min.y,
+                                   rect.max.x - border_thickness as i32,
+                                   rect.min.y + border_thickness as i32],
+                            border_color);
+        self.draw_rectangle(&rect![rect.max.x - border_thickness as i32, rect.min.y,
+                                   rect.max.x, rect.max.y - border_thickness as i32],
+                            border_color);
+        self.draw_rectangle(&rect![rect.min.x + border_thickness as i32,
+                                   rect.max.y - border_thickness as i32,
+                                   rect.max.x, rect.max.y],
+                            border_color);
+        self.draw_rectangle(&rect![rect.min.x, rect.min.y + border_thickness as i32,
+                                   rect.min.x + border_thickness as i32,
+                                   rect.max.y],
+                            border_color);
     }
 
     fn draw_blended_bitmap(&mut self, bitmap: &Bitmap, pt: &Point, color: u8) {
@@ -195,7 +216,6 @@ pub trait Framebuffer {
 
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
-                let pt = Point::new(x, y);
                 let v = vec2!((x - center.x) as f32, (y - center.y) as f32);
                 let angle = v.angle();
                 let dist = v.length() - radius as f32;

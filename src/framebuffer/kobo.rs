@@ -12,8 +12,7 @@ use std::os::unix::io::AsRawFd;
 use std::ops::Drop;
 use libc::ioctl;
 use png::HasParameters;
-use geom::{Point, Rectangle, surface_area, lerp};
-use geom::{CornerSpec, BorderSpec};
+use geom::Rectangle;
 use framebuffer::{UpdateMode, Framebuffer};
 use errors::*;
 
