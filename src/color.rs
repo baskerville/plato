@@ -21,14 +21,18 @@ pub const WHITE: u8 = GRAY15;
 pub const TEXT_NORMAL: [u8; 3] = [WHITE, BLACK, GRAY06];
 pub const TEXT_BUMP_SMALL: [u8; 3] = [GRAY14, BLACK, GRAY05];
 pub const TEXT_BUMP_BIG: [u8; 3] = [GRAY11, BLACK, BLACK];
-pub const TEXT_INVERTED: [u8; 3] = [GRAY05, WHITE, WHITE];
+
+pub const TEXT_INVERTED_SOFT: [u8; 3] = [GRAY05, WHITE, WHITE];
+pub const TEXT_INVERTED_HARD: [u8; 3] = [BLACK, WHITE, GRAY06];
 
 pub const KEYBOARD_BG: u8 = GRAY13;
+
 pub const SEPARATOR_NORMAL: u8 = GRAY10;
 pub const SEPARATOR_STRONG: u8 = GRAY07;
 
 pub const PROGRESS_FULL: u8 = GRAY06;
-pub const PROGRESS_BORDER: u8 = GRAY03;
 pub const PROGRESS_EMPTY: u8 = GRAY13;
+pub const PROGRESS_BORDER: u8 = GRAY03;
 
 pub const INPUT_BORDER: u8 = GRAY04;
+pub const INPUT_CURSOR: u8 = GRAY03;
