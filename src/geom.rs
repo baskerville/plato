@@ -1,4 +1,4 @@
-use std::cmp::{self, Ordering};
+use std::cmp::Ordering;
 use std::f32::consts;
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign};
 
@@ -48,6 +48,13 @@ pub enum CornerSpec {
         south_west: i32,
     }
 }
+
+#[derive(Debug, Copy, Clone)]
+pub struct BorderSpec {
+    pub thickness: u16,
+    pub color: u8,
+}
+
 
 const HALF_PIXEL_DIAGONAL: f32 = consts::SQRT_2 / 2.0;
 
@@ -107,6 +114,10 @@ pub fn divide(n: i32, p: i32) -> Vec<i32> {
         }
     }
     vec
+}
+
+pub fn lerp(c1: u8, c2: u8, a: f32) -> u8 {
+    ((1.0 - a) * (c1 as f32) + a * c2 as f32) as u8
 }
 
 impl Dir {
@@ -291,10 +302,10 @@ impl Rectangle {
 
     pub fn intersection(&self, rect: &Rectangle) -> Option<Rectangle> {
         if self.overlaps(rect) {
-            Some(Rectangle::new(Point::new(cmp::max(self.min.x, rect.min.x),
-                                           cmp::max(self.min.y, rect.min.y)),
-                                Point::new(cmp::min(self.max.x, rect.max.x),
-                                           cmp::min(self.max.y, rect.max.y))))
+            Some(Rectangle::new(Point::new(self.min.x.max(rect.min.x),
+                                           self.min.y.max(rect.min.y)),
+                                Point::new(self.max.x.min(rect.max.x),
+                                           self.max.y.min(rect.max.y))))
         } else {
             None
         }
@@ -322,6 +333,11 @@ impl Rectangle {
     #[inline]
     pub fn area(&self) -> u32 {
         self.width() * self.height()
+    }
+
+    #[inline]
+    pub fn center(&self) -> Point {
+        (self.min + self.max) / 2
     }
 }
 
