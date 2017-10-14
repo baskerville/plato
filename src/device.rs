@@ -139,23 +139,6 @@ pub static ref BAR_SIZES: HashMap<(u32, u16), (u32, u32)> =
      ((1024, 212), ( 87, 109)),
      (( 800, 167), ( 66,  86)),
      (( 800, 200), ( 80, 112))].iter().cloned().collect();
-
-// Tuples of the form
-// ((WIDTH, BIG_HEIGHT, DPI), (SIDE, PADDING, FACTOR))
-// where SIDE is the side length of the keyboard square keys
-// and PADDING the spacing used between keys and FACTOR gives
-// the height of the keyboard once multiplied by BIG_HEIGHT.
-// The returned values are such that:
-// 11 * SIDE + 12 * PADDING <= WIDTH
-//  4 * SIDE +  5 * PADDING <= FACTOR * BIG_HEIGHT
-//                   FACTOR <= 3
-pub static ref KEY_SIZES: HashMap<(u32, u32, u16), (u32, u32, u8)> =
-    [((1404, 166, 300), (117, 6, 3)),
-     ((1072, 155, 300), ( 92, 5, 3)),
-     ((1080, 141, 265), ( 92, 5, 3)),
-     (( 768, 109, 212), ( 65, 4, 3)),
-     (( 600,  86, 167), ( 51, 3, 3)),
-     (( 600, 112, 200), ( 50, 4, 2))].iter().cloned().collect();
 }
 
 pub fn optimal_bars_setup(height: u32, dpi: u16) -> (u32, u32) {
@@ -186,22 +169,21 @@ pub fn optimal_bars_setup(height: u32, dpi: u16) -> (u32, u32) {
     result
 }
 
-pub fn optimal_key_setup(width: u32, big_height: u32, dpi: u16) -> (u32, u32, u8) {
+pub fn optimal_key_setup(width: u32, height: u32, dpi: u16) -> (u32, u32) {
     let target_side = scale_by_dpi(117.0, dpi) as u32;
     let target_padding = scale_by_dpi(6.0, dpi) as u32;
     let minimum_side = target_side / 3;
     let minimum_padding = 4 * target_padding / 5;
     let mut max_score = 0;
-    let mut result = (0, 0, 0);
+    let mut result = (0, 0);
     for side in minimum_side..target_side+1 {
         for padding in minimum_padding..target_padding+1 {
             let w = 11 * side + 12 * padding;
             let h = 4 * side + 5 * padding;
-            if  w <= width && h <= 3 * big_height {
+            if  w <= width && h <= height {
                 let score = side + padding;
                 if score > max_score {
-                    let factor = (h as f32 / big_height as f32).ceil() as u8;
-                    result = (side, padding, factor);
+                    result = (side, padding);
                     max_score = score;
                 }
             }
