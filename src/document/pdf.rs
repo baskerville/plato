@@ -33,7 +33,6 @@ enum FzLocksContext {}
 enum FzTextOptions {}
 enum FzCookie {}
 
-// #[link(name="mupdf")]
 #[link(name="mupdf", kind="static")]
 #[link(name="mupdfwrapper", kind="static")]
 extern {
@@ -413,9 +412,9 @@ impl Document for PdfDocument {
         self.info(FZ_META_INFO_AUTHOR)
     }
 
-    // fn dims(&self, index: usize) -> Option<(u32, u32)> {
-    //     self.page(index).map(|page| page.dims())
-    // }
+    fn dims(&self, index: usize) -> Option<(f32, f32)> {
+        self.page(index).map(|page| page.dims())
+    }
 
     fn is_reflowable(&self) -> bool {
         unsafe { fz_is_document_reflowable(self.ctx.0, self.doc) == 1 }

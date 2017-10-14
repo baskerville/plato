@@ -339,9 +339,12 @@ impl Document for DjvuDocument {
         self.info("author")
     }
 
-    // fn dims(&self, index: usize) -> Option<(u32, u32)> {
-    //     self.page(index).map(|page| page.dims())
-    // }
+    fn dims(&self, index: usize) -> Option<(f32, f32)> {
+        self.page(index).map(|page| {
+            let dims = page.dims();
+            (dims.0 as f32, dims.1 as f32)
+        })
+    }
 
     fn is_reflowable(&self) -> bool {
         false
