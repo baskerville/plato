@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::ops::{Deref, DerefMut};
 use std::collections::BTreeSet;
-use std::cmp::{Ordering};
+use std::cmp::Ordering;
 use fnv::FnvHashMap;
 use regex::Regex;
 use chrono::{Local, DateTime};
@@ -132,7 +132,7 @@ impl Info {
             title = format!("{} #{}", title, self.number);
         }
         if !self.volume.is_empty() {
-            title = format!("{} vol. {}", title, self.volume);
+            title = format!("{} — vol. {}", title, self.volume);
         }
         if !self.subtitle.is_empty() {
             title = if self.subtitle.chars().next().unwrap().is_alphabetic() {
@@ -142,6 +142,10 @@ impl Info {
             };
         }
         title
+    }
+
+    pub fn matches(&self, query: &str) -> bool {
+        true
     }
 }
 
@@ -172,7 +176,19 @@ impl Metadata {
     }
 }
 
-fn sort_opened(i1: &Info, i2: &Info) -> Ordering {
+#[derive(Debug, Copy, Clone)]
+pub enum SortMethod {
+    Opened,
+    Added,
+    Size,
+    Author,
+    Year,
+    Kind,
+    Pages,
+    Title,
+}
+
+pub fn sort_opened(i1: &Info, i2: &Info) -> Ordering {
     match (&i1.reader, &i2.reader) {
         (&None, &None) => Ordering::Equal,
         (&None, &Some(_)) => Ordering::Less,
@@ -181,7 +197,19 @@ fn sort_opened(i1: &Info, i2: &Info) -> Ordering {
     }
 }
 
-fn combine_sort_methods<'a, T, F1, F2>(mut f1: F1, mut f2: F2) -> Box<FnMut(&T, &T) -> Ordering + 'a>
+pub fn sort_size(i1: &Info, i2: &Info) -> Ordering {
+    i1.file.size.cmp(&i2.file.size)
+}
+
+pub fn sort_kind(i1: &Info, i2: &Info) -> Ordering {
+    i1.file.kind.cmp(&i2.file.kind)
+}
+
+pub fn sort_added(i1: &Info, i2: &Info) -> Ordering {
+    i1.added.cmp(&i2.added)
+}
+
+pub fn combine_sort_methods<'a, T, F1, F2>(mut f1: F1, mut f2: F2) -> Box<FnMut(&T, &T) -> Ordering + 'a>
 where F1: FnMut(&T, &T) -> Ordering + 'a,
       F2: FnMut(&T, &T) -> Ordering + 'a {
     Box::new(move |x, y| {
