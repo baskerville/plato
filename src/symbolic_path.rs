@@ -45,9 +45,7 @@ impl<'a> SymbolicPath<'a> for str {
     }
 
     fn is_descendant_of(&self, other: &str) -> bool {
-        self.len() >= other.len() && self.split(PATH_SEPARATOR)
-                                         .zip(other.split(PATH_SEPARATOR))
-                                         .all(|(a, b)| a == b)
+        self.ancestors().any(|a| a == other)
     }
 
     fn first_component(&self) -> &str {
@@ -68,5 +66,27 @@ impl<'a> SymbolicPath<'a> for str {
 
     fn depth(&self) -> usize {
         self.matches(PATH_SEPARATOR).count()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SymbolicPath;
+
+    #[test]
+    fn relationships() {
+        assert!("a.b".is_child_of("a"));
+        assert!(!"a.bb".is_child_of("a.b"));
+        assert!("a.b.c".is_descendant_of("a"));
+        assert!(!"a.b.c".is_descendant_of("b"));
+        assert!(!"a.b.c".is_child_of("a"));
+    }
+
+    #[test]
+    fn components() {
+        assert_eq!("a.b.c".last_component(), "c");
+        assert_eq!("a.b.c".first_component(), "a");
+        assert_eq!("a".depth(), 0);
+        assert_eq!("a.b.c".depth(), 2);
     }
 }
