@@ -136,13 +136,14 @@ impl Input {
 
 pub fn raw_events(paths: Vec<String>) -> Receiver<InputEvent> {
     let (tx, rx) = mpsc::channel();
-    thread::spawn(move || parse_raw_events(paths, tx));
+    thread::spawn(move || parse_raw_events(&paths, tx));
     rx
 }
 
-pub fn parse_raw_events(paths: Vec<String>, tx: Sender<InputEvent>) -> Result<()> {
+pub fn parse_raw_events(paths: &[String], tx: Sender<InputEvent>) -> Result<()> {
     let mut files = Vec::new();
     let mut pfds = Vec::new();
+
     for path in paths.iter() {
         let file = File::open(path).chain_err(|| "can't open input file")?;
         let fd = file.as_raw_fd();
@@ -153,6 +154,7 @@ pub fn parse_raw_events(paths: Vec<String>, tx: Sender<InputEvent>) -> Result<()
             revents: 0,
         });
     }
+
     loop {
         let ret = unsafe { libc::poll(pfds.as_mut_ptr(), pfds.len() as libc::nfds_t, -1) };
         if ret < 0 {
@@ -172,16 +174,17 @@ pub fn parse_raw_events(paths: Vec<String>, tx: Sender<InputEvent>) -> Result<()
             }
         }
     }
+
     Ok(())
 }
 
 pub fn device_events(rx: Receiver<InputEvent>, dims: (u32, u32)) -> Receiver<DeviceEvent> {
     let (ty, ry) = mpsc::channel();
-    thread::spawn(move || parse_device_events(rx, ty, dims));
+    thread::spawn(move || parse_device_events(&rx, &ty, dims));
     ry
 }
 
-pub fn parse_device_events(rx: Receiver<InputEvent>, ty: Sender<DeviceEvent>, dims: (u32, u32)) {
+pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, dims: (u32, u32)) {
     let mut id = 0;
     let mut position = Point::default();
     let mut pressure = 0;

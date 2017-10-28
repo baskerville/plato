@@ -60,7 +60,7 @@ impl Default for Device {
 
 lazy_static! {
     pub static ref CURRENT_DEVICE: Device = {
-        let product = env::var("PRODUCT").unwrap_or("trilogy".to_owned());
+        let product = env::var("PRODUCT").unwrap_or_default();
         match product.as_ref() {
             "kraken" => Device {
                 model: Model::Glo,

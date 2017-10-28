@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 pub const PATH_SEPARATOR: char = '.';
 
 pub trait SymbolicPath<'a> {
@@ -44,6 +42,7 @@ impl<'a> SymbolicPath<'a> for str {
         }
     }
 
+    #[inline]
     fn is_descendant_of(&self, other: &str) -> bool {
         self.ancestors().any(|a| a == other)
     }

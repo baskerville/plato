@@ -518,7 +518,7 @@ impl FontOpener {
         }
     }
 
-    pub fn from_bytes(&self, buf: &[u8]) -> Result<Font> {
+    pub fn open_memory(&self, buf: &[u8]) -> Result<Font> {
         unsafe {
             let mut face = ptr::null_mut();
             let ret = FT_New_Memory_Face((self.0).0, buf.as_ptr() as *const FtByte, buf.len() as libc::c_long, 0, &mut face);
@@ -1261,7 +1261,7 @@ impl AsErrorKind for FtError {
             0xB8 => ErrorKind::BbxTooBig,
             0xB9 => ErrorKind::CorruptedFontHeader,
             0xBA => ErrorKind::CorruptedFontGlyphs,
-            code @ _ => ErrorKind::UnknownError(code),
+            code => ErrorKind::UnknownError(code),
         }
     }
 }

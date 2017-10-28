@@ -53,11 +53,11 @@ pub struct TouchState {
 
 pub fn gesture_events(rx: Receiver<DeviceEvent>) -> Receiver<GestureEvent> {
     let (ty, ry) = mpsc::channel();
-    thread::spawn(move || parse_gesture_events(rx, ty));
+    thread::spawn(move || parse_gesture_events(&rx, &ty));
     ry
 }
 
-pub fn parse_gesture_events(rx: Receiver<DeviceEvent>, ty: Sender<GestureEvent>) {
+pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<GestureEvent>) {
     let contacts: Arc<Mutex<FnvHashMap<i32, TouchState>>> = Arc::new(Mutex::new(FnvHashMap::default()));
     let buttons: Arc<Mutex<FnvHashMap<ButtonCode, f64>>> = Arc::new(Mutex::new(FnvHashMap::default()));
     let mut segments: Vec<(Point, Point)> = Vec::new();
