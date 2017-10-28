@@ -8,6 +8,11 @@ pub fn mm_to_in(mm: f32) -> f32 {
 }
 
 #[inline]
-pub fn scale_by_dpi(x: f32, dpi: u16) -> f32 {
+pub fn scale_by_dpi_raw(x: f32, dpi: u16) -> f32 {
     x * (dpi as f32) / BASE_DPI
+}
+
+#[inline]
+pub fn scale_by_dpi(x: f32, dpi: u16) -> f32 {
+    scale_by_dpi_raw(x, dpi).round().max(1.0)
 }
