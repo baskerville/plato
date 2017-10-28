@@ -5,15 +5,22 @@ use std::mem;
 use std::slice;
 use std::char;
 use std::rc::Rc;
-use std::cmp;
 use std::path::Path;
-use std::io::{self, Read};
+use std::io::Read;
 use std::fs::File;
 use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
 use document::{Document, TextLayer, LayerGrain, TocEntry};
-use framebuffer::Bitmap;
+use framebuffer::Pixmap;
 use geom::Rectangle;
+use errors::*;
+
+error_chain!{
+    foreign_links {
+        Io(::std::io::Error);
+        NulError(::std::ffi::NulError);
+    }
+}
 
 const CACHE_SIZE: libc::size_t = 32 * 1024 * 1024;
 const FZ_MAX_COLORS: usize = 32;
@@ -295,7 +302,7 @@ impl PdfOpener {
         }
     }
 
-    pub fn set_user_css<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
+    pub fn set_user_css<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let mut file = File::open(path)?;
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)?;
@@ -332,10 +339,11 @@ impl PdfDocument {
                 let title = CStr::from_ptr((*cur).title).to_string_lossy().into_owned();
                 // TODO: handle page == -1
                 let page = (*cur).page as usize;
-                let mut children = Vec::new();
-                if !(*cur).down.is_null() {
-                    children = Self::walk_toc((*cur).down);
-                }
+                let mut children = if !(*cur).down.is_null() {
+                    Self::walk_toc((*cur).down)
+                } else {
+                    Vec::new()
+                };
                 vec.push(TocEntry {
                     title: title,
                     page: page,
@@ -344,16 +352,6 @@ impl PdfDocument {
                 cur = (*cur).next;
             }
             vec
-        }
-    }
-
-    // All sizes are in points
-    pub fn layout(&mut self, width: f32, height: f32, em: f32) {
-        unsafe {
-            fz_layout_document(self.ctx.0, self.doc,
-                               width as libc::c_float,
-                               height as libc::c_float,
-                               em as libc::c_float);
         }
     }
 
@@ -387,6 +385,14 @@ impl Document for PdfDocument {
         }
     }
 
+    fn pixmap(&self, index: usize, scale: f32) -> Option<Pixmap> {
+        self.page(index).and_then(|p| p.pixmap(scale))
+    }
+
+    fn dims(&self, index: usize) -> Option<(f32, f32)> {
+        self.page(index).map(|page| page.dims())
+    }
+
     fn toc(&self) -> Option<Vec<TocEntry>> {
         unsafe {
             let outline = mp_load_outline(self.ctx.0, self.doc);
@@ -412,12 +418,18 @@ impl Document for PdfDocument {
         self.info(FZ_META_INFO_AUTHOR)
     }
 
-    fn dims(&self, index: usize) -> Option<(f32, f32)> {
-        self.page(index).map(|page| page.dims())
-    }
-
     fn is_reflowable(&self) -> bool {
         unsafe { fz_is_document_reflowable(self.ctx.0, self.doc) == 1 }
+    }
+
+    // All sizes are in points
+    fn layout(&mut self, width: f32, height: f32, em: f32) {
+        unsafe {
+            fz_layout_document(self.ctx.0, self.doc,
+                               width as libc::c_float,
+                               height as libc::c_float,
+                               em as libc::c_float);
+        }
     }
 }
 
@@ -498,7 +510,8 @@ impl<'a> PdfPage<'a> {
             Some(text_page)
         }
     }
-    pub fn render(&self, scale: f32) -> Option<Bitmap> {
+
+    pub fn pixmap(&self, scale: f32) -> Option<Pixmap> {
         unsafe {
             let mut mat = FzMatrix::default();
             fz_scale(&mut mat, scale as libc::c_float, scale as libc::c_float);
@@ -510,16 +523,18 @@ impl<'a> PdfPage<'a> {
             if pixmap.is_null() {
                 return None;
             }
+
             let width = (*pixmap).w;
             let height = (*pixmap).h;
             let len = (width * height) as usize;
-            let mut buf = Vec::with_capacity(len);
-            let slice = slice::from_raw_parts((*pixmap).samples, len);
-            buf.extend_from_slice(slice);
+            let buf = slice::from_raw_parts((*pixmap).samples, len).to_vec();
+
             fz_drop_pixmap(self.ctx.0, pixmap);
-            Some(Bitmap { buf, width, height })
+
+            Some(Pixmap { buf, width, height })
         }
     }
+
     pub fn boundary_box(&self) -> Option<Rectangle> {
         unsafe {
             let mut rect = FzRect::default();
@@ -534,6 +549,7 @@ impl<'a> PdfPage<'a> {
             }
         }
     }
+
     pub fn dims(&self) -> (f32, f32) {
         unsafe {
             let mut bounds = FzRect::default();
@@ -541,10 +557,12 @@ impl<'a> PdfPage<'a> {
             ((bounds.x1 - bounds.x0) as f32, (bounds.y1 - bounds.y0) as f32)
         }
     }
+
     pub fn width(&self) -> f32 {
         let (width, _) = self.dims();
         width
     }
+
     pub fn height(&self) -> f32 {
         let (_, height) = self.dims();
         height

@@ -6,8 +6,9 @@ use std::rc::Rc;
 use std::path::Path;
 use std::ffi::{CStr, CString};
 use std::os::unix::ffi::OsStrExt;
-use geom::Rectangle;
 use document::{Document, TextLayer, LayerGrain, TocEntry};
+use framebuffer::Pixmap;
+use geom::Rectangle;
 use app::APP_NAME;
 
 const DDJVU_JOB_OK: JobStatus = 2;
@@ -123,9 +124,20 @@ struct Message {
     document: *mut ExoDocument,
     page: *mut ExoPage,
     job: *mut ExoJob,
-    data: [u64; 4],
+    u: MessageBlob,
 }
 
+#[repr(C)]
+union MessageBlob {
+    error: MessageError,
+    info: MessageInfo,
+    new_stream: MessageNewStream,
+    chunk: MessageChunk,
+    thumbnail: MessageThumbnail,
+    progress: MessageProgress,
+}
+
+#[derive(Copy, Clone)]
 #[repr(C)]
 struct MessageError {
     message: *const libc::c_char,
@@ -134,11 +146,13 @@ struct MessageError {
     lineno: libc::c_int,
 }
 
+#[derive(Copy, Clone)]
 #[repr(C)]
 struct MessageInfo {
     message: *const libc::c_char,
 }
 
+#[derive(Copy, Clone)]
 #[repr(C)]
 struct MessageNewStream {
     streamid: libc::c_int,
@@ -146,53 +160,23 @@ struct MessageNewStream {
     url: *const libc::c_char,
 }
 
+#[derive(Copy, Clone)]
 #[repr(C)]
 struct MessageChunk {
     chunkid: *const libc::c_char,
 }
 
+#[derive(Copy, Clone)]
 #[repr(C)]
 struct MessageThumbnail {
     pagenum: libc::c_int,
 }
 
+#[derive(Copy, Clone)]
 #[repr(C)]
 struct MessageProgress {
     status: JobStatus,
     percent: libc::c_int,
-}
-
-impl Message {
-    pub fn error(&mut self) -> *mut MessageError {
-        unsafe {
-            mem::transmute(&self.data)
-        }
-    }
-    pub fn info(&mut self) -> *mut MessageInfo {
-        unsafe {
-            mem::transmute(&self.data)
-        }
-    }
-    pub fn new_stream(&mut self) -> *mut MessageNewStream {
-        unsafe {
-            mem::transmute(&self.data)
-        }
-    }
-    pub fn chunk(&mut self) -> *mut MessageChunk {
-        unsafe {
-            mem::transmute(&self.data)
-        }
-    }
-    pub fn thumbnail(&mut self) -> *mut MessageThumbnail {
-        unsafe {
-            mem::transmute(&self.data)
-        }
-    }
-    pub fn progress(&mut self) -> *mut MessageProgress {
-        unsafe {
-            mem::transmute(&self.data)
-        }
-    }
 }
 
 struct DjvuContext(*mut ExoContext);
@@ -215,10 +199,10 @@ impl DjvuContext {
             let msg = ddjvu_message_wait(self.0);
             match (*msg).tag {
                 DDJVU_ERROR => {
-                    let msg = (*msg).error();
-                    let message = CStr::from_ptr((*msg).message).to_string_lossy();
-                    let filename = (*msg).filename;
-                    let lineno = (*msg).lineno;
+                    let msg = (*msg).u.error;
+                    let message = CStr::from_ptr(msg.message).to_string_lossy();
+                    let filename = msg.filename;
+                    let lineno = msg.lineno;
                     if filename.is_null() {
                         eprintln!("Error: {}.", message);
                     } else {
@@ -291,6 +275,34 @@ impl Document for DjvuDocument {
         unsafe { ddjvu_document_get_pagenum(self.doc) as usize }
     }
 
+    fn pixmap(&self, index: usize, scale: f32) -> Option<Pixmap> {
+        self.page(index).and_then(|p| p.pixmap(scale))
+    }
+
+    fn dims(&self, index: usize) -> Option<(f32, f32)> {
+        self.page(index).map(|page| {
+            let dims = page.dims();
+            (dims.0 as f32, dims.1 as f32)
+        })
+    }
+
+    fn toc(&self) -> Option<Vec<TocEntry>> {
+        unsafe {
+            let mut exp = ddjvu_document_get_outline(self.doc);
+            while exp == MINIEXP_DUMMY {
+                self.ctx.handle_message();
+                exp = ddjvu_document_get_outline(self.doc);
+            }
+            if exp == MINIEXP_NIL {
+                None
+            } else {
+                let toc = Self::walk_toc(exp);
+                ddjvu_miniexp_release(self.doc, exp);
+                Some(toc)
+            }
+        }
+    }
+
     fn text(&self, index: usize) -> Option<TextLayer> {
         unsafe {
             let page = self.page(index);
@@ -314,23 +326,6 @@ impl Document for DjvuDocument {
         }
     }
 
-    fn toc(&self) -> Option<Vec<TocEntry>> {
-        unsafe {
-            let mut exp = ddjvu_document_get_outline(self.doc);
-            while exp == MINIEXP_DUMMY {
-                self.ctx.handle_message();
-                exp = ddjvu_document_get_outline(self.doc);
-            }
-            if exp == MINIEXP_NIL {
-                None
-            } else {
-                let toc = Self::walk_toc(exp);
-                ddjvu_miniexp_release(self.doc, exp);
-                Some(toc)
-            }
-        }
-    }
-
     fn title(&self) -> Option<String> {
         self.info("title")
     }
@@ -339,15 +334,11 @@ impl Document for DjvuDocument {
         self.info("author")
     }
 
-    fn dims(&self, index: usize) -> Option<(f32, f32)> {
-        self.page(index).map(|page| {
-            let dims = page.dims();
-            (dims.0 as f32, dims.1 as f32)
-        })
-    }
-
     fn is_reflowable(&self) -> bool {
         false
+    }
+
+    fn layout(&mut self, _: f32, _: f32, _: f32) {
     }
 }
 
@@ -424,10 +415,11 @@ impl DjvuDocument {
                                          .filter(|c| c.is_digit(10))
                                          .collect::<String>();
                 let page = digits.parse::<usize>().unwrap_or(1).saturating_sub(1);
-                let mut children = Vec::new();
-                if miniexp_length(itm) > 2 {
-                    children = Self::walk_toc(itm);
-                }
+                let mut children = if miniexp_length(itm) > 2 {
+                    Self::walk_toc(itm)
+                } else {
+                    Vec::new()
+                };
                 vec.push(TocEntry {
                     title: title,
                     page: page,
@@ -463,23 +455,49 @@ impl DjvuDocument {
 }
 
 impl<'a> DjvuPage<'a> {
-    pub fn render(&self, p_rect: &Rectangle, r_rect: &Rectangle) -> Option<Vec<u8>> {
+    pub fn pixmap(&self, scale: f32) -> Option<Pixmap> {
         unsafe {
-            let r_rect: DjvuRect = (*r_rect).into();
-            let p_rect: DjvuRect = (*p_rect).into();
+            let (width, height) = self.dims();
+            let rect = DjvuRect {
+                x: 0,
+                y: 0,
+                w: (scale * width as f32) as libc::c_uint,
+                h: (scale * height as f32) as libc::c_uint,
+            };
+
             let fmt = ddjvu_format_create(DDJVU_FORMAT_GREY8, 0, ptr::null());
+
+            if fmt.is_null() {
+                return None;
+            }
 
             ddjvu_format_set_row_order(fmt, 1);
             ddjvu_format_set_y_direction(fmt, 1);
 
-            let len = r_rect.w * r_rect.h;
+            let len = rect.w * rect.h;
             let mut buf: Vec<u8> = Vec::with_capacity(len as usize);
+
             ddjvu_page_render(self.page, DDJVU_RENDER_COLOR,
-                              &p_rect, &r_rect, fmt,
-                              r_rect.w as libc::c_ulong, buf.as_mut_ptr());
-            buf.set_len(len as usize);
+                              &rect, &rect, fmt,
+                              rect.w as libc::c_ulong, buf.as_mut_ptr());
+
+            let job = ddjvu_page_job(self.page);
+
+            while ddjvu_job_status(job) < DDJVU_JOB_OK {
+                self.doc.ctx.handle_message();
+            }
+
             ddjvu_format_release(fmt);
-            Some(buf)
+
+            if ddjvu_job_status(job) >= DDJVU_JOB_FAILED {
+                return None;
+            }
+
+            buf.set_len(len as usize);
+
+            Some(Pixmap { width: rect.w as i32,
+                          height: rect.h as i32,
+                          buf })
         }
     }
 

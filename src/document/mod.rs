@@ -8,7 +8,7 @@ use unicode_normalization::char::{is_combining_mark};
 use geom::Rectangle;
 use document::djvu::{DjvuOpener};
 use document::pdf::{PdfOpener};
-use framebuffer::Bitmap;
+use framebuffer::Pixmap;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum LayerGrain {
@@ -38,13 +38,14 @@ pub struct TocEntry {
 
 pub trait Document {
     fn pages_count(&self) -> usize;
+    fn pixmap(&self, index: usize, scale: f32) -> Option<Pixmap>;
+    fn dims(&self, index: usize) -> Option<(f32, f32)>;
     fn toc(&self) -> Option<Vec<TocEntry>>;
     fn text(&self, index: usize) -> Option<TextLayer>;
     fn title(&self) -> Option<String>;
     fn author(&self) -> Option<String>;
-    fn dims(&self, index: usize) -> Option<(f32, f32)>;
-    // fn render(&self, index: usize, scale: f32) -> Option<Bitmap>;
     fn is_reflowable(&self) -> bool;
+    fn layout(&mut self, width: f32, height: f32, em: f32);
 }
 
 pub fn file_kind<P: AsRef<Path>>(path: P) -> Option<String> {
@@ -85,6 +86,7 @@ impl TextLayer {
     }
 }
 
+// TODO: æ => ae, œ => oe, etc.
 pub fn asciify(name: &str) -> String {
     name.nfkd().filter(|&c| !is_combining_mark(c)).collect()
 }
@@ -99,8 +101,14 @@ pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<Document>> {
             },
             _ => {
                 PdfOpener::new()
-                    .and_then(|o| o.open(path)
-                                   .map(|d| Box::new(d) as Box<Document>))
+                    .and_then(|mut o| {
+                        let css_path = Path::new("user.css");
+                        if css_path.exists() && o.set_user_css(css_path).is_err() {
+                            return None;
+                        }
+                        o.open(path)
+                         .map(|d| Box::new(d) as Box<Document>)
+                    })
             },
         }
     })
