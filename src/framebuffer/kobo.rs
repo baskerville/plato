@@ -20,8 +20,8 @@ const FBIOGET_VSCREENINFO: libc::c_ulong = 0x4600;
 const FBIOGET_FSCREENINFO: libc::c_ulong = 0x4602;
 
 // Platform dependent
-const MXCFB_SEND_UPDATE: libc::c_ulong = 0x4044462E;
-const MXCFB_WAIT_FOR_UPDATE_COMPLETE: libc::c_ulong = 0x4004462F;
+const MXCFB_SEND_UPDATE: libc::c_ulong = 0x4044_462E;
+const MXCFB_WAIT_FOR_UPDATE_COMPLETE: libc::c_ulong = 0x4004_462F;
 
 #[repr(C)]
 #[derive(Clone, Debug)]
@@ -162,11 +162,11 @@ const WAVEFORM_MODE_AUTO: u32 = 0x101;
 const NTX_WFM_MODE_INIT: u32  = 0; // Screen goes to white (clears)
 const NTX_WFM_MODE_DU: u32    = 1; // Grey->white/grey->black
 const NTX_WFM_MODE_GC16: u32  = 2; // High fidelity (flashing)
-const NTX_WFM_MODE_GC4: u32   = 3; // For compatibility
+const NTX_WFM_MODE_GC4: u32   = 3;
 const NTX_WFM_MODE_A2: u32    = 4; // Fast but low fidelity
 const NTX_WFM_MODE_GL16: u32  = 5; // High fidelity from white transition
-const NTX_WFM_MODE_GLR16: u32 = 6; // Used for partial REAGL updates
-const NTX_WFM_MODE_GLD16: u32 = 7; // Dithering REAGL
+const NTX_WFM_MODE_GLR16: u32 = 6; // Used for partial REAGL updates?
+const NTX_WFM_MODE_GLD16: u32 = 7; // Dithering REAGL?
 
 const UPDATE_MODE_PARTIAL: u32 = 0x0;
 const UPDATE_MODE_FULL: u32    = 0x1;
@@ -213,13 +213,13 @@ impl Framebuffer for KoboFramebuffer {
     }
 
     // Tell the driver that the screen needs to be redrawn.
-    // The `rect` parameter is ignored for the `Gui` and `Full` modes.
-    // The `Fast` mode only understands the following colors: BLACK and WHITE.
+    // The `rect` parameter is ignored for the `Full` and `Clear` modes.
+    // The `Fast` mode maps everything to BLACK and WHITE.
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32> {
         let (update_mode, waveform_mode) = match mode {
             UpdateMode::Fast    => (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2),
             UpdateMode::Partial => (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO),
-            UpdateMode::Gui     => (UPDATE_MODE_FULL, WAVEFORM_MODE_AUTO),
+            UpdateMode::Gui     => (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO),
             UpdateMode::Full    => (UPDATE_MODE_FULL, NTX_WFM_MODE_GC16),
             UpdateMode::Clear   => (UPDATE_MODE_FULL, NTX_WFM_MODE_INIT),
         };
@@ -278,6 +278,14 @@ impl Framebuffer for KoboFramebuffer {
         let mut writer = encoder.write_header().chain_err(|| "Can't write header")?;
         writer.write_image_data(&(self.as_rgb)(self)).chain_err(|| "Can't write data to file")?;
         Ok(())
+    }
+
+    fn toggle_inverted(&mut self) {
+        self.flags ^= EPDC_FLAG_ENABLE_INVERSION;
+    }
+
+    fn toggle_monochrome(&mut self) {
+        self.flags ^= EPDC_FLAG_FORCE_MONOCHROME;
     }
 }
 
@@ -338,14 +346,6 @@ impl KoboFramebuffer {
         unsafe { slice::from_raw_parts(self.frame as *const u8, self.frame_size) }
     }
 
-    pub fn toggle_inverse(&mut self) {
-        self.flags ^= EPDC_FLAG_ENABLE_INVERSION;
-    }
-
-    pub fn toggle_monochrome(&mut self) {
-        self.flags ^= EPDC_FLAG_FORCE_MONOCHROME;
-    }
-
     pub fn id(&self) -> Cow<str> {
         String::from_utf8_lossy(&self.fix_info.id)
     }
@@ -372,8 +372,8 @@ pub fn set_pixel_rgb_16(fb: &mut KoboFramebuffer, x: u32, y: u32, rgb: [u8; 3]) 
 
     unsafe {
         let spot = fb.frame.offset(addr) as *mut u8;
-        *spot.offset(0) = rgb[2] >> 3 | (rgb[1] & 0b00011100) << 3;
-        *spot.offset(1) = (rgb[0] & 0b11111000) | rgb[1] >> 5;
+        *spot.offset(0) = rgb[2] >> 3 | (rgb[1] & 0b0001_1100) << 3;
+        *spot.offset(1) = (rgb[0] & 0b1111_1000) | rgb[1] >> 5;
     }
 }
 
@@ -400,10 +400,10 @@ fn get_pixel_rgb_16(fb: &KoboFramebuffer, x: u32, y: u32) -> [u8; 3] {
         let spot = fb.frame.offset(addr) as *mut u8;
         [*spot.offset(0), *spot.offset(1)]
     };
-    let r = pair[1] & 0b11111000;
-    let g = ((pair[1] & 0b00000111) << 5) | ((pair[0] & 0b11100000) >> 3);
-    let b = (pair[0] & 0b00011111) << 3;
-    [r, g, b]
+    let red = pair[1] & 0b1111_1000;
+    let green = ((pair[1] & 0b0000_0111) << 5) | ((pair[0] & 0b1110_0000) >> 3);
+    let blue = (pair[0] & 0b0001_1111) << 3;
+    [red, green, blue]
 }
 
 fn get_pixel_rgb_32(fb: &KoboFramebuffer, x: u32, y: u32) -> [u8; 3] {
@@ -422,10 +422,10 @@ fn as_rgb_16(fb: &KoboFramebuffer) -> Vec<u8> {
     let virtual_width = fb.var_info.xres_virtual as usize;
     for (_, pair) in rgb565.chunks(2).take(height as usize * virtual_width).enumerate()
                            .filter(|&(i, _)| i % virtual_width < width as usize) {
-        let r = pair[1] & 0b11111000;
-        let g = ((pair[1] & 0b00000111) << 5) | ((pair[0] & 0b11100000) >> 3);
-        let b = (pair[0] & 0b00011111) << 3;
-        rgb888.extend_from_slice(&[r, g, b]);
+        let red = pair[1] & 0b1111_1000;
+        let green = ((pair[1] & 0b0000_0111) << 5) | ((pair[0] & 0b1110_0000) >> 3);
+        let blue = (pair[0] & 0b0001_1111) << 3;
+        rgb888.extend_from_slice(&[red, green, blue]);
     }
     rgb888
 }
@@ -437,10 +437,10 @@ fn as_rgb_32(fb: &KoboFramebuffer) -> Vec<u8> {
     let virtual_width = fb.var_info.xres_virtual as usize;
     for (_, bgra) in bgra8888.chunks(4).take(height as usize * virtual_width).enumerate()
                            .filter(|&(i, _)| i % virtual_width < width as usize) {
-        let r = bgra[2];
-        let g = bgra[1];
-        let b = bgra[0];
-        rgb888.extend_from_slice(&[r, g, b]);
+        let red = bgra[2];
+        let green = bgra[1];
+        let blue = bgra[0];
+        rgb888.extend_from_slice(&[red, green, blue]);
     }
     rgb888
 }

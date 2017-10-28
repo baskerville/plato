@@ -1,9 +1,8 @@
 mod kobo;
 mod image;
 
-use std::path::Path;
 use geom::{Point, Rectangle, surface_area, lerp};
-use geom::{CornerSpec, BorderSpec};
+use geom::{CornerSpec, BorderSpec, ColorSource};
 use errors::*;
 
 pub use self::kobo::KoboFramebuffer;
@@ -19,7 +18,7 @@ pub enum UpdateMode {
 }
 
 #[derive(Debug, Clone)]
-pub struct Bitmap {
+pub struct Pixmap {
     pub width: i32,
     pub height: i32,
     pub buf: Vec<u8>,
@@ -31,6 +30,8 @@ pub trait Framebuffer {
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32>;
     fn wait(&self, token: u32) -> Result<i32>;
     fn save(&self, path: &str) -> Result<()>;
+    fn toggle_inverted(&mut self);
+    fn toggle_monochrome(&mut self);
 
     fn width(&self) -> u32 {
         let (width, _) = self.dims();
@@ -80,26 +81,38 @@ pub trait Framebuffer {
                             border_color);
     }
 
-    fn draw_blended_bitmap(&mut self, bitmap: &Bitmap, pt: &Point, color: u8) {
-        for y in 0..bitmap.height {
-            for x in 0..bitmap.width {
+    fn draw_pixmap(&mut self, pixmap: &Pixmap, pt: &Point) {
+        for y in 0..pixmap.height {
+            for x in 0..pixmap.width {
                 let px = x + pt.x;
                 let py = y + pt.y;
-                let addr = (y * bitmap.width + x) as usize;
-                let alpha = (255.0 - bitmap.buf[addr] as f32) / 255.0;
-                self.set_blended_pixel(px as u32, py as u32, color, alpha);
+                let addr = (y * pixmap.width + x) as usize;
+                let color = pixmap.buf[addr];
+                self.set_pixel(px as u32, py as u32, color);
             }
         }
     }
 
-    fn draw_bitmap(&mut self, bitmap: &Bitmap, pt: &Point) {
-        for y in 0..bitmap.height {
-            for x in 0..bitmap.width {
+    fn draw_framed_pixmap(&mut self, pixmap: &Pixmap, rect: &Rectangle, pt: &Point) {
+        for y in rect.min.y..rect.max.y {
+            for x in rect.min.x..rect.max.x {
                 let px = x + pt.x;
                 let py = y + pt.y;
-                let addr = (y * bitmap.width + x) as usize;
-                let color = bitmap.buf[addr];
+                let addr = (y * pixmap.width + x) as usize;
+                let color = pixmap.buf[addr];
                 self.set_pixel(px as u32, py as u32, color);
+            }
+        }
+    }
+
+    fn draw_blended_pixmap(&mut self, pixmap: &Pixmap, pt: &Point, color: u8) {
+        for y in 0..pixmap.height {
+            for x in 0..pixmap.width {
+                let px = x + pt.x;
+                let py = y + pt.y;
+                let addr = (y * pixmap.width + x) as usize;
+                let alpha = (255.0 - pixmap.buf[addr] as f32) / 255.0;
+                self.set_blended_pixel(px as u32, py as u32, color, alpha);
             }
         }
     }
@@ -146,7 +159,7 @@ pub trait Framebuffer {
         }
     }
 
-    fn draw_rounded_rectangle_with_border(&mut self, rect: &Rectangle, corners: &CornerSpec, border: &BorderSpec, color: &Fn(i32, i32) -> u8) {
+    fn draw_rounded_rectangle_with_border(&mut self, rect: &Rectangle, corners: &CornerSpec, border: &BorderSpec, color: &ColorSource) {
         let (nw, ne, se, sw) = match *corners {
             CornerSpec::Uniform(v) => (v, v, v, v),
             CornerSpec::North(v) => (v, v, 0, 0),
@@ -172,7 +185,7 @@ pub trait Framebuffer {
             for x in rect.min.x..rect.max.x {
                 let mut alpha = 1.0;
                 let mut pole = None;
-                let mut color = color(x, y);
+                let mut color = color.color(x, y);
                 if x < nw_c.x && y < nw_c.y {
                     pole = Some((nw_c, nw));
                 } else if x >= ne_c.x && y < ne_c.y {

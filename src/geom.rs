@@ -49,12 +49,32 @@ pub enum CornerSpec {
     }
 }
 
+pub trait ColorSource {
+    #[inline]
+    fn color(&self, x: i32, y: i32) -> u8;
+}
+
+impl<F> ColorSource for F where F: Fn(i32, i32) -> u8 {
+    fn color(&self, x: i32, y: i32) -> u8 {
+        (self)(x, y)
+    }
+}
+
+impl ColorSource for u8 {
+    fn color(&self, _: i32, _: i32) -> u8 {
+        *self
+    }
+}
+
+fn color<T: ColorSource>(c: &T, x: i32, y: i32) -> u8 {
+    c.color(x, y)
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct BorderSpec {
     pub thickness: u16,
     pub color: u8,
 }
-
 
 const HALF_PIXEL_DIAGONAL: f32 = consts::SQRT_2 / 2.0;
 

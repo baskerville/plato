@@ -11,6 +11,8 @@ pub struct ImageFramebuffer {
     width: u32,
     height: u32,
     data: Vec<u8>,
+    inverted: bool,
+    monochrome: bool,
 }
 
 impl ImageFramebuffer {
@@ -20,12 +22,28 @@ impl ImageFramebuffer {
             width,
             height,
             data: vec![WHITE; len],
+            inverted: false,
+            monochrome: false,
         }
     }
 
     pub fn clear(&mut self, color: u8) {
         let rect = self.rect();
         self.draw_rectangle(&rect, color);
+    }
+}
+
+#[inline]
+fn transform_color(color: u8, inverted: bool, monochrome: bool) -> u8 {
+    let color = if inverted {
+        255 - color
+    } else {
+        color
+    };
+    if monochrome {
+        (color > 127) as u8 * 255
+    } else {
+        color
     }
 }
 
@@ -62,8 +80,17 @@ impl Framebuffer for ImageFramebuffer {
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set(png::ColorType::Grayscale).set(png::BitDepth::Eight);
         let mut writer = encoder.write_header().chain_err(|| "Can't write header")?;
-        writer.write_image_data(&self.data).chain_err(|| "Can't write data to file")?;
+        let data: Vec<u8> = self.data.iter().map(|c| transform_color(*c, self.inverted, self.monochrome)).collect();
+        writer.write_image_data(&data).chain_err(|| "Can't write data to file")?;
         Ok(())
+    }
+
+    fn toggle_inverted(&mut self) {
+        self.inverted = !self.inverted;
+    }
+
+    fn toggle_monochrome(&mut self) {
+        self.monochrome = !self.monochrome;
     }
 
     fn dims(&self) -> (u32, u32) {
