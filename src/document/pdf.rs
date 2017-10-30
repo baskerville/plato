@@ -25,8 +25,13 @@ error_chain!{
 const CACHE_SIZE: libc::size_t = 32 * 1024 * 1024;
 const FZ_MAX_COLORS: usize = 32;
 const FZ_VERSION: &str = "1.11";
+
 const FZ_META_INFO_AUTHOR: &str = "info:Author";
 const FZ_META_INFO_TITLE: &str = "info:Title";
+
+const FZ_TEXT_PRESERVE_LIGATURES: libc::c_int = 1;
+const FZ_TEXT_PRESERVE_WHITESPACE: libc::c_int = 2;
+const FZ_TEXT_PRESERVE_IMAGES: libc::c_int = 4;
 
 enum FzContext {}
 enum FzDocument {}
@@ -37,7 +42,6 @@ enum FzFont {}
 enum FzColorspace {}
 enum FzAllocContext {}
 enum FzLocksContext {}
-enum FzTextOptions {}
 enum FzCookie {}
 
 #[link(name="mupdf", kind="static")]
@@ -145,6 +149,11 @@ enum FzStoreDropFn {}
 struct FzStorable {
     refs: libc::c_int,
     drop: *mut FzStoreDropFn,
+}
+
+#[repr(C)]
+struct FzTextOptions {
+    flags: libc::c_int,
 }
 
 #[repr(C)]
