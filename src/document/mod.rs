@@ -29,6 +29,13 @@ pub struct TextLayer {
     children: Vec<TextLayer>,
 }
 
+impl TextLayer {
+    fn is_empty(&self) -> bool {
+        self.text.is_none() &&
+            self.children.iter().all(|t| t.is_empty())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TocEntry {
     title: String,
@@ -46,6 +53,9 @@ pub trait Document {
     fn author(&self) -> Option<String>;
     fn is_reflowable(&self) -> bool;
     fn layout(&mut self, width: f32, height: f32, em: f32);
+    fn has_text(&self) -> bool {
+        (0..self.pages_count()).any(|i| self.text(i).map_or(false, |t| !t.is_empty()))
+    }
 }
 
 pub fn file_kind<P: AsRef<Path>>(path: P) -> Option<String> {
