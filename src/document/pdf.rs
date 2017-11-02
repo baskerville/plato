@@ -250,6 +250,8 @@ struct FzOutline {
     title: *mut libc::c_char,
     uri: *mut libc::c_char,
     page: libc::c_int,
+    x: libc::c_float,
+    y: libc::c_float,
     next: *mut FzOutline,
     down: *mut FzOutline,
     is_open: libc::c_int,
