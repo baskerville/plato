@@ -249,7 +249,7 @@ impl Framebuffer for KoboFramebuffer {
             libc::ioctl(self.device.as_raw_fd(), MXCFB_SEND_UPDATE, &update_data)
         };
         match result {
-            -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't update framebuffer")),
+            -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't update framebuffer.")),
             _ => {
                 self.token = self.token.wrapping_add(1);
                 Ok(update_marker)
@@ -263,7 +263,7 @@ impl Framebuffer for KoboFramebuffer {
             libc::ioctl(self.device.as_raw_fd(), MXCFB_WAIT_FOR_UPDATE_COMPLETE, &token)
         };
         match result {
-            -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't wait for framebuffer update")),
+            -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't wait for framebuffer update.")),
             _ => {
                 Ok(result as i32)
             }
@@ -272,11 +272,11 @@ impl Framebuffer for KoboFramebuffer {
 
     fn save(&self, path: &str) -> Result<()> {
         let (width, height) = self.dims();
-        let file = File::create(path).chain_err(|| "Can't create output file")?;
+        let file = File::create(path).chain_err(|| "Can't create output file.")?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set(png::ColorType::RGB).set(png::BitDepth::Eight);
-        let mut writer = encoder.write_header().chain_err(|| "Can't write header")?;
-        writer.write_image_data(&(self.as_rgb)(self)).chain_err(|| "Can't write data to file")?;
+        let mut writer = encoder.write_header().chain_err(|| "Can't write header.")?;
+        writer.write_image_data(&(self.as_rgb)(self)).chain_err(|| "Can't write data to file.")?;
         Ok(())
     }
 
@@ -287,6 +287,14 @@ impl Framebuffer for KoboFramebuffer {
     fn toggle_monochrome(&mut self) {
         self.flags ^= EPDC_FLAG_FORCE_MONOCHROME;
     }
+
+    fn width(&self) -> u32 {
+        self.var_info.xres
+    }
+
+    fn height(&self) -> u32 {
+        self.var_info.yres
+    }
 }
 
 impl KoboFramebuffer {
@@ -294,7 +302,7 @@ impl KoboFramebuffer {
         let device = OpenOptions::new().read(true)
                                        .write(true)
                                        .open(path)
-                                       .chain_err(|| "Can't open framebuffer device")?;
+                                       .chain_err(|| "Can't open framebuffer device.")?;
 
         let var_info = var_screen_info(&device)?;
         let fix_info = fix_screen_info(&device)?;
@@ -319,7 +327,7 @@ impl KoboFramebuffer {
         };
 
         if frame == libc::MAP_FAILED {
-            bail!(Error::with_chain(io::Error::last_os_error(), "Can't map memory"));
+            bail!(Error::with_chain(io::Error::last_os_error(), "Can't map memory."));
         } else {
             let (set_pixel_rgb, get_pixel_rgb, as_rgb): (SetPixelRgb, GetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
                 (set_pixel_rgb_32, get_pixel_rgb_32, as_rgb_32)
@@ -352,14 +360,6 @@ impl KoboFramebuffer {
 
     pub fn length(&self) -> usize {
         self.frame_size as usize
-    }
-
-    pub fn width(&self) -> u32 {
-        self.var_info.xres
-    }
-
-    pub fn height(&self) -> u32 {
-        self.var_info.yres
     }
 }
 
@@ -449,7 +449,7 @@ pub fn fix_screen_info(device: &File) -> Result<FixScreenInfo> {
     let mut info: FixScreenInfo = Default::default();
     let result = unsafe { ioctl(device.as_raw_fd(), FBIOGET_FSCREENINFO, &mut info) };
     match result {
-        -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't get fixed screen info")),
+        -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't get fixed screen info.")),
         _ => Ok(info),
     }
 }
@@ -458,7 +458,7 @@ pub fn var_screen_info(device: &File) -> Result<VarScreenInfo> {
     let mut info: VarScreenInfo = Default::default();
     let result = unsafe { ioctl(device.as_raw_fd(), FBIOGET_VSCREENINFO, &mut info) };
     match result {
-        -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't get variable screen info")),
+        -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't get variable screen info.")),
         _ => Ok(info),
     }
 }
