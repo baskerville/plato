@@ -245,6 +245,7 @@ impl DjvuOpener {
             }
         }
     }
+
     pub fn open<P: AsRef<Path>>(&self, path: P) -> Option<DjvuDocument> {
         unsafe {
             let c_path = CString::new(path.as_ref().as_os_str().as_bytes()).unwrap();
@@ -338,7 +339,7 @@ impl Document for DjvuDocument {
         false
     }
 
-    fn layout(&mut self, _: f32, _: f32, _: f32) {
+    fn layout(&mut self, _width: f32, _height: f32, _em: f32) {
     }
 }
 
@@ -415,7 +416,7 @@ impl DjvuDocument {
                                          .filter(|c| c.is_digit(10))
                                          .collect::<String>();
                 let page = digits.parse::<usize>().unwrap_or(1).saturating_sub(1);
-                let mut children = if miniexp_length(itm) > 2 {
+                let children = if miniexp_length(itm) > 2 {
                     Self::walk_toc(itm)
                 } else {
                     Vec::new()
@@ -474,8 +475,8 @@ impl<'a> DjvuPage<'a> {
             ddjvu_format_set_row_order(fmt, 1);
             ddjvu_format_set_y_direction(fmt, 1);
 
-            let len = rect.w * rect.h;
-            let mut buf: Vec<u8> = Vec::with_capacity(len as usize);
+            let len = (rect.w * rect.h) as usize;
+            let mut buf = vec![0xff; len];
 
             ddjvu_page_render(self.page, DDJVU_RENDER_COLOR,
                               &rect, &rect, fmt,
@@ -492,8 +493,6 @@ impl<'a> DjvuPage<'a> {
             if ddjvu_job_status(job) >= DDJVU_JOB_FAILED {
                 return None;
             }
-
-            buf.set_len(len as usize);
 
             Some(Pixmap { width: rect.w as i32,
                           height: rect.h as i32,
