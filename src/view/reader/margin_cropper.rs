@@ -135,6 +135,7 @@ impl View for MarginCropper {
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 true
             },
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => true,
             Event::Validate => {
                 bus.push_back(Event::CropMargins(Box::new(self.margin())));
                 bus.push_back(Event::Close(ViewId::MarginCropper));
