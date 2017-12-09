@@ -1,24 +1,59 @@
 use std::thread;
+use std::path::Path;
 use std::sync::mpsc;
-use std::sync::mpsc::Sender;
-use std::collections::HashMap;
-use framebuffer::{Framebuffer, UpdateMode};
-use gesture::GestureEvent;
+use std::collections::VecDeque;
+use std::time::Duration;
+use fnv::FnvHashMap;
+use chrono::Local;
+use framebuffer::{Framebuffer, KoboFramebuffer, UpdateMode};
+use view::{View, Event, EntryId, render, render_no_wait, handle_event, fill_crack};
+use input::ButtonCode;
 use input::{raw_events, device_events};
-use input::{DeviceEvent, ButtonCode, ButtonStatus};
-use gesture::gesture_events;
+use gesture::{GestureEvent, gesture_events};
+use helpers::{load_json, save_json};
 use device::CURRENT_DEVICE;
-use font::Fonts;
-use color::WHITE;
-use view::{View, Event, ChildEvent};
+use metadata::{Metadata, METADATA_FILENAME};
+use settings::{Settings, SETTINGS_PATH};
 use view::home::Home;
-use geom::Rectangle;
+use view::reader::Reader;
+use font::Fonts;
 use errors::*;
 
 pub const APP_NAME: &str = "Plato";
 
+const CLOCK_REFRESH_INTERVAL_MS: u64 = 60*1000;
+
+pub struct Context {
+    pub settings: Settings,
+    pub metadata: Metadata,
+    pub fonts: Fonts,
+    pub inverted: bool,
+    pub monochrome: bool,
+}
+
+impl Context {
+    pub fn new(settings: Settings, metadata: Metadata, fonts: Fonts) -> Context {
+        Context { settings, metadata, fonts, inverted: false, monochrome: false }
+    }
+}
+
 pub fn run() -> Result<()> {
-    let mut fb = Framebuffer::new("/dev/fb0")?;
+    let path = Path::new(SETTINGS_PATH);
+
+    let settings = load_json::<Settings, _>(path);
+
+    if let Err(ref e) = settings {
+        if path.exists() {
+            eprintln!("Warning: can't load settings: {}.", e);
+        }
+    }
+
+    let settings = settings.unwrap_or_default();
+
+    let path = settings.library_path.join(METADATA_FILENAME);
+    let metadata = load_json::<Metadata, _>(path).chain_err(|| "Can't load metadata.")?;
+
+    let mut fb = KoboFramebuffer::new("/dev/fb0").chain_err(|| "Can't create framebuffer.")?;
     let paths = vec!["/dev/input/event0".to_string(),
                      "/dev/input/event1".to_string()];
     let input = gesture_events(device_events(raw_events(paths), fb.dims()));
@@ -26,111 +61,111 @@ pub fn run() -> Result<()> {
     let (tx, rx) = mpsc::channel();
     let tx2 = tx.clone();
 
-    // forward gesture events on the main receiver
+    // Forward gesture events on the main receiver.
     thread::spawn(move || {
+        // TODO: Send device events as Event::Device(DeviceEvent)?
         while let Ok(ge) = input.recv() {
-            tx.send(Event::GestureEvent(ge)).unwrap();
+            tx2.send(Event::Gesture(ge)).unwrap();
         }
     });
 
-    let mut fb_rect = fb.rect();
-    fb.clear(WHITE);
-    let tok = fb.update(&fb_rect, UpdateMode::Full)?;
+    let tx3 = tx.clone();
+    thread::spawn(move || {
+        loop {
+            thread::sleep(Duration::from_millis(CLOCK_REFRESH_INTERVAL_MS));
+            tx3.send(Event::ClockTick).unwrap();
+        }
+    });
 
-    let mut fonts = Fonts::default();
+    let fb_rect = fb.rect();
 
-    let mut view: Box<View> = Box::new(Home::new(fb_rect, &mut fonts, &tx2));
-    render(view.as_ref(), &mut fb_rect, &mut fb, &mut fonts);
-    fb.wait(tok)?;
-    let tok = fb.update(&fb_rect, UpdateMode::Gui)?;
-    fb.wait(tok)?;
+    let fonts = Fonts::load().chain_err(|| "Can't load fonts.")?;
 
-    let mut updating = HashMap::new();
+    let mut context = Context::new(settings, metadata, fonts);
+    let mut history: Vec<Box<View>> = Vec::new();
+    let mut view: Box<View> = Box::new(Home::new(fb_rect, &tx, &mut context)?);
+
+    let mut updating = FnvHashMap::default();
 
     println!("{} is running on a Kobo {}.", APP_NAME,
                                             CURRENT_DEVICE.model);
-    println!("The framebuffer resolution is {}x{}.", fb_rect.width(),
+    println!("The framebuffer resolution is {} by {}.", fb_rect.width(),
                                                      fb_rect.height());
 
-    let mut bus = Vec::with_capacity(1);
+    let mut bus = VecDeque::with_capacity(4);
 
     while let Ok(evt) = rx.recv() {
         match evt {
-            Event::GestureEvent(ge) => {
+            Event::Gesture(ge) => {
                 match ge {
-                    GestureEvent::Relay(DeviceEvent::Button { code: ButtonCode::Power,
-                                                              status: ButtonStatus::Pressed, .. }) => break,
-                    _ => { handle_event(view.as_mut(), &evt, &mut bus); },
-                }
-            },
-
-            Event::ChildEvent(ce) => {
-                match ce {
-                    ChildEvent::Render(mut rect, mode) => {
-                        render(view.as_ref(), &mut rect, &mut fb, &mut fonts);
-                        let mut finished = Vec::with_capacity(updating.len());
-                        for (tok, urect) in &updating {
-                            if rect.overlaps(urect) {
-                                fb.wait(*tok)?;
-                                finished.push(*tok);
-                            }
-                        }
-                        for tok in &finished {
-                            updating.remove(&tok);
-                        }
-                        if let Ok(tok) = fb.update(&rect, mode) {
-                            updating.insert(tok, rect);
-                        }
-                    },
-                    ChildEvent::ReplaceRoot(rk) => {
-                    },
+                    GestureEvent::HoldButton(ButtonCode::Power) => break,
                     _ => {
-                        handle_event(view.as_mut(), &evt, &mut bus);
+                        handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut context);
                     },
                 }
             },
+            Event::Render(mut rect, mode) => {
+                render(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
+                if let Ok(tok) = fb.update(&rect, mode) {
+                    updating.insert(tok, rect);
+                }
+            },
+            Event::RenderNoWait(mut rect, mode) => {
+                render_no_wait(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
+                if let Ok(tok) = fb.update(&rect, mode) {
+                    updating.insert(tok, rect);
+                }
+            },
+            Event::Expose(mut rect) => {
+                fill_crack(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
+                if let Ok(tok) = fb.update(&rect, UpdateMode::Gui) {
+                    updating.insert(tok, rect);
+                }
+            },
+            Event::Open(info) => {
+                let info2 = info.clone();
+                if let Some(r) = Reader::new(fb_rect, *info, &tx, &mut context) {
+                    history.push(view as Box<View>);
+                    view = Box::new(r) as Box<View>;
+                } else {
+                    handle_event(view.as_mut(), &Event::Invalid(info2), &tx, &mut bus, &mut context);
+                }
+            },
+            Event::Back => {
+                if let Some(v) = history.pop() {
+                    view = v;
+                }
+                view.handle_event(&evt, &tx, &mut bus, &mut context);
+            },
+            Event::Select(EntryId::ToggleInverted) => {
+                fb.toggle_inverted();
+                context.inverted = !context.inverted;
+                tx.send(Event::Render(fb_rect, UpdateMode::Gui)).unwrap();
+            },
+            Event::Select(EntryId::ToggleMonochrome) => {
+                fb.toggle_monochrome();
+                context.monochrome = !context.monochrome;
+                tx.send(Event::Render(fb_rect, UpdateMode::Gui)).unwrap();
+            },
+            Event::Select(EntryId::TakeScreenshot) => {
+                fb.save(&Local::now().format("screenshot-%Y%m%d_%H%M%S.png").to_string())?;
+            },
+            Event::Select(EntryId::Quit) => {
+                break;
+            },
+            _ => {
+                handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut context);
+            },
         }
 
-        while let Some(ce) = bus.pop() {
-            tx2.send(Event::ChildEvent(ce)).unwrap();
+        while let Some(ce) = bus.pop_front() {
+            tx.send(ce).unwrap();
         }
     }
+
+    // TODO: create a backup of the metadata file before overwriting?
+    let path = context.settings.library_path.join(METADATA_FILENAME);
+    save_json(&context.metadata, path).chain_err(|| "Can't save metadata.")?;
+
     Ok(())
-}
-
-// From bottom to top
-fn render(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &mut Fonts) {
-    if view.len() > 0 {
-        for i in 0..view.len() {
-            render(view.child(i), rect, fb, fonts);
-        }
-    } else {
-        if view.rect().overlaps(rect) {
-            view.render(fb, fonts);
-            rect.absorb(view.rect());
-        }
-    }
-}
-
-// From top to bottom
-fn handle_event(view: &mut View, evt: &Event, parent_bus: &mut Vec<ChildEvent>) -> bool {
-    if view.might_skip(evt) {
-        return false;
-    }
-
-    let mut child_bus: Vec<ChildEvent> = Vec::with_capacity(1);
-
-    for i in (0..view.len()).rev() {
-        if handle_event(view.child_mut(i), evt, &mut child_bus) {
-            break;
-        }
-    }
-
-    for child_evt in child_bus {
-        if !view.handle_event(&Event::ChildEvent(child_evt), parent_bus) {
-            parent_bus.push(child_evt);
-        }
-    }
-
-    view.handle_event(evt, parent_bus)
 }
