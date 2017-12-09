@@ -1,23 +1,23 @@
-use std::sync::mpsc::Sender;
 use fnv::FnvHashMap;
-use device::{CURRENT_DEVICE, BAR_SIZES, KEY_SIZES};
+use device::{CURRENT_DEVICE, BAR_SIZES};
 use framebuffer::Framebuffer;
-use view::{View, Event, ChildEvent, KeyboardEvent, InputKind};
+use gesture::GestureEvent;
+use view::{View, Event, Hub, Bus, KeyboardEvent, TextKind};
 use view::filler::Filler;
 use view::key::{Key, KeyKind};
 use color::KEYBOARD_BG;
-use unit::scale_by_dpi;
 use font::Fonts;
+use app::Context;
 use geom::{Rectangle, LinearDir, halves};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Layout {
     name: String,
     outputs: [OutputKeys<char>; 4],
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct OutputKeys<T> {
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub struct OutputKeys<T: Copy> {
     row1: [T; 10],
     row2: [T; 9],
     row3: [T; 7],
@@ -27,8 +27,8 @@ pub struct Thumbs(OutputKeys<u8>);
 
 #[derive(Default)]
 pub struct State {
-    shift: bool,
-    alternate: bool,
+    shift: u8,
+    alternate: u8,
     combine: bool,
 }
 
@@ -40,45 +40,29 @@ pub struct Keyboard {
     state: State,
 }
 
+use device::optimal_key_setup;
+
 impl Keyboard {
-    pub fn new(rect: Rectangle, layout: Layout) -> Keyboard {
+    pub fn new(rect: &mut Rectangle, layout: Layout) -> Keyboard {
         let mut children = Vec::new();
-        let (width, height) = CURRENT_DEVICE.dims;
         let dpi = CURRENT_DEVICE.dpi;
+        let (side, padding) = optimal_key_setup(rect.width(), rect.height(), dpi);
+
+        let (_, height) = CURRENT_DEVICE.dims;
         let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
-        let &(side, padding, factor) = KEY_SIZES.get(&(width, big_height, dpi)).unwrap();
-        let (small_half_side, big_half_side) = halves(side as i32);
+        let height_gap = (rect.height() - (4 * side + 5 * padding)) / big_height;
+        rect.min.y += (height_gap * big_height) as i32;
+
         let normal_side = (side + padding) as i32;
-        let small_medium_length = small_half_side + (side + 2 * padding) as i32;
-        let big_medium_length = big_half_side + (side + 2 * padding) as i32;
+        let (small_half_side, big_half_side) = halves(normal_side);
+        let (small_medium_length, big_medium_length) = halves(3 * normal_side);
         let large_length = 2 * normal_side;
         let huge_length = 2 * large_length;
-        let remaining_width = width as i32 - 11 * normal_side;
-        let remaining_height = (factor as u32 * big_height) as i32 - 4 * normal_side;
+
+        let remaining_width = rect.width() as i32 - 11 * normal_side;
+        let remaining_height = rect.height() as i32 - 4 * normal_side;
         let (small_half_remaining_width, big_half_remaining_width) = halves(remaining_width);
         let (small_half_remaining_height, big_half_remaining_height) = halves(remaining_height);
-        let filler = Filler::new(rect![rect.min,
-                                       pt!(rect.max.x - big_half_remaining_width,
-                                           rect.min.y + small_half_remaining_height)],
-                                 KEYBOARD_BG);
-        children.push(Box::new(filler) as Box<View>);
-        let filler = Filler::new(rect![pt!(rect.max.x - big_half_remaining_width,
-                                           rect.min.y),
-                                       pt!(rect.max.x,
-                                           rect.max.y - big_half_remaining_height)],
-                                 KEYBOARD_BG);
-        children.push(Box::new(filler) as Box<View>);
-        let filler = Filler::new(rect![pt!(rect.min.x + small_half_remaining_width,
-                                           rect.max.y - big_half_remaining_height),
-                                       rect.max],
-                                 KEYBOARD_BG);
-        children.push(Box::new(filler) as Box<View>);
-        let filler = Filler::new(rect![pt!(rect.min.x,
-                                           rect.min.y + small_half_remaining_height),
-                                       pt!(rect.min.x + small_half_remaining_width,
-                                           rect.max.y)],
-                                 KEYBOARD_BG);
-        children.push(Box::new(filler) as Box<View>);
 
         // Row 1
 
@@ -86,7 +70,9 @@ impl Keyboard {
             let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + i as i32 * normal_side,
                                         small_half_remaining_height);
             let ch = layout.outputs[0].row1[i];
-            let key = Key::new(rect![min_pt, min_pt + normal_side], KeyKind::Output(ch), padding);
+            let key = Key::new(rect![min_pt, min_pt + normal_side],
+                               // KeyKind::Output(ch, (i<<3) as u8), padding);
+                               KeyKind::Output(ch), padding);
             children.push(Box::new(key) as Box<View>);
         }
 
@@ -100,7 +86,9 @@ impl Keyboard {
             let min_pt = rect.min + pt!(small_half_remaining_width + (i + 1) as i32 * normal_side,
                                         small_half_remaining_height + normal_side);
             let ch = layout.outputs[0].row2[i];
-            let key = Key::new(rect![min_pt, min_pt + normal_side], KeyKind::Output(ch), padding);
+            let key = Key::new(rect![min_pt, min_pt + normal_side],
+                               // KeyKind::Output(ch, (i<<3) + 1), padding);
+                               KeyKind::Output(ch), padding);
             children.push(Box::new(key) as Box<View>);
         }
 
@@ -118,7 +106,9 @@ impl Keyboard {
             let min_pt = rect.min + pt!(small_half_remaining_width + (i + 2) as i32 * normal_side,
                                         small_half_remaining_height + 2 * normal_side);
             let ch = layout.outputs[0].row3[i];
-            let key = Key::new(rect![min_pt, min_pt + normal_side], KeyKind::Output(ch), padding);
+            let key = Key::new(rect![min_pt, min_pt + normal_side],
+                               // KeyKind::Output(ch, (i<<3) as u8 + 2), padding);
+                               KeyKind::Output(ch), padding);
             children.push(Box::new(key) as Box<View>);
         }
 
@@ -148,8 +138,61 @@ impl Keyboard {
         let key = Key::new(rect![min_pt, min_pt + pt!(small_medium_length, normal_side)], KeyKind::Move(LinearDir::Forward), padding);
         children.push(Box::new(key) as Box<View>);
 
+        // Boundary Fillers
+        let filler = Filler::new(rect![rect.min,
+                                       pt!(rect.max.x - big_half_remaining_width,
+                                           rect.min.y + small_half_remaining_height)],
+                                 KEYBOARD_BG);
+        children.push(Box::new(filler) as Box<View>);
+        let filler = Filler::new(rect![pt!(rect.max.x - big_half_remaining_width,
+                                           rect.min.y),
+                                       pt!(rect.max.x,
+                                           rect.max.y - big_half_remaining_height)],
+                                 KEYBOARD_BG);
+        children.push(Box::new(filler) as Box<View>);
+        let filler = Filler::new(rect![pt!(rect.min.x + small_half_remaining_width,
+                                           rect.max.y - big_half_remaining_height),
+                                       rect.max],
+                                 KEYBOARD_BG);
+        children.push(Box::new(filler) as Box<View>);
+        let filler = Filler::new(rect![pt!(rect.min.x,
+                                           rect.min.y + small_half_remaining_height),
+                                       pt!(rect.min.x + small_half_remaining_width,
+                                           rect.max.y)],
+                                 KEYBOARD_BG);
+        children.push(Box::new(filler) as Box<View>);
+
+        // In-between Fillers
+        let min_pt = pt!(rect.min.x + small_half_remaining_width,
+                         rect.min.y + small_half_remaining_height);
+        let filler = Filler::new(rect![min_pt, min_pt + pt!(small_half_side,
+                                                            normal_side)],
+                                 KEYBOARD_BG);
+        children.push(Box::new(filler) as Box<View>);
+
+        let min_pt = pt!(rect.min.x + small_half_remaining_width,
+                         rect.max.y - big_half_remaining_height - normal_side);
+        let filler = Filler::new(rect![min_pt, min_pt + pt!(small_half_side,
+                                                            normal_side)],
+                                 KEYBOARD_BG);
+        children.push(Box::new(filler) as Box<View>);
+
+        let min_pt = pt!(rect.max.x - big_half_remaining_width - big_half_side,
+                         rect.min.y + small_half_remaining_height);
+        let filler = Filler::new(rect![min_pt, min_pt + pt!(big_half_side,
+                                                            normal_side)],
+                                 KEYBOARD_BG);
+        children.push(Box::new(filler) as Box<View>);
+
+        let min_pt = pt!(rect.max.x - big_half_remaining_width - big_half_side,
+                         rect.max.y - big_half_remaining_height - normal_side);
+        let filler = Filler::new(rect![min_pt, min_pt + pt!(big_half_side,
+                                                            normal_side)],
+                                 KEYBOARD_BG);
+        children.push(Box::new(filler) as Box<View>);
+
         Keyboard {
-            rect,
+            rect: *rect,
             children,
             layout,
             combine_buffer: String::new(),
@@ -157,105 +200,145 @@ impl Keyboard {
         }
     }
 
-    fn update(&mut self, bus: &mut Vec<ChildEvent>) {
+    fn update(&mut self, hub: &Hub) {
         let mut index = 0;
 
-        if self.state.shift {
+        if self.state.shift > 0 {
             index += 1;
         }
 
-        if self.state.alternate {
+        if self.state.alternate > 0 {
             index += 2;
         }
 
         for i in 0..10usize {
-            if let Some(child) = self.children[i+4].as_mut().downcast_mut::<Key>() {
+            if let Some(child) = self.children[i].as_mut().downcast_mut::<Key>() {
                 let ch = self.layout.outputs[index].row1[i];
-                child.update(KeyKind::Output(ch), bus);
+                child.update(KeyKind::Output(ch), hub);
             }
         }
 
         for i in 0..9usize {
-            if let Some(child) = self.children[i+15].as_mut().downcast_mut::<Key>() {
+            if let Some(child) = self.children[i+11].as_mut().downcast_mut::<Key>() {
                 let ch = self.layout.outputs[index].row2[i];
-                child.update(KeyKind::Output(ch), bus);
+                child.update(KeyKind::Output(ch), hub);
             }
         }
 
         for i in 0..7usize {
-            if let Some(child) = self.children[i+26].as_mut().downcast_mut::<Key>() {
+            if let Some(child) = self.children[i+22].as_mut().downcast_mut::<Key>() {
                 let ch = self.layout.outputs[index].row3[i];
-                child.update(KeyKind::Output(ch), bus);
+                child.update(KeyKind::Output(ch), hub);
             }
+        }
+    }
+
+    fn release_modifiers(&mut self, hub: &Hub) {
+        if self.state.shift != 1 && self.state.alternate != 1 {
+            return;
+        }
+        if self.state.shift == 1 {
+            self.state.shift = 0;
+            if let Some(child) = self.children[21].as_mut().downcast_mut::<Key>() {
+                child.release(hub);
+            }
+        }
+        if self.state.alternate == 1 {
+            self.state.alternate = 0;
+            if let Some(child) = self.children[33].as_mut().downcast_mut::<Key>() {
+                child.release(hub);
+            }
+        }
+        self.update(hub);
+    }
+
+    fn release_combine(&mut self, hub: &Hub) {
+        self.state.combine = false;
+        self.combine_buffer.clear();
+        if let Some(child) = self.children[31].as_mut().downcast_mut::<Key>() {
+            child.release(hub);
         }
     }
 }
 
 impl View for Keyboard {
-    fn handle_event(&mut self, evt: &Event, bus: &mut Vec<ChildEvent>) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::ChildEvent(ChildEvent::Key(k)) => {
+            Event::Key(k) => {
                 match k {
                     KeyKind::Output(ch) => {
                         if self.state.combine {
                             self.combine_buffer.push(ch);
-                            bus.push(ChildEvent::Keyboard(KeyboardEvent::Partial(ch)));
-                            if let Some(&ch) = DEFAULT_COMBINATIONS.get(&self.combine_buffer[..]) {
-                                bus.push(ChildEvent::Keyboard(KeyboardEvent::Append(ch)));
-                                self.state.combine = false;
+                            hub.send(Event::Keyboard(KeyboardEvent::Partial(ch))).unwrap();
+                            if self.combine_buffer.len() > 1 {
+                                if let Some(&ch) = DEFAULT_COMBINATIONS.get(&self.combine_buffer[..]) {
+                                    hub.send(Event::Keyboard(KeyboardEvent::Append(ch))).unwrap();
+                                }
+                                self.release_combine(hub);
                             }
                         } else {
-                            bus.push(ChildEvent::Keyboard(KeyboardEvent::Append(ch)));
+                            hub.send(Event::Keyboard(KeyboardEvent::Append(ch))).unwrap();
                         }
+                        self.release_modifiers(hub);
                     }
                     KeyKind::Shift => {
-                        self.state.shift = !self.state.shift;
-                        self.update(bus);
+                        self.state.shift = (self.state.shift + 1) % 3;
+                        if self.state.shift != 2 {
+                            self.update(hub);
+                        }
                     },
                     KeyKind::Alternate => {
-                        self.state.alternate = !self.state.alternate;
-                        self.update(bus);
+                        self.state.alternate = (self.state.alternate + 1) % 3;
+                        if self.state.alternate != 2 {
+                            self.update(hub);
+                        }
                     },
-                    KeyKind::Delete(dir) => bus.push(ChildEvent::Keyboard(KeyboardEvent::Delete { kind: InputKind::Char, dir })),
-                    KeyKind::Move(dir) => bus.push(ChildEvent::Keyboard(KeyboardEvent::Move { kind: InputKind::Char, dir })),
+                    KeyKind::Delete(dir) => hub.send(Event::Keyboard(KeyboardEvent::Delete { target: TextKind::Char, dir })).unwrap(),
+                    KeyKind::Move(dir) => hub.send(Event::Keyboard(KeyboardEvent::Move { target: TextKind::Char, dir })).unwrap(),
                     KeyKind::Combine => self.state.combine = !self.state.combine,
-                    KeyKind::Return => bus.push(ChildEvent::Keyboard(KeyboardEvent::Submit)),
-                    _ => (),
+                    KeyKind::Return => {
+                        self.release_combine(hub);
+                        hub.send(Event::Keyboard(KeyboardEvent::Submit)).unwrap();
+                    }
                 };
                 true
             },
+            Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => true,
+            Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(start) => true,
             _ => false,
         }
     }
 
     fn might_skip(&self, evt: &Event) -> bool {
         match *evt {
-            Event::ChildEvent(ChildEvent::Keyboard(..)) => true,
-            _ => false
+            Event::Gesture(..) | Event::Key(..) => false,
+            _ => true,
         }
     }
 
-    fn render(&self, _: &mut Framebuffer, _: &mut Fonts) {}
+    // TODO: draw background and remove fillers
+    fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    }
 
     fn rect(&self) -> &Rectangle {
         &self.rect
     }
 
-    fn len(&self) -> usize {
-        self.children.len()
+    fn rect_mut(&mut self) -> &mut Rectangle {
+        &mut self.rect
     }
 
-    fn child(&self, index: usize) -> &View {
-        self.children[index].as_ref()
+    fn children(&self) -> &Vec<Box<View>> {
+        &self.children
     }
 
-    fn child_mut(&mut self, index: usize) -> &mut View {
-        self.children[index].as_mut()
+    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+        &mut self.children
     }
 }
 
 lazy_static! {
-    static ref DEFAULT_LAYOUT: Layout = Layout {
+    pub static ref DEFAULT_LAYOUT: Layout = Layout {
         name: "US_en".to_string(),
         outputs: [
             OutputKeys {
@@ -285,7 +368,7 @@ lazy_static! {
     // The chosen characters come from the layout described by
     // Robert Bringhurst in *The Elements of Typographic Style*,
     // version 3.1, p. 92.
-    static ref DEFAULT_COMBINATIONS: FnvHashMap<&'static str, char> = {
+    pub static ref DEFAULT_COMBINATIONS: FnvHashMap<&'static str, char> = {
         let mut m = FnvHashMap::default();
         m.insert("oe", 'œ');
         m.insert("Oe", 'Œ');

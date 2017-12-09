@@ -1,16 +1,17 @@
-use std::sync::mpsc::Sender;
 use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, UpdateMode};
 use gesture::GestureEvent;
-use input::{DeviceEvent, FingerStatus};
-use view::{View, Event, ChildEvent, KeyboardEvent, InputKind};
-use view::icon::ICONS_BITMAPS;
-use color::{TEXT_NORMAL, TEXT_BUMP_BIG, TEXT_INVERTED, KEYBOARD_BG};
+use input::FingerStatus;
+use view::{View, Event, KeyboardEvent, Hub, Bus, TextKind};
+use view::BORDER_RADIUS_LARGE;
+use view::icon::ICONS_PIXMAPS;
+use color::{TEXT_NORMAL, TEXT_INVERTED_HARD, KEYBOARD_BG};
 use font::{Fonts, font_from_style, KBD_CHAR, KBD_LABEL};
 use geom::{Rectangle, LinearDir, CornerSpec, halves};
+use app::Context;
 use unit::scale_by_dpi;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum KeyKind {
     Output(char),
     Delete(LinearDir),
@@ -23,97 +24,108 @@ pub enum KeyKind {
 
 #[derive(Clone, Debug)]
 pub enum KeyLabel {
-    Char(String),
-    Text(String),
-    Icon(String),
+    Char(char),
+    Text(&'static str),
+    Icon(&'static str),
 }
 
 impl KeyKind {
     pub fn label(&self) -> KeyLabel {
         match *self {
-            KeyKind::Output(chr) => KeyLabel::Char([chr].iter().collect()),
+            KeyKind::Output(ch) => KeyLabel::Char(ch),
             KeyKind::Delete(dir) => {
                 match dir {
-                    LinearDir::Forward => KeyLabel::Icon("delete-forward.svg".to_string()),
-                    LinearDir::Backward => KeyLabel::Icon("delete-backward.svg".to_string()),
+                    LinearDir::Forward => KeyLabel::Icon("delete-forward"),
+                    LinearDir::Backward => KeyLabel::Icon("delete-backward"),
                 }
             },
             KeyKind::Move(dir) => {
                 match dir {
-                    LinearDir::Forward => KeyLabel::Icon("move-forward.svg".to_string()),
-                    LinearDir::Backward => KeyLabel::Icon("move-backward.svg".to_string()),
+                    LinearDir::Forward => KeyLabel::Icon("move-forward"),
+                    LinearDir::Backward => KeyLabel::Icon("move-backward"),
                 }
             },
-            KeyKind::Shift => KeyLabel::Text("SHIFT".to_string()),
-            KeyKind::Return => KeyLabel::Text("RETURN".to_string()),
-            KeyKind::Combine => KeyLabel::Text("CMB".to_string()),
-            KeyKind::Alternate => KeyLabel::Text("ALT".to_string()),
+            KeyKind::Shift => KeyLabel::Text("SHIFT"),
+            KeyKind::Return => KeyLabel::Text("RETURN"),
+            KeyKind::Combine => KeyLabel::Text("CMB"),
+            KeyKind::Alternate => KeyLabel::Text("ALT"),
         }
     }
 }
 
 pub struct Key {
     rect: Rectangle,
+    children: Vec<Box<View>>,
     kind: KeyKind,
     padding: u32,
     active: bool,
-    pressed: bool,
+    pressure: u8,
 }
 
 impl Key {
     pub fn new(rect: Rectangle, kind: KeyKind, padding: u32) -> Key {
         Key {
             rect,
+            children: vec![],
             kind,
             padding,
             active: false,
-            pressed: false,
+            pressure: 0,
         }
     }
 
-    pub fn update(&mut self, kind: KeyKind, bus: &mut Vec<ChildEvent>) {
+    pub fn update(&mut self, kind: KeyKind, hub: &Hub) {
         self.kind = kind;
-        bus.push(ChildEvent::Render(self.rect, UpdateMode::Gui));
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+    }
+
+    pub fn release(&mut self, hub: &Hub) {
+        self.pressure = 0;
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
     }
 }
 
 impl View for Key {
-    fn handle_event(&mut self, evt: &Event, bus: &mut Vec<ChildEvent>) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::GestureEvent(GestureEvent::Relay(de)) => {
-                match de {
-                    DeviceEvent::Finger { status, ref position, .. } => {
-                        match status {
-                            FingerStatus::Down if self.rect.includes(position) => {
-                                self.active = true;
-                                bus.push(ChildEvent::Render(self.rect, UpdateMode::Gui));
-                                false
-                            },
-                            FingerStatus::Up => {
-                                self.active = false;
-                                bus.push(ChildEvent::Render(self.rect, UpdateMode::Gui));
-                                false
-                            },
-                            FingerStatus::Motion => {
-                                let active = self.rect.includes(position);
-                                if active != self.active {
-                                    self.active = active;
-                                    bus.push(ChildEvent::Render(self.rect, UpdateMode::Gui));
-                                }
-                                false
-                            }
-                            _ => false,
-                        }
+            Event::Gesture(GestureEvent::Finger { status, ref position, .. }) => {
+                match status {
+                    FingerStatus::Down if self.rect.includes(position) => {
+                        self.active = true;
+                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::Fast)).unwrap();
+                        true
+                    },
+                    FingerStatus::Up if self.active => {
+                        self.active = false;
+                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).unwrap();
+                        true
                     },
                     _ => false,
                 }
             },
-            Event::GestureEvent(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => {
-                bus.push(ChildEvent::Key(self.kind));
+            Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => {
                 match self.kind {
-                    KeyKind::Shift | KeyKind::Alternate | KeyKind::Combine => self.pressed = !self.pressed,
+                    KeyKind::Shift |
+                    KeyKind::Alternate |
+                    KeyKind::Combine => {
+                        if self.kind == KeyKind::Combine {
+                            self.pressure = (self.pressure + 2) % 4;
+                        } else {
+                            self.pressure = (self.pressure + 1) % 3;
+                        }
+                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).unwrap();
+                    },
                     _ => (),
                 }
+                bus.push_back(Event::Key(self.kind));
+                true
+            },
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
+                match self.kind {
+                    KeyKind::Delete(dir) => hub.send(Event::Keyboard(KeyboardEvent::Delete { target: TextKind::Word, dir })).unwrap(),
+                    KeyKind::Move(dir) => hub.send(Event::Keyboard(KeyboardEvent::Move { target: TextKind::Word, dir })).unwrap(),
+                    _ => (),
+                };
                 true
             },
             _ => false,
@@ -123,22 +135,19 @@ impl View for Key {
     fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         fb.draw_rectangle(&self.rect, KEYBOARD_BG);
-        let scheme: [u8; 3] = if self.active ^ self.pressed {
-            TEXT_INVERTED
+        let scheme: [u8; 3] = if self.active ^ (self.pressure == 2) {
+            TEXT_INVERTED_HARD
         } else {
-            match self.kind {
-                KeyKind::Output(_) => TEXT_NORMAL,
-                _ => TEXT_BUMP_BIG,
-            }
+            TEXT_NORMAL
         };
-        let border_radius = scale_by_dpi(12.0, dpi).max(1.0) as i32;
+        let border_radius = scale_by_dpi(BORDER_RADIUS_LARGE, dpi) as i32;
         let (small_half_padding, big_half_padding) = halves(self.padding as i32);
-        let key_rect = rect![self.rect.min + small_half_padding, self.rect.max - big_half_padding];
+        let key_rect = rect![self.rect.min + big_half_padding, self.rect.max - small_half_padding];
         fb.draw_rounded_rectangle(&key_rect, &CornerSpec::Uniform(border_radius), scheme[0]);
         match self.kind.label() {
-            KeyLabel::Char(value) => {
+            KeyLabel::Char(ch) => {
                 let font = font_from_style(fonts, &KBD_CHAR, dpi);
-                let plan = font.plan(&value, None, None);
+                let plan = font.plan(&ch.to_string(), None, None);
                 let dx = (key_rect.width() - plan.width) as i32 / 2;
                 let dy = (key_rect.height() - font.x_heights.0) as i32 / 2;
                 let pt = pt!(key_rect.min.x + dx, key_rect.max.y - dy);
@@ -146,8 +155,8 @@ impl View for Key {
             },
             KeyLabel::Text(label) => {
                 let font = font_from_style(fonts, &KBD_LABEL, dpi);
-                let mut plan = font.plan(&label, None, None);
-                let letter_spacing = scale_by_dpi(4.0, dpi).max(1.0) as u32;
+                let mut plan = font.plan(label, None, None);
+                let letter_spacing = scale_by_dpi(4.0, dpi) as u32;
                 plan.space_out(letter_spacing);
                 let dx = (key_rect.width() - plan.width) as i32 / 2;
                 let dy = (key_rect.height() - font.x_heights.1) as i32 / 2;
@@ -155,11 +164,11 @@ impl View for Key {
                 font.render(fb, scheme[1], &plan, &pt);
             },
             KeyLabel::Icon(name) => {
-                let bitmap = ICONS_BITMAPS.get(&name[..]).unwrap();
-                let dx = (key_rect.width() as i32 - bitmap.width) / 2;
-                let dy = (key_rect.height() as i32 - bitmap.height) / 2;
+                let pixmap = ICONS_PIXMAPS.get(name).unwrap();
+                let dx = (key_rect.width() as i32 - pixmap.width) / 2;
+                let dy = (key_rect.height() as i32 - pixmap.height) / 2;
                 let pt = key_rect.min + pt!(dx, dy);
-                fb.draw_blended_bitmap(bitmap, &pt, scheme[1]);
+                fb.draw_blended_pixmap(pixmap, &pt, scheme[1]);
             }
         }
     }
@@ -168,15 +177,15 @@ impl View for Key {
         &self.rect
     }
 
-    fn len(&self) -> usize {
-        0
+    fn rect_mut(&mut self) -> &mut Rectangle {
+        &mut self.rect
     }
 
-    fn child(&self, _: usize) -> &View {
-        self
+    fn children(&self) -> &Vec<Box<View>> {
+        &self.children
     }
 
-    fn child_mut(&mut self, _: usize) -> &mut View {
-        self
+    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+        &mut self.children
     }
 }

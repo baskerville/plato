@@ -1,13 +1,15 @@
 use framebuffer::{Framebuffer, UpdateMode};
+use gesture::GestureEvent;
 use view::{View, Event, Hub, Bus, Align};
 use view::icon::Icon;
 use view::filler::Filler;
-use view::home::matches_label::MatchesLabel;
+use view::label::Label;
 use view::page_label::PageLabel;
 use geom::{Rectangle, CycleDir, halves};
+use document::{Document, chapter_at};
 use color::WHITE;
-use app::Context;
 use font::Fonts;
+use app::Context;
 
 #[derive(Debug)]
 pub struct BottomBar {
@@ -18,7 +20,7 @@ pub struct BottomBar {
 }
 
 impl BottomBar {
-    pub fn new(rect: Rectangle, current_page: usize, pages_count: usize, count: usize, filter: bool) -> BottomBar {
+    pub fn new(rect: Rectangle, doc: &Document, current_page: usize, pages_count: usize) -> BottomBar {
         let mut children = Vec::new();
         let side = rect.height() as i32;
         let is_prev_disabled = pages_count < 2 || current_page == 0;
@@ -39,11 +41,18 @@ impl BottomBar {
         }
 
         let (small_half_width, big_half_width) = halves(rect.width() as i32 - 2 * side);
-        let matches_label = MatchesLabel::new(rect![pt!(rect.min.x + side, rect.min.y),
-                                                    pt!(rect.min.x + side + small_half_width, rect.max.y)],
-                                              count,
-                                              filter);
-        children.push(Box::new(matches_label) as Box<View>);
+
+
+        let chapter_rect = rect![pt!(rect.min.x + side, rect.min.y),
+                                 pt!(rect.min.x + side + small_half_width, rect.max.y)];
+
+        let chapter = doc.toc().and_then(|t| chapter_at(&t, current_page))
+                               .map(|c| c.title)
+                               .unwrap_or_else(|| "".to_string());
+        let chapter_label = Label::new(chapter_rect,
+                                       chapter,
+                                       Align::Center);
+        children.push(Box::new(chapter_label) as Box<View>);
 
         let page_label = PageLabel::new(rect![pt!(rect.max.x - side - big_half_width, rect.min.y),
                                               pt!(rect.max.x - side, rect.max.y)],
@@ -73,14 +82,14 @@ impl BottomBar {
         }
     }
 
-    pub fn update_matches_label(&mut self, count: usize, filter: bool, hub: &Hub) {
-        let matches_label = self.children[1].as_mut().downcast_mut::<MatchesLabel>().unwrap();
-        matches_label.update(count, filter, hub);
+    pub fn update_page_label(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
+        let page_label = self.child_mut(2).downcast_mut::<PageLabel>().unwrap();
+        page_label.update(current_page, pages_count, hub);
     }
 
-    pub fn update_page_label(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
-        let page_label = self.children[2].as_mut().downcast_mut::<PageLabel>().unwrap();
-        page_label.update(current_page, pages_count, hub);
+    pub fn update_chapter(&mut self, text: String, hub: &Hub) {
+        let chapter_label = self.child_mut(1).downcast_mut::<Label>().unwrap();
+        chapter_label.update(text, hub);
     }
 
     pub fn update_icons(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
@@ -127,8 +136,12 @@ impl BottomBar {
 }
 
 impl View for BottomBar {
-    fn handle_event(&mut self, _evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
-        false
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+        match *evt {
+            Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => true,
+            Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(start) => true,
+            _ => false,
+        }
     }
 
     fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
