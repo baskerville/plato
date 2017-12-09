@@ -10,19 +10,27 @@ pub enum Dir {
     West,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum DiagDir {
+    NorthWest,
+    NorthEast,
+    SouthEast,
+    SouthWest,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Axis {
     Horizontal,
     Vertical,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CycleDir {
     Next,
     Previous,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum LinearDir {
     Backward,
     Forward,
@@ -50,24 +58,21 @@ pub enum CornerSpec {
 }
 
 pub trait ColorSource {
-    #[inline]
     fn color(&self, x: i32, y: i32) -> u8;
 }
 
 impl<F> ColorSource for F where F: Fn(i32, i32) -> u8 {
+    #[inline]
     fn color(&self, x: i32, y: i32) -> u8 {
         (self)(x, y)
     }
 }
 
 impl ColorSource for u8 {
+    #[inline]
     fn color(&self, _: i32, _: i32) -> u8 {
         *self
     }
-}
-
-fn color<T: ColorSource>(c: &T, x: i32, y: i32) -> u8 {
-    c.color(x, y)
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -189,6 +194,22 @@ impl Point {
                 Dir::South
             } else {
                 Dir::North
+            }
+        }
+    }
+
+    pub fn diag_dir(&self) -> DiagDir {
+        if self.x.is_positive() {
+            if self.y.is_positive() {
+                DiagDir::SouthEast
+            } else {
+                DiagDir::NorthEast
+            }
+        } else {
+            if self.y.is_positive() {
+                DiagDir::SouthWest
+            } else {
+                DiagDir::NorthWest
             }
         }
     }
