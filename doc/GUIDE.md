@@ -2,11 +2,7 @@
 
 The following tools will be used in the examples: [jq](https://stedolan.github.io/jq/), [rsync](https://rsync.samba.org/) and [stest](https://git.suckless.org/dmenu/tree/stest.c).
 
-First build the importer with:
-
-	`cargo build --feature importer --release`
-
-(The resulting binary is in `./target/release`.)
+First build the importer with `cargo build --feature importer --release`. (The resulting binary is in `./target/release`.)
 
 Then, create an empty database with `plato -Z LIBRARY_PATH`.
 
