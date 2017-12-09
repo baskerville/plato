@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use unit::scale_by_dpi;
 use input::TouchProto;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
     AuraH2OEdition2,
     AuraEdition2,
