@@ -2,13 +2,13 @@ extern crate libc;
 
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::os::unix::io::AsRawFd;
-use std::collections::HashMap;
 use std::thread;
 use std::io::Read;
 use std::fs::File;
 use std::slice;
 use std::mem;
 use std::env;
+use fnv::FnvHashMap;
 use device::CURRENT_DEVICE;
 use geom::Point;
 use errors::*;
@@ -62,20 +62,20 @@ pub struct TouchCodes {
     y: u16,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TouchProto {
     Single,
     Multi,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum FingerStatus {
     Down,
     Motion,
     Up,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ButtonStatus {
     Pressed,
     Released,
@@ -119,33 +119,18 @@ pub fn seconds(time: libc::timeval) -> f64 {
     time.tv_sec as f64 + time.tv_usec as f64 / 1e6
 }
 
-pub struct Input {
-    pub events: Receiver<DeviceEvent>,
-    pub dims: (u32, u32),
-}
-
-impl Input {
-    pub fn new(paths: Vec<String>, dims: (u32, u32)) -> Input {
-        let events = device_events(raw_events(paths), dims);
-        Input {
-            events: events,
-            dims: dims,
-        }
-    }
-}
-
 pub fn raw_events(paths: Vec<String>) -> Receiver<InputEvent> {
     let (tx, rx) = mpsc::channel();
-    thread::spawn(move || parse_raw_events(&paths, tx));
+    thread::spawn(move || parse_raw_events(&paths, &tx));
     rx
 }
 
-pub fn parse_raw_events(paths: &[String], tx: Sender<InputEvent>) -> Result<()> {
+pub fn parse_raw_events(paths: &[String], tx: &Sender<InputEvent>) -> Result<()> {
     let mut files = Vec::new();
     let mut pfds = Vec::new();
 
     for path in paths.iter() {
-        let file = File::open(path).chain_err(|| "can't open input file")?;
+        let file = File::open(path).chain_err(|| "Can't open input file.")?;
         let fd = file.as_raw_fd();
         files.push(file);
         pfds.push(libc::pollfd {
@@ -188,7 +173,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
     let mut id = 0;
     let mut position = Point::default();
     let mut pressure = 0;
-    let mut fingers: HashMap<i32, Point> = HashMap::new();
+    let mut fingers: FnvHashMap<i32, Point> = FnvHashMap::default();
     let mut tc = if CURRENT_DEVICE.proto == TouchProto::Multi { MULTI_TOUCH_CODES } else { SINGLE_TOUCH_CODES };
     // Current hypothesis: width > height implies UNSWAP_XY and UNMIRROR_X
     if env::var("PLATO_UNSWAP_XY").is_err() {
