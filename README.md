@@ -4,7 +4,7 @@
 
 It was tested on a *Glo HD* and an *Aura ONE*.
 
-## Supported formats:
+## Supported formats
 
 - PDF, ePUB and CBZ via *mupdf*.
 - DJVU via *djvulibre*.
