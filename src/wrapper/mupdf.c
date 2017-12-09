@@ -9,6 +9,7 @@
     }
 
 WRAP(open_document, fz_document*, NULL, fz_open_document(ctx, path), char *path)
-WRAP(count_pages, int, -1, fz_count_pages(ctx, doc), fz_document *doc)
-WRAP(load_outline, fz_outline*, NULL, fz_load_outline(ctx, doc), fz_document *doc)
 WRAP(load_page, fz_page*, NULL, fz_load_page(ctx, doc, pageno), fz_document *doc, int pageno)
+WRAP(load_outline, fz_outline*, NULL, fz_load_outline(ctx, doc), fz_document *doc)
+WRAP(count_pages, int, -1, fz_count_pages(ctx, doc), fz_document *doc)
+WRAP(new_stext_page_from_page, fz_stext_page*, NULL, fz_new_stext_page_from_page(ctx, page, options), fz_page *page, fz_stext_options *options)

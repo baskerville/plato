@@ -1,8 +1,15 @@
 #! /bin/sh
 
 CC=${CC:-gcc}
-AR=${AR:-ar}
+LD=${LD:-ld}
 
-$CC $CPPFLAGS $CFLAGS -c mupdf.c
-$AR -cr ../../libs/libmupdfwrapper.a mupdf.o
+TARGET_OS=$(uname -s)
+if [ "$TARGET_OS" = "Darwin" ] ; then
+	LIB_EXT=dylib
+else
+	LIB_EXT=so
+fi
+
+$CC $CPPFLAGS $CFLAGS -fPIC -c mupdf.c
+$CC $LDFLAGS -shared -fPIC -o libmupdfwrapper.${LIB_EXT} mupdf.o
 rm mupdf.o
