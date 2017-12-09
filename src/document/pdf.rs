@@ -13,7 +13,6 @@ use std::os::unix::ffi::OsStrExt;
 use document::{Document, TextLayer, LayerGrain, TocEntry};
 use framebuffer::Pixmap;
 use geom::Rectangle;
-use errors::*;
 
 error_chain!{
     foreign_links {
@@ -24,7 +23,7 @@ error_chain!{
 
 const CACHE_SIZE: libc::size_t = 32 * 1024 * 1024;
 const FZ_MAX_COLORS: usize = 32;
-const FZ_VERSION: &str = "1.11";
+const FZ_VERSION: &str = "1.12.0";
 
 const FZ_META_INFO_AUTHOR: &str = "info:Author";
 const FZ_META_INFO_TITLE: &str = "info:Title";
@@ -44,8 +43,8 @@ enum FzAllocContext {}
 enum FzLocksContext {}
 enum FzCookie {}
 
-#[link(name="mupdf", kind="static")]
-#[link(name="mupdfwrapper", kind="static")]
+#[link(name="mupdf")]
+#[link(name="mupdfwrapper")]
 extern {
     fn fz_new_context_imp(alloc_ctx: *const FzAllocContext, locks_ctx: *const FzLocksContext, cache_size: libc::size_t, version: *const libc::c_char) -> *mut FzContext;
     fn fz_drop_context(ctx: *mut FzContext);
@@ -71,9 +70,8 @@ extern {
     fn fz_drop_page(ctx: *mut FzContext, page: *mut FzPage);
     fn fz_bound_page(ctx: *mut FzContext, page: *mut FzPage, rect: *mut FzRect) -> *mut FzRect;
     fn fz_run_page(ctx: *mut FzContext, page: *mut FzPage, dev: *mut FzDevice, mat: *const FzMatrix, cookie: *mut FzCookie);
-    fn fz_new_stext_page(ctx: *mut FzContext) -> *mut FzTextPage;
+    fn mp_new_stext_page_from_page(ctx: *mut FzContext, page: *mut FzPage, options: *const FzTextOptions) -> *mut FzTextPage;
     fn fz_drop_stext_page(ctx: *mut FzContext, tp: *mut FzTextPage);
-    fn fz_new_stext_device(ctx: *mut FzContext, tp: *mut FzTextPage, options: *const FzTextOptions) -> *mut FzDevice;
     fn fz_new_bbox_device(ctx: *mut FzContext, rect: *mut FzRect) -> *mut FzDevice;
     fn fz_new_draw_device(ctx: *mut FzContext, mat: *const FzMatrix, pixmap: *mut FzPixmap) -> *mut FzDevice;
     fn fz_new_draw_device_with_bbox(ctx: *mut FzContext, mat: *const FzMatrix, pixmap: *mut FzPixmap, clip: *const FzRect) -> *mut FzDevice;
@@ -85,8 +83,6 @@ extern {
     fn fz_union_rect(a: *mut FzRect, b: *const FzRect);
     fn fz_runetochar(buf: *mut u8, rune: libc::c_int) -> libc::c_int;
     static fz_identity: FzMatrix;
-    static fz_resources_fonts_droid_DroidSansFallback_ttf_size: libc::c_int;
-    static fz_resources_fonts_droid_DroidSansFallback_ttf: *const libc::c_char;
 }
 
 #[repr(C)]
@@ -156,6 +152,8 @@ struct FzTextOptions {
     flags: libc::c_int,
 }
 
+enum FzSeparations {}
+
 #[repr(C)]
 struct FzPixmap {
     storable: FzStorable,
@@ -163,15 +161,17 @@ struct FzPixmap {
     y: libc::c_int,
     w: libc::c_int,
     h: libc::c_int,
-    n: libc::c_int,
+    n: libc::c_uchar,
+    s: libc::c_uchar,
+    alpha: libc::c_uchar,
+    flags: libc::c_uchar,
     stride: libc::ptrdiff_t,
-    alpha: libc::c_int,
-    interpolate: libc::c_int,
+    seps: *mut FzSeparations,
     xres: libc::c_int,
     yres: libc::c_int,
     colorspace: *mut FzColorspace,
-    samples: *mut u8,
-    free_samples: libc::c_int,
+    samples: *mut libc::c_uchar,
+    underlying: *mut FzPixmap,
 }
 
 impl Default for FzMatrix {
@@ -236,7 +236,6 @@ struct FzTextLine {
 #[repr(C)]
 struct FzTextChar {
     c: libc::c_int,
-    rtl: libc::c_int,
     origin: FzPoint,
     bbox: FzRect,
     size: libc::c_float,
@@ -283,6 +282,7 @@ impl PdfOpener {
         unsafe {
             let version = CString::new(FZ_VERSION).unwrap();
             let ctx = fz_new_context_imp(ptr::null(), ptr::null(), CACHE_SIZE, version.as_ptr());
+
             if ctx.is_null() {
                 None
             } else {
@@ -350,7 +350,7 @@ impl PdfDocument {
                 let title = CStr::from_ptr((*cur).title).to_string_lossy().into_owned();
                 // TODO: handle page == -1
                 let page = (*cur).page as usize;
-                let mut children = if !(*cur).down.is_null() {
+                let children = if !(*cur).down.is_null() {
                     Self::walk_toc((*cur).down)
                 } else {
                     Vec::new()
@@ -369,7 +369,7 @@ impl PdfDocument {
     pub fn info(&self, key: &str) -> Option<String> {
         unsafe {
             let key = CString::new(key).unwrap();
-            let mut buf = [0i8; 256];
+            let mut buf: [libc::c_char; 256] = [0; 256];
             let len = fz_lookup_metadata(self.ctx.0, self.doc, key.as_ptr(), buf.as_mut_ptr(), buf.len() as libc::c_int);
             if len == -1 {
                 None
@@ -433,7 +433,6 @@ impl Document for PdfDocument {
         unsafe { fz_is_document_reflowable(self.ctx.0, self.doc) == 1 }
     }
 
-    // All sizes are in points
     fn layout(&mut self, width: f32, height: f32, em: f32) {
         unsafe {
             fz_layout_document(self.ctx.0, self.doc,
@@ -447,18 +446,10 @@ impl Document for PdfDocument {
 impl<'a> PdfPage<'a> {
     pub fn text(&self) -> Option<TextLayer> {
         unsafe {
-            let tp = fz_new_stext_page(self.ctx.0);
+            let tp = mp_new_stext_page_from_page(self.ctx.0, self.page, ptr::null());
             if tp.is_null() {
                 return None;
             }
-            let dev = fz_new_stext_device(self.ctx.0, tp, ptr::null());
-            if dev.is_null() {
-                fz_drop_stext_page(self.ctx.0, tp);
-                return None;
-            }
-            fz_run_page(self.ctx.0, self.page, dev, &fz_identity, ptr::null_mut());
-            fz_close_device(self.ctx.0, dev);
-            fz_drop_device(self.ctx.0, dev);
             let mut text_page = TextLayer {
                 grain: LayerGrain::Page,
                 rect: Rectangle::default(),

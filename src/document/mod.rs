@@ -2,10 +2,12 @@ pub mod djvu;
 pub mod pdf;
 
 use std::path::Path;
+use std::str::FromStr;
 use fnv::FnvHashSet;
+use isbn::Isbn;
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::{is_combining_mark};
-use geom::Rectangle;
+use geom::{Rectangle, CycleDir};
 use document::djvu::{DjvuOpener};
 use document::pdf::{PdfOpener};
 use framebuffer::Pixmap;
@@ -38,23 +40,102 @@ impl TextLayer {
 
 #[derive(Debug, Clone)]
 pub struct TocEntry {
-    title: String,
-    page: usize,
-    children: Vec<TocEntry>,
+    pub title: String,
+    pub page: usize,
+    pub children: Vec<TocEntry>,
+}
+
+pub fn chapter_at(toc: &[TocEntry], index: usize) -> Option<TocEntry> {
+    let mut chap = None;
+    chapter_at_aux(toc, index, &mut chap);
+    chap.cloned()
+}
+
+fn chapter_at_aux<'a>(toc: &'a [TocEntry], index: usize, chap: &mut Option<&'a TocEntry>) {
+    for entry in toc {
+        if entry.page <= index && (chap.is_none() || entry.page > chap.map(|c| c.page).unwrap()) {
+            *chap = Some(entry);
+        }
+        chapter_at_aux(&entry.children, index, chap);
+    }
+}
+
+pub fn chapter_relative(toc: &[TocEntry], index: usize, dir: CycleDir) -> Option<usize> {
+    let mut page = None;
+    if dir == CycleDir::Next {
+        chapter_relative_next(toc, index, &mut page);
+    } else {
+        chapter_relative_prev(toc, index, &mut page);
+    }
+    page
+}
+
+fn chapter_relative_next<'a>(toc: &'a [TocEntry], index: usize, page: &mut Option<usize>) {
+    for entry in toc {
+        if entry.page > index && (page.is_none() || entry.page < page.unwrap()) {
+            *page = Some(entry.page);
+        }
+
+        chapter_relative_next(&entry.children, index, page);
+    }
+}
+
+fn chapter_relative_prev<'a>(toc: &'a [TocEntry], index: usize, page: &mut Option<usize>) {
+    for entry in toc.iter().rev() {
+        chapter_relative_prev(&entry.children, index, page);
+
+        if entry.page < index && (page.is_none() || entry.page > page.unwrap()) {
+            *page = Some(entry.page);
+        }
+    }
 }
 
 pub trait Document {
     fn pages_count(&self) -> usize;
     fn pixmap(&self, index: usize, scale: f32) -> Option<Pixmap>;
     fn dims(&self, index: usize) -> Option<(f32, f32)>;
+
     fn toc(&self) -> Option<Vec<TocEntry>>;
     fn text(&self, index: usize) -> Option<TextLayer>;
+
     fn title(&self) -> Option<String>;
     fn author(&self) -> Option<String>;
+
     fn is_reflowable(&self) -> bool;
     fn layout(&mut self, width: f32, height: f32, em: f32);
+
     fn has_text(&self) -> bool {
         (0..self.pages_count()).any(|i| self.text(i).map_or(false, |t| !t.is_empty()))
+    }
+
+    fn has_toc(&self) -> bool {
+        self.toc().map_or(false, |v| !v.is_empty())
+    }
+
+    fn isbn(&self) -> Option<String> {
+        let mut found = false;
+        let mut result = None;
+        'pursuit: for index in 0..10 {
+            if let Some(ref text) = self.text(index) {
+                for word in text.words() {
+                    if word.contains("ISBN") {
+                        found = true;
+                        continue;
+                    }
+                    if found && word.len() >= 10 {
+                        let digits: String = word.chars()
+                                                 .filter(|&c| c.is_digit(10) ||
+                                                              c == 'X')
+                                                 .collect();
+                        if let Ok(isbn) = Isbn::from_str(&digits) {
+                            result = Some(isbn.to_string());
+                            break 'pursuit;
+                        }
+                    }
+                }
+            }
+        }
+        result
     }
 }
 
@@ -96,9 +177,15 @@ impl TextLayer {
     }
 }
 
-// TODO: æ => ae, œ => oe, etc.
 pub fn asciify(name: &str) -> String {
-    name.nfkd().filter(|&c| !is_combining_mark(c)).collect()
+    name.nfkd().filter(|&c| !is_combining_mark(c)).collect::<String>()
+        .replace('œ', "oe")
+        .replace('Œ', "OE")
+        .replace('æ', "ae")
+        .replace('Æ', "AE")
+        .replace('—', "-")
+        .replace('–', "-")
+        .replace('’', "'")
 }
 
 pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<Document>> {
