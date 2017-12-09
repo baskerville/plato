@@ -8,8 +8,8 @@ use input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use device::CURRENT_DEVICE;
 use geom::{Point, Dir, Axis};
 
-const JITTER_TOLERANCE_MM: f32 = 1.5;
-const FINGER_HOLD_DELAY_MS: u64 = 700;
+const JITTER_TOLERANCE_MM: f32 = 5.0;
+const FINGER_HOLD_DELAY_MS: u64 = 500;
 const BUTTON_HOLD_DELAY_MS: u64 = 1500;
 
 #[derive(Debug, Copy, Clone)]
@@ -39,9 +39,32 @@ pub enum GestureEvent {
         quarter_turns: i8,
         center: Point,
     },
-    Relay(DeviceEvent),
+    Finger {
+        id: i32,
+        time: f64,
+        status: FingerStatus,
+        position: Point,
+    },
+    Button {
+        time: f64,
+        code: ButtonCode,
+        status: ButtonStatus,
+    },
     HoldFinger(Point),
     HoldButton(ButtonCode),
+}
+
+impl GestureEvent {
+    pub fn from_device_event(evt: DeviceEvent) -> GestureEvent {
+        match evt {
+            DeviceEvent::Finger { id, time, status, position } => {
+                GestureEvent::Finger { id, time, status, position }
+            },
+            DeviceEvent::Button { time, code, status } => {
+                GestureEvent::Button { time, code, status }
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -63,6 +86,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<GestureEvent
     let mut segments: Vec<(Point, Point)> = Vec::new();
     let jitter = CURRENT_DEVICE.dpi as f32 * mm_to_in(JITTER_TOLERANCE_MM);
     while let Ok(evt) = rx.recv() {
+        ty.send(GestureEvent::from_device_event(evt)).unwrap();
         match evt {
             DeviceEvent::Finger { status: FingerStatus::Down, position, id, time } => {
                 let mut ct = contacts.lock().unwrap();
@@ -174,7 +198,6 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<GestureEvent
                 bt.remove(&code);
             },
         }
-        ty.send(GestureEvent::Relay(evt)).unwrap();
     }
 }
 
