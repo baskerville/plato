@@ -1,8 +1,8 @@
 diff --git a/Makefile b/Makefile
-index 7531d39..6c30c62 100644
+index 114a6eb..60b2804 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -322,8 +322,8 @@ $(MUPDF_LIB) : $(MUPDF_OBJ)
+@@ -347,8 +347,8 @@ $(MUPDF_LIB) : $(MUPDF_OBJ)
  $(THIRD_LIB) : $(THIRD_OBJ)
  $(THREAD_LIB) : $(THREAD_OBJ)
  
@@ -13,7 +13,7 @@ index 7531d39..6c30c62 100644
  # --- Tools and Apps ---
  
  MUTOOL_EXE := $(OUT)/mutool
-@@ -469,7 +469,7 @@ cscope.files: $(shell find include source platform -name '*.[ch]')
+@@ -502,7 +502,7 @@ cscope.files: $(shell find include source platform -name '*.[ch]')
  cscope.out: cscope.files
  	cscope -b
  
@@ -23,10 +23,10 @@ index 7531d39..6c30c62 100644
  clean:
  	rm -rf $(OUT)
 diff --git a/Makerules b/Makerules
-index 8616f2f..88e5ed0 100644
+index 5b475a9..d28b32a 100644
 --- a/Makerules
 +++ b/Makerules
-@@ -174,6 +174,34 @@ endif
+@@ -155,6 +155,34 @@ endif
  #   2) do a non cross compile build (e.g. windows in MSVC) first.
  #   3) download the generated files from mupdf.com.
  
@@ -36,8 +36,7 @@ index 8616f2f..88e5ed0 100644
 +LD = arm-linux-gnueabihf-ld
 +AR = arm-linux-gnueabihf-ar
 +AS = arm-linux-gnueabihf-as
-+CFLAGS += -O2 -mcpu=cortex-a9 -mfpu=neon -DTOFU_CJK_LANG -DTOFU_CJK_EXT -DFZ_ENABLE_JS=0
-+LDFLAGS += -L../libs
++CFLAGS += -O2 -fPIC -mcpu=cortex-a9 -mfpu=neon -DTOFU_CJK_LANG -DTOFU_CJK_EXT -DNO_ICC -DFZ_ENABLE_JS=0
 +CROSSCOMPILE=yes
 +HAVE_PTHREAD := yes
 +HAVE_LIBCRYPTO := no
@@ -55,6 +54,7 @@ index 8616f2f..88e5ed0 100644
 +SYS_JBIG2DEC_LIBS := -L../jbig2dec/.libs -ljbig2dec
 +SYS_LIBJPEG_CFLAGS := -I../libjpeg
 +SYS_LIBJPEG_LIBS := -L../libjpeg/.libs -ljpeg
++SYS_ZLIB_CFLAGS := -I../zlib
 +SYS_ZLIB_LIBS := -L../zlib -lz
 +endif
 +
