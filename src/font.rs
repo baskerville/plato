@@ -9,6 +9,9 @@ use std::rc::Rc;
 use geom::Point;
 use framebuffer::Framebuffer;
 
+// Default font size in points
+pub const DEFAULT_FONT_SIZE: f32 = 11.0;
+
 pub const BOLD_THICKNESS_RATIO: f32 = 36.0 / 61.0;
 
 // Font sizes in 1/64th of a point
@@ -83,24 +86,24 @@ pub struct Fonts {
     // fallback: Font,
 }
 
-impl Default for Fonts {
-    fn default() -> Self {
-        let fo = FontOpener::new().unwrap();
-        Fonts {
+impl Fonts {
+    pub fn load() -> Result<Fonts> {
+        let fo = FontOpener::new()?;
+        Ok(Fonts {
             sans_serif: FontFamily {
-                regular: fo.open("fonts/NotoSansUI-Regular.ttf").unwrap(),
-                italic: fo.open("fonts/NotoSansUI-Italic.ttf").unwrap(),
-                bold: fo.open("fonts/NotoSansUI-Bold.ttf").unwrap(),
-                bold_italic: fo.open("fonts/NotoSansUI-BoldItalic.ttf").unwrap(),
+                regular: fo.open("fonts/NotoSansUI-Regular.ttf")?,
+                italic: fo.open("fonts/NotoSansUI-Italic.ttf")?,
+                bold: fo.open("fonts/NotoSansUI-Bold.ttf")?,
+                bold_italic: fo.open("fonts/NotoSansUI-BoldItalic.ttf")?,
             },
             serif: FontFamily {
-                regular: fo.open("fonts/NotoSerif-Regular.ttf").unwrap(),
-                italic: fo.open("fonts/NotoSerif-Italic.ttf").unwrap(),
-                bold: fo.open("fonts/NotoSerif-Bold.ttf").unwrap(),
-                bold_italic: fo.open("fonts/NotoSerif-BoldItalic.ttf").unwrap(),
+                regular: fo.open("fonts/NotoSerif-Regular.ttf")?,
+                italic: fo.open("fonts/NotoSerif-Italic.ttf")?,
+                bold: fo.open("fonts/NotoSerif-Bold.ttf")?,
+                bold_italic: fo.open("fonts/NotoSerif-BoldItalic.ttf")?,
             },
-            keyboard: fo.open("fonts/VarelaRound-Regular.ttf").unwrap(),
-        }
+            keyboard: fo.open("fonts/VarelaRound-Regular.ttf")?,
+        })
     }
 }
 
@@ -138,7 +141,7 @@ pub fn font_from_variant(family: &mut FontFamily, variant: Variant) -> &mut Font
 }
 
 pub fn font_from_style<'a>(fonts: &'a mut Fonts, style: &Style, dpi: u16) -> &'a mut Font {
-    let mut font = match style.family {
+    let font = match style.family {
         Family::SansSerif => {
             let family = &mut fonts.sans_serif;
             font_from_variant(family, style.variant)
@@ -464,7 +467,7 @@ pub struct FontLibrary(*mut FtLibrary);
 pub struct FontOpener(Rc<FontLibrary>);
 
 pub struct Font {
-    lib: Rc<FontLibrary>,
+    _lib: Rc<FontLibrary>,
     face: *mut FtFace,
     font: *mut HbFont,
     size: u32,
@@ -513,7 +516,7 @@ impl FontOpener {
             let ellipsis = RenderPlan::default();
             let x_heights = (0, 0);
             let space_codepoint = FT_Get_Char_Index(face, ' ' as libc::c_ulong);
-            Ok(Font { lib: self.0.clone(), face, font,
+            Ok(Font { _lib: self.0.clone(), face, font,
                       size: 0, dpi: 0, ellipsis, x_heights, space_codepoint })
         }
     }
@@ -529,7 +532,7 @@ impl FontOpener {
             let font = ptr::null_mut();
             let x_heights = (0, 0);
             let space_codepoint = FT_Get_Char_Index(face, ' ' as libc::c_ulong);
-            Ok(Font { lib: self.0.clone(), face, font,
+            Ok(Font { _lib: self.0.clone(), face, font,
                       size: 0, dpi: 0, ellipsis, x_heights, space_codepoint })
         }
     }
@@ -679,14 +682,29 @@ impl Font {
         let mut width = render_plan.width;
         let glyphs = &render_plan.glyphs;
         let mut i = glyphs.len() - 1;
+
         width -= glyphs[i].advance.x as u32;
-        while i > 0 && (width > max_width || glyphs[i].codepoint != self.space_codepoint) {
+
+        while i > 0 && width > max_width {
             i -= 1;
             width -= glyphs[i].advance.x as u32;
         }
+
+        let j = i;
+        let last_width = width;
+
+        while i > 0 && glyphs[i].codepoint != self.space_codepoint {
+            i -= 1;
+            width -= glyphs[i].advance.x as u32;
+        }
+
+        if i == 0 {
+            i = j;
+            width = last_width;
+        }
+
         (i, width)
     }
-
 
     pub fn render(&mut self, fb: &mut Framebuffer, color: u8, render_plan: &RenderPlan, origin: &Point) {
         unsafe {
