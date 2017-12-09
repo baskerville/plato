@@ -1,6 +1,11 @@
 target/
 extra/
+archives/
 resources/
 libs/
-NOTES.md
+fonts/
+settings.json
+user.css
+src/wrapper/*.so
+src/wrapper/*.dylib
 **/*.rs.bk

@@ -4,22 +4,42 @@ name = "plato"
 version = "0.1.0"
 
 [dependencies]
-bitflags = "1.0.0"
+bitflags = "1.0.1"
 downcast-rs = "1.0.0"
 error-chain = "0.11.0"
-fnv = "1.0.5"
+fnv = "1.0.6"
 isbn = "0.1.0"
-lazy_static = "0.2.8"
-libc = "0.2.30"
-png = "0.9.0"
-regex = "0.2.2"
-reqwest = "0.7.3"
-serde = "1.0.14"
-serde_derive = "1.0.14"
-serde_json = "1.0.3"
+lazy_static = "1.0.0"
+libc = "0.2.34"
+png = "0.11.0"
+regex = "0.2.3"
+serde = "1.0.23"
+serde_derive = "1.0.23"
+serde_json = "1.0.8"
 titlecase = "0.10.0"
 unicode-normalization = "0.1.5"
 
 [dependencies.chrono]
 features = ["serde"]
 version = "0.4.0"
+
+[dependencies.getopts]
+optional = true
+version = "0.2.15"
+
+[dependencies.html-entities]
+optional = true
+version = "0.1.0"
+
+[dependencies.reqwest]
+optional = true
+version = "0.8.1"
+
+[features]
+importer = [
+    "reqwest",
+    "html-entities",
+    "getopts",
+]
+[profile.release]
+panic = "abort"
