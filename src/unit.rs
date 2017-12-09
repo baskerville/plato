@@ -21,4 +21,3 @@ pub fn scale_by_dpi_raw(x: f32, dpi: u16) -> f32 {
 pub fn scale_by_dpi(x: f32, dpi: u16) -> f32 {
     scale_by_dpi_raw(x, dpi).round().max(1.0)
 }
-
