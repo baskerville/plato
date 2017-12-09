@@ -26,11 +26,6 @@ impl ImageFramebuffer {
             monochrome: false,
         }
     }
-
-    pub fn clear(&mut self, color: u8) {
-        let rect = self.rect();
-        self.draw_rectangle(&rect, color);
-    }
 }
 
 #[inline]
@@ -63,10 +58,7 @@ impl Framebuffer for ImageFramebuffer {
         self.data[addr] = blended_color;
     }
 
-    fn update(&mut self, _: &Rectangle, mode: UpdateMode) -> Result<u32> {
-        if mode == UpdateMode::Clear {
-            self.clear(WHITE);
-        }
+    fn update(&mut self, _rect: &Rectangle, _mode: UpdateMode) -> Result<u32> {
         Ok(1)
     }
 
@@ -76,12 +68,12 @@ impl Framebuffer for ImageFramebuffer {
 
     fn save(&self, path: &str) -> Result<()> {
         let (width, height) = self.dims();
-        let file = File::create(path).chain_err(|| "Can't create output file")?;
+        let file = File::create(path).chain_err(|| "Can't create output file.")?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set(png::ColorType::Grayscale).set(png::BitDepth::Eight);
-        let mut writer = encoder.write_header().chain_err(|| "Can't write header")?;
+        let mut writer = encoder.write_header().chain_err(|| "Can't write header.")?;
         let data: Vec<u8> = self.data.iter().map(|c| transform_color(*c, self.inverted, self.monochrome)).collect();
-        writer.write_image_data(&data).chain_err(|| "Can't write data to file")?;
+        writer.write_image_data(&data).chain_err(|| "Can't write data to file.")?;
         Ok(())
     }
 

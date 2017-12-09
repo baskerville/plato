@@ -213,15 +213,15 @@ impl Framebuffer for KoboFramebuffer {
     }
 
     // Tell the driver that the screen needs to be redrawn.
-    // The `rect` parameter is ignored for the `Full` and `Clear` modes.
+    // The `rect` parameter is ignored for the `Full` mode.
     // The `Fast` mode maps everything to BLACK and WHITE.
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32> {
         let (update_mode, waveform_mode) = match mode {
-            UpdateMode::Fast    => (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2),
-            UpdateMode::Partial => (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO),
-            UpdateMode::Gui     => (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO),
-            UpdateMode::Full    => (UPDATE_MODE_FULL, NTX_WFM_MODE_GC16),
-            UpdateMode::Clear   => (UPDATE_MODE_FULL, NTX_WFM_MODE_INIT),
+            UpdateMode::Gui |
+            UpdateMode::Partial  => (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO),
+            UpdateMode::Full     => (UPDATE_MODE_FULL, NTX_WFM_MODE_GC16),
+            UpdateMode::Fast |
+            UpdateMode::FastMono => (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2),
         };
         let alt_buffer_data = MxcfbAltBufferData {
             virt_addr: ptr::null(),
@@ -236,14 +236,18 @@ impl Framebuffer for KoboFramebuffer {
             },
         };
         let update_marker = self.token;
+        let mut flags = self.flags;
+        if mode == UpdateMode::FastMono {
+            flags |= EPDC_FLAG_FORCE_MONOCHROME;
+        }
         let update_data = MxcfbUpdateData {
             update_region: (*rect).into(),
-            waveform_mode: waveform_mode,
-            update_mode: update_mode,
-            update_marker: update_marker,
+            waveform_mode,
+            update_mode,
+            update_marker,
             temp: TEMP_USE_AMBIENT,
-            flags: self.flags,
-            alt_buffer_data: alt_buffer_data,
+            flags,
+            alt_buffer_data,
         };
         let result = unsafe {
             libc::ioctl(self.device.as_raw_fd(), MXCFB_SEND_UPDATE, &update_data)

@@ -10,11 +10,11 @@ pub use self::image::ImageFramebuffer;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum UpdateMode {
-    Fast,
-    Partial,
     Gui,
+    Partial,
     Full,
-    Clear,
+    Fast,
+    FastMono,
 }
 
 #[derive(Debug, Clone)]
@@ -52,11 +52,23 @@ pub trait Framebuffer {
         rect![0, 0, width as i32, height as i32]
     }
 
-    #[inline]
+    fn clear(&mut self, color: u8) {
+        let rect = self.rect();
+        self.draw_rectangle(&rect, color);
+    }
+
     fn draw_rectangle(&mut self, rect: &Rectangle, color: u8) {
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
                 self.set_pixel(x as u32, y as u32, color);
+            }
+        }
+    }
+
+    fn draw_blended_rectangle(&mut self, rect: &Rectangle, color: u8, alpha: f32) {
+        for y in rect.min.y..rect.max.y {
+            for x in rect.min.x..rect.max.x {
+                self.set_blended_pixel(x as u32, y as u32, color, alpha);
             }
         }
     }
@@ -96,8 +108,8 @@ pub trait Framebuffer {
     fn draw_framed_pixmap(&mut self, pixmap: &Pixmap, rect: &Rectangle, pt: &Point) {
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
-                let px = x + pt.x;
-                let py = y + pt.y;
+                let px = x - rect.min.x + pt.x;
+                let py = y - rect.min.y + pt.y;
                 let addr = (y * pixmap.width + x) as usize;
                 let color = pixmap.buf[addr];
                 self.set_pixel(px as u32, py as u32, color);
