@@ -1,14 +1,17 @@
 extern crate serde_json;
 
-use std::path::{Path, PathBuf};
-use std::fs::File;
-use std::ops::{Deref, DerefMut};
+use std::path::PathBuf;
 use std::collections::BTreeSet;
 use std::cmp::Ordering;
+use chrono::{Local, DateTime};
 use fnv::FnvHashMap;
 use regex::Regex;
-use chrono::{Local, DateTime};
-use errors::*;
+
+pub const METADATA_FILENAME: &str = ".metadata.json";
+pub const IMPORTED_MD_FILENAME: &str = ".metadata-imported.json";
+pub const MATCHES_MD_FILENAME: &str = ".metadata-matches-%Y%m%d_%H%M%S.json";
+
+pub type Metadata = Vec<Info>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -67,12 +70,69 @@ impl Default for FileInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Margin {
+    pub top: f32,
+    pub right: f32,
+    pub bottom: f32,
+    pub left: f32,
+}
+
+impl Margin {
+    pub fn new(top: f32, right: f32, bottom: f32, left: f32) -> Margin {
+        Margin { top, right, bottom, left }
+    }
+}
+
+impl Default for Margin {
+    fn default() -> Margin {
+        Margin::new(0.0, 0.0, 0.0, 0.0)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReaderInfo {
+    #[serde(with = "simple_date_format")]
     pub opened: DateTime<Local>,
-    pub last_page: usize,
+    pub current_page: usize,
     pub pages_count: usize,
-    pub columns: u8,
+    #[serde(skip_serializing_if = "FnvHashMap::is_empty")]
+    pub cropping_margins: FnvHashMap<usize, Margin>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub font_size: Option<f32>,
+    pub finished: bool,
+}
+
+
+impl ReaderInfo {
+    pub fn progress(&self) -> f32 {
+        (self.current_page + 1) as f32 / self.pages_count as f32
+    }
+
+    pub fn margin_at(&self, index: usize) -> Option<&Margin> {
+        if self.cropping_margins.is_empty() {
+            return None;
+        }
+
+        self.cropping_margins.get(&index).or_else(|| {
+            let parity = index % 2;
+            let mut best_index: i32 = -1;
+
+            for i in self.cropping_margins.keys() {
+                if i % 2 == parity {
+                    best_index = *i as i32;
+                    break;
+                }
+            }
+
+            if best_index < 0 {
+                self.cropping_margins.values().next()
+            } else {
+                let index = best_index as usize;
+                self.cropping_margins.get(&index)
+            }
+        })
+    }
 }
 
 mod simple_date_format {
@@ -96,9 +156,11 @@ impl Default for ReaderInfo {
     fn default() -> Self {
         ReaderInfo {
             opened: Local::now(),
-            last_page: 0,
-            pages_count: 0,
-            columns: 1,
+            current_page: 0,
+            pages_count: 1,
+            font_size: None,
+            cropping_margins: FnvHashMap::default(),
+            finished: false,
         }
     }
 }
@@ -125,67 +187,152 @@ impl Default for Info {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum Status {
+    New,
+    Reading(f32),
+    Finished,
+}
+
 impl Info {
+    pub fn status(&self) -> Status {
+        if let Some(ref r) = self.reader {
+            if r.finished {
+                Status::Finished
+            } else {
+                Status::Reading(r.current_page as f32 / r.pages_count as f32)
+            }
+        } else {
+            Status::New
+        }
+    }
+
+    pub fn file_stem(&self) -> String {
+        self.file.path.file_stem().unwrap().to_string_lossy().into_owned()
+    }
+
+    pub fn author(&self) -> &str {
+        if self.author.is_empty() {
+            "Unknown Author"
+        } else {
+            &self.author
+        }
+    }
+
     pub fn title(&self) -> String {
+        if self.title.is_empty() {
+            return self.file_stem();
+        }
+
         let mut title = self.title.clone();
+
         if !self.number.is_empty() {
             title = format!("{} #{}", title, self.number);
         }
+
         if !self.volume.is_empty() {
             title = format!("{} — vol. {}", title, self.volume);
         }
+
         if !self.subtitle.is_empty() {
-            title = if self.subtitle.chars().next().unwrap().is_alphabetic() {
+            title = if self.subtitle.chars().next().unwrap().is_alphanumeric() &&
+                       title.chars().last().unwrap().is_alphanumeric() {
                 format!("{}: {}", title, self.subtitle)
             } else {
                 format!("{} {}", title, self.subtitle)
             };
         }
+
         title
     }
 
-    pub fn matches(&self, query: &str) -> bool {
-        true
+    // TODO: handle the following case: *Walter M. Miller Jr.*?
+    // NOTE: e.g.: John Le Carré: the space between *Le* and *Carré* is a non-breaking space
+    pub fn alphabetic_author(&self) -> &str {
+        self.author().split(',').next()
+                     .and_then(|a| a.split(' ').last())
+                     .unwrap_or_default()
+    }
+
+    pub fn alphabetic_title(&self) -> &str {
+        let mut start = 0;
+        if let Some(re) = TITLE_PREFIXES.get(self.language.as_str()) {
+            if let Some(m) = re.find(&self.title) {
+                start = m.end()
+            }
+        }
+        &self.title[start..]
+    }
+
+    pub fn label(&self) -> String {
+        format!("{} · {}", self.title(), self.author())
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Metadata(pub Vec<Info>);
-
-impl Deref for Metadata {
-    type Target = Vec<Info>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+pub fn make_query(query: &str) -> Option<Regex> {
+    let query = query.replace('a', "[aáàâä]")
+                     .replace('e', "[eéèêë]")
+                     .replace('i', "[iíìîï]")
+                     .replace('o', "[oóòôö]")
+                     .replace('u', "[uúùûü]")
+                     .replace("ae", "(ae|æ)")
+                     .replace("oe", "(oe|œ)");
+    Regex::new(&format!("(?i){}", query)).ok()
 }
 
-impl DerefMut for Metadata {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl Metadata {
-    pub fn load<P: AsRef<Path>>(path: P) -> Result<Metadata> {
-        let file = File::open(path).chain_err(|| "Can't open metadata file")?;
-        serde_json::from_reader(file).chain_err(|| "Can't parse metadata file")
-    }
-
-    pub fn categories(&self) -> BTreeSet<String> {
-        self.0.iter().flat_map(|info| info.categories.clone()).collect()
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SortMethod {
     Opened,
     Added,
-    Size,
+    Progress,
     Author,
+    Title,
     Year,
+    Size,
     Kind,
     Pages,
-    Title,
+}
+
+impl SortMethod {
+    pub fn reverse_order(&self) -> bool {
+        match *self {
+            SortMethod::Author | SortMethod::Title | SortMethod::Kind => false,
+            _ => true,
+        }
+    }
+
+    pub fn label(&self) -> &str {
+        match *self {
+            SortMethod::Opened => "Date Opened",
+            SortMethod::Added => "Date Added",
+            SortMethod::Progress => "Progress",
+            SortMethod::Author => "Author",
+            SortMethod::Title => "Title",
+            SortMethod::Year => "Year",
+            SortMethod::Size => "File Size",
+            SortMethod::Kind => "File Type",
+            SortMethod::Pages => "Pages",
+        }
+    }
+}
+
+pub fn sort(md: &mut Metadata, sort_method: SortMethod, reverse_order: bool) {
+    let sort_fn: fn(&Info, &Info) -> Ordering = match sort_method {
+        SortMethod::Opened => sort_opened,
+        SortMethod::Added => sort_added,
+        SortMethod::Progress => sort_progress,
+        SortMethod::Author => sort_author,
+        SortMethod::Title => sort_title,
+        SortMethod::Year => sort_year,
+        SortMethod::Size => sort_size,
+        SortMethod::Kind => sort_kind,
+        SortMethod::Pages => sort_pages,
+    };
+    if reverse_order {
+        md.sort_by(|a, b| sort_fn(a, b).reverse());
+    } else {
+        md.sort_by(sort_fn);
+    }
 }
 
 pub fn sort_opened(i1: &Info, i2: &Info) -> Ordering {
@@ -197,6 +344,45 @@ pub fn sort_opened(i1: &Info, i2: &Info) -> Ordering {
     }
 }
 
+
+pub fn sort_pages(i1: &Info, i2: &Info) -> Ordering {
+    match (&i1.reader, &i2.reader) {
+        (&None, &None) => Ordering::Equal,
+        (&None, &Some(_)) => Ordering::Less,
+        (&Some(_), &None) => Ordering::Greater,
+        (&Some(ref r1), &Some(ref r2)) => r1.pages_count.cmp(&r2.pages_count),
+    }
+}
+
+pub fn sort_added(i1: &Info, i2: &Info) -> Ordering {
+    i1.added.cmp(&i2.added)
+}
+
+// FIXME: 'Z'.cmp('É') equals Ordering::Less
+pub fn sort_author(i1: &Info, i2: &Info) -> Ordering {
+    i1.alphabetic_author().cmp(i2.alphabetic_author())
+}
+
+pub fn sort_title(i1: &Info, i2: &Info) -> Ordering {
+    i1.alphabetic_title().cmp(i2.alphabetic_title())
+}
+
+// Ordering: Finished < New < Reading
+pub fn sort_progress(i1: &Info, i2: &Info) -> Ordering {
+    match (i1.status(), i2.status()) {
+        (Status::Finished, Status::Finished) => Ordering::Equal,
+        (Status::New, Status::New) => Ordering::Equal,
+        (Status::New, Status::Finished) => Ordering::Greater,
+        (Status::Finished, Status::New) => Ordering::Less,
+        (Status::New, Status::Reading(..)) => Ordering::Less,
+        (Status::Reading(..), Status::New) => Ordering::Greater,
+        (Status::Finished, Status::Reading(..)) => Ordering::Less,
+        (Status::Reading(..), Status::Finished) => Ordering::Greater,
+        (Status::Reading(p1), Status::Reading(p2)) => p1.partial_cmp(&p2)
+                                                        .unwrap_or(Ordering::Equal),
+    }
+}
+
 pub fn sort_size(i1: &Info, i2: &Info) -> Ordering {
     i1.file.size.cmp(&i2.file.size)
 }
@@ -205,25 +391,14 @@ pub fn sort_kind(i1: &Info, i2: &Info) -> Ordering {
     i1.file.kind.cmp(&i2.file.kind)
 }
 
-pub fn sort_added(i1: &Info, i2: &Info) -> Ordering {
-    i1.added.cmp(&i2.added)
-}
-
-pub fn combine_sort_methods<'a, T, F1, F2>(mut f1: F1, mut f2: F2) -> Box<FnMut(&T, &T) -> Ordering + 'a>
-where F1: FnMut(&T, &T) -> Ordering + 'a,
-      F2: FnMut(&T, &T) -> Ordering + 'a {
-    Box::new(move |x, y| {
-        match f1(x, y) {
-            ord @ Ordering::Less | ord @ Ordering::Greater => ord,
-            Ordering::Equal => f2(x, y),
-        }
-    })
+pub fn sort_year(i1: &Info, i2: &Info) -> Ordering {
+    i1.year.cmp(&i2.year)
 }
 
 lazy_static! {
     pub static ref TITLE_PREFIXES: FnvHashMap<&'static str, Regex> = {
         let mut p = FnvHashMap::default();
-        p.insert("english", Regex::new(r"^(The|An?)\s").unwrap());
+        p.insert("", Regex::new(r"^(The|An?)\s").unwrap());
         p.insert("french", Regex::new(r"^(Les?\s|La\s|L['’]|Une?\s|Des?\s|Du\s)").unwrap());
         p
     };
