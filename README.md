@@ -1,13 +1,16 @@
-*plato* might become a document reader for Kobo's e-ink devices.
+![logo](artworks/plato-logo.svg)
 
-## Goals
+*plato* is a document reader for *Kobo*'s e-ink devices.
 
-- Supported formats:
-	- DJVU via djvulibre.
-	- PDF, CBZ and EPUB via mupdf.
-- Features:
-	- Scroll by screen within a stream of pages.
-	- Crop margins.
-	- Fit to width.
-	- Rotate.
-	- User defined metadata.
+It was tested on a *Glo HD* and an *Aura ONE*.
+
+## Supported formats:
+
+	- PDF, ePUB and CBZ via *mupdf*.
+	- DJVU via *djvulibre*.
+
+## Features
+
+	- Hierarchical categories.
+	- The metadata for each document is read from a single JSON file.
+	- Crop margins of non-reflowable documents.
