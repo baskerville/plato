@@ -66,3 +66,5 @@ The default library path is `/mnt/onboard/books`. If your library lives somewher
 	"libraryPath": "EREADER_LIBRARY_PATH"
 }
 ```
+
+If there's a `user.css` in same directory as the program's binary, it will be used for all the reflowable formats.
