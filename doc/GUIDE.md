@@ -68,3 +68,16 @@ The default library path is `/mnt/onboard/books`. If your library lives somewher
 ```
 
 If there's a `user.css` in same directory as the program's binary, it will be used for all the reflowable formats.
+
+# Installation
+
+Install [fmon](https://github.com/baskerville/fmon).
+
+Then extract the archive given on the release page to the root of the SD card:
+
+```sh
+unzip plato.zip -d SD_ROOT
+
+```
+
+The *icon* should be imported when you eject the card. Follow the instruction given on the *fmon* page on how to handle it.
