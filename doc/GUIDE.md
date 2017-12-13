@@ -1,3 +1,15 @@
+## Preliminary
+
+Install the required libraries: *mupdf* and *djvulibre*.
+
+Then build the *mupdf* wrapper in `src/wrapper`:
+
+```
+CFLAGS='-I/path/to/mupdf/include' LDFLAGS='-lmupdf' ./build
+```
+
+And put the generated library in `libs`.
+
 ## Importation
 
 The following tools will be used in the examples: [jq](https://stedolan.github.io/jq/), [rsync](https://rsync.samba.org/) and [stest](https://git.suckless.org/dmenu/tree/stest.c).
