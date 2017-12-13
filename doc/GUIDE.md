@@ -81,7 +81,7 @@ The default library path is `/mnt/onboard/books`. If your library lives somewher
 
 If there's a `user.css` in same directory as the program's binary, it will be used for all the reflowable formats.
 
-# Installation
+## Installation
 
 Install [fmon](https://github.com/baskerville/fmon).
 
