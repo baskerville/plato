@@ -91,10 +91,10 @@ impl Fonts {
         let fo = FontOpener::new()?;
         Ok(Fonts {
             sans_serif: FontFamily {
-                regular: fo.open("fonts/NotoSansUI-Regular.ttf")?,
-                italic: fo.open("fonts/NotoSansUI-Italic.ttf")?,
-                bold: fo.open("fonts/NotoSansUI-Bold.ttf")?,
-                bold_italic: fo.open("fonts/NotoSansUI-BoldItalic.ttf")?,
+                regular: fo.open("fonts/NotoSans-Regular.ttf")?,
+                italic: fo.open("fonts/NotoSans-Italic.ttf")?,
+                bold: fo.open("fonts/NotoSans-Bold.ttf")?,
+                bold_italic: fo.open("fonts/NotoSans-BoldItalic.ttf")?,
             },
             serif: FontFamily {
                 regular: fo.open("fonts/NotoSerif-Regular.ttf")?,
