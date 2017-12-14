@@ -1,3 +1,9 @@
+## Introduction
+
+You'll need two pieces of information to get started:
+- A database that describes the content of your library.
+- A configuration file if your library path doesn't match the default path.
+
 ## Preliminary
 
 Install the required libraries: *mupdf* and *djvulibre*.
@@ -10,7 +16,7 @@ CFLAGS='-I/path/to/mupdf/include' LDFLAGS='-lmupdf' ./build
 
 And put the generated library in `libs`.
 
-## Importation
+## Import Metadata
 
 The following tools will be used in the examples: [jq](https://stedolan.github.io/jq/), [rsync](https://rsync.samba.org/) and [stest](https://git.suckless.org/dmenu/tree/stest.c).
 
@@ -20,11 +26,11 @@ Then, create an empty database with `plato -Z LIBRARY_PATH`.
 
 If the command runs successfully, a file named `.metadata.json` will appear in the given directory.
 
-The initial importation is done with `plato -I LIBRARY_PATH`. What this does is to search for files in `LIBRARY_PATH` that aren't referenced by `.metadata.json` and save the results in `.metadata-imported.json`.
+The initial import is done with `plato -I LIBRARY_PATH`. What this does is to search for files in `LIBRARY_PATH` that aren't referenced by `.metadata.json` and save the results in `.metadata-imported.json`.
 
 At this stage the imported metadata contains the following keys:
 
-- `added`: the date of importation.
+- `added`: the date of import.
 - `file`: an object with the following keys:
 	- `path`: the path of the document relative to `LIBRARY_PATH`.
 	- `kind`: the lowercased file extension.
@@ -45,6 +51,8 @@ And then we'll try to retrieve information for each book: `plato -R LIBRARY_PATH
 The final step, cleaning up, is achieved with `plato -C LIBRARY_PATH`.
 
 I would recommend adding binding to your text editor to open files at the cursor position (using the double quote characters as boundary) so you can quickly fill out missing information in `.metadata-imported.json`.
+
+## Library Synchronization
 
 Now you can merge the imported metadata:
 
@@ -81,7 +89,7 @@ The default library path is `/mnt/onboard/books`. If your library lives somewher
 
 If there's a `user.css` in same directory as the program's binary, it will be used for all the reflowable formats.
 
-## Installation
+## Install
 
 Install [fmon](https://github.com/baskerville/fmon).
 
@@ -93,3 +101,7 @@ unzip plato.zip -d SD_ROOT
 ```
 
 The *icon* should be imported when you eject the card. Follow the instruction given on the *fmon* page on how to handle it.
+
+## Uninstall
+
+Within the *Kobo* environment, remove `plato.png`.
