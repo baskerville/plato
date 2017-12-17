@@ -1,4 +1,5 @@
 use std::thread;
+use std::fs::{self, File};
 use std::path::Path;
 use std::sync::mpsc;
 use std::collections::VecDeque;
@@ -7,12 +8,12 @@ use fnv::FnvHashMap;
 use chrono::Local;
 use framebuffer::{Framebuffer, KoboFramebuffer, UpdateMode};
 use view::{View, Event, EntryId, render, render_no_wait, handle_event, fill_crack};
-use input::ButtonCode;
-use input::{raw_events, device_events};
+use input::{DeviceEvent, ButtonCode};
+use input::{raw_events, device_events, usb_events};
 use gesture::{GestureEvent, gesture_events};
 use helpers::{load_json, save_json};
 use device::CURRENT_DEVICE;
-use metadata::{Metadata, METADATA_FILENAME};
+use metadata::{Metadata, METADATA_FILENAME, import};
 use settings::{Settings, SETTINGS_PATH};
 use view::home::Home;
 use view::reader::Reader;
@@ -51,29 +52,38 @@ pub fn run() -> Result<()> {
     let settings = settings.unwrap_or_default();
 
     let path = settings.library_path.join(METADATA_FILENAME);
-    let metadata = load_json::<Metadata, _>(path).chain_err(|| "Can't load metadata.")?;
+    let metadata = load_json::<Metadata, _>(path)
+                             .map_err(|e| eprintln!("Can't load metadata: {}.", e))
+                             .or_else(|_| import(&settings.library_path, &vec![]))
+                             .unwrap_or_default();
 
     let mut fb = KoboFramebuffer::new("/dev/fb0").chain_err(|| "Can't create framebuffer.")?;
     let paths = vec!["/dev/input/event0".to_string(),
                      "/dev/input/event1".to_string()];
-    let input = gesture_events(device_events(raw_events(paths), fb.dims()));
+    let touch_screen = gesture_events(device_events(raw_events(paths), fb.dims()));
+    let usb_port = usb_events();
 
     let (tx, rx) = mpsc::channel();
     let tx2 = tx.clone();
 
-    // Forward gesture events on the main receiver.
     thread::spawn(move || {
-        // TODO: Send device events as Event::Device(DeviceEvent)?
-        while let Ok(ge) = input.recv() {
-            tx2.send(Event::Gesture(ge)).unwrap();
+        while let Ok(evt) = touch_screen.recv() {
+            tx2.send(evt).unwrap();
         }
     });
 
     let tx3 = tx.clone();
     thread::spawn(move || {
+        while let Ok(evt) = usb_port.recv() {
+            tx3.send(Event::Device(evt)).unwrap();
+        }
+    });
+
+    let tx4 = tx.clone();
+    thread::spawn(move || {
         loop {
             thread::sleep(Duration::from_millis(CLOCK_REFRESH_INTERVAL_MS));
-            tx3.send(Event::ClockTick).unwrap();
+            tx4.send(Event::ClockTick).unwrap();
         }
     });
 
@@ -96,6 +106,15 @@ pub fn run() -> Result<()> {
 
     while let Ok(evt) = rx.recv() {
         match evt {
+            Event::Device(de) => {
+                match de {
+                    DeviceEvent::Plug => (),
+                    DeviceEvent::Unplug => (),
+                    _ => {
+                        handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut context);
+                    }
+                }
+            },
             Event::Gesture(ge) => {
                 match ge {
                     GestureEvent::HoldButton(ButtonCode::Power) => break,
@@ -150,7 +169,21 @@ pub fn run() -> Result<()> {
             Event::Select(EntryId::TakeScreenshot) => {
                 fb.save(&Local::now().format("screenshot-%Y%m%d_%H%M%S.png").to_string())?;
             },
-            Event::Select(EntryId::Quit) => {
+            Event::Select(EntryId::Suspend) => {
+            },
+            Event::Select(EntryId::PowerOff) => {
+                let _ = File::create("poweroff").map_err(|e| {
+                    eprintln!("Couldn't create the poweroff file: {}.", e);
+                }).ok();
+                break;
+            },
+            Event::Select(EntryId::Reboot) => {
+                break;
+            },
+            Event::Select(EntryId::StartNickel) | Event::Select(EntryId::Quit) => {
+                fs::remove_file("bootlock").map_err(|e| {
+                    eprintln!("Couldn't remove the bootlock file: {}.", e);
+                }).ok();
                 break;
             },
             _ => {

@@ -13,7 +13,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            library_path: PathBuf::from("/mnt/onboard/books"),
+            library_path: PathBuf::from("/mnt/onboard"),
             refresh_every: Some(24),
             summary_size: 1,
         }

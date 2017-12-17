@@ -1,5 +1,45 @@
+#![recursion_limit = "1024"]
+
+#[macro_use]
+extern crate error_chain;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate serde_json;
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate bitflags;
+#[macro_use]
+extern crate downcast_rs;
+extern crate unicode_normalization;
+extern crate libc;
+extern crate regex;
+extern crate isbn;
+extern crate titlecase;
+extern crate fnv;
+extern crate png;
+extern crate chrono;
 extern crate reqwest;
+extern crate getopts;
+extern crate html_entities;
+
+#[macro_use]
+mod geom;
+mod unit;
+mod color;
+mod font;
+mod input;
+mod gesture;
+mod framebuffer;
+mod device;
+mod view;
+mod app;
+mod helpers;
+mod document;
+mod metadata;
+mod symbolic_path;
+mod settings;
 
 use std::env;
 use std::fs;
@@ -8,13 +48,23 @@ use std::path::{self, Path, PathBuf};
 use regex::Regex;
 use fnv::FnvHashSet;
 use getopts::Options;
+use html_entities::decode_html_entities;
 use titlecase::titlecase;
 use helpers::{load_json, save_json};
 use metadata::{Info, FileInfo, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
+use metadata::{import};
 use document::{Document, file_kind, open, asciify};
-use html_entities::decode_html_entities;
-use symbolic_path;
 use errors::*;
+
+mod errors {
+    error_chain!{
+        links {
+            Font(::font::Error, ::font::ErrorKind);
+        }
+    }
+}
+
+quick_main!(run);
 
 pub fn run() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -38,7 +88,7 @@ pub fn run() -> Result<()> {
     )?;
 
     if matches.opt_present("h") {
-        println!("{}", opts.usage("Usage: plato -h|-I|-S|-R[s]|-M|-C|-N|-Z [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH"));
+        println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-C|-N|-Z [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH"));
         return Ok(());
     }
 
@@ -91,33 +141,6 @@ pub fn run() -> Result<()> {
     }
 
     Ok(())
-}
-
-pub fn import(dir: &Path, metadata: &Metadata) -> Result<Metadata> {
-    let files = find_files(dir, dir)?;
-    let known: FnvHashSet<PathBuf> = metadata.iter()
-                                             .map(|info| info.file.path.clone())
-                                             .collect();
-    let mut metadata = Vec::new();
-
-    for file_info in &files {
-        if !known.contains(&file_info.path) {
-            println!("{}", file_info.path.display());
-            let mut info = Info::default();
-            info.file = file_info.clone();
-            if let Some(p) = info.file.path.parent() {
-                let categ = p.to_string_lossy()
-                             .replace(symbolic_path::PATH_SEPARATOR, "")
-                             .replace(path::MAIN_SEPARATOR, &symbolic_path::PATH_SEPARATOR.to_string());
-                if !categ.is_empty() {
-                    info.categories = [categ].iter().cloned().collect();
-                }
-            }
-            metadata.push(info);
-        }
-    }
-
-    Ok(metadata)
 }
 
 pub fn extract_isbn(dir: &Path, metadata: &mut Metadata) {
@@ -262,35 +285,4 @@ pub fn file_name_from_info(info: &Info) -> String {
 pub fn label_from_path(path: &Path) -> String {
     path.file_stem().and_then(|p| p.to_str())
         .map(|t| t.replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '\'', " ")).unwrap_or_default()
-}
-
-pub fn find_files(root: &Path, dir: &Path) -> Result<Vec<FileInfo>> {
-    let mut result = Vec::new();
-
-    for entry in fs::read_dir(dir).chain_err(|| "Can't read directory.")? {
-        let entry = entry.chain_err(|| "Can't read directory entry.")?;
-        let path = entry.path();
-
-        if path.is_dir() {
-            result.extend_from_slice(&find_files(root, path.as_path())?);
-        } else {
-            if entry.file_name().to_string_lossy().starts_with('.') {
-                continue;
-            }
-
-            let relat = path.strip_prefix(root).unwrap().to_path_buf();
-            let kind = file_kind(path).unwrap_or_default();
-            let size = entry.metadata().map(|m| m.len()).unwrap_or_default();
-
-            result.push(
-                FileInfo {
-                    path: relat,
-                    kind,
-                    size,
-                }
-            );
-        }
-    }
-
-    Ok(result)
 }

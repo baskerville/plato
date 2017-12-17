@@ -20,12 +20,6 @@ extern crate fnv;
 extern crate png;
 extern crate isbn;
 extern crate titlecase;
-#[cfg(feature = "importer")]
-extern crate reqwest;
-#[cfg(feature = "importer")]
-extern crate getopts;
-#[cfg(feature = "importer")]
-extern crate html_entities;
 
 mod errors {
     error_chain!{
@@ -40,8 +34,6 @@ mod geom;
 mod unit;
 mod color;
 mod device;
-#[cfg(feature = "importer")]
-mod importer;
 mod frontlight;
 mod framebuffer;
 mod input;
@@ -55,9 +47,6 @@ mod view;
 mod font;
 mod app;
 
-#[cfg(not(feature = "importer"))]
 use app::run;
-#[cfg(feature = "importer")]
-use importer::run;
 
 quick_main!(run);

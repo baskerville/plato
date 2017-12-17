@@ -1,11 +1,15 @@
 extern crate serde_json;
 
-use std::path::PathBuf;
+use std::fs;
+use std::path::{self, Path, PathBuf};
 use std::collections::BTreeSet;
 use std::cmp::Ordering;
+use fnv::{FnvHashMap, FnvHashSet};
 use chrono::{Local, DateTime};
-use fnv::FnvHashMap;
 use regex::Regex;
+use document::{file_kind};
+use symbolic_path;
+use errors::*;
 
 pub const METADATA_FILENAME: &str = ".metadata.json";
 pub const IMPORTED_MD_FILENAME: &str = ".metadata-imported.json";
@@ -226,7 +230,7 @@ impl Info {
 
         let mut title = self.title.clone();
 
-        if !self.number.is_empty() {
+        if !self.number.is_empty() && self.series.is_empty() {
             title = format!("{} #{}", title, self.number);
         }
 
@@ -241,6 +245,10 @@ impl Info {
             } else {
                 format!("{} {}", title, self.subtitle)
             };
+        }
+
+        if !self.series.is_empty() && !self.number.is_empty() {
+            title = format!("{} ({} #{})", title, self.series, self.number);
         }
 
         title
@@ -402,4 +410,62 @@ lazy_static! {
         p.insert("french", Regex::new(r"^(Les?\s|La\s|L['’]|Une?\s|Des?\s|Du\s)").unwrap());
         p
     };
+}
+
+pub fn import(dir: &Path, metadata: &Metadata) -> Result<Metadata> {
+    let files = find_files(dir, dir)?;
+    let known: FnvHashSet<PathBuf> = metadata.iter()
+                                             .map(|info| info.file.path.clone())
+                                             .collect();
+    let mut metadata = Vec::new();
+
+    for file_info in &files {
+        if !known.contains(&file_info.path) {
+            println!("{}", file_info.path.display());
+            let mut info = Info::default();
+            info.file = file_info.clone();
+            if let Some(p) = info.file.path.parent() {
+                let categ = p.to_string_lossy()
+                             .replace(symbolic_path::PATH_SEPARATOR, "")
+                             .replace(path::MAIN_SEPARATOR, &symbolic_path::PATH_SEPARATOR.to_string());
+                if !categ.is_empty() {
+                    info.categories = [categ].iter().cloned().collect();
+                }
+            }
+            metadata.push(info);
+        }
+    }
+
+    Ok(metadata)
+}
+
+fn find_files(root: &Path, dir: &Path) -> Result<Vec<FileInfo>> {
+    let mut result = Vec::new();
+
+    for entry in fs::read_dir(dir).chain_err(|| "Can't read directory.")? {
+        let entry = entry.chain_err(|| "Can't read directory entry.")?;
+        let path = entry.path();
+
+        if path.is_dir() {
+            result.extend_from_slice(&find_files(root, path.as_path())?);
+        } else {
+            if entry.file_name().to_string_lossy().starts_with('.') {
+                continue;
+            }
+
+            let relat = path.strip_prefix(root).unwrap().to_path_buf();
+            let kind = file_kind(path).unwrap_or_default();
+            let size = entry.metadata().map(|m| m.len()).unwrap_or_default();
+
+            result.push(
+                FileInfo {
+                    path: relat,
+                    kind,
+                    size,
+                }
+            );
+        }
+    }
+
+    Ok(result)
 }
