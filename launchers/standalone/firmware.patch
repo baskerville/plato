@@ -1,0 +1,18 @@
+diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
+--- a/etc/init.d/rcS	2017-12-13 17:36:42.000000000 +0100
++++ b/etc/init.d/rcS	2017-12-16 10:59:04.000000000 +0100
+@@ -176,7 +176,12 @@
+ /bin/dbus-daemon --system &
+ export DBUS_SESSION_BUS_ADDRESS=`/bin/dbus-daemon --session --print-address --fork`
+ 
+-/usr/local/Kobo/hindenburg &
+-LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &
++PLATO_HOME=/usr/local/Plato
++if [ -e "$PLATO_HOME"/bootlock ] ; then
++	"$PLATO_HOME"/plato.sh &
++else
++	/usr/local/Kobo/hindenburg &
++	LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &
++fi
+ [ $PLATFORM != freescale ] && rm -rf /dev/mmcblk1* && udevadm trigger &
+ insmod /drivers/$PLATFORM/misc/lowmem.ko &
