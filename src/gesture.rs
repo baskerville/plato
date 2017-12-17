@@ -5,6 +5,7 @@ use std::time::Duration;
 use std::thread;
 use unit::mm_to_in;
 use input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
+use view::Event;
 use device::CURRENT_DEVICE;
 use geom::{Point, Dir, Axis};
 
@@ -39,32 +40,8 @@ pub enum GestureEvent {
         quarter_turns: i8,
         center: Point,
     },
-    Finger {
-        id: i32,
-        time: f64,
-        status: FingerStatus,
-        position: Point,
-    },
-    Button {
-        time: f64,
-        code: ButtonCode,
-        status: ButtonStatus,
-    },
     HoldFinger(Point),
     HoldButton(ButtonCode),
-}
-
-impl GestureEvent {
-    pub fn from_device_event(evt: DeviceEvent) -> GestureEvent {
-        match evt {
-            DeviceEvent::Finger { id, time, status, position } => {
-                GestureEvent::Finger { id, time, status, position }
-            },
-            DeviceEvent::Button { time, code, status } => {
-                GestureEvent::Button { time, code, status }
-            }
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -74,19 +51,19 @@ pub struct TouchState {
     current: Point,
 }
 
-pub fn gesture_events(rx: Receiver<DeviceEvent>) -> Receiver<GestureEvent> {
+pub fn gesture_events(rx: Receiver<DeviceEvent>) -> Receiver<Event> {
     let (ty, ry) = mpsc::channel();
     thread::spawn(move || parse_gesture_events(&rx, &ty));
     ry
 }
 
-pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<GestureEvent>) {
+pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
     let contacts: Arc<Mutex<FnvHashMap<i32, TouchState>>> = Arc::new(Mutex::new(FnvHashMap::default()));
     let buttons: Arc<Mutex<FnvHashMap<ButtonCode, f64>>> = Arc::new(Mutex::new(FnvHashMap::default()));
     let mut segments: Vec<(Point, Point)> = Vec::new();
     let jitter = CURRENT_DEVICE.dpi as f32 * mm_to_in(JITTER_TOLERANCE_MM);
     while let Ok(evt) = rx.recv() {
-        ty.send(GestureEvent::from_device_event(evt)).unwrap();
+        ty.send(Event::Device(evt)).unwrap();
         match evt {
             DeviceEvent::Finger { status: FingerStatus::Down, position, id, time } => {
                 let mut ct = contacts.lock().unwrap();
@@ -99,7 +76,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<GestureEvent
                     let mut will_remove = None;
                     if let Some(ts) = ct.get(&id) {
                         if ts.time == time && (ts.current - position).length() < jitter {
-                            ty.send(GestureEvent::HoldFinger(position)).unwrap();
+                            ty.send(Event::Gesture(GestureEvent::HoldFinger(position))).unwrap();
                             will_remove = Some(id);
                         }
                     }
@@ -123,53 +100,53 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<GestureEvent
                     let len = segments.len();
                     if len == 1 {
                         let ge = interpret_segment(segments.pop().unwrap(), jitter);
-                        ty.send(ge).unwrap();
+                        ty.send(Event::Gesture(ge)).unwrap();
                     } else if len == 2 {
                         let ge1 = interpret_segment(segments.pop().unwrap(), jitter);
                         let ge2 = interpret_segment(segments.pop().unwrap(), jitter);
                         match (ge1, ge2) {
                             (GestureEvent::Tap { center: c1, .. }, GestureEvent::Tap { center: c2, .. }) => {
-                                ty.send(GestureEvent::Tap {
+                                ty.send(Event::Gesture(GestureEvent::Tap {
                                     center: (c1 + c2) / 2,
                                     fingers_count: 2,
-                                }).unwrap();
+                                })).unwrap();
                             }
                             (GestureEvent::Swipe { dir: d1, start: s1, end: e1, .. },
                              GestureEvent::Swipe { dir: d2, start: s2, end: e2, .. }) if d1 == d2 => {
-                                ty.send(GestureEvent::Swipe {
+                                ty.send(Event::Gesture(GestureEvent::Swipe {
                                     dir: d1,
                                     start: (s1 + s2) / 2,
                                     end: (e1 + e2) / 2,
                                     fingers_count: 2,
-                                }).unwrap();
+                                })).unwrap();
                             },
                             (GestureEvent::Swipe { dir: d1, start: s1, end: e1, .. },
                              GestureEvent::Swipe { dir: d2, start: s2, end: e2, .. }) if d1 == d2.opposite() => {
                                 let ds = (s2 - s1).length();
                                 let de = (e2 - e1).length();
                                 if ds > de {
-                                    ty.send(GestureEvent::Pinch {
+                                    ty.send(Event::Gesture(GestureEvent::Pinch {
                                         axis: d1.axis(),
                                         target: (e1 + e2) / 2,
                                         strength: (ds - de) as u32,
-                                    }).unwrap();
+                                    })).unwrap();
                                 } else {
-                                    ty.send(GestureEvent::Spread {
+                                    ty.send(Event::Gesture(GestureEvent::Spread {
                                         axis: d1.axis(),
                                         target: (s1 + s2) / 2,
                                         strength: (de - ds) as u32,
-                                    }).unwrap();
+                                    })).unwrap();
                                 }
                             },
                             (GestureEvent::Swipe { start: s, end: e, .. }, GestureEvent::Tap { center: c, .. }) | 
                             (GestureEvent::Tap { center: c, .. }, GestureEvent::Swipe { start: s, end: e, .. }) => {
                                 let angle = ((s - c).angle() - (e - c).angle()).to_degrees();
                                 let quarter_turns = (angle.signum() * (angle / 90.0).abs().ceil()) as i8;
-                                ty.send(GestureEvent::Rotate {
+                                ty.send(Event::Gesture(GestureEvent::Rotate {
                                     angle: angle,
                                     quarter_turns: quarter_turns,
                                     center: c,
-                                }).unwrap();
+                                })).unwrap();
                             },
                             _ => (),
                         }
@@ -188,7 +165,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<GestureEvent
                     let bt = buttons.lock().unwrap();
                     if let Some(&initial_time) = bt.get(&code) {
                         if initial_time == time {
-                            ty.send(GestureEvent::HoldButton(code)).unwrap();
+                            ty.send(Event::Gesture(GestureEvent::HoldButton(code))).unwrap();
                         }
                     }
                 });
@@ -197,6 +174,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<GestureEvent
                 let mut bt = buttons.lock().unwrap();
                 bt.remove(&code);
             },
+            _ => (),
         }
     }
 }

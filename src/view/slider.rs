@@ -1,8 +1,7 @@
 use device::CURRENT_DEVICE;
 use unit::scale_by_dpi;
 use framebuffer::{Framebuffer, UpdateMode};
-use gesture::GestureEvent;
-use input::FingerStatus;
+use input::{DeviceEvent, FingerStatus};
 use view::{View, Event, Hub, Bus, SliderId, THICKNESS_SMALL};
 use color::{BLACK, WHITE, PROGRESS_EMPTY, PROGRESS_FULL};
 use geom::{Rectangle, BorderSpec, CornerSpec, halves};
@@ -53,7 +52,7 @@ impl Slider {
 impl View for Slider {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Finger { status, ref position, .. }) => {
+            Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;

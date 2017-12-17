@@ -28,8 +28,10 @@ pub const ABS_MT_POSITION_X: u16 = 53;
 pub const ABS_MT_POSITION_Y: u16 = 54;
 pub const ABS_X: u16 = 0;
 pub const ABS_Y: u16 = 1;
+
 pub const KEY_POWER: u16 = 116;
 pub const KEY_HOME: u16 = 102;
+pub const SLEEP_COVER: u16 = 59;
 
 pub const SINGLE_TOUCH_CODES: TouchCodes = TouchCodes {
     report: SYN_REPORT,
@@ -85,7 +87,7 @@ pub enum ButtonStatus {
 pub enum ButtonCode {
     Power,
     Home,
-    Unknown,
+    Raw(u16),
 }
 
 impl ButtonCode {
@@ -95,7 +97,7 @@ impl ButtonCode {
         } else if code == KEY_HOME {
             ButtonCode::Home
         } else {
-            ButtonCode::Unknown
+            ButtonCode::Raw(code)
         }
     }
 }
@@ -113,6 +115,10 @@ pub enum DeviceEvent {
         code: ButtonCode,
         status: ButtonStatus,
     },
+    Plug,
+    Unplug,
+    CoverOn,
+    CoverOff,
 }
 
 pub fn seconds(time: libc::timeval) -> f64 {
@@ -161,6 +167,43 @@ pub fn parse_raw_events(paths: &[String], tx: &Sender<InputEvent>) -> Result<()>
     }
 
     Ok(())
+}
+
+pub fn usb_events() -> Receiver<DeviceEvent> {
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || parse_usb_events(&tx));
+    rx
+}
+
+fn parse_usb_events(tx: &Sender<DeviceEvent>) {
+    let mut file = File::open("/tmp/nickel-hardware-status").unwrap();
+    let fd = file.as_raw_fd();
+
+    let mut pfds = [libc::pollfd { fd: fd, events: libc::POLLIN, revents: 0 }];
+
+    loop {
+        let ret = unsafe { libc::poll(pfds.as_mut_ptr(), pfds.len() as libc::nfds_t, -1) };
+
+        if ret < 0 {
+            break;
+        }
+
+        for pfd in pfds.iter() {
+            if pfd.revents & libc::POLLIN != 0 {
+                let mut buf = String::new();
+                if file.read_to_string(&mut buf).is_err() {
+                    break;
+                }
+
+                let msg = buf.trim_right();
+                if msg == "usb plug add" {
+                    tx.send(DeviceEvent::Plug).unwrap();
+                } else if msg == "usb plug remove" {
+                    tx.send(DeviceEvent::Unplug).unwrap();
+                }
+            }
+        }
+    }
 }
 
 pub fn device_events(rx: Receiver<InputEvent>, dims: (u32, u32)) -> Receiver<DeviceEvent> {
@@ -223,12 +266,20 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 }
             }
         } else if evt.kind == EV_KEY {
-            ty.send(DeviceEvent::Button {
-                time: seconds(evt.time),
-                code: ButtonCode::from_raw(evt.code),
-                status: if evt.value == 1 { ButtonStatus::Pressed } else
-                                          { ButtonStatus::Released },
-            }).unwrap();
+            if evt.code == SLEEP_COVER {
+                if evt.value == 1 {
+                    ty.send(DeviceEvent::CoverOn).unwrap();
+                } else {
+                    ty.send(DeviceEvent::CoverOff).unwrap();
+                }
+            } else {
+                ty.send(DeviceEvent::Button {
+                    time: seconds(evt.time),
+                    code: ButtonCode::from_raw(evt.code),
+                    status: if evt.value == 1 { ButtonStatus::Pressed } else
+                                              { ButtonStatus::Released },
+                }).unwrap();
+            }
         }
     }
 }

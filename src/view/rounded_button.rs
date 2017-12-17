@@ -4,7 +4,7 @@ use view::{View, Event, Hub, Bus};
 use view::THICKNESS_MEDIUM;
 use view::icon::ICONS_PIXMAPS;
 use gesture::GestureEvent;
-use input::FingerStatus;
+use input::{DeviceEvent, FingerStatus};
 use unit::scale_by_dpi;
 use font::Fonts;
 use app::Context;
@@ -34,7 +34,7 @@ impl RoundedButton {
 impl View for RoundedButton {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Finger { status, ref position, .. }) => {
+            Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;

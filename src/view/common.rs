@@ -1,3 +1,4 @@
+use std::env;
 use view::{View, Event, Hub, ViewId, EntryId, EntryKind};
 use framebuffer::UpdateMode;
 use geom::{Point, Rectangle};
@@ -37,19 +38,29 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
         if let Some(false) = enable {
             return;
         }
-        let entries = &[EntryKind::CheckBox("Invert Colors".to_string(),
-                                            EntryId::ToggleInverted,
-                                            context.inverted),
-                        EntryKind::CheckBox("Make Bitonal".to_string(),
-                                            EntryId::ToggleMonochrome,
-                                            context.monochrome),
-                        EntryKind::Separator,
-                        EntryKind::Command("Take Screenshot".to_string(),
-                                           EntryId::TakeScreenshot),
-                        EntryKind::Separator,
-                        EntryKind::Command("Quit".to_string(),
-                                           EntryId::Quit)];
-        let main_menu = Menu::new(rect, ViewId::MainMenu, entries, fonts);
+        let mut entries = vec![EntryKind::CheckBox("Invert Colors".to_string(),
+                                                   EntryId::ToggleInverted,
+                                                   context.inverted),
+                               EntryKind::CheckBox("Make Bitonal".to_string(),
+                                                   EntryId::ToggleMonochrome,
+                                                   context.monochrome),
+                               EntryKind::Separator,
+                               EntryKind::Command("Take Screenshot".to_string(),
+                                                  EntryId::TakeScreenshot),
+                               EntryKind::Separator];
+        if env::var("ksmroot").is_ok() {
+            entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
+        } else {
+            entries.extend_from_slice(&[EntryKind::Command("Suspend".to_string(),
+                                                           EntryId::Suspend),
+                                        EntryKind::Command("Power Off".to_string(),
+                                                           EntryId::PowerOff),
+                                        EntryKind::Command("Reboot".to_string(),
+                                                           EntryId::Reboot),
+                                        EntryKind::Command("Start Nickel".to_string(),
+                                                           EntryId::StartNickel)]);
+        }
+        let main_menu = Menu::new(rect, ViewId::MainMenu, &entries, fonts);
         hub.send(Event::Render(*main_menu.rect(), UpdateMode::Gui)).unwrap();
         view.children_mut().push(Box::new(main_menu) as Box<View>);
     }

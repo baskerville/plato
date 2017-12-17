@@ -449,7 +449,7 @@ impl View for Reader {
                 self.toggle_margin_cropper(false, hub, &mut context.fonts);
                 true
             },
-            Event::Select(EntryId::Quit) | Event::Back => {
+            Event::Select(EntryId::Reboot) | Event::Select(EntryId::StartNickel) | Event::Back => {
                 self.quit(context);
                 false
             },

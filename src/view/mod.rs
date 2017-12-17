@@ -33,7 +33,7 @@ use downcast_rs::Downcast;
 use font::Fonts;
 use metadata::{Info, SortMethod, Margin};
 use framebuffer::{Framebuffer, UpdateMode};
-use input::FingerStatus;
+use input::{DeviceEvent, FingerStatus};
 use gesture::GestureEvent;
 use view::key::KeyKind;
 use app::Context;
@@ -177,6 +177,7 @@ pub enum Event {
     Render(Rectangle, UpdateMode),
     RenderNoWait(Rectangle, UpdateMode),
     Expose(Rectangle),
+    Device(DeviceEvent),
     Gesture(GestureEvent),
     Keyboard(KeyboardEvent),
     Key(KeyKind),
@@ -287,6 +288,10 @@ pub enum EntryId {
     ToggleInverted,
     ToggleMonochrome,
     TakeScreenshot,
+    Suspend,
+    PowerOff,
+    Reboot,
+    StartNickel,
     Quit,
 }
 
