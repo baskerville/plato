@@ -2,7 +2,7 @@
 
 Install [fmon](https://github.com/baskerville/fmon).
 
-Then extract the archive given on the release page to the root of the SD card:
+Then extract the archive given on the [release page](https://github.com/baskerville/plato/releases) to the root of the SD card:
 
 ```sh
 unzip plato-fmon-VERSION.zip -d SD_ROOT
