@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 use fnv::{FnvHashMap, FnvHashSet};
 use chrono::{Local, DateTime};
 use regex::Regex;
-use document::{file_kind};
+use document::{file_kind, ALLOWED_KINDS};
 use symbolic_path;
 use errors::*;
 
@@ -420,7 +420,7 @@ pub fn import(dir: &Path, metadata: &Metadata) -> Result<Metadata> {
     let mut metadata = Vec::new();
 
     for file_info in &files {
-        if !known.contains(&file_info.path) {
+        if !known.contains(&file_info.path) && ALLOWED_KINDS.contains(file_info.kind.as_str()) {
             println!("{}", file_info.path.display());
             let mut info = Info::default();
             info.file = file_info.clone();
@@ -446,13 +446,13 @@ fn find_files(root: &Path, dir: &Path) -> Result<Vec<FileInfo>> {
         let entry = entry.chain_err(|| "Can't read directory entry.")?;
         let path = entry.path();
 
+        if entry.file_name().to_string_lossy().starts_with('.') {
+            continue;
+        }
+
         if path.is_dir() {
             result.extend_from_slice(&find_files(root, path.as_path())?);
         } else {
-            if entry.file_name().to_string_lossy().starts_with('.') {
-                continue;
-            }
-
             let relat = path.strip_prefix(root).unwrap().to_path_buf();
             let kind = file_kind(path).unwrap_or_default();
             let size = entry.metadata().map(|m| m.len()).unwrap_or_default();
