@@ -1,7 +1,8 @@
 #! /bin/sh
 
 # Start from our working directory
-cd "${0%/*}" || exit 1
+WORKDIR=$(dirname "$0")
+cd "$WORKDIR" || exit 1
 
 # Check whether nickel is running
 FROM_NICKEL=0
@@ -20,8 +21,10 @@ fi
 export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"
 export PRODUCT=$(/bin/kobo_config.sh 2> /dev/null)
 
-./plato > crash.log 2>&1
+./plato > info.log 2>&1
 RESULT=$?
+
+[ "$RESULT" -ne 0 ] && mv info.log crash.log
 
 if [ "$FROM_NICKEL" -eq 1 ]; then
 	# Start nickel if it was running before
