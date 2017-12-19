@@ -7,7 +7,6 @@ use std::io::Read;
 use std::fs::File;
 use std::slice;
 use std::mem;
-use std::env;
 use fnv::FnvHashMap;
 use device::CURRENT_DEVICE;
 use geom::Point;
