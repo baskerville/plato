@@ -218,17 +218,13 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
     let mut pressure = 0;
     let mut fingers: FnvHashMap<i32, Point> = FnvHashMap::default();
     let mut tc = if CURRENT_DEVICE.proto == TouchProto::Multi { MULTI_TOUCH_CODES } else { SINGLE_TOUCH_CODES };
-    // Current hypothesis: width > height implies UNSWAP_XY and UNMIRROR_X
-    if env::var("PLATO_UNSWAP_XY").is_err() {
-        mem::swap(&mut tc.x, &mut tc.y);
-    }
-    let mirror_x = env::var("PLATO_UNMIRROR_X").is_err();
+    mem::swap(&mut tc.x, &mut tc.y);
     while let Ok(evt) = rx.recv() {
         if evt.kind == EV_ABS {
             if evt.code == tc.pressure {
                 pressure = evt.value;
             } else if evt.code == tc.x {
-                position.x = if mirror_x { dims.0 as i32 - 1 - evt.value } else { evt.value };
+                position.x = dims.0 as i32 - 1 - evt.value;
             } else if evt.code == tc.y {
                 position.y = evt.value;
             } else if evt.code == ABS_MT_TRACKING_ID {
