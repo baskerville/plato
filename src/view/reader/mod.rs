@@ -113,7 +113,6 @@ impl Reader {
         })
     }
 
-
     fn go_to_page(&mut self, index: usize, hub: &Hub) {
         if index >= self.pages_count {
             return;
@@ -449,7 +448,10 @@ impl View for Reader {
                 self.toggle_margin_cropper(false, hub, &mut context.fonts);
                 true
             },
-            Event::Select(EntryId::Reboot) | Event::Select(EntryId::StartNickel) | Event::Back => {
+            Event::Select(EntryId::Quit) |
+            Event::Select(EntryId::Reboot) |
+            Event::Select(EntryId::StartNickel) |
+            Event::Back => {
                 self.quit(context);
                 false
             },
