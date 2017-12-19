@@ -58,6 +58,15 @@ impl Default for Device {
     }
 }
 
+impl Device {
+    pub fn has_natural_light(&self) -> bool {
+        match self.model {
+            Model::AuraONE | Model::AuraH2OEdition2 => true,
+            _ => false,
+        }
+    }
+}
+
 lazy_static! {
     pub static ref CURRENT_DEVICE: Device = {
         let product = env::var("PRODUCT").unwrap_or_default();
