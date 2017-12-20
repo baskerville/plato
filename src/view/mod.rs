@@ -198,6 +198,7 @@ pub enum Event {
     Submit(ViewId, String),
     Slider(SliderId, f32, FingerStatus),
     ToggleNear(ViewId, Rectangle),
+    ToggleSubmenu(ViewId, ViewId, Rectangle),
     Toggle(ViewId),
     Show(ViewId),
     Close(ViewId),
@@ -275,7 +276,7 @@ pub enum EntryKind {
     Command(String, EntryId),
     CheckBox(String, EntryId, bool),
     RadioButton(String, EntryId, bool),
-    SubMenu(String, EntryId),
+    SubMenu(String, ViewId),
     Separator,
 }
 
@@ -284,7 +285,6 @@ pub enum EntryId {
     Sort(SortMethod),
     ExportMatches,
     ReverseOrder,
-    SubSort,
     ToggleInverted,
     ToggleMonochrome,
     TakeScreenshot,
@@ -310,16 +310,6 @@ impl EntryKind {
             EntryKind::RadioButton(ref s, ..) |
             EntryKind::SubMenu(ref s, ..) => s,
             _ => "",
-        }
-    }
-
-    pub fn id(&self) -> Option<EntryId> {
-        match *self {
-            EntryKind::Command(_, id) |
-            EntryKind::CheckBox(_, id, _) |
-            EntryKind::RadioButton(_, id, _) |
-            EntryKind::SubMenu(_, id) => Some(id),
-            _ => None,
         }
     }
 }

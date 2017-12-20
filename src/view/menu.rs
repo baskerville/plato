@@ -14,9 +14,10 @@ use view::{THICKNESS_MEDIUM, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use app::Context;
 
 pub struct Menu {
-    id: ViewId,
-    children: Vec<Box<View>>,
     rect: Rectangle,
+    children: Vec<Box<View>>,
+    drop: bool,
+    id: ViewId,
     dir: i32,
 }
 
@@ -28,7 +29,7 @@ pub struct Menu {
 
 // TODO: Handle sub-menu style (rounded at every corner) and positioning.
 impl Menu {
-    pub fn new(target: Rectangle, id: ViewId, entries: &[EntryKind], fonts: &mut Fonts) -> Menu {
+    pub fn new(target: Rectangle, id: ViewId, drop: bool, entries: &[EntryKind], fonts: &mut Fonts) -> Menu {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = CURRENT_DEVICE.dims;
@@ -49,15 +50,32 @@ impl Menu {
         let north_space = target.min.y;
         let south_space = height as i32 - target.max.y;
 
-        let (dir, y_start): (i32, i32) = if north_space < south_space {
-            (1, target.max.y)
+        let (dir, y_start): (i32, i32) = if drop {
+            if north_space < south_space {
+                (1, target.max.y)
+            } else {
+                (-1, target.min.y)
+            }
         } else {
-            (-1, target.min.y)
+            if north_space < south_space {
+                (1, target.min.y)
+            } else {
+                (-1, target.max.y)
+            }
         };
 
-        let center = target.center();
-        let mut x_min = center.x - small_half(entry_width);
-        let mut x_max = center.x + big_half(entry_width);
+        let (mut x_min, mut x_max) = if drop {
+            let center = target.center();
+            (center.x - small_half(entry_width), center.x + big_half(entry_width))
+        } else {
+            let west_space = target.min.x;
+            let east_space = width as i32 - target.max.x;
+            if west_space > east_space {
+                (target.min.x - entry_width, target.min.x)
+            } else {
+                (target.max.x, target.max.x + entry_width)
+            }
+        };
 
         if x_min < 0 {
             x_max -= x_min;
@@ -78,14 +96,20 @@ impl Menu {
             y_start - top_min
         };
 
+        let border_space = if drop {
+            border_thickness
+        } else {
+            2 * border_thickness
+        };
+
         let max_entries = entries.iter().filter(|e| !e.is_separator()).count()
-                                 .min(((usable_space - border_thickness) / entry_height) as usize);
+                                 .min(((usable_space - border_space) / entry_height) as usize);
 
         let entries_count = max_entries + entries.iter()
                                                  .take(2*max_entries - 1)
                                                  .filter(|e| e.is_separator())
                                                  .count();
-        let mut y_pos = y_start;
+        let mut y_pos = y_start + border_space - border_thickness;
 
         for i in 0..entries_count {
             if entries[i].is_separator() {
@@ -125,6 +149,12 @@ impl Menu {
                     } else {
                         Some(Dir::North)
                     }
+                } else if !drop && i == 0 {
+                    if dir.is_positive() {
+                        Some(Dir::North)
+                    } else {
+                        Some(Dir::South)
+                    }
                 } else {
                     None
                 };
@@ -137,7 +167,7 @@ impl Menu {
             }
         }
 
-        let menu_height = max_entries as i32 * entry_height + border_thickness;
+        let menu_height = max_entries as i32 * entry_height + border_space;
 
         let (y_min, y_max) = if dir.is_positive() {
             (y_start, y_start + menu_height)
@@ -150,9 +180,10 @@ impl Menu {
 
         Menu {
             rect,
+            children,
+            drop,
             id,
             dir,
-            children,
         }
     }
 }
@@ -166,16 +197,23 @@ impl View for Menu {
                         break;
                     }
                 }
+                false
+            },
+            Event::Validate => {
                 let hub2 = hub.clone();
                 let id = self.id;
                 thread::spawn(move || {
                     thread::sleep(Duration::from_millis(CLOSE_IGNITION_DELAY_MS));
                     hub2.send(Event::Close(id)).unwrap();
                 });
-                false
+                self.drop
             },
             Event::Gesture(GestureEvent::Tap { ref center, .. }) if !self.rect.includes(center) => {
                 hub.send(Event::Close(self.id)).unwrap();
+                true
+            },
+            Event::ToggleNear(id, rect) => {
+                bus.push_back(Event::ToggleSubmenu(self.id, id, rect));
                 true
             },
             Event::Gesture(..) => true,
@@ -187,10 +225,14 @@ impl View for Menu {
         let dpi = CURRENT_DEVICE.dpi;
         let border_radius = scale_by_dpi(BORDER_RADIUS_MEDIUM, dpi) as i32;
         let border_thickness = scale_by_dpi(THICKNESS_LARGE, dpi) as u16;
-        let corners = if self.dir.is_positive() {
-            CornerSpec::South(border_radius)
+        let corners = if self.drop {
+            if self.dir.is_positive() {
+                CornerSpec::South(border_radius)
+            } else {
+                CornerSpec::North(border_radius)
+            }
         } else {
-            CornerSpec::North(border_radius)
+            CornerSpec::Uniform(border_radius)
         };
         fb.draw_rounded_rectangle_with_border(&self.rect,
                                               &corners,

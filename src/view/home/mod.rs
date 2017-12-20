@@ -612,7 +612,7 @@ impl Home {
                             EntryKind::Separator,
                             EntryKind::CheckBox("Reverse Order".to_string(),
                                                 EntryId::ReverseOrder, self.reverse_order)];
-            let sort_menu = Menu::new(rect, ViewId::SortMenu, entries, fonts);
+            let sort_menu = Menu::new(rect, ViewId::SortMenu, true, entries, fonts);
             hub.send(Event::Render(*sort_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(sort_menu) as Box<View>);
         }
@@ -631,7 +631,7 @@ impl Home {
             }
             let entries = &[EntryKind::Command("Export".to_string(),
                                                EntryId::ExportMatches)];
-            let matches_menu = Menu::new(rect, ViewId::MatchesMenu, entries, fonts);
+            let matches_menu = Menu::new(rect, ViewId::MatchesMenu, true, entries, fonts);
             hub.send(Event::Render(*matches_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(matches_menu) as Box<View>);
         }

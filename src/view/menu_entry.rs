@@ -59,9 +59,18 @@ impl View for MenuEntry {
                     },
                     _ => (),
                 };
-                if let Some(id) = self.kind.id() {
-                    bus.push_back(Event::Select(id));
-                }
+                match self.kind {
+                    EntryKind::Command(_, id) |
+                    EntryKind::CheckBox(_, id, _) |
+                    EntryKind::RadioButton(_, id, _) => {
+                        bus.push_back(Event::Select(id));
+                        bus.push_back(Event::Validate);
+                    },
+                    EntryKind::SubMenu(_, id) => {
+                        bus.push_back(Event::ToggleNear(id, self.rect));
+                    },
+                    _ => (),
+                };
                 true
             },
             Event::Select(ref other_id) => {
