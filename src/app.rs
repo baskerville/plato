@@ -2,6 +2,7 @@ use std::thread;
 use std::fs::{self, File};
 use std::path::Path;
 use std::sync::mpsc;
+use std::process::Command;
 use std::collections::VecDeque;
 use std::time::Duration;
 use fnv::FnvHashMap;
@@ -30,11 +31,17 @@ pub struct Context {
     pub fonts: Fonts,
     pub inverted: bool,
     pub monochrome: bool,
+    pub wifi: bool,
 }
 
 impl Context {
     pub fn new(settings: Settings, metadata: Metadata, fonts: Fonts) -> Context {
-        Context { settings, metadata, fonts, inverted: false, monochrome: false }
+        let wifi = Command::new("iwgetid").arg("-r")
+                           .status()
+                           .map(|s| s.success())
+                           .unwrap_or(false);
+        Context { settings, metadata, fonts,
+                  inverted: false, monochrome: false, wifi }
     }
 }
 
@@ -165,6 +172,18 @@ pub fn run() -> Result<()> {
                 fb.toggle_monochrome();
                 context.monochrome = !context.monochrome;
                 tx.send(Event::Render(fb_rect, UpdateMode::Gui)).unwrap();
+            },
+            Event::Select(EntryId::ToggleWifi) => {
+                context.wifi = !context.wifi;
+                if context.wifi {
+                    Command::new("scripts/wifi-enable.sh")
+                            .spawn()
+                            .ok();
+                } else {
+                    Command::new("scripts/wifi-disable.sh")
+                            .spawn()
+                            .ok();
+                }
             },
             Event::Select(EntryId::TakeScreenshot) => {
                 fb.save(&Local::now().format("screenshot-%Y%m%d_%H%M%S.png").to_string())?;

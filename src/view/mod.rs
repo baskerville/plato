@@ -287,6 +287,7 @@ pub enum EntryId {
     ReverseOrder,
     ToggleInverted,
     ToggleMonochrome,
+    ToggleWifi,
     TakeScreenshot,
     Suspend,
     PowerOff,
