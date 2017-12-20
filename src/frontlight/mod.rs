@@ -1,7 +1,10 @@
 mod standard;
 mod natural;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub use self::standard::StandardLight;
+pub use self::natural::NaturalLight;
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum Color {
     White,
     Red,
