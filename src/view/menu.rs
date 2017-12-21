@@ -109,7 +109,7 @@ impl Menu {
                                                  .take(2*max_entries - 1)
                                                  .filter(|e| e.is_separator())
                                                  .count();
-        let mut y_pos = y_start + border_space - border_thickness;
+        let mut y_pos = y_start + dir * (border_space - border_thickness);
 
         for i in 0..entries_count {
             if entries[i].is_separator() {
