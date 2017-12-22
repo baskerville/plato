@@ -35,13 +35,13 @@ impl Confirmation {
         let padding = font.em() as i32;
 
         let min_message_width = width as i32 / 2;
-        let max_message_width = width as i32 - 2 * padding;
+        let max_message_width = width as i32 - 3 * padding;
         let max_button_width = width as i32 / 4;
         let button_height = 4 * x_height;
 
         let plan = font.plan(&text, Some(max_message_width as u32), None);
 
-        let dialog_width = (plan.width as i32).max(min_message_width) + 2 * padding;
+        let dialog_width = (plan.width as i32).max(min_message_width) + 3 * padding;
         let dialog_height = 2 * button_height + 3 * padding;
 
 
