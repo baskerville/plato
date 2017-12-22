@@ -41,6 +41,7 @@ if [ -e "$KOBO_TAG" ] ; then
 fi
 
 export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"
+export PLATO_STANDALONE=1
 
 LIBC_FATAL_STDERR_=1 ./plato > info.log 2>&1
 

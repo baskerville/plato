@@ -51,17 +51,13 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
                                EntryKind::Command("Take Screenshot".to_string(),
                                                   EntryId::TakeScreenshot),
                                EntryKind::Separator];
-        if env::var("ksmroot").is_ok() {
-            entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
-        } else {
-            entries.extend_from_slice(&[EntryKind::Command("Suspend".to_string(),
-                                                           EntryId::Suspend),
-                                        EntryKind::Command("Power Off".to_string(),
-                                                           EntryId::PowerOff),
+        if env::var("PLATO_STANDALONE").is_ok() {
+            entries.extend_from_slice(&[EntryKind::Command("Start Nickel".to_string(),
+                                                           EntryId::StartNickel),
                                         EntryKind::Command("Reboot".to_string(),
-                                                           EntryId::Reboot),
-                                        EntryKind::Command("Start Nickel".to_string(),
-                                                           EntryId::StartNickel)]);
+                                                           EntryId::Reboot)]);
+        } else {
+            entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
         }
         let main_menu = Menu::new(rect, ViewId::MainMenu, true, &entries, fonts);
         hub.send(Event::Render(*main_menu.rect(), UpdateMode::Gui)).unwrap();
