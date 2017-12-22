@@ -32,6 +32,7 @@ mod font;
 mod input;
 mod gesture;
 mod framebuffer;
+mod frontlight;
 mod device;
 mod view;
 mod app;
@@ -74,7 +75,7 @@ pub fn run() -> Result<()> {
     opts.optflag("h", "help", "Print this help message.");
     opts.optflag("I", "import", "Import new books.");
     opts.optflag("S", "extract-isbn", "Try to extract identifiers from books.");
-    opts.optflag("R", "retreive-metadata", "Try to retreive missing metadata.");
+    opts.optflag("R", "retrieve-metadata", "Try to retrieve missing metadata.");
     opts.optflag("s", "strict", "Only use the ISBN when retreiving metadata.");
     opts.optflag("M", "extract-metadata", "Try to extract metadata from the books.");
     opts.optflag("C", "consolidate", "Consolidate an existing database.");
@@ -122,7 +123,7 @@ pub fn run() -> Result<()> {
         }
 
         if matches.opt_present("R") {
-            retreive(&mut metadata, matches.opt_present("s"));
+            retrieve(&mut metadata, matches.opt_present("s"));
         }
 
         if matches.opt_present("M") {
@@ -173,7 +174,7 @@ pub fn extract_metadata(dir: &Path, metadata: &mut Metadata) {
     }
 }
 
-pub fn retreive(metadata: &mut Metadata, strict: bool) {
+pub fn retrieve(metadata: &mut Metadata, strict: bool) {
     for info in metadata.iter_mut() {
         if !info.title.is_empty() {
             continue;
