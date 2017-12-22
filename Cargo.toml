@@ -10,14 +10,13 @@ path = "src/main.rs"
 [[bin]]
 name = "plato-import"
 path = "src/importer.rs"
+required-features = ["importer"]
 
 [dependencies]
 bitflags = "1.0.1"
 downcast-rs = "1.0.0"
 error-chain = "0.11.0"
 fnv = "1.0.6"
-getopts = "0.2.15"
-html-entities = "0.1.0"
 isbn = "0.1.0"
 lazy_static = "1.0.0"
 libc = "0.2.34"
@@ -29,6 +28,14 @@ serde_json = "1.0.8"
 titlecase = "0.10.0"
 unicode-normalization = "0.1.5"
 
+[dependencies.html-entities]
+version = "0.1.0"
+optional = true
+
+[dependencies.getopts]
+version = "0.2.15"
+optional = true
+
 [dependencies.reqwest]
 version = "0.8.1"
 optional = true
@@ -38,3 +45,6 @@ features = ["serde"]
 version = "0.4.0"
 [profile.release]
 panic = "abort"
+
+[features]
+importer = ["reqwest", "getopts", "html-entities"]
