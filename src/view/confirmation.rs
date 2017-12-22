@@ -21,6 +21,7 @@ pub struct Confirmation {
     children: Vec<Box<View>>,
     id: ViewId,
     event: Event,
+    will_close: bool,
 }
 
 impl Confirmation {
@@ -84,6 +85,7 @@ impl Confirmation {
             children,
             id,
             event,
+            will_close: false,
         }
     }
 }
@@ -92,6 +94,9 @@ impl View for Confirmation {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
             Event::Validate | Event::Cancel => {
+                if self.will_close {
+                    return true;
+                }
                 let hub2 = hub.clone();
                 let id = self.id;
                 thread::spawn(move || {
@@ -101,6 +106,7 @@ impl View for Confirmation {
                 if let Event::Validate = *evt {
                     bus.push_back(self.event.clone());
                 }
+                self.will_close = true;
                 true
             },
             Event::Gesture(GestureEvent::Tap { ref center, .. }) if !self.rect.includes(center) => {
