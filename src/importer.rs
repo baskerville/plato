@@ -270,10 +270,10 @@ pub fn file_name_from_info(info: &Info) -> String {
     if !info.subtitle.is_empty() {
         base = format!("{} - {}", base, asciify(&info.subtitle));
     }
-    if !info.volume.is_empty() && info.series.is_empty() {
+    if !info.volume.is_empty() {
         base = format!("{} - {}", base, info.volume);
     }
-    if !info.number.is_empty() {
+    if !info.number.is_empty() && info.series.is_empty() {
         base = format!("{} - {}", base, info.number);
     }
     if !info.author.is_empty() {
