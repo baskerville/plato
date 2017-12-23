@@ -280,7 +280,9 @@ pub fn file_name_from_info(info: &Info) -> String {
         base = format!("{} - {}", base, asciify(&info.author));
     }
     base = format!("{}.{}", base, info.file.kind);
-    base.replace("..", ".").replace(" / ", ", ")
+    base.replace("..", ".")
+        .replace('/', " ")
+        .replace('?', "")
 }
 
 pub fn label_from_path(path: &Path) -> String {
