@@ -119,9 +119,9 @@ pub fn run() -> Result<()> {
     let fonts = Fonts::load().chain_err(|| "Can't load fonts.")?;
 
     if settings.wifi {
-        Command::new("scripts/wifi-enable.sh")
-                .spawn()
-                .ok();
+        Command::new("scripts/wifi-enable.sh").spawn().ok();
+    } else {
+        Command::new("scripts/wifi-disable.sh").spawn().ok();
     }
 
     let levels = settings.frontlight_levels;
@@ -136,6 +136,9 @@ pub fn run() -> Result<()> {
     if settings.frontlight {
         frontlight.set_intensity(levels.intensity());
         frontlight.set_warmth(levels.warmth());
+    } else {
+        frontlight.set_warmth(0.0);
+        frontlight.set_intensity(0.0);
     }
 
     let battery = Box::new(KoboBattery::new().chain_err(|| "Can't create battery.")?) as Box<Battery>;
