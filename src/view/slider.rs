@@ -3,7 +3,7 @@ use unit::scale_by_dpi;
 use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
 use view::{View, Event, Hub, Bus, SliderId, THICKNESS_SMALL};
-use color::{BLACK, WHITE, PROGRESS_EMPTY, PROGRESS_FULL};
+use color::{BLACK, WHITE, PROGRESS_VALUE, PROGRESS_FULL, PROGRESS_EMPTY};
 use font::{Fonts, font_from_style, SLIDER_VALUE};
 use geom::{Rectangle, BorderSpec, CornerSpec, halves};
 use app::Context;
@@ -91,6 +91,7 @@ impl View for Slider {
         let progress_height = scale_by_dpi(PROGRESS_HEIGHT, dpi) as i32;
         let button_diameter = scale_by_dpi(BUTTON_DIAMETER, dpi) as i32;
         let border_thickness = scale_by_dpi(THICKNESS_SMALL, dpi) as u16;
+
         let progress = (self.value - self.min_value) / (self.max_value - self.min_value);
         let (small_radius, big_radius) = halves(button_diameter);
         let x_offset = self.rect.min.x + small_radius +
@@ -103,19 +104,16 @@ impl View for Slider {
         let rect = rect![self.rect.min.x + small_radius - big_mini_radius, self.rect.min.y + small_padding,
                          self.rect.max.x - big_radius + small_mini_radius, self.rect.max.y - big_padding];
 
-        let progress_full_color = if self.active { BLACK } else { PROGRESS_FULL };
-
         fb.draw_rounded_rectangle_with_border(&rect,
                                               &CornerSpec::Uniform(small_mini_radius),
                                               &BorderSpec { thickness: border_thickness,
                                                             color: BLACK },
-                                              &|x, _| if x < x_offset { progress_full_color }
+                                              &|x, _| if x < x_offset { PROGRESS_FULL }
                                                       else { PROGRESS_EMPTY });
 
         let (small_padding, big_padding) = halves(self.rect.height() as i32 - button_diameter);
         let rect = rect![x_offset - small_radius, self.rect.min.y + small_padding,
                          x_offset + big_radius, self.rect.max.y - big_padding];
-                                              
         let fill_color = if self.active { BLACK } else { WHITE };
 
         fb.draw_rounded_rectangle_with_border(&rect,
@@ -127,13 +125,15 @@ impl View for Slider {
         let font = font_from_style(fonts, &SLIDER_VALUE, dpi);
         let plan = font.plan(&format!("{:.1}", self.value), None, None);
         let x_height = font.x_heights.1 as i32;
+
         let x_drift = if self.value > (self.min_value + self.max_value) / 2.0 {
             -(small_radius + plan.width as i32)
         } else {
             small_radius
         };
+
         let pt = pt!(x_offset + x_drift, self.rect.min.y + x_height.max(small_padding));
-        font.render(fb, BLACK, &plan, &pt);
+        font.render(fb, PROGRESS_VALUE, &plan, &pt);
     }
 
     fn rect(&self) -> &Rectangle {
