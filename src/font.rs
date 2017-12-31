@@ -20,6 +20,8 @@ pub const FONT_SIZES: [u32; 3] = [349, 524, 699];
 
 pub const KEYBOARD_FONT_SIZES: [u32; 2] = [337, 843];
 
+pub const DISPLAY_FONT_SIZE: u32 = 2516;
+
 pub const NORMAL_STYLE: Style = Style {
     family: Family::SansSerif,
     variant: Variant::REGULAR,
@@ -36,6 +38,12 @@ pub const KBD_LABEL: Style = Style {
     family: Family::Keyboard,
     variant: Variant::REGULAR,
     size: FONT_SIZES[0],
+};
+
+pub const DISPLAY_STYLE: Style = Style {
+    family: Family::Display,
+    variant: Variant::REGULAR,
+    size: DISPLAY_FONT_SIZE,
 };
 
 pub const MD_TITLE: Style = Style {
@@ -64,6 +72,8 @@ pub const MD_SIZE: Style = Style {
     size: FONT_SIZES[0],
 };
 
+pub const SLIDER_VALUE: Style = MD_SIZE;
+
 const CATEGORY_DEPTH_LIMIT: usize = 5;
 
 pub fn category_font_size(depth: usize) -> u32 {
@@ -83,7 +93,7 @@ pub struct Fonts {
     sans_serif: FontFamily,
     serif: FontFamily,
     keyboard: Font,
-    // fallback: Font,
+    display: Font,
 }
 
 impl Fonts {
@@ -103,6 +113,7 @@ impl Fonts {
                 bold_italic: fo.open("fonts/NotoSerif-BoldItalic.ttf")?,
             },
             keyboard: fo.open("fonts/VarelaRound-Regular.ttf")?,
+            display: fo.open("fonts/Cormorant-Regular.ttf")?,
         })
     }
 }
@@ -120,12 +131,13 @@ pub enum Family {
     SansSerif,
     Serif,
     Keyboard,
+    Display,
 }
 
 pub struct Style {
     family: Family,
     variant: Variant,
-    size: u32,
+    pub size: u32,
 }
 
 pub fn font_from_variant(family: &mut FontFamily, variant: Variant) -> &mut Font {
@@ -150,7 +162,8 @@ pub fn font_from_style<'a>(fonts: &'a mut Fonts, style: &Style, dpi: u16) -> &'a
             let family = &mut fonts.serif;
             font_from_variant(family, style.variant)
         },
-        Family::Keyboard => &mut fonts.keyboard
+        Family::Keyboard => &mut fonts.keyboard,
+        Family::Display => &mut fonts.display,
     };
     font.set_size(style.size, dpi);
     font

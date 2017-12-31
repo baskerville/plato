@@ -4,9 +4,9 @@ use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
 use view::{View, Event, Hub, Bus, SliderId, THICKNESS_SMALL};
 use color::{BLACK, WHITE, PROGRESS_EMPTY, PROGRESS_FULL};
+use font::{Fonts, font_from_style, SLIDER_VALUE};
 use geom::{Rectangle, BorderSpec, CornerSpec, halves};
 use app::Context;
-use font::Fonts;
 
 const PROGRESS_HEIGHT: f32 = 7.0;
 const BUTTON_DIAMETER: f32 = 46.0;
@@ -73,20 +73,20 @@ impl View for Slider {
                         self.active = false;
                         if position.x != self.last_x {
                             self.update_value(position.x);
-                            hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                             self.last_x = position.x;
                         }
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                         bus.push_back(Event::Slider(self.id, self.value, status));
                         true
                     },
-                    _ => false,
+                    _ => self.active,
                 }
             },
             _ => false,
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         let progress_height = scale_by_dpi(PROGRESS_HEIGHT, dpi) as i32;
         let button_diameter = scale_by_dpi(BUTTON_DIAMETER, dpi) as i32;
@@ -124,6 +124,16 @@ impl View for Slider {
                                                             color: BLACK },
                                               &fill_color);
 
+        let font = font_from_style(fonts, &SLIDER_VALUE, dpi);
+        let plan = font.plan(&format!("{:.1}", self.value), None, None);
+        let x_height = font.x_heights.1 as i32;
+        let x_drift = if self.value > (self.min_value + self.max_value) / 2.0 {
+            -(small_radius + plan.width as i32)
+        } else {
+            small_radius
+        };
+        let pt = pt!(x_offset + x_drift, self.rect.min.y + x_height.max(small_padding));
+        font.render(fb, BLACK, &plan, &pt);
     }
 
     fn rect(&self) -> &Rectangle {
