@@ -1,5 +1,5 @@
-use std::time::Duration;
 use std::thread;
+use std::time::Duration;
 use device::{CURRENT_DEVICE, BAR_SIZES};
 use font::{Fonts, font_from_style, NORMAL_STYLE};
 use geom::{Rectangle, CornerSpec, Dir, BorderSpec, small_half, big_half};

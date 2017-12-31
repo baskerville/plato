@@ -2,7 +2,7 @@ use std::path::Path;
 use fnv::FnvHashMap;
 use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, Pixmap, UpdateMode};
-use view::{View, Event, Hub, Bus, Align};
+use view::{View, Event, Hub, Bus, ViewId, Align};
 use view::BORDER_RADIUS_SMALL;
 use gesture::GestureEvent;
 use input::{DeviceEvent, FingerStatus};
@@ -20,11 +20,11 @@ lazy_static! {
         let mut m = FnvHashMap::default();
         let scale = scale_by_dpi_raw(ICON_SCALE, CURRENT_DEVICE.dpi);
         let dir = Path::new("icons");
-        for name in ["home", "search", "back", "frontlight", "menu", "angle-left-small", "angle-right-small",
-                     "delete-backward", "delete-forward", "move-backward", "move-forward", "close",
-                     "check_mark", "check_mark-large", "bullet", "arrow-left", "arrow-right",
-                     "double_angle-left", "double_angle-right", "angle-down", "plus", "minus",
-                     "crop", "toc", "font_size"].iter().cloned() {
+        for name in ["home", "search", "back", "frontlight", "frontlight-disabled", "menu",
+                     "angle-left-small", "angle-right-small", "delete-backward", "delete-forward",
+                     "move-backward", "move-forward", "close", "check_mark", "check_mark-large",
+                     "bullet", "arrow-left", "arrow-right", "double_angle-left", "double_angle-right",
+                     "angle-down", "plus", "minus", "crop", "toc", "font_size", "plug"].iter().cloned() {
             let path = dir.join(&format!("{}.svg", name));
             let doc = PdfOpener::new().and_then(|o| o.open(path)).unwrap();
             let pixmap = doc.page(0).and_then(|p| p.pixmap(scale)).unwrap();
@@ -38,14 +38,14 @@ pub struct Icon {
     pub rect: Rectangle,
     children: Vec<Box<View>>,
     pub name: String,
-    background: u8,
+    background: Option<u8>,
     align: Align,
     event: Event,
     active: bool,
 }
 
 impl Icon {
-    pub fn new(name: &str, rect: Rectangle, background: u8, align: Align, event: Event) -> Icon {
+    pub fn new(name: &str, rect: Rectangle, background: Option<u8>, align: Align, event: Event) -> Icon {
         Icon {
             rect,
             children: vec![],
@@ -59,7 +59,7 @@ impl Icon {
 }
 
 impl View for Icon {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
                 match status {
@@ -83,6 +83,15 @@ impl View for Icon {
             Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
                 match self.event {
                     Event::Page(dir) => bus.push_back(Event::Chapter(dir)),
+                    Event::Show(ViewId::Frontlight) => {
+                        self.name = if context.settings.frontlight {
+                            "frontlight-disabled".to_string()
+                        } else {
+                            "frontlight".to_string()
+                        };
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::ToggleFrontlight).unwrap();
+                    },
                     _ => (),
                 }
                 true
@@ -105,7 +114,9 @@ impl View for Icon {
         let dy = (self.rect.height() as i32 - pixmap.height) / 2;
         let pt = self.rect.min + pt!(dx, dy);
 
-        fb.draw_rectangle(&self.rect, self.background);
+        if let Some(bg) = self.background {
+            fb.draw_rectangle(&self.rect, bg);
+        }
 
         if self.active {
             let padding = ((self.rect.width() as i32 - pixmap.width).min(self.rect.height() as i32 - pixmap.height) / 3).max(1);

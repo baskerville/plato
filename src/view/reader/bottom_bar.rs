@@ -34,7 +34,7 @@ impl BottomBar {
         } else {
             let prev_icon = Icon::new("arrow-left",
                                       prev_rect,
-                                      WHITE,
+                                      Some(WHITE),
                                       Align::Center,
                                       Event::Page(CycleDir::Previous));
             children.push(Box::new(prev_icon) as Box<View>);
@@ -68,7 +68,7 @@ impl BottomBar {
         } else {
             let next_icon = Icon::new("arrow-right",
                                       rect![rect.max - side, rect.max],
-                                      WHITE,
+                                      Some(WHITE),
                                       Align::Center,
                                       Event::Page(CycleDir::Next));
             children.push(Box::new(next_icon) as Box<View>);
@@ -104,7 +104,7 @@ impl BottomBar {
             } else {
                 let prev_icon = Icon::new("arrow-left",
                                           prev_rect,
-                                          WHITE,
+                                          Some(WHITE),
                                           Align::Center,
                                           Event::Page(CycleDir::Previous));
                 self.children[index] = Box::new(prev_icon) as Box<View>;
@@ -124,7 +124,7 @@ impl BottomBar {
             } else {
                 let next_icon = Icon::new("arrow-right",
                                           next_rect,
-                                          WHITE,
+                                          Some(WHITE),
                                           Align::Center,
                                           Event::Page(CycleDir::Next));
                 self.children[index] = Box::new(next_icon) as Box<View>;

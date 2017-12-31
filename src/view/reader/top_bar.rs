@@ -4,6 +4,7 @@ use gesture::GestureEvent;
 use view::{View, Event, Hub, Bus, ViewId, Align};
 use view::icon::Icon;
 use view::clock::Clock;
+use view::battery::Battery;
 use view::label::Label;
 use geom::{Rectangle};
 use color::WHITE;
@@ -17,17 +18,20 @@ pub struct TopBar {
 }
 
 impl TopBar {
-    pub fn new(rect: Rectangle, info: &Info, fonts: &mut Fonts) -> TopBar {
+    pub fn new(rect: Rectangle, info: &Info, context: &mut Context) -> TopBar {
         let mut children = Vec::new();
+        let fonts = &mut context.fonts;
+
         let side = rect.height() as i32;
         let root_icon = Icon::new("back",
                                   rect![rect.min, rect.min+side],
-                                  WHITE,
+                                  Some(WHITE),
                                   Align::Center,
                                   Event::Back);
         children.push(Box::new(root_icon) as Box<View>);
-        let mut clock_rect = rect![rect.max - pt!(3*side, side),
-                                   rect.max - pt!(2*side, 0)];
+
+        let mut clock_rect = rect![rect.max - pt!(4*side, side),
+                                   rect.max - pt!(3*side, 0)];
         let clock_label = Clock::new(&mut clock_rect, fonts);
         children.push(Box::new(clock_label) as Box<View>);
 
@@ -37,20 +41,31 @@ impl TopBar {
                                      Align::Center);
         children.push(Box::new(title_label) as Box<View>);
 
-        let frontlight_icon = Icon::new("frontlight",
+        let capacity = context.battery.capacity().unwrap_or(0.0);
+        let status = context.battery.status().unwrap_or(::battery::Status::Discharging);
+        let battery_widget = Battery::new(rect![rect.max - pt!(3*side, side),
+                                                rect.max - pt!(2*side, 0)],
+                                          capacity,
+                                          status);
+        children.push(Box::new(battery_widget) as Box<View>);
+
+        let name = if context.settings.frontlight { "frontlight" } else { "frontlight-disabled" };
+        let frontlight_icon = Icon::new(name,
                                         rect![rect.max - pt!(2*side, side),
                                               rect.max - pt!(side, 0)],
-                                        WHITE,
+                                        Some(WHITE),
                                         Align::Center,
-                                        Event::Show(ViewId::FrontlightMenu));
+                                        Event::Show(ViewId::Frontlight));
         children.push(Box::new(frontlight_icon) as Box<View>);
+
         let menu_rect = rect![rect.max-side, rect.max];
         let menu_icon = Icon::new("menu",
                                   menu_rect,
-                                  WHITE,
+                                  Some(WHITE),
                                   Align::Center,
                                   Event::ToggleNear(ViewId::MainMenu, menu_rect));
         children.push(Box::new(menu_icon) as Box<View>);
+
         TopBar {
             rect,
             children,

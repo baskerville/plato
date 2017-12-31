@@ -25,7 +25,7 @@ impl SearchBar {
 
         let search_icon = Icon::new("search",
                                   rect![rect.min, rect.min + side],
-                                  TEXT_BUMP_SMALL[0],
+                                  Some(TEXT_BUMP_SMALL[0]),
                                   Align::Center,
                                   Event::Focus(Some(ViewId::SearchInput)));
 
@@ -54,7 +54,7 @@ impl SearchBar {
         let close_icon = Icon::new("close",
                                   rect![pt!(rect.max.x - side, rect.min.y),
                                         pt!(rect.max.x, rect.max.y)],
-                                  TEXT_BUMP_SMALL[0],
+                                  Some(TEXT_BUMP_SMALL[0]),
                                   Align::Center,
                                   Event::Close(ViewId::SearchBar));
 

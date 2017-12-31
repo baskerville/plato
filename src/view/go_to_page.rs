@@ -2,7 +2,7 @@ use framebuffer::Framebuffer;
 use font::{Fonts, font_from_style, NORMAL_STYLE};
 use geom::{Rectangle, Point, CornerSpec, BorderSpec, halves, big_half};
 use view::{View, Event, Hub, Bus, ViewId, Align};
-use view::{THICKNESS_LARGE, BORDER_RADIUS_SMALL};
+use view::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use view::label::Label;
 use view::input_field::InputField;
 use unit::scale_by_dpi;
@@ -78,7 +78,7 @@ impl View for GoToPage {
 
     fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
-        let border_radius = scale_by_dpi(BORDER_RADIUS_SMALL, dpi) as i32;
+        let border_radius = scale_by_dpi(BORDER_RADIUS_MEDIUM, dpi) as i32;
         let border_thickness = scale_by_dpi(THICKNESS_LARGE, dpi) as u16;
         fb.draw_rounded_rectangle_with_border(&self.rect,
                                               &CornerSpec::Uniform(border_radius),

@@ -229,7 +229,7 @@ impl Reader {
         }
     }
 
-    fn toggle_bars(&mut self, fonts: &mut Fonts) {
+    fn toggle_bars(&mut self, context: &mut Context) {
         if let Some(index) = locate::<TopBar>(self) {
             self.children.drain(index..index+6);
         } else {
@@ -242,7 +242,7 @@ impl Reader {
             let top_bar = TopBar::new(rect![self.rect.min.x, self.rect.min.y,
                                             self.rect.max.x, small_height as i32 - small_thickness],
                                       &self.info,
-                                      fonts);
+                                      context);
 
             self.children.push(Box::new(top_bar) as Box<View>);
 
@@ -319,7 +319,7 @@ impl Reader {
         }
     }
 
-    fn toggle_margin_cropper(&mut self, enable: bool, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_margin_cropper(&mut self, enable: bool, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate::<MarginCropper>(self) {
             if enable {
                 return;
@@ -332,7 +332,7 @@ impl Reader {
                 return;
             }
 
-            self.toggle_bars(fonts);
+            self.toggle_bars(context);
 
             let dpi = CURRENT_DEVICE.dpi;
             let padding = scale_by_dpi(BUTTON_DIAMETER / 2.0, dpi) as i32;
@@ -411,7 +411,7 @@ impl View for Reader {
                 true
             },
             Event::Toggle(ViewId::TopBottomBars) => {
-                self.toggle_bars(&mut context.fonts);
+                self.toggle_bars(context);
                 let update_mode = if locate::<TopBar>(self).is_some() {
                     UpdateMode::Gui
                 } else {
@@ -441,11 +441,11 @@ impl View for Reader {
                 true
             },
             Event::Show(ViewId::MarginCropper) => {
-                self.toggle_margin_cropper(true, hub, &mut context.fonts);
+                self.toggle_margin_cropper(true, hub, context);
                 true
             },
             Event::Close(ViewId::MarginCropper) => {
-                self.toggle_margin_cropper(false, hub, &mut context.fonts);
+                self.toggle_margin_cropper(false, hub, context);
                 true
             },
             Event::Select(EntryId::Quit) |

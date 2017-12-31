@@ -49,7 +49,8 @@ impl View for MenuEntry {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap { ref center, .. }) |
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
                 match self.kind {
                     EntryKind::CheckBox(_, _, ref mut value) => {
                         *value = !*value;
@@ -64,7 +65,9 @@ impl View for MenuEntry {
                     EntryKind::CheckBox(_, id, _) |
                     EntryKind::RadioButton(_, id, _) => {
                         bus.push_back(Event::Select(id));
-                        bus.push_back(Event::Validate);
+                        if let Event::Gesture(GestureEvent::Tap { .. }) = *evt {
+                            bus.push_back(Event::Validate);
+                        }
                     },
                     EntryKind::SubMenu(_, id) => {
                         bus.push_back(Event::ToggleNear(id, self.rect));

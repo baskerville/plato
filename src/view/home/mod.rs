@@ -57,30 +57,26 @@ pub struct Home {
 impl Home {
     pub fn new(rect: Rectangle, hub: &Hub, context: &mut Context) -> Result<Home> {
         let dpi = CURRENT_DEVICE.dpi;
-        let fonts = &mut context.fonts;
-        let metadata = &mut context.metadata;
+        let mut children = Vec::new();
+
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
         let (_, height) = CURRENT_DEVICE.dims;
         let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
 
-        let mut children = Vec::new();
-
         let sort_method = SortMethod::Opened;
         let reverse_order = sort_method.reverse_order();
 
-        // Not necessary?
-        sort(metadata, sort_method, reverse_order);
+        sort(&mut context.metadata, sort_method, reverse_order);
 
-        let visible_books = metadata.clone();
-        let visible_categories = metadata.iter()
-                                 .flat_map(|info| info.categories.iter())
-                                 .map(|categ| categ.first_component().to_string())
-                                 .collect::<BTreeSet<String>>();
+        let visible_books = context.metadata.clone();
+        let visible_categories = context.metadata.iter()
+                                        .flat_map(|info| info.categories.iter())
+                                        .map(|categ| categ.first_component().to_string())
+                                        .collect::<BTreeSet<String>>();
 
         let selected_categories = BTreeSet::default();
         let negated_categories = BTreeSet::default();
-
 
         let max_lines = ((height - 3 * small_height) / big_height) as usize;
         let summary_size = context.settings.summary_size.max(1).min(max_lines as u8);
@@ -89,11 +85,10 @@ impl Home {
         let pages_count = (visible_books.len() as f32 / max_lines as f32).ceil() as usize;
         let current_page = 0;
 
-
         let top_bar = TopBar::new(rect![rect.min.x, rect.min.y,
                                         rect.max.x, rect.min.y + small_height as i32 - small_thickness],
                                   sort_method,
-                                  fonts);
+                                  context);
         children.push(Box::new(top_bar) as Box<View>);
 
         let separator = Filler::new(rect![rect.min.x, rect.min.y + small_height as i32 - small_thickness,
@@ -112,7 +107,7 @@ impl Home {
         let (tx, _rx) = mpsc::channel();
 
         summary.update(&visible_categories, &selected_categories,
-                       &negated_categories, false, &tx, fonts);
+                       &negated_categories, false, &tx, &mut context.fonts);
 
         children.push(Box::new(summary) as Box<View>);
 
@@ -353,7 +348,7 @@ impl Home {
     fn update_top_bar(&mut self, search_visible: bool, hub: &Hub) {
         if let Some(index) = locate::<TopBar>(self) {
             let top_bar = self.children[index].as_mut().downcast_mut::<TopBar>().unwrap();
-            top_bar.update_icon(search_visible, hub);
+            top_bar.update_root_icon(search_visible, hub);
             top_bar.update_sort_label(self.sort_method, hub);
         }
     }
@@ -721,7 +716,10 @@ impl Home {
     fn reseed(&mut self, hub: &Hub, context: &mut Context) {
         self.refresh_visibles(false, false, hub, context);
         self.sort(false, &mut context.metadata, hub);
+        self.child_mut(0).downcast_mut::<TopBar>()
+            .map(|top_bar| top_bar.update_frontlight_icon(hub, context));
         hub.send(Event::ClockTick).unwrap();
+        hub.send(Event::BatteryTick).unwrap();
         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
     }
 

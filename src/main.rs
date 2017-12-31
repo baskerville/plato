@@ -23,6 +23,10 @@ extern crate titlecase;
 
 mod errors {
     error_chain!{
+        foreign_links {
+            Io(::std::io::Error);
+            ParseInt(::std::num::ParseIntError);
+        }
         links {
             Font(::font::Error, ::font::ErrorKind);
         }
@@ -34,8 +38,9 @@ mod geom;
 mod unit;
 mod color;
 mod device;
-mod frontlight;
 mod framebuffer;
+mod frontlight;
+mod battery;
 mod input;
 mod gesture;
 mod helpers;

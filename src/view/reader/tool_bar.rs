@@ -23,7 +23,7 @@ impl ToolBar {
         if is_reflowable {
             let font_size_icon = Icon::new("font_size",
                                            rect![rect.min, rect.min + pt!(side)],
-                                           WHITE,
+                                           Some(WHITE),
                                            Align::Center,
                                            Event::Show(ViewId::FontSizeMenu));
             children.push(Box::new(font_size_icon) as Box<View>);
@@ -38,7 +38,7 @@ impl ToolBar {
         } else {
             let crop_icon = Icon::new("crop",
                                       rect![rect.min, rect.min + pt!(side)],
-                                      WHITE,
+                                      Some(WHITE),
                                       Align::Center,
                                       Event::Show(ViewId::MarginCropper));
             children.push(Box::new(crop_icon) as Box<View>);
@@ -51,39 +51,16 @@ impl ToolBar {
 
         let toc_icon = Icon::new("toc",
                                  rect![rect.max - pt!(side), rect.max],
-                                 WHITE,
+                                 Some(WHITE),
                                  Align::Center,
                                  Event::Show(ViewId::TableOfContents));
         children.push(Box::new(toc_icon) as Box<View>);
-
-        // let filler_width = (rect.width() / 8) as i32;
-
-        // let filler = Filler::new(rect![rect.min.x, rect.min.y,
-        //                                rect.min.x + filler_width, rect.max.y], WHITE);
-        // children.push(Box::new(filler) as Box<View>);
-
-        // let slider = Slider::new(rect![rect.min.x + filler_width, rect.min.y,
-        //                                rect.max.x - filler_width, rect.max.y],
-        //                          SliderId::FontSize,
-        //                          font_size,
-        //                          DEFAULT_FONT_SIZE / 2.0,
-        //                          DEFAULT_FONT_SIZE * 2.0);
-        // children.push(Box::new(slider) as Box<View>);
-
-        // let filler = Filler::new(rect![rect.max.x - filler_width, rect.min.y,
-        //                                rect.max.x, rect.max.y], WHITE);
-        // children.push(Box::new(filler) as Box<View>);
 
         ToolBar {
             rect,
             children,
         }
     }
-
-    // pub fn update_label(&mut self, font_size: f32, hub: &Hub) {
-    //     let label = self.child_mut(0).downcast_mut::<Label>().unwrap();
-    //     label.update(format!("{:.2}", font_size), hub);
-    // }
 }
 
 impl View for ToolBar {

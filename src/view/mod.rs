@@ -12,14 +12,19 @@ pub mod common;
 pub mod filler;
 pub mod icon;
 pub mod label;
+pub mod button;
+pub mod rounded_button;
 pub mod slider;
 pub mod input_field;
-pub mod rounded_button;
 pub mod page_label;
 pub mod go_to_page;
+pub mod confirmation;
+pub mod intermission;
+pub mod frontlight;
 pub mod menu;
 pub mod menu_entry;
 pub mod clock;
+pub mod battery;
 pub mod keyboard;
 pub mod key;
 pub mod home;
@@ -47,7 +52,7 @@ pub const BORDER_RADIUS_SMALL: f32 = 6.0;
 pub const BORDER_RADIUS_MEDIUM: f32 = 9.0;
 pub const BORDER_RADIUS_LARGE: f32 = 12.0;
 
-pub const CLOSE_IGNITION_DELAY_MS: u64 = 200;
+pub const CLOSE_IGNITION_DELAY_MS: u64 = 150;
 
 type Bus = VecDeque<Event>;
 type Hub = Sender<Event>;
@@ -204,6 +209,10 @@ pub enum Event {
     Close(ViewId),
     Finished,
     ClockTick,
+    BatteryTick,
+    ToggleFrontlight,
+    Suspend,
+    Mount,
     Validate,
     Cancel,
     Back,
@@ -216,7 +225,7 @@ pub enum ViewId {
     Reader,
     SortMenu,
     MainMenu,
-    FrontlightMenu,
+    Frontlight,
     FontSizeMenu,
     MatchesMenu,
     GoToPage,
@@ -224,6 +233,7 @@ pub enum ViewId {
     SearchInput,
     SearchBar,
     Keyboard,
+    ConfirmMount,
     MarginCropper,
     TopBottomBars,
     TableOfContents,
@@ -232,9 +242,18 @@ pub enum ViewId {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SliderId {
     FontSize,
-    White,
-    Red,
-    Green,
+    LightIntensity,
+    LightWarmth,
+}
+
+impl SliderId {
+    pub fn label(&self) -> String {
+        match *self {
+            SliderId::LightIntensity => "Intensity".to_string(),
+            SliderId::LightWarmth => "Warmth".to_string(),
+            SliderId::FontSize => "Font Size".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -289,10 +308,8 @@ pub enum EntryId {
     ToggleMonochrome,
     ToggleWifi,
     TakeScreenshot,
-    Suspend,
-    PowerOff,
-    Reboot,
     StartNickel,
+    Reboot,
     Quit,
 }
 

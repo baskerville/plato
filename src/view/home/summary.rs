@@ -305,7 +305,8 @@ impl Summary {
                     Item::Icon { name, .. } => {
                         let dir = if item_index == 0 { CycleDir::Previous } else { CycleDir::Next };
                         let child = Icon::new(name, rect![pos, sop],
-                                              background, Align::Left(left_padding),
+                                              Some(background),
+                                              Align::Left(left_padding),
                                               Event::Page(dir));
                         children.push(Box::new(child) as Box<View>);
                     }

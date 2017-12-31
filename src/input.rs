@@ -118,6 +118,7 @@ pub enum DeviceEvent {
     Unplug,
     CoverOn,
     CoverOff,
+    NetUp,
 }
 
 pub fn seconds(time: libc::timeval) -> f64 {
@@ -194,11 +195,14 @@ fn parse_usb_events(tx: &Sender<DeviceEvent>) {
                     break;
                 }
 
-                let msg = buf.trim_right();
-                if msg == "usb plug add" {
-                    tx.send(DeviceEvent::Plug).unwrap();
-                } else if msg == "usb plug remove" {
-                    tx.send(DeviceEvent::Unplug).unwrap();
+                for msg in buf.trim_right().lines() {
+                    if msg == "usb plug add" {
+                        tx.send(DeviceEvent::Plug).unwrap();
+                    } else if msg == "usb plug remove" {
+                        tx.send(DeviceEvent::Unplug).unwrap();
+                    } else if msg.starts_with("network bound") {
+                        tx.send(DeviceEvent::NetUp).unwrap();
+                    }
                 }
             }
         }

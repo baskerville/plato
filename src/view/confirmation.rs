@@ -7,7 +7,7 @@ use view::{View, Event, Hub, Bus, ViewId, Align};
 use view::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM, CLOSE_IGNITION_DELAY_MS};
 use view::button::Button;
 use view::label::Label;
-use framebuffer::{Framebuffer, UpdateMode};
+use framebuffer::Framebuffer;
 use gesture::GestureEvent;
 use color::{BLACK, WHITE};
 use unit::scale_by_dpi;
@@ -118,7 +118,7 @@ impl View for Confirmation {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
 
         let border_radius = scale_by_dpi(BORDER_RADIUS_MEDIUM, dpi) as i32;
