@@ -3,50 +3,48 @@ extern crate libc;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::os::unix::io::AsRawFd;
-use frontlight::{FrontLight, Color};
-
-error_chain!{
-    foreign_links {
-        Io(::std::io::Error);
-    }
-}
+use frontlight::{Frontlight, LightLevels};
+use errors::*;
 
 const CM_FRONT_LIGHT_SET: libc::c_ulong = 241;
 const FRONTLIGHT_INTERFACE: &str = "/dev/ntx_io";
 
-pub struct StandardLight {
-    value: u8,
+pub struct StandardFrontlight {
+    value: f32,
     interface: File,
 }
 
-impl StandardLight {
-    pub fn new(value: Option<u8>) -> Result<StandardLight> {
-        let value = value.unwrap_or(0);
+impl StandardFrontlight {
+    pub fn new(value: f32) -> Result<StandardFrontlight> {
         let interface = OpenOptions::new().write(true)
                                     .open(FRONTLIGHT_INTERFACE)?;
-        Ok(StandardLight { value, interface })
+        Ok(StandardFrontlight { value, interface })
     }
 }
 
-impl FrontLight for StandardLight {
-    fn get(&self, c: Color) -> f32 {
-        if c == Color::White {
-            self.value as f32
-        } else {
-            0.0
+impl Frontlight for StandardFrontlight {
+    fn intensity(&self) -> f32 {
+        self.value
+    }
+
+    fn warmth(&self) -> f32 {
+        0.0
+    }
+
+    fn set_intensity(&mut self, value: f32) {
+        let ret = unsafe {
+            libc::ioctl(self.interface.as_raw_fd(),
+                        CM_FRONT_LIGHT_SET, value as libc::c_int)
+        };
+        if ret != -1 {
+            self.value = value;
         }
     }
 
-    fn set(&mut self, c: Color, percent: f32) {
-        if c != Color::White {
-            return;
-        }
-        let ret = unsafe {
-            libc::ioctl(self.interface.as_raw_fd(),
-                        CM_FRONT_LIGHT_SET, self.value as libc::c_int)
-        };
-        if ret != -1 {
-            self.value = percent as u8;
-        }
+    fn set_warmth(&mut self, _value: f32) {
+    }
+
+    fn levels(&self) -> LightLevels {
+        LightLevels::Standard(self.value)
     }
 }
