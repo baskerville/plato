@@ -32,6 +32,7 @@ mod font;
 mod input;
 mod gesture;
 mod framebuffer;
+mod battery;
 mod frontlight;
 mod device;
 mod view;
@@ -41,6 +42,18 @@ mod document;
 mod metadata;
 mod symbolic_path;
 mod settings;
+
+mod errors {
+    error_chain!{
+        foreign_links {
+            Io(::std::io::Error);
+            ParseInt(::std::num::ParseIntError);
+        }
+        links {
+            Font(::font::Error, ::font::ErrorKind);
+        }
+    }
+}
 
 use std::env;
 use std::fs;
@@ -56,14 +69,6 @@ use metadata::{Info, FileInfo, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME
 use metadata::{import};
 use document::{Document, file_kind, open, asciify};
 use errors::*;
-
-mod errors {
-    error_chain!{
-        links {
-            Font(::font::Error, ::font::ErrorKind);
-        }
-    }
-}
 
 quick_main!(run);
 
