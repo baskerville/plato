@@ -412,6 +412,8 @@ impl DjvuDocument {
                 let title = CStr::from_ptr(raw).to_string_lossy().into_owned();
                 let raw = miniexp_to_str(miniexp_nth(1, itm));
                 let bytes = CStr::from_ptr(raw).to_bytes();
+                // TODO: handle the case #page_name: we need to call ddjvu_document_get_fileinfo
+                // for every file and try to find a matching page_name
                 let digits = bytes.iter().map(|v| *v as u8 as char)
                                          .filter(|c| c.is_digit(10))
                                          .collect::<String>();
