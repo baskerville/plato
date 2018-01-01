@@ -468,10 +468,11 @@ impl Home {
         }
     }
 
-    fn toggle_search_bar(&mut self, enable: Option<bool>, update: bool, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_search_bar(&mut self, enable: Option<bool>, update: bool, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (_, height) = CURRENT_DEVICE.dims;
         let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let small_thickness = small_half(thickness);
 
@@ -485,7 +486,7 @@ impl Home {
 
             if let Some(ViewId::SearchInput) = self.focus {
                 self.focus = None;
-                self.toggle_keyboard(false, false, hub, fonts);
+                self.toggle_keyboard(false, false, hub, &mut context.fonts);
             }
 
             self.children.drain(index - 1 .. index + 1);
@@ -495,7 +496,8 @@ impl Home {
                 shelf.rect.max.y += small_height as i32;
             }
 
-            self.resize_summary(-delta_y, false, hub, fonts);
+            self.resize_summary(-delta_y, false, hub, &mut context.fonts);
+
             self.query.clear();
 
             search_visible = false;
@@ -522,13 +524,13 @@ impl Home {
             }
 
             if locate::<Keyboard>(self).is_none() {
-                self.toggle_keyboard(true, false, hub, fonts);
+                self.toggle_keyboard(true, false, hub, &mut context.fonts);
             }
 
             self.focus = Some(ViewId::SearchInput);
             hub.send(Event::Focus(Some(ViewId::SearchInput))).unwrap();
 
-            self.resize_summary(delta_y - big_height as i32, false, hub, fonts);
+            self.resize_summary(delta_y - big_height as i32, false, hub, &mut context.fonts);
             search_visible = true;
         }
 
@@ -545,9 +547,13 @@ impl Home {
             }
 
             self.update_top_bar(search_visible, hub);
-            self.update_summary(true, hub, fonts);
+            self.update_summary(true, hub, &mut context.fonts);
             self.update_shelf(true, hub);
             self.update_bottom_bar(hub);
+
+            if !search_visible {
+                self.refresh_visibles(true, true, hub, context);
+            }
         }
     }
 
@@ -756,7 +762,7 @@ impl View for Home {
                 true
             },
             Event::Toggle(ViewId::SearchBar) => {
-                self.toggle_search_bar(None, true, hub, &mut context.fonts);
+                self.toggle_search_bar(None, true, hub, context);
                 true
             },
             Event::ToggleNear(ViewId::SortMenu, rect) => {
@@ -772,8 +778,7 @@ impl View for Home {
                 true
             },
             Event::Close(ViewId::SearchBar) => {
-                self.toggle_search_bar(Some(false), true, hub, &mut context.fonts);
-                self.refresh_visibles(true, true, hub, context);
+                self.toggle_search_bar(Some(false), true, hub, context);
                 true
             },
             Event::Close(ViewId::SortMenu) => {
