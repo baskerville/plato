@@ -2,6 +2,7 @@ use fnv::FnvHashMap;
 use device::{CURRENT_DEVICE, BAR_SIZES};
 use framebuffer::Framebuffer;
 use gesture::GestureEvent;
+use input::DeviceEvent;
 use view::{View, Event, Hub, Bus, KeyboardEvent, TextKind};
 use view::filler::Filler;
 use view::key::{Key, KeyKind};
@@ -305,13 +306,14 @@ impl View for Keyboard {
             },
             Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => true,
             Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(start) => true,
+            Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(position) => true,
             _ => false,
         }
     }
 
     fn might_skip(&self, evt: &Event) -> bool {
         match *evt {
-            Event::Gesture(..) | Event::Key(..) => false,
+            Event::Key(..) | Event::Gesture(..) | Event::Device(DeviceEvent::Finger { .. }) => false,
             _ => true,
         }
     }
