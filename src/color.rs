@@ -34,4 +34,4 @@ pub const BATTERY_FILL_CHARGED: u8 = GRAY05;
 
 pub const PROGRESS_FULL: u8 = GRAY05;
 pub const PROGRESS_EMPTY: u8 = GRAY13;
-pub const PROGRESS_VALUE: u8 = GRAY07;
+pub const PROGRESS_VALUE: u8 = GRAY06;
