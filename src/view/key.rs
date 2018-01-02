@@ -58,8 +58,8 @@ pub struct Key {
     children: Vec<Box<View>>,
     kind: KeyKind,
     padding: u32,
-    active: bool,
     pressure: u8,
+    active: bool,
 }
 
 impl Key {
@@ -69,8 +69,8 @@ impl Key {
             children: vec![],
             kind,
             padding,
-            active: false,
             pressure: 0,
+            active: false,
         }
     }
 
@@ -82,6 +82,10 @@ impl Key {
     pub fn release(&mut self, hub: &Hub) {
         self.pressure = 0;
         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+    }
+
+    pub fn lock(&mut self) {
+        self.pressure = 2;
     }
 }
 

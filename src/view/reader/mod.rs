@@ -187,7 +187,7 @@ impl Reader {
         }
     }
 
-    fn toggle_keyboard(&mut self, enable: bool, hub: &Hub) {
+    fn toggle_keyboard(&mut self, enable: bool, id: Option<ViewId>, hub: &Hub) {
         if let Some(index) = locate::<Keyboard>(self) {
             if enable {
                 return;
@@ -215,7 +215,12 @@ impl Reader {
                                     self.rect.max.x,
                                     self.rect.max.y - small_height as i32 - small_thickness];
 
-            let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone());
+            let number = match id {
+                Some(ViewId::GoToPageInput) => true,
+                _ => false,
+            };
+
+            let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone(), number);
             self.children.insert(index, Box::new(keyboard) as Box<View>);
 
             let separator = Filler::new(rect![self.rect.min.x, kb_rect.min.y - thickness,
@@ -297,8 +302,8 @@ impl Reader {
             self.children.remove(index);
 
             if let Some(ViewId::GoToPageInput) = self.focus {
+                self.toggle_keyboard(false, Some(ViewId::GoToPageInput), hub);
                 self.focus = None;
-                self.toggle_keyboard(false, hub);
             }
         } else {
             if let Some(false) = enable {
@@ -457,7 +462,7 @@ impl View for Reader {
             },
             Event::Focus(v) => {
                 self.focus = v;
-                self.toggle_keyboard(true, hub);
+                self.toggle_keyboard(true, v, hub);
                 false
             },
             _ => false,

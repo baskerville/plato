@@ -365,7 +365,7 @@ impl Home {
         }
     }
 
-    fn toggle_keyboard(&mut self, enable: bool, update: bool, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_keyboard(&mut self, enable: bool, update: bool, id: Option<ViewId>, hub: &Hub, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         let (_, height) = CURRENT_DEVICE.dims;
         let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
@@ -411,8 +411,12 @@ impl Home {
                                     self.rect.max.x,
                                     self.rect.max.y - small_height as i32 - small_thickness];
 
-            // TODO: render keyboard and separator
-            let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone());
+            let number = match id {
+                Some(ViewId::GoToPageInput) => true,
+                _ => false,
+            };
+
+            let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone(), number);
             self.children.insert(index, Box::new(keyboard) as Box<View>);
 
             let separator = Filler::new(rect![self.rect.min.x, kb_rect.min.y - thickness,
@@ -485,8 +489,8 @@ impl Home {
             }
 
             if let Some(ViewId::SearchInput) = self.focus {
+                self.toggle_keyboard(false, false, Some(ViewId::SearchInput), hub, &mut context.fonts);
                 self.focus = None;
-                self.toggle_keyboard(false, false, hub, &mut context.fonts);
             }
 
             self.children.drain(index - 1 .. index + 1);
@@ -524,7 +528,7 @@ impl Home {
             }
 
             if locate::<Keyboard>(self).is_none() {
-                self.toggle_keyboard(true, false, hub, &mut context.fonts);
+                self.toggle_keyboard(true, false, Some(ViewId::SearchInput), hub, &mut context.fonts);
             }
 
             self.focus = Some(ViewId::SearchInput);
@@ -565,8 +569,8 @@ impl Home {
             hub.send(Event::Expose(*self.child(index).rect())).unwrap();
             self.children.remove(index);
             if let Some(ViewId::GoToPageInput) = self.focus {
+                self.toggle_keyboard(false, true, Some(ViewId::GoToPageInput), hub, fonts);
                 self.focus = None;
-                self.toggle_keyboard(false, true, hub, fonts);
             }
         } else {
             if let Some(false) = enable {
@@ -749,12 +753,12 @@ impl View for Home {
         match *evt {
             Event::Focus(v) => {
                 self.focus = v;
-                self.toggle_keyboard(true, true, hub, &mut context.fonts);
+                self.toggle_keyboard(true, true, v, hub, &mut context.fonts);
                 false // let the event reach every input view
             },
             // TODO: handle other views
             Event::Show(ViewId::Keyboard) => {
-                self.toggle_keyboard(true, true, hub, &mut context.fonts);
+                self.toggle_keyboard(true, true, None, hub, &mut context.fonts);
                 true
             },
             Event::Toggle(ViewId::GoToPage) => {
@@ -813,7 +817,7 @@ impl View for Home {
             Event::Submit(ViewId::SearchInput, ref query) => {
                 self.query = query.clone();
                 // TODO: avoid updating things twice
-                self.toggle_keyboard(false, true, hub, &mut context.fonts);
+                self.toggle_keyboard(false, true, Some(ViewId::SearchInput), hub, &mut context.fonts);
                 self.refresh_visibles(true, true, hub, context);
                 true
             },

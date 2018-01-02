@@ -37,14 +37,14 @@ pub struct Keyboard {
     rect: Rectangle,
     children: Vec<Box<View>>,
     layout: Layout,
-    combine_buffer: String,
     state: State,
+    combine_buffer: String,
 }
 
 use device::optimal_key_setup;
 
 impl Keyboard {
-    pub fn new(rect: &mut Rectangle, layout: Layout) -> Keyboard {
+    pub fn new(rect: &mut Rectangle, layout: Layout, number: bool) -> Keyboard {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let (side, padding) = optimal_key_setup(rect.width(), rect.height(), dpi);
@@ -65,14 +65,29 @@ impl Keyboard {
         let (small_half_remaining_width, big_half_remaining_width) = halves(remaining_width);
         let (small_half_remaining_height, big_half_remaining_height) = halves(remaining_height);
 
+        let mut state = State::default();
+
+        if number {
+            state.alternate = 2;
+        }
+
+        let mut index = 0;
+
+        if state.shift > 0 {
+            index += 1;
+        }
+
+        if state.alternate > 0 {
+            index += 2;
+        }
+
         // Row 1
 
         for i in 0..10usize {
             let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + i as i32 * normal_side,
                                         small_half_remaining_height);
-            let ch = layout.outputs[0].row1[i];
+            let ch = layout.outputs[index].row1[i];
             let key = Key::new(rect![min_pt, min_pt + normal_side],
-                               // KeyKind::Output(ch, (i<<3) as u8), padding);
                                KeyKind::Output(ch), padding);
             children.push(Box::new(key) as Box<View>);
         }
@@ -86,9 +101,8 @@ impl Keyboard {
         for i in 0..9usize {
             let min_pt = rect.min + pt!(small_half_remaining_width + (i + 1) as i32 * normal_side,
                                         small_half_remaining_height + normal_side);
-            let ch = layout.outputs[0].row2[i];
+            let ch = layout.outputs[index].row2[i];
             let key = Key::new(rect![min_pt, min_pt + normal_side],
-                               // KeyKind::Output(ch, (i<<3) + 1), padding);
                                KeyKind::Output(ch), padding);
             children.push(Box::new(key) as Box<View>);
         }
@@ -106,9 +120,8 @@ impl Keyboard {
         for i in 0..7usize {
             let min_pt = rect.min + pt!(small_half_remaining_width + (i + 2) as i32 * normal_side,
                                         small_half_remaining_height + 2 * normal_side);
-            let ch = layout.outputs[0].row3[i];
+            let ch = layout.outputs[index].row3[i];
             let key = Key::new(rect![min_pt, min_pt + normal_side],
-                               // KeyKind::Output(ch, (i<<3) as u8 + 2), padding);
                                KeyKind::Output(ch), padding);
             children.push(Box::new(key) as Box<View>);
         }
@@ -132,7 +145,10 @@ impl Keyboard {
         children.push(Box::new(key) as Box<View>);
 
         let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + 7 * normal_side, small_half_remaining_height + 3 * normal_side);
-        let key = Key::new(rect![min_pt, min_pt + pt!(big_medium_length, normal_side)], KeyKind::Alternate, padding);
+        let mut key = Key::new(rect![min_pt, min_pt + pt!(big_medium_length, normal_side)], KeyKind::Alternate, padding);
+        if number {
+            key.lock();
+        }
         children.push(Box::new(key) as Box<View>);
 
         let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + 7 * normal_side + big_medium_length, small_half_remaining_height + 3 * normal_side);
@@ -196,8 +212,8 @@ impl Keyboard {
             rect: *rect,
             children,
             layout,
+            state,
             combine_buffer: String::new(),
-            state: State::default(),
         }
     }
 
@@ -260,6 +276,7 @@ impl Keyboard {
             child.release(hub);
         }
     }
+
 }
 
 impl View for Keyboard {
