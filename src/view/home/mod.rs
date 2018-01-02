@@ -14,7 +14,7 @@ use std::f32;
 use std::sync::mpsc;
 use std::collections::BTreeSet;
 use chrono::Local;
-use metadata::{Metadata, SortMethod, sort};
+use metadata::{Metadata, SortMethod, sort, make_query};
 use framebuffer::{Framebuffer, UpdateMode};
 use view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
 use view::filler::Filler;
@@ -158,22 +158,17 @@ impl Home {
     fn refresh_visibles(&mut self, update: bool, reset_page: bool, hub: &Hub, context: &mut Context) {
         let fonts = &mut context.fonts;
         let metadata = &mut context.metadata;
+        let query = make_query(&self.query);
 
         self.visible_books = metadata.iter().filter(|info| {
-            // TODO: case insensitive, scoped queries, etc.
-            // NOTE: self.query.is_empty() isn't necessary here, because x.find("") is Some(0)
-            (self.query.is_empty() || info.title.find(&self.query).is_some() ||
-                                      info.subtitle.find(&self.query).is_some() ||
-                                      info.author.find(&self.query).is_some() ||
-                                      info.categories.iter().any(|c| c.find(&self.query).is_some()) ||
-                                      info.file.path.to_str().and_then(|s| s.find(&self.query)).is_some()) &&
-                (self.selected_categories.is_subset(&info.categories) ||
-                 self.selected_categories.iter()
-                                         .all(|s| info.categories
-                                                      .iter().any(|c| c == s || c.is_descendant_of(s)))) &&
-                (self.negated_categories.is_empty() ||
-                 (self.negated_categories.is_disjoint(&info.categories) &&
-                  info.categories.iter().all(|c| c.ancestors().all(|a| !self.negated_categories.contains(a)))))
+            info.is_match(&query) &&
+            (self.selected_categories.is_subset(&info.categories) ||
+             self.selected_categories.iter()
+                                     .all(|s| info.categories
+                                                  .iter().any(|c| c == s || c.is_descendant_of(s)))) &&
+            (self.negated_categories.is_empty() ||
+             (self.negated_categories.is_disjoint(&info.categories) &&
+              info.categories.iter().all(|c| c.ancestors().all(|a| !self.negated_categories.contains(a)))))
         }).cloned().collect();
 
         self.visible_categories = self.visible_books.iter()

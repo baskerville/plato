@@ -254,6 +254,19 @@ impl Info {
         title
     }
 
+    #[inline]
+    pub fn is_match(&self, query: &Option<Regex>) -> bool {
+        if let Some(ref query) = *query {
+            query.is_match(&self.title) ||
+            query.is_match(&self.subtitle) ||
+            query.is_match(&self.author) ||
+            self.categories.iter().any(|c| query.is_match(c)) ||
+            self.file.path.to_str().map(|s| query.is_match(s)).unwrap_or(false)
+        } else {
+            false
+        }
+    }
+
     // TODO: handle the following case: *Walter M. Miller Jr.*?
     // NOTE: e.g.: John Le Carré: the space between *Le* and *Carré* is a non-breaking space
     pub fn alphabetic_author(&self) -> &str {
