@@ -2,11 +2,11 @@
 
 Install [fmon](https://github.com/baskerville/fmon).
 
-Then extract the archive given on the [release page](https://github.com/baskerville/plato/releases) to the root of the SD card:
+Then extract the archives given on the [release page](https://github.com/baskerville/plato/releases) to the root of the SD card:
 
 ```sh
-unzip plato-fmon-VERSION.zip -d SD_ROOT
-
+unzip plato-VERSION.zip -d SD_ROOT
+unzip plato-launcher-fmon-VERSION.zip -d SD_ROOT
 ```
 
 The *icon* should be imported when you eject the card. Follow the instruction given on the *fmon* page on how to handle it.
