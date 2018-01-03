@@ -292,6 +292,7 @@ pub fn file_name_from_info(info: &Info) -> String {
     base.replace("..", ".")
         .replace('/', " ")
         .replace('?', "")
+        .replace(':', "")
 }
 
 pub fn label_from_path(path: &Path) -> String {
