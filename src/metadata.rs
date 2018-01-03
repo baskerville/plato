@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 use fnv::{FnvHashMap, FnvHashSet};
 use chrono::{Local, DateTime};
 use regex::Regex;
-use document::{file_kind, ALLOWED_KINDS};
+use document::file_kind;
 use symbolic_path;
 use errors::*;
 
@@ -425,7 +425,7 @@ lazy_static! {
     };
 }
 
-pub fn import(dir: &Path, metadata: &Metadata) -> Result<Metadata> {
+pub fn import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String>) -> Result<Metadata> {
     let files = find_files(dir, dir)?;
     let known: FnvHashSet<PathBuf> = metadata.iter()
                                              .map(|info| info.file.path.clone())
@@ -433,7 +433,7 @@ pub fn import(dir: &Path, metadata: &Metadata) -> Result<Metadata> {
     let mut metadata = Vec::new();
 
     for file_info in &files {
-        if !known.contains(&file_info.path) && ALLOWED_KINDS.contains(file_info.kind.as_str()) {
+        if !known.contains(&file_info.path) && allowed_kinds.contains(&file_info.kind) {
             println!("{}", file_info.path.display());
             let mut info = Info::default();
             info.file = file_info.clone();

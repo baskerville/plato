@@ -17,7 +17,6 @@ use input::{DeviceEvent, ButtonCode, ButtonStatus};
 use input::{raw_events, device_events, usb_events};
 use gesture::{GestureEvent, gesture_events};
 use helpers::{load_json, save_json};
-use device::CURRENT_DEVICE;
 use metadata::{Metadata, METADATA_FILENAME, import};
 use settings::{Settings, SETTINGS_PATH};
 use frontlight::{Frontlight, NaturalFrontlight, StandardFrontlight};
@@ -26,6 +25,7 @@ use view::home::Home;
 use view::reader::Reader;
 use view::confirmation::Confirmation;
 use view::intermission::Intermission;
+use device::CURRENT_DEVICE;
 use font::Fonts;
 use errors::*;
 
@@ -73,7 +73,9 @@ pub fn run() -> Result<()> {
     let path = settings.library_path.join(METADATA_FILENAME);
     let metadata = load_json::<Metadata, _>(path)
                              .map_err(|e| eprintln!("Can't load metadata: {}.", e))
-                             .or_else(|_| import(&settings.library_path, &vec![]))
+                             .or_else(|_| import(&settings.library_path,
+                                                 &vec![],
+                                                 &settings.import.allowed_kinds))
                              .unwrap_or_default();
 
     let mut fb = KoboFramebuffer::new("/dev/fb0").chain_err(|| "Can't create framebuffer.")?;
@@ -228,8 +230,16 @@ pub fn run() -> Result<()> {
                                                      .unwrap_or_default();
                             if !metadata.is_empty() {
                                 context.metadata = metadata;
-                                view.handle_event(&Event::Back, &tx, &mut bus, &mut context);
                             }
+                            if context.settings.import.unmount_trigger {
+                                let metadata = import(&context.settings.library_path,
+                                                      &context.metadata,
+                                                      &context.settings.import.allowed_kinds);
+                                if metadata.is_ok() {
+                                    context.metadata.append(&mut metadata.unwrap());
+                                }
+                            }
+                            view.handle_event(&Event::Back, &tx, &mut bus, &mut context);
                         } else {
                             context.plugged = false;
                             tx.send(Event::BatteryTick).unwrap();

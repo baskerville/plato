@@ -65,6 +65,7 @@ use getopts::Options;
 use html_entities::decode_html_entities;
 use titlecase::titlecase;
 use helpers::{load_json, save_json};
+use settings::ImportSettings;
 use metadata::{Info, FileInfo, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
 use metadata::{import};
 use document::{Document, file_kind, open, asciify};
@@ -86,6 +87,7 @@ pub fn run() -> Result<()> {
     opts.optflag("C", "consolidate", "Consolidate an existing database.");
     opts.optflag("N", "rename", "Rename files based on their info.");
     opts.optflag("Z", "initialize", "Initialize a database.");
+    opts.optopt("a", "allowed-kinds", "Comma separated list of allowed kinds.", "ALLOWED_KINDS");
     opts.optopt("i", "input", "Input file name.", "INPUT_NAME");
     opts.optopt("o", "output", "Output file name.", "OUTPUT_NAME");
 
@@ -94,7 +96,7 @@ pub fn run() -> Result<()> {
     )?;
 
     if matches.opt_present("h") {
-        println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-C|-N|-Z [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH"));
+        println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-C|-N|-Z [-a ALLOWED_KINDS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH"));
         return Ok(());
     }
 
@@ -118,7 +120,9 @@ pub fn run() -> Result<()> {
         }
     } else if matches.opt_present("I") {
         let metadata = load_json(input_path)?;
-        let metadata = import(library_path, &metadata)?;
+        let allowed_kinds = matches.opt_str("a").map(|v| v.split(',').map(|k| k.to_string()).collect())
+                                   .unwrap_or_else(|| ImportSettings::default().allowed_kinds);
+        let metadata = import(library_path, &metadata, &allowed_kinds)?;
         save_json(&metadata, output_path)?;
     } else {
         let mut metadata = load_json(&output_path)?;

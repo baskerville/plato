@@ -213,7 +213,7 @@ pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<Document>> {
 
 // cd mupdf/source && awk '/_extensions\[/,/}/' */*.c
 lazy_static! {
-pub static ref ALLOWED_KINDS: FnvHashSet<&'static str> =
+pub static ref RECOGNIZED_KINDS: FnvHashSet<&'static str> =
     [
     // djvu
     "djvu",
