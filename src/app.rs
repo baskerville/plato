@@ -219,6 +219,16 @@ pub fn run() -> Result<()> {
                         if context.mounted {
                             mount(false);
                             context.mounted = false;
+                            if context.settings.wifi {
+                                Command::new("scripts/wifi-enable.sh")
+                                        .spawn()
+                                        .ok();
+                            }
+                            if context.settings.frontlight {
+                                let levels = context.settings.frontlight_levels;
+                                context.frontlight.set_intensity(levels.intensity());
+                                context.frontlight.set_warmth(levels.warmth());
+                            }
                             if let Some(index) = locate::<Intermission>(view.as_ref()) {
                                 let rect = *view.child(index).rect();
                                 view.children_mut().remove(index);
@@ -274,6 +284,16 @@ pub fn run() -> Result<()> {
                     if let Some(v) = history.pop() {
                         view.handle_event(&Event::Back, &tx, &mut bus, &mut context);
                         view = v;
+                    }
+                    if context.settings.frontlight {
+                        context.settings.frontlight_levels = context.frontlight.levels();
+                        context.frontlight.set_warmth(0.0);
+                        context.frontlight.set_intensity(0.0);
+                    }
+                    if context.settings.wifi {
+                        Command::new("scripts/wifi-disable.sh")
+                                .status()
+                                .ok();
                     }
                     let interm = Intermission::new(fb_rect, "Mounted".to_string(), false);
                     tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
