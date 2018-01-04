@@ -175,36 +175,26 @@ pub fn usb_events() -> Receiver<DeviceEvent> {
     rx
 }
 
-fn parse_usb_events(tx: &Sender<DeviceEvent>) {
-    let mut file = File::open("/tmp/nickel-hardware-status").unwrap();
-    let fd = file.as_raw_fd();
-
-    let mut pfds = [libc::pollfd { fd: fd, events: libc::POLLIN, revents: 0 }];
+fn parse_usb_events(tx: &Sender<DeviceEvent>) -> Result<()> {
+    let fifo_path = "/tmp/nickel-hardware-status";
+    let mut file = File::open(fifo_path)?;
+    let mut buf = String::new();
 
     loop {
-        let ret = unsafe { libc::poll(pfds.as_mut_ptr(), pfds.len() as libc::nfds_t, -1) };
+        let n = file.read_to_string(&mut buf)?;
 
-        if ret < 0 {
-            break;
-        }
-
-        for pfd in pfds.iter() {
-            if pfd.revents & libc::POLLIN != 0 {
-                let mut buf = String::new();
-                if file.read_to_string(&mut buf).is_err() {
-                    break;
-                }
-
-                for msg in buf.trim_right().lines() {
-                    if msg == "usb plug add" {
-                        tx.send(DeviceEvent::Plug).unwrap();
-                    } else if msg == "usb plug remove" {
-                        tx.send(DeviceEvent::Unplug).unwrap();
-                    } else if msg.starts_with("network bound") {
-                        tx.send(DeviceEvent::NetUp).unwrap();
-                    }
+        if n > 0 {
+            for msg in buf.trim_right().lines() {
+                if msg == "usb plug add" {
+                    tx.send(DeviceEvent::Plug).unwrap();
+                } else if msg == "usb plug remove" {
+                    tx.send(DeviceEvent::Unplug).unwrap();
+                } else if msg.starts_with("network bound") {
+                    tx.send(DeviceEvent::NetUp).unwrap();
                 }
             }
+        } else {
+            file = File::open(fifo_path)?;
         }
     }
 }
