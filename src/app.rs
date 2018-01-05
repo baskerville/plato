@@ -1,4 +1,3 @@
-use std::env;
 use std::thread;
 use std::fs::{self, File};
 use std::path::Path;
@@ -64,7 +63,7 @@ pub fn run() -> Result<()> {
 
     if let Err(ref e) = settings {
         if path.exists() {
-            eprintln!("Warning: can't load settings: {}.", e);
+            eprintln!("Warning: can't load settings: {}", e);
         }
     }
 
@@ -72,7 +71,7 @@ pub fn run() -> Result<()> {
 
     let path = settings.library_path.join(METADATA_FILENAME);
     let metadata = load_json::<Metadata, _>(path)
-                             .map_err(|e| eprintln!("Can't load metadata: {}.", e))
+                             .map_err(|e| eprintln!("Can't load metadata: {}", e))
                              .or_else(|_| import(&settings.library_path,
                                                  &vec![],
                                                  &settings.import.allowed_kinds))
@@ -217,7 +216,7 @@ pub fn run() -> Result<()> {
                         }
 
                         if context.mounted {
-                            mount(false);
+                            Command::new("scripts/usb-disable.sh").status().ok();
                             context.mounted = false;
                             if context.settings.wifi {
                                 Command::new("scripts/wifi-enable.sh")
@@ -236,7 +235,7 @@ pub fn run() -> Result<()> {
                             }
                             let path = context.settings.library_path.join(METADATA_FILENAME);
                             let metadata = load_json::<Metadata, _>(path)
-                                                     .map_err(|e| eprintln!("Can't load metadata: {}.", e))
+                                                     .map_err(|e| eprintln!("Can't load metadata: {}", e))
                                                      .unwrap_or_default();
                             if !metadata.is_empty() {
                                 context.metadata = metadata;
@@ -298,7 +297,7 @@ pub fn run() -> Result<()> {
                     let interm = Intermission::new(fb_rect, "Mounted".to_string(), false);
                     tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
                     view.children_mut().push(Box::new(interm) as Box<View>);
-                    mount(true);
+                    Command::new("scripts/usb-enable.sh").spawn().ok();
                     context.mounted = true;
                 }
             },
@@ -306,7 +305,7 @@ pub fn run() -> Result<()> {
                 match ge {
                     GestureEvent::HoldButton(ButtonCode::Power) => {
                         let _ = File::create("poweroff").map_err(|e| {
-                            eprintln!("Couldn't create the poweroff file: {}.", e);
+                            eprintln!("Couldn't create the poweroff file: {}", e);
                         }).ok();
                         let interm = Intermission::new(fb_rect, "Powered off".to_string(), true);
                         updating.retain(|tok, _| fb.wait(*tok).is_err());
@@ -416,7 +415,7 @@ pub fn run() -> Result<()> {
             },
             Event::Select(EntryId::StartNickel) => {
                 fs::remove_file("bootlock").map_err(|e| {
-                    eprintln!("Couldn't remove the bootlock file: {}.", e);
+                    eprintln!("Couldn't remove the bootlock file: {}", e);
                 }).ok();
                 break;
             },
@@ -441,21 +440,4 @@ pub fn run() -> Result<()> {
     save_json(&context.settings, path).chain_err(|| "Can't save settings.")?;
 
     Ok(())
-}
-
-fn mount(enable: bool) {
-    let action = if enable { "add" } else { "remove" };
-    let mut cmd = Command::new("/usr/local/Kobo/udev/usb");
-    cmd.env("ACTION", action)
-       .env("PRODUCT_ID", env::var("PRODUCT_ID").ok().as_ref()
-            .map_or("0x6666", String::as_ref))
-       .env("VERSION", env::var("FIRMWARE_VERSION").ok().as_ref()
-            .map_or("9.8.76543", String::as_ref))
-       .env("SN", env::var("SERIAL_NUMBER").ok().as_ref()
-            .map_or("N666999666999", String::as_ref));
-    if enable {
-        cmd.spawn().ok();
-    } else {
-        cmd.status().ok();
-    }
 }
