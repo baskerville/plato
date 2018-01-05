@@ -10,7 +10,7 @@ while [ ! -e /sys/class/net/${INTERFACE} ] ; do
 done
 
 ifconfig $INTERFACE up
-wlarm_le -i $INTERFACE up
+[ "$WIFI_MODULE" != 8189fs ] && wlarm_le -i $INTERFACE up
 
 pidof wpa_supplicant > /dev/null || wpa_supplicant -D wext -s -i $INTERFACE -c /etc/wpa_supplicant/wpa_supplicant.conf -C /var/run/wpa_supplicant -B
 
