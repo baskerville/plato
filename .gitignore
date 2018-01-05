@@ -8,4 +8,5 @@ settings.json
 user.css
 src/wrapper/*.so
 src/wrapper/*.dylib
+src/test.rs
 **/*.rs.bk
