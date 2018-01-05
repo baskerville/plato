@@ -233,6 +233,9 @@ pub fn run() -> Result<()> {
                                 view.children_mut().remove(index);
                                 tx.send(Event::Expose(rect)).unwrap();
                             }
+                            if Path::new("/mnt/onboard/.kobo/KoboRoot.tgz").exists() {
+                                tx.send(Event::Select(EntryId::Reboot)).unwrap();
+                            }
                             let path = context.settings.library_path.join(METADATA_FILENAME);
                             let metadata = load_json::<Metadata, _>(path)
                                                      .map_err(|e| eprintln!("Can't load metadata: {}", e))
