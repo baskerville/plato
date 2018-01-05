@@ -2,6 +2,7 @@ extern crate libc;
 
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::os::unix::io::AsRawFd;
+use std::ffi::CString;
 use std::thread;
 use std::io::Read;
 use std::fs::File;
@@ -175,26 +176,45 @@ pub fn usb_events() -> Receiver<DeviceEvent> {
     rx
 }
 
-fn parse_usb_events(tx: &Sender<DeviceEvent>) -> Result<()> {
-    let fifo_path = "/tmp/nickel-hardware-status";
-    let mut file = File::open(fifo_path)?;
-    let mut buf = String::new();
+fn parse_usb_events(tx: &Sender<DeviceEvent>) {
+    let path = CString::new("/tmp/nickel-hardware-status").unwrap();
+    let fd = unsafe { libc::open(path.as_ptr(), libc::O_NONBLOCK | libc::O_RDWR) };
+
+    let mut pfd = libc::pollfd {
+        fd,
+        events: libc::POLLIN,
+        revents: 0,
+    };
+
+    const BUF_LEN: usize = 256;
 
     loop {
-        let n = file.read_to_string(&mut buf)?;
+        let ret = unsafe { libc::poll(&mut pfd as *mut libc::pollfd, 1, -1) };
 
-        if n > 0 {
-            for msg in buf.trim_right().lines() {
-                if msg == "usb plug add" {
-                    tx.send(DeviceEvent::Plug).unwrap();
-                } else if msg == "usb plug remove" {
-                    tx.send(DeviceEvent::Unplug).unwrap();
-                } else if msg.starts_with("network bound") {
-                    tx.send(DeviceEvent::NetUp).unwrap();
+        if ret < 0 {
+            break;
+        }
+
+        let buf = CString::new(vec![1; BUF_LEN]).unwrap();
+        let c_buf = buf.into_raw();
+
+        if pfd.revents & libc::POLLIN != 0 {
+            let n = unsafe { libc::read(fd, c_buf as *mut libc::c_void, BUF_LEN as libc::size_t) };
+            let buf = unsafe { CString::from_raw(c_buf) };
+            if n > 0 {
+                if let Ok(s) = buf.to_str() {
+                    let msg = s[..n as usize].trim_right();
+                    if msg == "usb plug add" {
+                        tx.send(DeviceEvent::Plug).unwrap();
+                    } else if msg == "usb plug remove" {
+                        tx.send(DeviceEvent::Unplug).unwrap();
+                    } else if msg.starts_with("network bound") {
+                        tx.send(DeviceEvent::NetUp).unwrap();
+                    }
                 }
+            } else {
+                break;
             }
-        } else {
-            file = File::open(fifo_path)?;
         }
     }
 }
