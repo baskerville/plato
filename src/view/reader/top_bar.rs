@@ -25,8 +25,6 @@ impl TopBar {
         let side = rect.height() as i32;
         let root_icon = Icon::new("back",
                                   rect![rect.min, rect.min+side],
-                                  Some(WHITE),
-                                  Align::Center,
                                   Event::Back);
         children.push(Box::new(root_icon) as Box<View>);
 
@@ -53,16 +51,12 @@ impl TopBar {
         let frontlight_icon = Icon::new(name,
                                         rect![rect.max - pt!(2*side, side),
                                               rect.max - pt!(side, 0)],
-                                        Some(WHITE),
-                                        Align::Center,
                                         Event::Show(ViewId::Frontlight));
         children.push(Box::new(frontlight_icon) as Box<View>);
 
         let menu_rect = rect![rect.max-side, rect.max];
         let menu_icon = Icon::new("menu",
                                   menu_rect,
-                                  Some(WHITE),
-                                  Align::Center,
                                   Event::ToggleNear(ViewId::MainMenu, menu_rect));
         children.push(Box::new(menu_icon) as Box<View>);
 

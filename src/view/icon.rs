@@ -7,11 +7,11 @@ use view::BORDER_RADIUS_SMALL;
 use gesture::GestureEvent;
 use input::{DeviceEvent, FingerStatus};
 use document::pdf::PdfOpener;
+use color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use unit::{scale_by_dpi, scale_by_dpi_raw};
+use geom::{Rectangle, CornerSpec};
 use font::Fonts;
 use app::Context;
-use geom::{Rectangle, CornerSpec};
-use color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 
 const ICON_SCALE: f32 = 1.0 / 32.0;
 
@@ -38,23 +38,40 @@ pub struct Icon {
     pub rect: Rectangle,
     children: Vec<Box<View>>,
     pub name: String,
-    background: Option<u8>,
+    background: u8,
     align: Align,
+    corners: Option<CornerSpec>,
     event: Event,
     active: bool,
 }
 
 impl Icon {
-    pub fn new(name: &str, rect: Rectangle, background: Option<u8>, align: Align, event: Event) -> Icon {
+    pub fn new(name: &str, rect: Rectangle, event: Event) -> Icon {
         Icon {
             rect,
             children: vec![],
             name: name.to_string(),
-            background,
-            align,
+            background: TEXT_NORMAL[0],
+            align: Align::Center,
+            corners: None,
             event,
             active: false,
         }
+    }
+
+    pub fn background(mut self, background: u8) -> Icon {
+        self.background = background;
+        self
+    }
+
+    pub fn align(mut self, align: Align) -> Icon {
+        self.align = align;
+        self
+    }
+
+    pub fn corners(mut self, corners: Option<CornerSpec>) -> Icon {
+        self.corners = corners;
+        self
     }
 }
 
@@ -114,8 +131,10 @@ impl View for Icon {
         let dy = (self.rect.height() as i32 - pixmap.height) / 2;
         let pt = self.rect.min + pt!(dx, dy);
 
-        if let Some(bg) = self.background {
-            fb.draw_rectangle(&self.rect, bg);
+        if let Some(ref cs) = self.corners {
+            fb.draw_rounded_rectangle(&self.rect, cs, self.background);
+        } else {
+            fb.draw_rectangle(&self.rect, self.background);
         }
 
         if self.active {

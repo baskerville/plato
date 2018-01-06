@@ -719,6 +719,7 @@ impl Home {
     }
 
     fn reseed(&mut self, hub: &Hub, context: &mut Context) {
+        // FIXME: We need to update the summary while preventing it from rendering itself
         self.refresh_visibles(false, false, hub, context);
         self.sort(false, &mut context.metadata, hub);
         self.child_mut(0).downcast_mut::<TopBar>()

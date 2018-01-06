@@ -27,6 +27,7 @@ impl FrontlightWindow {
         let (width, height) = CURRENT_DEVICE.dims;
         let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
         let thickness = scale_by_dpi(THICKNESS_LARGE, dpi) as i32;
+        let border_radius = scale_by_dpi(BORDER_RADIUS_MEDIUM, dpi) as i32;
 
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let padding = font.em() as i32;
@@ -46,12 +47,11 @@ impl FrontlightWindow {
 
         let close_icon = Icon::new("close",
                                    rect![rect.max.x - small_height as i32,
-                                         rect.min.y,
-                                         rect.max.x,
+                                         rect.min.y + thickness,
+                                         rect.max.x - thickness,
                                          rect.min.y + small_height as i32],
-                                   None,
-                                   Align::Center,
-                                   Event::Close(ViewId::Frontlight));
+                                   Event::Close(ViewId::Frontlight))
+                              .corners(Some(CornerSpec::Uniform(border_radius - thickness)));
 
         children.push(Box::new(close_icon) as Box<View>);
 

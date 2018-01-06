@@ -23,8 +23,6 @@ impl ToolBar {
         if is_reflowable {
             let font_size_icon = Icon::new("font_size",
                                            rect![rect.min, rect.min + pt!(side)],
-                                           Some(WHITE),
-                                           Align::Center,
                                            Event::Show(ViewId::FontSizeMenu));
             children.push(Box::new(font_size_icon) as Box<View>);
 
@@ -38,8 +36,6 @@ impl ToolBar {
         } else {
             let crop_icon = Icon::new("crop",
                                       rect![rect.min, rect.min + pt!(side)],
-                                      Some(WHITE),
-                                      Align::Center,
                                       Event::Show(ViewId::MarginCropper));
             children.push(Box::new(crop_icon) as Box<View>);
 
@@ -51,8 +47,6 @@ impl ToolBar {
 
         let toc_icon = Icon::new("toc",
                                  rect![rect.max - pt!(side), rect.max],
-                                 Some(WHITE),
-                                 Align::Center,
                                  Event::Show(ViewId::TableOfContents));
         children.push(Box::new(toc_icon) as Box<View>);
 
