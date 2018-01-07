@@ -54,9 +54,11 @@ impl View for MenuEntry {
                 match self.kind {
                     EntryKind::CheckBox(_, _, ref mut value) => {
                         *value = !*value;
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                     },
                     EntryKind::RadioButton(_, _, ref mut value) if !*value => {
                         *value = true;
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                     },
                     _ => (),
                 };
@@ -81,6 +83,7 @@ impl View for MenuEntry {
                     EntryKind::RadioButton(_, ref id, ref mut value) if *value => {
                         if mem::discriminant(id) == mem::discriminant(other_id) && id != other_id {
                             *value = false;
+                            hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                             true
                         } else {
                             false
