@@ -1,5 +1,5 @@
 use framebuffer::{Framebuffer, UpdateMode};
-use view::{View, Event, Hub, Bus, ViewId, Align};
+use view::{View, Event, Hub, Bus, ViewId};
 use view::icon::Icon;
 use view::clock::Clock;
 use view::home::sort_label::SortLabel;

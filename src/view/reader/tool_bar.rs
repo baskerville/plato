@@ -1,5 +1,5 @@
 use framebuffer::Framebuffer;
-use view::{View, Event, Hub, Bus, SliderId, ViewId, Align};
+use view::{View, Event, Hub, Bus, SliderId, ViewId};
 use view::filler::Filler;
 use view::slider::Slider;
 use view::icon::Icon;

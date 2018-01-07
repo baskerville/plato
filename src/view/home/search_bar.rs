@@ -1,6 +1,6 @@
 use framebuffer::Framebuffer;
 use device::CURRENT_DEVICE;
-use view::{View, Event, Hub, Bus, ViewId, Align, THICKNESS_MEDIUM};
+use view::{View, Event, Hub, Bus, ViewId, THICKNESS_MEDIUM};
 use view::icon::Icon;
 use view::input_field::InputField;
 use view::filler::Filler;

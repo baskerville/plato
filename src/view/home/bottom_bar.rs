@@ -1,5 +1,5 @@
 use framebuffer::{Framebuffer, UpdateMode};
-use view::{View, Event, Hub, Bus, Align};
+use view::{View, Event, Hub, Bus};
 use view::icon::Icon;
 use view::filler::Filler;
 use view::home::matches_label::MatchesLabel;
