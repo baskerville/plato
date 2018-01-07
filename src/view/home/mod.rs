@@ -26,6 +26,7 @@ use view::common::{shift, locate, locate_by_id, toggle_main_menu};
 use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use view::go_to_page::GoToPage;
 use view::menu::Menu;
+use view::menu_entry::MenuEntry;
 use self::bottom_bar::BottomBar;
 use device::{CURRENT_DEVICE, BAR_SIZES};
 use symbolic_path::SymbolicPath;
@@ -703,6 +704,12 @@ impl Home {
     fn set_sort_method(&mut self, sort_method: SortMethod, hub: &Hub, context: &mut Context) {
         self.sort_method = sort_method;
         self.reverse_order = sort_method.reverse_order();
+        if let Some(index) = locate_by_id(self, ViewId::SortMenu) {
+            self.child_mut(index)
+                .children_mut().last_mut().unwrap()
+                .downcast_mut::<MenuEntry>().unwrap()
+                .update(sort_method.reverse_order(), hub);
+        }
         self.sort(true, &mut context.metadata, hub);
     }
 

@@ -330,4 +330,20 @@ impl EntryKind {
             _ => "",
         }
     }
+
+    pub fn get(&self) -> Option<bool> {
+        match *self {
+            EntryKind::CheckBox(_, _, v) |
+            EntryKind::RadioButton(_, _, v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn set(&mut self, value: bool) {
+        match *self {
+            EntryKind::CheckBox(_, _, ref mut v) |
+            EntryKind::RadioButton(_, _, ref mut v) => *v = value,
+            _ => (),
+        }
+    }
 }

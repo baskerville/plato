@@ -29,6 +29,15 @@ impl MenuEntry {
             active: false,
         }
     }
+
+    pub fn update(&mut self, value: bool, hub: &Hub) {
+        if let Some(v) = self.kind.get() {
+            if v != value {
+                self.kind.set(value);
+                hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+            }
+        }
+    }
 }
 
 impl View for MenuEntry {
