@@ -205,16 +205,17 @@ fn parse_usb_events(tx: &Sender<DeviceEvent>) {
             let buf = unsafe { CString::from_raw(c_buf) };
             if n > 0 {
                 if let Ok(s) = buf.to_str() {
-                    let msg = s[..n as usize].trim_right();
-                    if msg == "usb plug add" {
-                        tx.send(DeviceEvent::Plug).unwrap();
-                    } else if msg == "usb plug remove" {
-                        tx.send(DeviceEvent::Unplug).unwrap();
-                    } else if msg.starts_with("network bound") {
-                        tx.send(DeviceEvent::NetUp).unwrap();
-                        let re = Regex::new(r" ip=(\S+) ").unwrap();
-                        if let Some(ip) = re.captures(msg).and_then(|c| c.get(1)) {
-                            env::set_var("IP_ADDR", ip.as_str());
+                    for msg in s[..n as usize].lines() {
+                        if msg == "usb plug add" {
+                            tx.send(DeviceEvent::Plug).unwrap();
+                        } else if msg == "usb plug remove" {
+                            tx.send(DeviceEvent::Unplug).unwrap();
+                        } else if msg.starts_with("network bound") {
+                            tx.send(DeviceEvent::NetUp).unwrap();
+                            let re = Regex::new(r" ip=(\S+) ").unwrap();
+                            if let Some(ip) = re.captures(msg).and_then(|c| c.get(1)) {
+                                env::set_var("IP_ADDR", ip.as_str());
+                            }
                         }
                     }
                 }
