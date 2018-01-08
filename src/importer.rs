@@ -58,17 +58,16 @@ mod errors {
 use std::env;
 use std::fs;
 use std::io::Read;
-use std::path::{self, Path, PathBuf};
+use std::path::Path;
 use regex::Regex;
-use fnv::FnvHashSet;
 use getopts::Options;
 use html_entities::decode_html_entities;
 use titlecase::titlecase;
 use helpers::{load_json, save_json};
 use settings::ImportSettings;
-use metadata::{Info, FileInfo, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
+use metadata::{Info, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
 use metadata::{import};
-use document::{Document, file_kind, open, asciify};
+use document::{open, asciify};
 use errors::*;
 
 quick_main!(run);
@@ -184,42 +183,75 @@ pub fn extract_metadata(dir: &Path, metadata: &mut Metadata) {
 }
 
 pub fn retrieve(metadata: &mut Metadata, strict: bool) {
-    for info in metadata.iter_mut() {
+    for info in metadata {
         if !info.title.is_empty() {
             continue;
         }
 
-        let terms = if info.isbn.is_empty() && !strict {
-            label_from_path(&info.file.path)
-        } else {
-            info.isbn.clone()
-        };
+        retriever_lookup_by_isbn(info, strict);
+    }
+}
 
-        if terms.is_empty() {
-            continue;
-        }
+#[inline]
+pub fn retriever_lookup_by_isbn(info: &mut Info, strict: bool) {
+    let terms = if info.isbn.is_empty() && !strict {
+        label_from_path(&info.file.path)
+    } else {
+        info.isbn.clone()
+    };
 
-        let url = format!("http://lookupbyisbn.com/Search/Book/{}/1", &terms);
+    if terms.is_empty() {
+        return;
+    }
 
-        if let Ok(mut resp) = reqwest::get(&url) {
-            if resp.status().is_success() {
-                let mut content = String::new();
-                resp.read_to_string(&mut content).unwrap();
-                let re = Regex::new(r"(?xs)/Lookup/Book/.+?>
-                                      ([^<]+)<.+?
-                                      <u>([^<]+)</u>.+?
-                                      <i>([^<]+)</i>.+?
-                                      <i>([^<]+)</i>").unwrap();
-                if let Some(caps) = re.captures(&content) {
-                    info.title = decode_html_entities(&caps[1]).unwrap_or_default();
-                    info.author = decode_html_entities(&caps[2]).unwrap_or_default();
-                    info.publisher = decode_html_entities(&caps[3]).unwrap_or_default();
-                    info.year = decode_html_entities(&caps[4]).unwrap_or_default();
-                    println!("{}", info.label());
-                }
-            } else {
-                eprintln!("The request failed: {:?}.", resp.status());
+    let url = format!("http://lookupbyisbn.com/Search/Book/{}/1", &terms);
+
+    if let Ok(mut resp) = reqwest::get(&url) {
+        if resp.status().is_success() {
+            let mut content = String::new();
+            resp.read_to_string(&mut content).unwrap();
+            let re = Regex::new(r"(?xs)/Lookup/Book/.+?>
+                                  ([^<]+)<.+?
+                                  <u>([^<]+)</u>.+?
+                                  <i>([^<]+)</i>.+?
+                                  <i>([^<]+)</i>").unwrap();
+            if let Some(caps) = re.captures(&content) {
+                info.title = decode_html_entities(&caps[1]).unwrap_or_default();
+                info.author = decode_html_entities(&caps[2]).unwrap_or_default();
+                info.publisher = decode_html_entities(&caps[3]).unwrap_or_default();
+                info.year = decode_html_entities(&caps[4]).unwrap_or_default();
+                println!("{}", info.label());
             }
+        } else {
+            eprintln!("The request failed: {:?}.", resp.status());
+        }
+    }
+}
+
+#[inline]
+pub fn retriever_amazon(info: &mut Info, _: bool) {
+    let url = format!("https://www.amazon.com/s/?field-isbn={}", info.isbn);
+
+    if let Ok(mut resp) = reqwest::get(&url) {
+        if resp.status().is_success() {
+            let mut content = String::new();
+            resp.read_to_string(&mut content).unwrap();
+            let re = Regex::new(r"s-access-title.+?<h3").unwrap();
+            if let Some(mat) = re.find(&content) {
+                let re = Regex::new(r">([^<]+)<").unwrap();
+                for cap in re.captures_iter(&content[mat.start()..mat.end()]) {
+                    if info.title.is_empty() {
+                        info.title = decode_html_entities(&cap[1]).unwrap_or_default();
+                    } else if info.year.is_empty() {
+                        info.year = decode_html_entities(&cap[1]).unwrap_or_default();
+                    } else {
+                        info.author += &decode_html_entities(&cap[1]).unwrap_or_default();
+                    }
+                }
+                println!("{}", info.label());
+            }
+        } else {
+            eprintln!("The request failed: {:?}.", resp.status());
         }
     }
 }
