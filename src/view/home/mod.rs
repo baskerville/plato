@@ -726,8 +726,8 @@ impl Home {
     }
 
     fn reseed(&mut self, hub: &Hub, context: &mut Context) {
-        // FIXME: We need to update the summary while preventing it from rendering itself
-        self.refresh_visibles(false, false, hub, context);
+        // TODO: try to avoid redundant rendering events?
+        self.refresh_visibles(true, false, hub, context);
         self.sort(false, &mut context.metadata, hub);
         self.child_mut(0).downcast_mut::<TopBar>()
             .map(|top_bar| top_bar.update_frontlight_icon(hub, context));
