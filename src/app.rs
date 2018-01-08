@@ -24,6 +24,7 @@ use view::home::Home;
 use view::reader::Reader;
 use view::confirmation::Confirmation;
 use view::intermission::Intermission;
+use view::notification::Notification;
 use device::CURRENT_DEVICE;
 use font::Fonts;
 use errors::*;
@@ -39,6 +40,7 @@ pub struct Context {
     pub fonts: Fonts,
     pub frontlight: Box<Frontlight>,
     pub battery: Box<Battery>,
+    pub notification_index: u8,
     pub inverted: bool,
     pub monochrome: bool,
     pub suspended: bool,
@@ -50,7 +52,7 @@ impl Context {
     pub fn new(settings: Settings, metadata: Metadata,
                fonts: Fonts, frontlight: Box<Frontlight>, battery: Box<Battery>) -> Context {
         Context { settings, metadata, fonts, frontlight, battery,
-                  inverted: false, monochrome: false,
+                  notification_index: 0, inverted: false, monochrome: false,
                   suspended: false, plugged: false,
                   mounted: false }
     }
@@ -194,6 +196,20 @@ pub fn run() -> Result<()> {
                             tx.send(Event::Suspend).unwrap();
                             view.children_mut().push(Box::new(interm) as Box<View>);
                         }
+                    },
+                    DeviceEvent::NetUp => {
+                        let ip = Command::new("scripts/ip.sh").output()
+                                         .map(|o| String::from_utf8_lossy(&o.stdout).trim_right().to_string())
+                                         .unwrap_or_default();
+                        let essid = Command::new("scripts/essid.sh").output()
+                                            .map(|o| String::from_utf8_lossy(&o.stdout).trim_right().to_string())
+                                            .unwrap_or_default();
+                        let notif = Notification::new(ViewId::NetUpNotif,
+                                                      format!("Network is up ({}, {}).", ip, essid),
+                                                      &mut context.notification_index,
+                                                      &mut context.fonts,
+                                                      &tx);
+                        view.children_mut().push(Box::new(notif) as Box<View>);
                     },
                     DeviceEvent::Plug => {
                         if context.plugged {
@@ -411,7 +427,17 @@ pub fn run() -> Result<()> {
                 }
             },
             Event::Select(EntryId::TakeScreenshot) => {
-                fb.save(&Local::now().format("screenshot-%Y%m%d_%H%M%S.png").to_string())?;
+                let name = Local::now().format("screenshot-%Y%m%d_%H%M%S.png");
+                let msg = match fb.save(&name.to_string()) {
+                    Err(e) => format!("Couldn't take screenshot: {}).", e),
+                    Ok(_) => format!("Saved {}.", name),
+                };
+                let notif = Notification::new(ViewId::TakeScreenshotNotif,
+                                              msg,
+                                              &mut context.notification_index,
+                                              &mut context.fonts,
+                                              &tx);
+                view.children_mut().push(Box::new(notif) as Box<View>);
             },
             Event::Select(EntryId::Reboot) | Event::Select(EntryId::Quit) => {
                 break;

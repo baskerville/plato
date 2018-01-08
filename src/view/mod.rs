@@ -19,6 +19,7 @@ pub mod input_field;
 pub mod page_label;
 pub mod go_to_page;
 pub mod confirmation;
+pub mod notification;
 pub mod intermission;
 pub mod frontlight;
 pub mod menu;
@@ -237,6 +238,8 @@ pub enum ViewId {
     MarginCropper,
     TopBottomBars,
     TableOfContents,
+    TakeScreenshotNotif,
+    NetUpNotif,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
