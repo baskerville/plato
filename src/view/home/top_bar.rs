@@ -5,7 +5,6 @@ use view::clock::Clock;
 use view::home::sort_label::SortLabel;
 use view::battery::Battery;
 use metadata::SortMethod;
-use color::WHITE;
 use app::Context;
 use font::Fonts;
 use geom::{Rectangle};

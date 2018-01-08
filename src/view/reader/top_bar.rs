@@ -7,7 +7,6 @@ use view::clock::Clock;
 use view::battery::Battery;
 use view::label::Label;
 use geom::{Rectangle};
-use color::WHITE;
 use font::Fonts;
 use app::Context;
 
