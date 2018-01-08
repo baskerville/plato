@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::mpsc;
 use std::process::Command;
 use std::collections::VecDeque;
-use std::time::Duration;
+use std::time::{Instant, Duration};
 use fnv::FnvHashMap;
 use chrono::Local;
 use framebuffer::{Framebuffer, KoboFramebuffer, UpdateMode};
@@ -14,7 +14,7 @@ use view::common::{locate, locate_by_id};
 use view::frontlight::FrontlightWindow;
 use input::{DeviceEvent, ButtonCode, ButtonStatus};
 use input::{raw_events, device_events, usb_events};
-use gesture::{GestureEvent, gesture_events};
+use gesture::{GestureEvent, gesture_events, BUTTON_HOLD_DELAY_MS};
 use helpers::{load_json, save_json};
 use metadata::{Metadata, METADATA_FILENAME, import};
 use settings::{Settings, SETTINGS_PATH};
@@ -41,6 +41,7 @@ pub struct Context {
     pub frontlight: Box<Frontlight>,
     pub battery: Box<Battery>,
     pub notification_index: u8,
+    pub resumed_at: Instant,
     pub inverted: bool,
     pub monochrome: bool,
     pub suspended: bool,
@@ -52,9 +53,9 @@ impl Context {
     pub fn new(settings: Settings, metadata: Metadata,
                fonts: Fonts, frontlight: Box<Frontlight>, battery: Box<Battery>) -> Context {
         Context { settings, metadata, fonts, frontlight, battery,
-                  notification_index: 0, inverted: false, monochrome: false,
-                  suspended: false, plugged: false,
-                  mounted: false }
+                  notification_index: 0, resumed_at: Instant::now(),
+                  inverted: false, monochrome: false, suspended: false,
+                  plugged: false, mounted: false }
     }
 }
 
@@ -163,39 +164,17 @@ pub fn run() -> Result<()> {
         match evt {
             Event::Device(de) => {
                 match de {
-                    DeviceEvent::Button { code: ButtonCode::Power, status: ButtonStatus::Released, .. } => {
-                        if context.mounted {
+                    DeviceEvent::Button { code: ButtonCode::Power, status: ButtonStatus::Released, .. } |
+                    DeviceEvent::CoverOn => {
+                        if context.mounted || context.suspended ||
+                           context.resumed_at.elapsed() <= Duration::from_millis(BUTTON_HOLD_DELAY_MS) {
                             continue;
                         }
 
-                        if context.suspended {
-                            if let Some(index) = locate::<Intermission>(view.as_ref()) {
-                                let rect = *view.child(index).rect();
-                                view.children_mut().remove(index);
-                                tx.send(Event::Expose(rect)).unwrap();
-                            }
-                            context.suspended = false;
-                            Command::new("scripts/resume.sh")
-                                    .status()
-                                    .ok();
-                            if context.settings.wifi {
-                                Command::new("scripts/wifi-enable.sh")
-                                        .spawn()
-                                        .ok();
-                            }
-                            if context.settings.frontlight {
-                                let levels = context.settings.frontlight_levels;
-                                context.frontlight.set_intensity(levels.intensity());
-                                context.frontlight.set_warmth(levels.warmth());
-                            }
-                            tx.send(Event::ClockTick).unwrap();
-                            tx.send(Event::BatteryTick).unwrap();
-                        } else {
-                            let interm = Intermission::new(fb_rect, "Sleeping".to_string(), false);
-                            tx.send(Event::Render(*interm.rect(), UpdateMode::Gui)).unwrap();
-                            tx.send(Event::Suspend).unwrap();
-                            view.children_mut().push(Box::new(interm) as Box<View>);
-                        }
+                        let interm = Intermission::new(fb_rect, "Sleeping".to_string(), false);
+                        tx.send(Event::Render(*interm.rect(), UpdateMode::Gui)).unwrap();
+                        tx.send(Event::Suspend).unwrap();
+                        view.children_mut().push(Box::new(interm) as Box<View>);
                     },
                     DeviceEvent::NetUp => {
                         let ip = Command::new("scripts/ip.sh").output()
@@ -221,7 +200,6 @@ pub fn run() -> Result<()> {
                                                         Event::Mount,
                                                         "Mount onboard and external cards?".to_string(),
                                                         &mut context.fonts);
-
                         tx.send(Event::Render(*confirm.rect(), UpdateMode::Gui)).unwrap();
                         tx.send(Event::BatteryTick).unwrap();
                         view.children_mut().push(Box::new(confirm) as Box<View>);
@@ -291,11 +269,33 @@ pub fn run() -> Result<()> {
                             .status()
                             .ok();
                 }
-                println!("{} suspending.", Local::now().format("%Y%m%d_%H%M%S"));
+                println!("{}", Local::now().format("Went to sleep on %B %d, %Y at %H:%M."));
                 Command::new("scripts/suspend.sh")
                         .status()
                         .ok();
-                println!("{} woke up from suspend.", Local::now().format("%Y%m%d_%H%M%S"));
+                println!("{}", Local::now().format("Woke up on %B %d, %Y at %H:%M."));
+                context.resumed_at = Instant::now();
+                if let Some(index) = locate::<Intermission>(view.as_ref()) {
+                    let rect = *view.child(index).rect();
+                    view.children_mut().remove(index);
+                    tx.send(Event::Expose(rect)).unwrap();
+                }
+                context.suspended = false;
+                Command::new("scripts/resume.sh")
+                        .status()
+                        .ok();
+                if context.settings.wifi {
+                    Command::new("scripts/wifi-enable.sh")
+                            .spawn()
+                            .ok();
+                }
+                if context.settings.frontlight {
+                    let levels = context.settings.frontlight_levels;
+                    context.frontlight.set_intensity(levels.intensity());
+                    context.frontlight.set_warmth(levels.warmth());
+                }
+                tx.send(Event::ClockTick).unwrap();
+                tx.send(Event::BatteryTick).unwrap();
             },
             Event::Mount => {
                 if !context.mounted {

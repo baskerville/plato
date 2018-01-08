@@ -9,9 +9,9 @@ use view::Event;
 use device::CURRENT_DEVICE;
 use geom::{Point, Dir, Axis};
 
-const JITTER_TOLERANCE_MM: f32 = 5.0;
-const FINGER_HOLD_DELAY_MS: u64 = 500;
-const BUTTON_HOLD_DELAY_MS: u64 = 1500;
+pub const JITTER_TOLERANCE_MM: f32 = 5.0;
+pub const FINGER_HOLD_DELAY_MS: u64 = 500;
+pub const BUTTON_HOLD_DELAY_MS: u64 = 1500;
 
 #[derive(Debug, Copy, Clone)]
 pub enum GestureEvent {
