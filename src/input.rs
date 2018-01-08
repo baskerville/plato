@@ -8,9 +8,7 @@ use std::io::Read;
 use std::fs::File;
 use std::slice;
 use std::mem;
-use std::env;
 use fnv::FnvHashMap;
-use regex::Regex;
 use device::CURRENT_DEVICE;
 use geom::Point;
 use errors::*;
@@ -212,10 +210,6 @@ fn parse_usb_events(tx: &Sender<DeviceEvent>) {
                             tx.send(DeviceEvent::Unplug).unwrap();
                         } else if msg.starts_with("network bound") {
                             tx.send(DeviceEvent::NetUp).unwrap();
-                            let re = Regex::new(r" ip=(\S+) ").unwrap();
-                            if let Some(ip) = re.captures(msg).and_then(|c| c.get(1)) {
-                                env::set_var("IP_ADDR", ip.as_str());
-                            }
                         }
                     }
                 }
