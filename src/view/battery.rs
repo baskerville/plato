@@ -1,7 +1,7 @@
 use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, UpdateMode};
 use geom::{Rectangle, BorderSpec, CornerSpec};
-use color::{BLACK, WHITE, BATTERY_FILL_CHARGING, BATTERY_FILL_CHARGED};
+use color::{BLACK, WHITE, BATTERY_FILL};
 use view::{View, Event, Hub, Bus};
 use view::THICKNESS_LARGE;
 use view::icon::ICONS_PIXMAPS;
@@ -15,8 +15,6 @@ const BATTERY_HEIGHT: f32 = 28.0;
 const BUMP_WIDTH: f32 = 10.0;
 const BUMP_HEIGHT: f32 = 14.0;
 const EDGE_WIDTH: f32 = 2.0;
-const PLUG_OFFSET: f32 = 8.0;
-const INNER_PADDING: f32 = 2.0;
 
 pub struct Battery {
     rect: Rectangle,
@@ -60,24 +58,7 @@ impl View for Battery {
 
         let bump_width = scale_by_dpi(BUMP_WIDTH, dpi) as i32;
         let bump_height = scale_by_dpi(BUMP_HEIGHT, dpi) as i32;
-
         let edge_width = scale_by_dpi(EDGE_WIDTH, dpi) as i32;
-        let plug_offset = scale_by_dpi(PLUG_OFFSET, dpi) as i32;
-
-        let inner_padding = if self.status == Status::Discharging { 
-            scale_by_dpi(INNER_PADDING, dpi) as i32
-        } else {
-            0
-        };
-
-        let background = if self.status == Status::Charged {
-            BATTERY_FILL_CHARGED
-        } else {
-            BATTERY_FILL_CHARGING
-        };
-
-        let batt_fill_height = batt_height - 2 * (border_thickness + inner_padding);
-        let bump_fill_height = bump_height - 2 * (border_thickness + inner_padding);
 
         let dx = (self.rect.width() as i32 - (batt_width + bump_width - border_thickness)) / 2;
         let dy = (self.rect.height() as i32 - batt_height) / 2;
@@ -108,34 +89,26 @@ impl View for Battery {
 
         fb.draw_rectangle(&hole_rect, WHITE);
         
-        let max_batt_fill_width = batt_width - 2 * border_thickness - 2 * inner_padding;
-        let max_bump_fill_width = bump_width - border_thickness;
-        let max_fill_width = max_batt_fill_width + max_bump_fill_width;
+        let max_fill_width = batt_width - 2 * border_thickness;
+        let fill_width = (self.capacity.min(100.0) / 100.0 * max_fill_width as f32) as i32;
+        let fill_height = batt_height - 2 * border_thickness;
 
-        let fill_width = (self.capacity / 100.0 * max_fill_width as f32) as i32;
+        let pt = self.rect.min + pt!(dx, dy) + pt!(border_thickness);
+        let fill_rect = rect![pt, pt + pt!(fill_width, fill_height)];
+        fb.draw_rectangle(&fill_rect, BATTERY_FILL);
 
-        let batt_fill_width = fill_width.min(max_batt_fill_width);
-
-        let pt = self.rect.min + pt!(dx, dy) + pt!(border_thickness + inner_padding);
-        let fill_rect = rect![pt, pt + pt!(batt_fill_width, batt_fill_height)];
-        fb.draw_rectangle(&fill_rect, background);
-
-        if fill_width > max_batt_fill_width {
-            let bump_fill_width = fill_width - max_batt_fill_width;
-            let pt = pt + pt!(max_batt_fill_width, (batt_fill_height - bump_fill_height) / 2);
-            let fill_rect = rect![pt, pt + pt!(bump_fill_width, bump_fill_height)];
-            fb.draw_rectangle(&fill_rect, background);
-        } else if fill_width > edge_width {
+        if fill_width > edge_width {
             let pt = pt + pt!(fill_width - edge_width, 0);
-            let edge_rect = rect![pt, pt + pt!(edge_width, batt_fill_height)];
+            let edge_rect = rect![pt, pt + pt!(edge_width, fill_height)];
             fb.draw_rectangle(&edge_rect, BLACK);
         }
 
         if self.status != Status::Discharging {
-            let foreground = if self.status == Status::Charging { BLACK } else { WHITE };
-            let pixmap = ICONS_PIXMAPS.get("plug").unwrap();
-            let pt = pt + pt!(plug_offset, (batt_fill_height - pixmap.height) / 2);
-            fb.draw_blended_pixmap(pixmap, &pt, foreground);
+            let name = if self.status == Status::Charging { "plug" } else { "check_mark-small" };
+            let pixmap = ICONS_PIXMAPS.get(name).unwrap();
+            let pt = pt + pt!((max_fill_width - pixmap.width) / 2,
+                              (fill_height - pixmap.height) / 2);
+            fb.draw_blended_pixmap(pixmap, &pt, BLACK);
         }
     }
 

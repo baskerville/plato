@@ -22,7 +22,7 @@ lazy_static! {
         let dir = Path::new("icons");
         for name in ["home", "search", "back", "frontlight", "frontlight-disabled", "menu",
                      "angle-left-small", "angle-right-small", "delete-backward", "delete-forward",
-                     "move-backward", "move-forward", "close", "check_mark", "check_mark-large",
+                     "move-backward", "move-forward", "close",  "check_mark-small", "check_mark","check_mark-large",
                      "bullet", "arrow-left", "arrow-right", "double_angle-left", "double_angle-right",
                      "angle-down", "plus", "minus", "crop", "toc", "font_size", "plug"].iter().cloned() {
             let path = dir.join(&format!("{}.svg", name));
