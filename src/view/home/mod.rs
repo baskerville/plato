@@ -726,9 +726,9 @@ impl Home {
     }
 
     fn reseed(&mut self, hub: &Hub, context: &mut Context) {
-        // TODO: try to avoid redundant rendering events?
-        self.refresh_visibles(true, false, hub, context);
-        self.sort(false, &mut context.metadata, hub);
+        let (tx, rx) = mpsc::channel();
+        self.refresh_visibles(true, false, &tx, context);
+        self.sort(false, &mut context.metadata, &tx);
         self.child_mut(0).downcast_mut::<TopBar>()
             .map(|top_bar| top_bar.update_frontlight_icon(hub, context));
         hub.send(Event::ClockTick).unwrap();
