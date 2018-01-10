@@ -14,3 +14,5 @@ It was tested on a *Glo HD* and an *Aura ONE*.
 - Hierarchical categories.
 - The metadata for each document is read from a single JSON file.
 - Crop margins of non-reflowable documents.
+
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KNAR2VKYRYUV6)
