@@ -259,6 +259,10 @@ pub fn run() -> Result<()> {
             Event::Suspend => {
                 context.suspended = true;
                 updating.retain(|tok, _| fb.wait(*tok).is_err());
+                let path = Path::new(SETTINGS_PATH);
+                save_json(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {}", e)).ok();
+                let path = context.settings.library_path.join(METADATA_FILENAME);
+                save_json(&context.metadata, path).map_err(|e| eprintln!("Can't save metadata: {}", e)).ok();
                 if context.settings.frontlight {
                     context.settings.frontlight_levels = context.frontlight.levels();
                     context.frontlight.set_warmth(0.0);
@@ -303,6 +307,8 @@ pub fn run() -> Result<()> {
                         view.handle_event(&Event::Back, &tx, &mut bus, &mut context);
                         view = v;
                     }
+                    let path = context.settings.library_path.join(METADATA_FILENAME);
+                    save_json(&context.metadata, path).map_err(|e| eprintln!("Can't save metadata: {}", e)).ok();
                     if context.settings.frontlight {
                         context.settings.frontlight_levels = context.frontlight.levels();
                         context.frontlight.set_warmth(0.0);
