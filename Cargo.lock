@@ -105,6 +105,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "color"
+version = "0.1.0"
+
+[[package]]
 name = "core-foundation"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -171,6 +175,17 @@ version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "font"
+version = "0.1.0"
+dependencies = [
+ "bitflags 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "framebuffer 0.1.0",
+ "geom 0.1.0",
+ "libc 0.2.35 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "foreign-types"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -182,6 +197,17 @@ dependencies = [
 name = "foreign-types-shared"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "framebuffer"
+version = "0.1.0"
+dependencies = [
+ "color 0.1.0",
+ "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "geom 0.1.0",
+ "libc 0.2.35 (registry+https://github.com/rust-lang/crates.io-index)",
+ "png 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "fuchsia-zircon"
@@ -226,6 +252,10 @@ dependencies = [
  "futures 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "num_cpus 1.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "geom"
+version = "0.1.0"
 
 [[package]]
 name = "getopts"
@@ -578,9 +608,13 @@ version = "0.3.2"
 dependencies = [
  "bitflags 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "color 0.1.0",
  "downcast-rs 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "font 0.1.0",
+ "framebuffer 0.1.0",
+ "geom 0.1.0",
  "getopts 0.2.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "html-entities 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "isbn 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",

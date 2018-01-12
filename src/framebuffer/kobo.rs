@@ -13,7 +13,7 @@ use std::ops::Drop;
 use libc::ioctl;
 use png::HasParameters;
 use geom::Rectangle;
-use framebuffer::{UpdateMode, Framebuffer};
+use super::{UpdateMode, Framebuffer};
 use errors::*;
 
 const FBIOGET_VSCREENINFO: libc::c_ulong = 0x4600;

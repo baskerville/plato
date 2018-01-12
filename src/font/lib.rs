@@ -1,4 +1,13 @@
+#![recursion_limit = "1024"]
+
+#[macro_use]
+extern crate bitflags;
+#[macro_use]
+extern crate error_chain;
+#[macro_use]
+extern crate geom;
 extern crate libc;
+extern crate framebuffer;
 
 use std::mem;
 use std::ptr;

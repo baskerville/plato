@@ -1,12 +1,30 @@
+#[macro_use]
+extern crate geom;
+#[macro_use]
+extern crate error_chain;
+extern crate png;
+extern crate libc;
+extern crate color;
+
 mod kobo;
 mod image;
 
 use geom::{Point, Rectangle, surface_area, lerp};
 use geom::{CornerSpec, BorderSpec, ColorSource};
-use errors::*;
 
 pub use self::kobo::KoboFramebuffer;
 pub use self::image::ImageFramebuffer;
+
+mod errors {
+    error_chain!{
+        foreign_links {
+            Io(::std::io::Error);
+            ParseInt(::std::num::ParseIntError);
+        }
+    }
+}
+
+use errors::*;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum UpdateMode {
