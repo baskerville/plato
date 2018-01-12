@@ -23,15 +23,15 @@ extern crate chrono;
 extern crate reqwest;
 extern crate getopts;
 extern crate html_entities;
-
 #[macro_use]
-mod geom;
+extern crate geom;
+extern crate color;
+extern crate framebuffer;
+extern crate font;
+
 mod unit;
-mod color;
-mod font;
 mod input;
 mod gesture;
-mod framebuffer;
 mod battery;
 mod frontlight;
 mod device;
