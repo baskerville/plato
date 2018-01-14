@@ -68,8 +68,8 @@ impl View for GoToPage {
             Event::Submit(ViewId::GoToPageInput, ref text) => {
                 if let Ok(index) = text.parse::<usize>() {
                     bus.push_back(Event::GoTo(index.saturating_sub(1)));
-                    bus.push_back(Event::Close(ViewId::GoToPage));
                 }
+                bus.push_back(Event::Close(ViewId::GoToPage));
                 true
             },
             _ => false,
@@ -85,7 +85,6 @@ impl View for GoToPage {
                                               &BorderSpec { thickness: border_thickness,
                                                             color: BLACK },
                                               &WHITE);
-                                              // &::color::GRAY13);
     }
 
     fn is_background(&self) -> bool {
