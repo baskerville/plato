@@ -34,6 +34,7 @@ const FZ_TEXT_PRESERVE_IMAGES: libc::c_int = 4;
 
 enum FzContext {}
 enum FzDocument {}
+enum FzStream {}
 enum FzPool {}
 enum FzPage {}
 enum FzDevice {}
@@ -52,7 +53,10 @@ extern {
     fn fz_set_user_css(ctx: *mut FzContext, user_css: *const libc::c_char);
     fn fz_set_use_document_css(ctx: *mut FzContext, should_use: libc::c_int);
     fn mp_open_document(ctx: *mut FzContext, path: *const libc::c_char) -> *mut FzDocument;
+    fn mp_open_document_with_stream(ctx: *mut FzContext, kind: *const libc::c_char, stream: *mut FzStream) -> *mut FzDocument;
     fn fz_drop_document(ctx: *mut FzContext, doc: *mut FzDocument);
+    fn fz_open_memory(ctx: *mut FzContext, data: *const libc::c_uchar, len: libc::size_t) -> *mut FzStream;
+    fn fz_drop_stream(ctx: *mut FzContext, stream: *mut FzStream);
     fn mp_count_pages(ctx: *mut FzContext, doc: *mut FzDocument) -> libc::c_int;
     fn fz_lookup_metadata(ctx: *mut FzContext, doc: *mut FzDocument, key: *const libc::c_char, buf: *mut libc::c_char, size: libc::c_int) -> libc::c_int;
     fn fz_needs_password(ctx: *mut FzContext, doc: *mut FzDocument) -> libc::c_int;
@@ -296,6 +300,23 @@ impl PdfOpener {
         unsafe {
             let c_path = CString::new(path.as_ref().as_os_str().as_bytes()).unwrap();
             let doc = mp_open_document((self.0).0, c_path.as_ptr());
+            if doc.is_null() {
+                None
+            } else {
+                Some(PdfDocument {
+                    ctx: self.0.clone(),
+                    doc: doc,
+                })
+            }
+        }
+    }
+
+    pub fn open_memory(&self, kind: &str, buf: &[u8]) -> Option<PdfDocument> {
+        unsafe {
+            let stream = fz_open_memory((self.0).0, buf.as_ptr() as *const libc::c_uchar, buf.len() as libc::size_t);
+            let c_kind = CString::new(kind).unwrap();
+            let doc = mp_open_document_with_stream((self.0).0, c_kind.as_ptr(), stream);
+            fz_drop_stream((self.0).0, stream);
             if doc.is_null() {
                 None
             } else {
