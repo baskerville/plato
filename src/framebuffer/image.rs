@@ -2,7 +2,7 @@ extern crate png;
 
 use std::fs::File;
 use png::HasParameters;
-use super::{Framebuffer, UpdateMode};
+use framebuffer::{Framebuffer, UpdateMode};
 use color::WHITE;
 use geom::{Rectangle, lerp};
 use errors::*;

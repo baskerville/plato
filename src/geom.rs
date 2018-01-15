@@ -235,8 +235,8 @@ impl Into<Vec2> for Point {
 
 #[macro_export]
 macro_rules! pt {
-    ($x:expr, $y:expr $(,)* ) => ($crate::Point::new($x, $y));
-    ($a:expr) => ($crate::Point::new($a, $a));
+    ($x:expr, $y:expr $(,)* ) => ($crate::geom::Point::new($x, $y));
+    ($a:expr) => ($crate::geom::Point::new($a, $a));
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -247,8 +247,8 @@ pub struct Vec2 {
 
 #[macro_export]
 macro_rules! vec2 {
-    ($x:expr, $y:expr $(,)* ) => ($crate::Vec2::new($x, $y));
-    ($a:expr) => ($crate::Vec2::new($a, $a));
+    ($x:expr, $y:expr $(,)* ) => ($crate::geom::Vec2::new($x, $y));
+    ($a:expr) => ($crate::geom::Vec2::new($a, $a));
 }
 
 impl Vec2 {
@@ -406,8 +406,8 @@ fn rect_cmp(r1: &Rectangle, r2: &Rectangle) -> Ordering {
 
 #[macro_export]
 macro_rules! rect {
-    ($x0:expr, $y0:expr, $x1:expr, $y1:expr $(,)* ) => ($crate::Rectangle::new($crate::Point::new($x0, $y0), $crate::Point::new($x1, $y1)));
-    ($min:expr, $max:expr $(,)* ) => ($crate::Rectangle::new($min, $max));
+    ($x0:expr, $y0:expr, $x1:expr, $y1:expr $(,)* ) => ($crate::geom::Rectangle::new($crate::geom::Point::new($x0, $y0), $crate::geom::Point::new($x1, $y1)));
+    ($min:expr, $max:expr $(,)* ) => ($crate::geom::Rectangle::new($min, $max));
 }
 
 impl Add for Point {

@@ -1,8 +1,0 @@
-[package]
-authors = ["Bastien Dejean <nihilhill@gmail.com>"]
-name = "color"
-version = "0.1.0"
-
-[lib]
-name = "color"
-path = "lib.rs"

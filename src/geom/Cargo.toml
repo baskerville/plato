@@ -1,8 +1,0 @@
-[package]
-authors = ["Bastien Dejean <nihilhill@gmail.com>"]
-name = "geom"
-version = "0.1.0"
-
-[lib]
-name = "geom"
-path = "lib.rs"

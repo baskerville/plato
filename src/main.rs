@@ -12,11 +12,6 @@ extern crate lazy_static;
 extern crate bitflags;
 #[macro_use]
 extern crate downcast_rs;
-#[macro_use]
-extern crate geom;
-extern crate color;
-extern crate framebuffer;
-extern crate font;
 extern crate unicode_normalization;
 extern crate libc;
 extern crate regex;
@@ -38,8 +33,12 @@ mod errors {
     }
 }
 
+#[macro_use]
+mod geom;
 mod unit;
+mod color;
 mod device;
+mod framebuffer;
 mod frontlight;
 mod battery;
 mod input;
@@ -50,6 +49,7 @@ mod metadata;
 mod symbolic_path;
 mod settings;
 mod view;
+mod font;
 mod app;
 
 use app::run;
