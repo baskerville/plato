@@ -353,11 +353,11 @@ impl Document for DjvuDocument {
                     if miniexp_stringp(uri) == 1 && miniexp_nth(0, area) == s_rect {
                         let uri = CStr::from_ptr(miniexp_to_str(uri)).to_string_lossy().into_owned();
                         let rect = {
-                            let min_x = miniexp_nth(1, area) as i32 >> 2;
-                            let max_y = height - (miniexp_nth(2, area) as i32 >> 2) - 1;
+                            let x_min = miniexp_nth(1, area) as i32 >> 2;
+                            let y_max = height - (miniexp_nth(2, area) as i32 >> 2);
                             let r_width = miniexp_nth(3, area) as i32 >> 2;
                             let r_height = miniexp_nth(4, area) as i32 >> 2;
-                            rect![min_x, max_y - r_height, min_x + r_width, max_y]
+                            rect![x_min, y_max - r_height, x_min + r_width, y_max]
                         };
                         result.push(Link { uri, rect });
                     }
@@ -410,11 +410,11 @@ impl DjvuDocument {
             let len = miniexp_length(exp);
             let mut text: Option<String> = None;
             let p_rect = {
-                let min_x = miniexp_nth(1, exp) as i32 >> 2;
-                let max_y = height - (miniexp_nth(2, exp) as i32 >> 2);
-                let max_x = (miniexp_nth(3, exp) as i32 >> 2) + 1;
-                let min_y = height - (miniexp_nth(4, exp) as i32 >> 2) - 1;
-                rect![min_x, min_y, max_x, max_y]
+                let x_min = miniexp_nth(1, exp) as i32 >> 2;
+                let y_max = height - (miniexp_nth(2, exp) as i32 >> 2);
+                let x_max = miniexp_nth(3, exp) as i32 >> 2;
+                let y_min = height - (miniexp_nth(4, exp) as i32 >> 2);
+                rect![x_min, y_min, x_max, y_max]
             };
             let grain = {
                 let raw = miniexp_to_name(miniexp_nth(0, exp));
