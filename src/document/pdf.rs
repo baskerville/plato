@@ -10,7 +10,7 @@ use std::io::Read;
 use std::fs::File;
 use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
-use document::{Document, TextLayer, LayerGrain, TocEntry};
+use document::{Document, TextLayer, LayerGrain, TocEntry, Link};
 use framebuffer::Pixmap;
 use geom::Rectangle;
 
@@ -74,6 +74,8 @@ extern {
     fn fz_drop_page(ctx: *mut FzContext, page: *mut FzPage);
     fn fz_bound_page(ctx: *mut FzContext, page: *mut FzPage, rect: *mut FzRect) -> *mut FzRect;
     fn fz_run_page(ctx: *mut FzContext, page: *mut FzPage, dev: *mut FzDevice, mat: *const FzMatrix, cookie: *mut FzCookie);
+    fn fz_load_links(ctx: *mut FzContext, page: *mut FzPage) -> *mut FzLink;
+    fn fz_drop_link(ctx: *mut FzContext, link: *mut FzLink);
     fn mp_new_stext_page_from_page(ctx: *mut FzContext, page: *mut FzPage, options: *const FzTextOptions) -> *mut FzTextPage;
     fn fz_drop_stext_page(ctx: *mut FzContext, tp: *mut FzTextPage);
     fn fz_new_bbox_device(ctx: *mut FzContext, rect: *mut FzRect) -> *mut FzDevice;
@@ -186,6 +188,15 @@ impl Default for FzMatrix {
 
 const FZ_PAGE_BLOCK_TEXT: libc::c_int = 0;
 const FZ_PAGE_BLOCK_IMAGE: libc::c_int = 1;
+
+#[repr(C)]
+struct FzLink {
+	refs: libc::c_int,
+	next: *mut FzLink,
+	rect: FzRect,
+	doc: *mut libc::c_void,
+	uri: *mut libc::c_char,
+}
 
 #[repr(C)]
 struct FzTextPage {
@@ -442,6 +453,10 @@ impl Document for PdfDocument {
         self.page(index).and_then(|page| page.text())
     }
 
+    fn links(&self, index: usize) -> Option<Vec<Link>> {
+        self.page(index).and_then(|page| page.links())
+    }
+
     fn title(&self) -> Option<String> {
         self.info(FZ_META_INFO_TITLE)
     }
@@ -531,6 +546,30 @@ impl<'a> PdfPage<'a> {
             text_page.rect = page_rect.into();
             fz_drop_stext_page(self.ctx.0, tp);
             Some(text_page)
+        }
+    }
+
+    pub fn links(&self) -> Option<Vec<Link>> {
+        unsafe {
+            let links = fz_load_links(self.ctx.0, self.page);
+
+            if links.is_null() {
+                return None;
+            }
+
+            let mut link = links;
+            let mut result = Vec::new();
+
+            while !link.is_null() {
+                let uri = CStr::from_ptr((*link).uri).to_string_lossy().into_owned();
+                let rect = (*link).rect.clone().into();
+                result.push(Link { uri, rect });
+                link = (*link).next;
+            }
+
+            fz_drop_link(self.ctx.0, links);
+
+            Some(result)
         }
     }
 

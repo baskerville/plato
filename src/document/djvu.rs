@@ -6,7 +6,7 @@ use std::rc::Rc;
 use std::path::Path;
 use std::ffi::{CStr, CString};
 use std::os::unix::ffi::OsStrExt;
-use document::{Document, TextLayer, LayerGrain, TocEntry};
+use document::{Document, TextLayer, LayerGrain, TocEntry, Link};
 use framebuffer::Pixmap;
 use geom::Rectangle;
 use app::APP_NAME;
@@ -323,6 +323,49 @@ impl Document for DjvuDocument {
                 let text_page = Self::walk_text(exp, height);
                 ddjvu_miniexp_release(self.doc, exp);
                 Some(text_page)
+            }
+        }
+    }
+
+    fn links(&self, index: usize) -> Option<Vec<Link>> {
+        unsafe {
+            let mut exp = ddjvu_document_get_pageanno(self.doc, index as libc::c_int);
+            while exp == MINIEXP_DUMMY {
+                self.ctx.handle_message();
+                exp = ddjvu_document_get_pageanno(self.doc, index as libc::c_int);
+            }
+            if exp == MINIEXP_NIL {
+                None
+            } else {
+                let links = ddjvu_anno_get_hyperlinks(exp);
+                if links.is_null() {
+                    ddjvu_miniexp_release(self.doc, exp);
+                    return None;
+                }
+                let height = self.page(index).map(|p| p.height()).unwrap() as i32;
+                let c_rect = CString::new("rect").unwrap();
+                let s_rect = miniexp_symbol(c_rect.as_ptr()) as *mut MiniExp;
+                let mut link = links;
+                let mut result = Vec::new();
+                while !(*link).is_null() {
+                    let uri = miniexp_nth(1, *link);
+                    let area = miniexp_nth(3, *link);
+                    if miniexp_stringp(uri) == 1 && miniexp_nth(0, area) == s_rect {
+                        let uri = CStr::from_ptr(miniexp_to_str(uri)).to_string_lossy().into_owned();
+                        let rect = {
+                            let min_x = miniexp_nth(1, area) as i32 >> 2;
+                            let max_y = height - (miniexp_nth(2, area) as i32 >> 2) - 1;
+                            let r_width = miniexp_nth(3, area) as i32 >> 2;
+                            let r_height = miniexp_nth(4, area) as i32 >> 2;
+                            rect![min_x, max_y - r_height, min_x + r_width, max_y]
+                        };
+                        result.push(Link { uri, rect });
+                    }
+                    link = link.offset(1);
+                }
+                libc::free(links as *mut libc::c_void);
+                ddjvu_miniexp_release(self.doc, exp);
+                Some(result)
             }
         }
     }

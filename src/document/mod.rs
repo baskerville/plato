@@ -25,10 +25,17 @@ pub enum LayerGrain {
 
 #[derive(Debug, Clone)]
 pub struct TextLayer {
-    grain: LayerGrain,
-    rect: Rectangle,
-    text: Option<String>,
-    children: Vec<TextLayer>,
+    pub grain: LayerGrain,
+    pub rect: Rectangle,
+    pub text: Option<String>,
+    pub children: Vec<TextLayer>,
+}
+
+
+#[derive(Debug, Clone)]
+pub struct Link {
+    pub uri: String,
+    pub rect: Rectangle,
 }
 
 impl TextLayer {
@@ -97,6 +104,7 @@ pub trait Document {
 
     fn toc(&self) -> Option<Vec<TocEntry>>;
     fn text(&self, index: usize) -> Option<TextLayer>;
+    fn links(&self, index: usize) -> Option<Vec<Link>>;
 
     fn title(&self) -> Option<String>;
     fn author(&self) -> Option<String>;
