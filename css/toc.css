@@ -1,0 +1,21 @@
+ul {
+	margin: 0;
+	padding: 0;
+}
+
+ul ul {
+	padding-left: 2em;
+}
+
+ul li {
+	list-style-type: none;
+	padding-top: 0.5em;
+}
+
+body > ul > li {
+	padding-top: 1em;
+}
+
+a {
+	color: black;
+}

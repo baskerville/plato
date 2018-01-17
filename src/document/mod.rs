@@ -1,6 +1,7 @@
 pub mod djvu;
 pub mod pdf;
 
+use std::ptr;
 use std::path::Path;
 use std::str::FromStr;
 use fnv::FnvHashSet;
@@ -52,10 +53,41 @@ pub struct TocEntry {
     pub children: Vec<TocEntry>,
 }
 
-pub fn chapter_at(toc: &[TocEntry], index: usize) -> Option<TocEntry> {
+pub fn toc_as_html(toc: &[TocEntry], index: usize) -> String {
+    let chap = chapter_at(toc, index);
+    let mut buf = r#"<html>
+                         <head>
+                             <title>Table of Contents</title>
+                             <link rel="stylesheet" type="text/css" href="css/toc.css"/>
+                         </head>
+                     <body>"#.to_string();
+    toc_as_html_aux(toc, &mut buf, chap);
+    buf.push_str("</body></html>");
+    buf
+}
+
+pub fn toc_as_html_aux(toc: &[TocEntry], buf: &mut String, chap: Option<&TocEntry>) {
+    buf.push_str("<ul>");
+    for entry in toc {
+        buf.push_str(&format!(r##"<li><a href="#{}">"##, entry.page));
+        let title = entry.title.replace('<', "&lt;").replace('>', "&gt;");
+        if chap.is_some() && ptr::eq(entry, chap.unwrap()) {
+            buf.push_str(&format!("<strong>{}</strong>", title));
+        } else {
+            buf.push_str(&title);
+        }
+        buf.push_str("</a></li>");
+        if !entry.children.is_empty() {
+            toc_as_html_aux(&entry.children, buf, chap);
+        }
+    }
+    buf.push_str("</ul>");
+}
+
+pub fn chapter_at<'a>(toc: &'a [TocEntry], index: usize) -> Option<&'a TocEntry> {
     let mut chap = None;
     chapter_at_aux(toc, index, &mut chap);
-    chap.cloned()
+    chap
 }
 
 fn chapter_at_aux<'a>(toc: &'a [TocEntry], index: usize, chap: &mut Option<&'a TocEntry>) {

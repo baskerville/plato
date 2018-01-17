@@ -155,9 +155,9 @@ impl Reader {
             let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
             bottom_bar.update_page_label(self.current_page, self.pages_count, hub);
             bottom_bar.update_icons(self.current_page, self.pages_count, hub);
-            let chapter = self.doc.toc().and_then(|t| chapter_at(&t, current_page))
-                                        .map(|c| c.title)
-                                        .unwrap_or_else(|| "".to_string());
+            let chapter = self.doc.toc().as_ref().and_then(|t| chapter_at(&t, current_page))
+                                        .map(|c| c.title.clone())
+                                        .unwrap_or_default();
             bottom_bar.update_chapter(chapter, hub);
         }
     }
