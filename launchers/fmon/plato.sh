@@ -3,7 +3,7 @@
 WORKDIR=$(dirname "$0")
 cd "$WORKDIR" || exit 1
 
-eval "$(xargs -n 1 -0 < /proc/$(pidof nickel)/environ | sed -e 's/^/export /')"
+eval "$(xargs -n 1 -0 < /proc/$(pidof nickel)/environ | grep -E 'INTERFACE|WIFI_MODULE|DBUS_SESSION|NICKEL_HOME|LANG' | sed -e 's/^/export /')"
 sync
 killall nickel hindenburg sickel fickel fmon > /dev/null 2>&1
 
