@@ -16,16 +16,18 @@ pub struct MenuEntry {
     children: Vec<Box<View>>,
     kind: EntryKind,
     dir: Option<Dir>,
+    anchor: Rectangle,
     active: bool,
 }
 
 impl MenuEntry {
-    pub fn new(rect: Rectangle, kind: EntryKind, dir: Option<Dir>) -> MenuEntry {
+    pub fn new(rect: Rectangle, kind: EntryKind, anchor: Rectangle, dir: Option<Dir>) -> MenuEntry {
         MenuEntry {
             rect,
             children: vec![],
             kind,
             dir,
+            anchor,
             active: false,
         }
     }
@@ -41,7 +43,7 @@ impl MenuEntry {
 }
 
 impl View for MenuEntry {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
                 match status {
@@ -80,8 +82,8 @@ impl View for MenuEntry {
                             bus.push_back(Event::Validate);
                         }
                     },
-                    EntryKind::SubMenu(_, id) => {
-                        bus.push_back(Event::ToggleNear(id, self.rect));
+                    EntryKind::SubMenu(_, id, ref entries) => {
+                        bus.push_back(Event::SubMenu(id, self.anchor, entries.clone()));
                     },
                     _ => (),
                 };

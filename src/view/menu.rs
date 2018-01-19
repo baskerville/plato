@@ -6,7 +6,7 @@ use geom::{Rectangle, CornerSpec, Dir, BorderSpec, small_half, big_half};
 use gesture::GestureEvent;
 use unit::scale_by_dpi;
 use color::{BLACK, WHITE, SEPARATOR_NORMAL};
-use framebuffer::Framebuffer;
+use framebuffer::{Framebuffer, UpdateMode};
 use view::filler::Filler;
 use view::menu_entry::MenuEntry;
 use view::{View, Event, Hub, Bus, EntryKind, ViewId, CLOSE_IGNITION_DELAY_MS};
@@ -58,9 +58,9 @@ impl Menu {
             }
         } else {
             if north_space < south_space {
-                (1, target.min.y)
+                (1, target.min.y - border_thickness)
             } else {
-                (-1, target.max.y)
+                (-1, target.max.y + border_thickness)
             }
         };
 
@@ -127,6 +127,8 @@ impl Menu {
                 let mut rect = rect![x_min + border_thickness, y_min,
                                      x_max - border_thickness, y_max];
 
+                let anchor = rect;
+
                 if i > 0 && entries[i - 1].is_separator() {
                     if dir.is_positive() {
                         rect.min.y += big_half(thickness);
@@ -159,7 +161,7 @@ impl Menu {
                     None
                 };
 
-                let menu_entry = MenuEntry::new(rect, entries[i].clone(), entry_dir);
+                let menu_entry = MenuEntry::new(rect, entries[i].clone(), anchor, entry_dir);
 
                 children.push(Box::new(menu_entry) as Box<View>);
 
@@ -193,7 +195,7 @@ impl View for Menu {
         match *evt {
             Event::Select(..) => {
                 for c in &mut self.children {
-                    if c.handle_event(evt, hub, bus, context) {
+                    if c.is::<MenuEntry>() && c.handle_event(evt, hub, bus, context) {
                         break;
                     }
                 }
@@ -212,8 +214,10 @@ impl View for Menu {
                 hub.send(Event::Close(self.id)).unwrap();
                 true
             },
-            Event::ToggleNear(id, rect) => {
-                bus.push_back(Event::ToggleSubmenu(self.id, id, rect));
+            Event::SubMenu(rect, id, ref entries) => {
+                let menu = Menu::new(id, rect, false, entries, &mut context.fonts);
+                hub.send(Event::Render(*menu.rect(), UpdateMode::Gui)).unwrap();
+                self.children.push(Box::new(menu) as Box<View>);
                 true
             },
             Event::Gesture(..) => true,
