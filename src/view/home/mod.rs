@@ -120,7 +120,10 @@ impl Home {
         let mut shelf = Shelf::new(rect![rect.min.x, s_max_y + thickness,
                                          rect.max.x, rect.max.y - small_height as i32 - small_thickness]);
 
-        shelf.update(&visible_books[..max_lines], &tx);
+        let index_lower = current_page * max_lines;
+        let index_upper = (index_lower + max_lines).min(visible_books.len());
+
+        shelf.update(&visible_books[index_lower..index_upper], &tx);
 
         children.push(Box::new(shelf) as Box<View>);
 
