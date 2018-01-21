@@ -204,7 +204,7 @@ pub enum Event {
     Submit(ViewId, String),
     Slider(SliderId, f32, FingerStatus),
     ToggleNear(ViewId, Rectangle),
-    SubMenu(ViewId, Rectangle, Vec<EntryKind>),
+    SubMenu(Rectangle, Vec<EntryKind>),
     Toggle(ViewId),
     Show(ViewId),
     Close(ViewId),
@@ -298,7 +298,7 @@ pub enum EntryKind {
     Command(String, EntryId),
     CheckBox(String, EntryId, bool),
     RadioButton(String, EntryId, bool),
-    SubMenu(String, ViewId, Vec<EntryKind>),
+    SubMenu(String, Vec<EntryKind>),
     Separator,
 }
 

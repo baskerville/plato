@@ -59,7 +59,7 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
         } else {
             entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
         }
-        let main_menu = Menu::new(rect, ViewId::MainMenu, true, &entries, fonts);
+        let main_menu = Menu::new(rect, ViewId::MainMenu, true, entries, fonts);
         hub.send(Event::Render(*main_menu.rect(), UpdateMode::Gui)).unwrap();
         view.children_mut().push(Box::new(main_menu) as Box<View>);
     }

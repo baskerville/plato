@@ -27,9 +27,8 @@ pub struct Menu {
 //     B         ───
 //     C     BOTTOM MENU
 
-// TODO: Handle sub-menu style (rounded at every corner) and positioning.
 impl Menu {
-    pub fn new(target: Rectangle, id: ViewId, drop: bool, entries: &[EntryKind], fonts: &mut Fonts) -> Menu {
+    pub fn new(target: Rectangle, id: ViewId, drop: bool, mut entries: Vec<EntryKind>, fonts: &mut Fonts) -> Menu {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = CURRENT_DEVICE.dims;
@@ -40,12 +39,6 @@ impl Menu {
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let entry_height = font.x_heights.0 as i32 * 5;
         let padding = 4 * font.em() as i32;
-
-        let max_width = width as i32 / 2;
-        let free_width = padding + 2 * border_thickness +
-                         entries.iter().map(|e| font.plan(e.text(), None, None).width as i32)
-                                .max().unwrap();
-        let entry_width = free_width.min(max_width);
 
         let north_space = target.min.y;
         let south_space = height as i32 - target.max.y;
@@ -63,6 +56,46 @@ impl Menu {
                 (-1, target.max.y + border_thickness)
             }
         };
+
+        let top_min = small_height as i32 + big_half(thickness);
+        let bottom_max = height as i32 - small_height as i32 - small_half(thickness);
+
+        let usable_space = if dir.is_positive() {
+            bottom_max - y_start
+        } else {
+            y_start - top_min
+        };
+
+        let border_space = if drop {
+            border_thickness
+        } else {
+            2 * border_thickness
+        };
+
+        let max_entries = ((usable_space - border_space) / entry_height) as usize;
+        let total_entries = entries.iter().filter(|e| !e.is_separator()).count();
+
+        if total_entries > max_entries {
+            let mut kind_counts = [0, 0];
+            for e in &entries {
+                kind_counts[e.is_separator() as usize] += 1;
+                if kind_counts[0] >= max_entries {
+                    break;
+                }
+            }
+            let index = kind_counts[0] + kind_counts[1] - 1;
+            let mut more = entries.drain(index..).collect::<Vec<EntryKind>>();
+            entries.push(EntryKind::SubMenu("More".to_string(), more));
+        }
+
+        let mut y_pos = y_start + dir * (border_space - border_thickness);
+
+        let max_width = width as i32 / 2;
+        let free_width = padding + 2 * border_thickness +
+                         entries.iter().map(|e| font.plan(e.text(), None, None).width as i32)
+                                .max().unwrap();
+
+        let entry_width = free_width.min(max_width);
 
         let (mut x_min, mut x_max) = if drop {
             let center = target.center();
@@ -87,29 +120,7 @@ impl Menu {
             x_max = width as i32;
         }
 
-        let top_min = small_height as i32 + big_half(thickness);
-        let bottom_max = height as i32 - small_height as i32 - small_half(thickness);
-
-        let usable_space = if dir.is_positive() {
-            bottom_max - y_start
-        } else {
-            y_start - top_min
-        };
-
-        let border_space = if drop {
-            border_thickness
-        } else {
-            2 * border_thickness
-        };
-
-        let max_entries = entries.iter().filter(|e| !e.is_separator()).count()
-                                 .min(((usable_space - border_space) / entry_height) as usize);
-
-        let entries_count = max_entries + entries.iter()
-                                                 .take(2*max_entries - 1)
-                                                 .filter(|e| e.is_separator())
-                                                 .count();
-        let mut y_pos = y_start + dir * (border_space - border_thickness);
+        let entries_count = entries.len();
 
         for i in 0..entries_count {
             if entries[i].is_separator() {
@@ -169,7 +180,8 @@ impl Menu {
             }
         }
 
-        let menu_height = max_entries as i32 * entry_height + border_space;
+        let total_entries = entries.iter().filter(|e| !e.is_separator()).count();
+        let menu_height = total_entries as i32 * entry_height + border_space;
 
         let (y_min, y_max) = if dir.is_positive() {
             (y_start, y_start + menu_height)
@@ -195,7 +207,7 @@ impl View for Menu {
         match *evt {
             Event::Select(..) => {
                 for c in &mut self.children {
-                    if c.is::<MenuEntry>() && c.handle_event(evt, hub, bus, context) {
+                    if c.handle_event(evt, hub, bus, context) {
                         break;
                     }
                 }
@@ -212,10 +224,11 @@ impl View for Menu {
             },
             Event::Gesture(GestureEvent::Tap { ref center, .. }) if !self.rect.includes(center) => {
                 hub.send(Event::Close(self.id)).unwrap();
-                true
+                false
             },
-            Event::SubMenu(rect, id, ref entries) => {
-                let menu = Menu::new(id, rect, false, entries, &mut context.fonts);
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if !self.rect.includes(center) => false,
+            Event::SubMenu(rect, ref entries) => {
+                let menu = Menu::new(rect, self.id, false, entries.clone(), &mut context.fonts);
                 hub.send(Event::Render(*menu.rect(), UpdateMode::Gui)).unwrap();
                 self.children.push(Box::new(menu) as Box<View>);
                 true

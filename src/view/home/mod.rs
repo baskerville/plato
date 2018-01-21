@@ -592,27 +592,27 @@ impl Home {
             if let Some(false) = enable {
                 return;
             }
-            let entries = &[EntryKind::RadioButton("Date Opened".to_string(),
-                                                   EntryId::Sort(SortMethod::Opened),
-                                                   self.sort_method == SortMethod::Opened),
-                            EntryKind::RadioButton("Date Added".to_string(),
-                                                   EntryId::Sort(SortMethod::Added),
-                                                   self.sort_method == SortMethod::Added),
-                            EntryKind::RadioButton("Progress".to_string(),
-                                                   EntryId::Sort(SortMethod::Progress),
-                                                   self.sort_method == SortMethod::Progress),
-                            EntryKind::RadioButton("Author".to_string(),
-                                                   EntryId::Sort(SortMethod::Author),
-                                                   self.sort_method == SortMethod::Author),
-                            EntryKind::RadioButton("File Size".to_string(),
-                                                   EntryId::Sort(SortMethod::Size),
-                                                   self.sort_method == SortMethod::Size),
-                            EntryKind::RadioButton("File Type".to_string(),
-                                                   EntryId::Sort(SortMethod::Kind),
-                                                   self.sort_method == SortMethod::Kind),
-                            EntryKind::Separator,
-                            EntryKind::CheckBox("Reverse Order".to_string(),
-                                                EntryId::ReverseOrder, self.reverse_order)];
+            let entries = vec![EntryKind::RadioButton("Date Opened".to_string(),
+                                                      EntryId::Sort(SortMethod::Opened),
+                                                      self.sort_method == SortMethod::Opened),
+                               EntryKind::RadioButton("Date Added".to_string(),
+                                                      EntryId::Sort(SortMethod::Added),
+                                                      self.sort_method == SortMethod::Added),
+                               EntryKind::RadioButton("Progress".to_string(),
+                                                      EntryId::Sort(SortMethod::Progress),
+                                                      self.sort_method == SortMethod::Progress),
+                               EntryKind::RadioButton("Author".to_string(),
+                                                      EntryId::Sort(SortMethod::Author),
+                                                      self.sort_method == SortMethod::Author),
+                               EntryKind::RadioButton("File Size".to_string(),
+                                                      EntryId::Sort(SortMethod::Size),
+                                                      self.sort_method == SortMethod::Size),
+                               EntryKind::RadioButton("File Type".to_string(),
+                                                      EntryId::Sort(SortMethod::Kind),
+                                                      self.sort_method == SortMethod::Kind),
+                               EntryKind::Separator,
+                               EntryKind::CheckBox("Reverse Order".to_string(),
+                                                   EntryId::ReverseOrder, self.reverse_order)];
             let sort_menu = Menu::new(rect, ViewId::SortMenu, true, entries, fonts);
             hub.send(Event::Render(*sort_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(sort_menu) as Box<View>);
@@ -630,8 +630,8 @@ impl Home {
             if let Some(false) = enable {
                 return;
             }
-            let entries = &[EntryKind::Command("Export".to_string(),
-                                               EntryId::ExportMatches)];
+            let entries = vec![EntryKind::Command("Export".to_string(),
+                                                  EntryId::ExportMatches)];
             let matches_menu = Menu::new(rect, ViewId::MatchesMenu, true, entries, fonts);
             hub.send(Event::Render(*matches_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(matches_menu) as Box<View>);
