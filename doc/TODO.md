@@ -1,10 +1,12 @@
-- Landscape mode.
-- Fit to width. Repage.
 - Search text within document.
 - Add, remove, rename categories.
+- Table of contents view.
+- Pocket articles.
+- Emulator.
+- Landscape mode.
+- Fit to width. Repage.
 - Input field completions bar.
 - Metadata view.
-- Table of contents view.
 - Bookmarks.
 - Complex/fuzzy search queries?
 - Dictionary.
