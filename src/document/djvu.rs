@@ -9,7 +9,6 @@ use std::os::unix::ffi::OsStrExt;
 use document::{Document, TextLayer, LayerGrain, TocEntry, Link};
 use framebuffer::Pixmap;
 use geom::Rectangle;
-use app::APP_NAME;
 
 const DDJVU_JOB_OK: JobStatus = 2;
 const DDJVU_JOB_FAILED: JobStatus = 3;
@@ -235,7 +234,7 @@ impl LayerGrain {
 impl DjvuOpener {
     pub fn new() -> Option<DjvuOpener> {
         unsafe {
-            let name = CString::new(APP_NAME).unwrap();
+            let name = CString::new("Plato").unwrap();
             let ctx = ddjvu_context_create(name.as_ptr());
             if ctx.is_null() {
                 None

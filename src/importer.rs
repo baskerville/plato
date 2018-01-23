@@ -8,10 +8,6 @@ extern crate serde_derive;
 extern crate serde_json;
 #[macro_use]
 extern crate lazy_static;
-#[macro_use]
-extern crate bitflags;
-#[macro_use]
-extern crate downcast_rs;
 extern crate unicode_normalization;
 extern crate libc;
 extern crate regex;
@@ -26,31 +22,20 @@ extern crate html_entities;
 
 #[macro_use]
 mod geom;
-mod unit;
 mod color;
-mod font;
-mod input;
-mod gesture;
 mod framebuffer;
-mod battery;
-mod frontlight;
-mod device;
-mod view;
-mod app;
 mod helpers;
 mod document;
 mod metadata;
-mod symbolic_path;
 mod settings;
+mod frontlight;
+mod symbolic_path;
 
 mod errors {
     error_chain!{
         foreign_links {
             Io(::std::io::Error);
             ParseInt(::std::num::ParseIntError);
-        }
-        links {
-            Font(::font::Error, ::font::ErrorKind);
         }
     }
 }
