@@ -20,7 +20,7 @@ use self::tool_bar::ToolBar;
 use self::bottom_bar::BottomBar;
 use view::common::{locate, locate_by_id, toggle_main_menu};
 use view::filler::Filler;
-use view::go_to_page::GoToPage;
+use view::named_input::NamedInput;
 use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use document::{Document, open, chapter_at, chapter_relative};
 use metadata::{Info, ReaderInfo, Margin};
@@ -310,16 +310,11 @@ impl Reader {
                 return;
             }
 
-            let viewer_rect = *self.child(0).rect();
-            let anchor = pt!(viewer_rect.center().x,
-                             viewer_rect.min.y + viewer_rect.height() as i32 / 3);
-            let go_to_page = GoToPage::new(&anchor, self.pages_count, fonts);
-
+            let go_to_page = NamedInput::new("Go to page".to_string(), ViewId::GoToPage, 3, ViewId::GoToPageInput, fonts);
             hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).unwrap();
-
             hub.send(Event::Focus(Some(ViewId::GoToPageInput))).unwrap();
-            self.focus = Some(ViewId::GoToPageInput);
 
+            self.focus = Some(ViewId::GoToPageInput);
             self.children.push(Box::new(go_to_page) as Box<View>);
         }
     }
@@ -399,6 +394,12 @@ impl Reader {
 impl View for Reader {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
+            Event::Submit(ViewId::GoToPageInput, ref text) => {
+                if let Ok(index) = text.parse::<usize>() {
+                    self.go_to_page(index.saturating_sub(1), hub);
+                }
+                true
+            },
             Event::Page(dir) => {
                 self.set_current_page(dir, hub);
                 true

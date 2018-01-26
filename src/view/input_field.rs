@@ -13,11 +13,11 @@ pub struct InputField {
     pub rect: Rectangle,
     children: Vec<Box<View>>,
     id: ViewId,
-    has_border: bool,
     text: String,
     partial: String,
     placeholder: String,
     cursor: usize,
+    border: bool,
     focused: bool,
 }
 
@@ -76,18 +76,28 @@ fn word_boundary(text: &str, index: usize, dir: LinearDir) -> usize {
 
 // TODO: hidden chars (password…)
 impl InputField {
-    pub fn new(rect: Rectangle, id: ViewId, has_border: bool, placeholder: Option<&str>) -> InputField {
+    pub fn new(rect: Rectangle, id: ViewId) -> InputField {
         InputField {
             rect,
             children: vec![],
             id,
-            has_border,
             text: "".to_string(),
             partial: "".to_string(),
-            placeholder: placeholder.unwrap_or("").to_string(),
+            placeholder: "".to_string(),
             cursor: 0,
+            border: true,
             focused: false,
         }
+    }
+
+    pub fn border(mut self, border: bool) -> InputField {
+        self.border = border;
+        self
+    }
+
+    pub fn placeholder(mut self, placeholder: String) -> InputField {
+        self.placeholder = placeholder;
+        self
     }
 
     fn char_move(&mut self, dir: LinearDir) {
@@ -215,7 +225,7 @@ impl View for InputField {
 
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
 
-        if self.has_border {
+        if self.border {
             fb.draw_rectangle_outline(&self.rect,
                                       &BorderSpec { thickness: thickness as u16, color: BLACK });
         }

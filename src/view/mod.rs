@@ -17,7 +17,7 @@ pub mod rounded_button;
 pub mod slider;
 pub mod input_field;
 pub mod page_label;
-pub mod go_to_page;
+pub mod named_input;
 pub mod confirmation;
 pub mod notification;
 pub mod intermission;

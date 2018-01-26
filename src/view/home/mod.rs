@@ -24,7 +24,7 @@ use self::shelf::Shelf;
 use self::search_bar::SearchBar;
 use view::common::{shift, locate, locate_by_id, toggle_main_menu};
 use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
-use view::go_to_page::GoToPage;
+use view::named_input::NamedInput;
 use view::menu::Menu;
 use view::menu_entry::MenuEntry;
 use self::bottom_bar::BottomBar;
@@ -575,8 +575,7 @@ impl Home {
             if let Some(false) = enable {
                 return;
             }
-            let anchor = self.child(4).child(1).rect().center();
-            let go_to_page = GoToPage::new(&anchor, self.pages_count, fonts);
+            let go_to_page = NamedInput::new("Go to page".to_string(), ViewId::GoToPage, 3, ViewId::GoToPageInput, fonts);
             hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).unwrap();
             hub.send(Event::Focus(Some(ViewId::GoToPageInput))).unwrap();
             self.focus = Some(ViewId::GoToPageInput);
@@ -825,6 +824,12 @@ impl View for Home {
                 // TODO: avoid updating things twice
                 self.toggle_keyboard(false, true, Some(ViewId::SearchInput), hub, &mut context.fonts);
                 self.refresh_visibles(true, true, hub, context);
+                true
+            },
+            Event::Submit(ViewId::GoToPageInput, ref text) => {
+                if let Ok(index) = text.parse::<usize>() {
+                    self.go_to_page(index.saturating_sub(1), hub);
+                }
                 true
             },
             Event::ResizeSummary(delta_y) => {

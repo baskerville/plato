@@ -38,9 +38,9 @@ impl SearchBar {
 
         let input_field = InputField::new(rect![pt!(rect.min.x + side + thickness, rect.min.y),
                                                 pt!(rect.max.x - side - thickness, rect.max.y)],
-                                          ViewId::SearchInput,
-                                          false,
-                                          Some("Title, author, category"));
+                                          ViewId::SearchInput)
+                                     .border(false)
+                                     .placeholder("Title, author, category".to_string());
 
         children.push(Box::new(input_field) as Box<View>);
 
