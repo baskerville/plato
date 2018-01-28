@@ -27,7 +27,7 @@ impl Default for ImportSettings {
     fn default() -> Self {
         ImportSettings {
             unmount_trigger: true,
-            allowed_kinds: ["pdf", "djvu", "epub", "html",
+            allowed_kinds: ["pdf", "djvu", "epub", "fb2", "html",
                             "cbz", "png", "jpg", "jpeg"].iter().map(|k| k.to_string()).collect(),
         }
     }
