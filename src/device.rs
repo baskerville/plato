@@ -74,7 +74,7 @@ lazy_static! {
             "kraken" => Device {
                 model: Model::Glo,
                 proto: TouchProto::Single,
-                dims: (768, 1024),
+                dims: (758, 1024),
                 dpi: 212,
             },
             "pixie" => Device {
@@ -92,7 +92,7 @@ lazy_static! {
             "phoenix" => Device {
                 model: Model::Aura,
                 proto: TouchProto::Multi,
-                dims: (768, 1024),
+                dims: (758, 1024),
                 dpi: 212,
             },
             "dahlia" => Device {
@@ -122,7 +122,7 @@ lazy_static! {
             "star" => Device {
                 model: Model::AuraEdition2,
                 proto: TouchProto::Multi,
-                dims: (768, 1024),
+                dims: (758, 1024),
                 dpi: 212,
             },
             "snow" => Device {
