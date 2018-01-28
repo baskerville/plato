@@ -89,7 +89,7 @@ impl View for MenuEntry {
                 };
                 true
             },
-            Event::Select(ref other_id) => {
+            Event::PropagateSelect(ref other_id) => {
                 match self.kind {
                     EntryKind::RadioButton(_, ref id, ref mut value) if *value => {
                         if mem::discriminant(id) == mem::discriminant(other_id) && id != other_id {

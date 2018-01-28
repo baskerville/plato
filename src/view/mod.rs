@@ -201,6 +201,7 @@ pub enum Event {
     ResizeSummary(i32),
     Focus(Option<ViewId>),
     Select(EntryId),
+    PropagateSelect(EntryId),
     Submit(ViewId, String),
     Slider(SliderId, f32, FingerStatus),
     ToggleNear(ViewId, Rectangle),

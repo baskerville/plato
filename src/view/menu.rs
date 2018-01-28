@@ -17,6 +17,7 @@ pub struct Menu {
     rect: Rectangle,
     children: Vec<Box<View>>,
     drop: bool,
+    root: bool,
     id: ViewId,
     dir: i32,
 }
@@ -84,7 +85,7 @@ impl Menu {
                 }
             }
             let index = kind_counts[0] + kind_counts[1] - 1;
-            let mut more = entries.drain(index..).collect::<Vec<EntryKind>>();
+            let more = entries.drain(index..).collect::<Vec<EntryKind>>();
             entries.push(EntryKind::SubMenu("More".to_string(), more));
         }
 
@@ -196,22 +197,32 @@ impl Menu {
             rect,
             children,
             drop,
+            root: true,
             id,
             dir,
         }
+    }
+
+    pub fn root(mut self, root: bool) -> Menu {
+        self.root = root;
+        self
     }
 }
 
 impl View for Menu {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
-            Event::Select(..) => {
+            Event::Select(entry_id) if self.root => {
+                self.handle_event(&Event::PropagateSelect(entry_id), hub, bus, context);
+                false
+            },
+            Event::PropagateSelect(..) => {
                 for c in &mut self.children {
                     if c.handle_event(evt, hub, bus, context) {
                         break;
                     }
                 }
-                false
+                true
             },
             Event::Validate => {
                 let hub2 = hub.clone();
@@ -228,7 +239,7 @@ impl View for Menu {
             },
             Event::Gesture(GestureEvent::HoldFinger(ref center)) if !self.rect.includes(center) => false,
             Event::SubMenu(rect, ref entries) => {
-                let menu = Menu::new(rect, self.id, false, entries.clone(), &mut context.fonts);
+                let menu = Menu::new(rect, self.id, false, entries.clone(), &mut context.fonts).root(false);
                 hub.send(Event::Render(*menu.rect(), UpdateMode::Gui)).unwrap();
                 self.children.push(Box::new(menu) as Box<View>);
                 true
