@@ -235,9 +235,9 @@ impl View for Menu {
             },
             Event::Gesture(GestureEvent::Tap { ref center, .. }) if !self.rect.includes(center) => {
                 hub.send(Event::Close(self.id)).unwrap();
-                false
+                self.root
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if !self.rect.includes(center) => false,
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if !self.rect.includes(center) => self.root,
             Event::SubMenu(rect, ref entries) => {
                 let menu = Menu::new(rect, self.id, false, entries.clone(), &mut context.fonts).root(false);
                 hub.send(Event::Render(*menu.rect(), UpdateMode::Gui)).unwrap();
