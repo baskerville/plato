@@ -220,9 +220,9 @@ impl TextLayer {
 pub fn asciify(name: &str) -> String {
     name.nfkd().filter(|&c| !is_combining_mark(c)).collect::<String>()
         .replace('œ', "oe")
-        .replace('Œ', "OE")
+        .replace('Œ', "Oe")
         .replace('æ', "ae")
-        .replace('Æ', "AE")
+        .replace('Æ', "Ae")
         .replace('—', "-")
         .replace('–', "-")
         .replace('’', "'")
