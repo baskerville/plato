@@ -108,6 +108,22 @@ pub fn surface_area(dist: f32, angle: f32) -> f32 {
     }
 }
 
+// Returns the nearest point to p on segment ab
+pub fn nearest_segment_point(p: Vec2, a: Vec2, b: Vec2) -> Vec2 {
+    let ab = b - a;
+    let ap = p - a;
+    let l2 = ab.dot(ab);
+
+    // Will not happen in practice
+    if l2 < ::std::f32::EPSILON {
+        return a;
+    }
+
+    let mut t = ap.dot(ab) / l2;
+    t = t.min(1.0).max(0.0);
+    a + t * ab
+}
+
 #[inline]
 pub fn halves(n: i32) -> (i32, i32) {
     let small_half = n / 2;
@@ -258,14 +274,23 @@ impl Vec2 {
             y: y,
         }
     }
+
+    pub fn dot(&self, other: Vec2) -> f32 {
+        self.x * other.x + self.y * other.y
+    }
+
+    pub fn cross(&self, other: Vec2) -> f32 {
+        self.x * other.y - self.y * other.x
+    }
+
     pub fn length(&self) -> f32 {
         self.x.hypot(self.y)
     }
+
     pub fn angle(&self) -> f32 {
         (-self.y).atan2(self.x)
     }
 }
-
 
 // Based on https://golang.org/pkg/image/#Rectangle
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

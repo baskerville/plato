@@ -1,8 +1,8 @@
 mod kobo;
 mod image;
 
-use geom::{Point, Rectangle, surface_area, lerp};
-use geom::{CornerSpec, BorderSpec, ColorSource};
+use geom::{Point, Rectangle, surface_area, nearest_segment_point, lerp};
+use geom::{CornerSpec, BorderSpec, ColorSource, Vec2};
 use errors::*;
 
 pub use self::kobo::KoboFramebuffer;
@@ -236,6 +236,74 @@ pub trait Framebuffer {
         }
     }
 
+    fn draw_triangle(&mut self, triangle: &[Point], color: u8) {
+        let mut x_min = ::std::i32::MAX;
+        let mut x_max = ::std::i32::MIN;
+        let mut y_min = ::std::i32::MAX;
+        let mut y_max = ::std::i32::MIN;
+
+        for p in triangle.iter() {
+            if p.x < x_min {
+                x_min = p.x;
+            }
+            if p.x > x_max {
+                x_max = p.x;
+            }
+            if p.y < y_min {
+                y_min = p.y;
+            }
+            if p.y > y_max {
+                y_max = p.y;
+            }
+        }
+
+        x_max += 1;
+        y_max += 1;
+
+        let mut a: Vec2 = triangle[0].into();
+        let mut b: Vec2 = triangle[1].into();
+        let mut c: Vec2 = triangle[2].into();
+
+        a += 0.5;
+        b += 0.5;
+        c += 0.5;
+
+        let ab = b - a;
+        let ac = c - a;
+        let bc = c - b;
+
+        for y in y_min..y_max {
+            for x in x_min..x_max {
+                let p = vec2!(x as f32 + 0.5, y as f32 + 0.5);
+                let ap = p - a;
+                let bp = p - b;
+
+                let s_ab = ab.cross(ap).is_sign_positive();
+                let inside = ac.cross(ap).is_sign_positive() != s_ab &&
+                             bc.cross(bp).is_sign_positive() == s_ab;
+
+                let mut dmin = ::std::f32::MAX;
+                let mut nearest = None;
+
+                for &(u, v) in [(a, b), (b, c), (a, c)].iter() {
+                    let n = nearest_segment_point(p, u, v);
+                    let d = (n - p).length();
+                    if d < dmin {
+                        dmin = d;
+                        nearest = Some(n);
+                    }
+                }
+
+                if let Some(n) = nearest {
+                    let angle = (n - p).angle();
+                    let delta_dist = if inside { -dmin } else { dmin };
+                    let alpha = surface_area(delta_dist, angle);
+                    self.set_blended_pixel(x as u32, y as u32, color, alpha);
+                }
+            }
+        }
+    }
+
     fn draw_disk(&mut self, center: &Point, radius: i32, color: u8) {
         let rect = Rectangle::from_disk(center, radius);
 
@@ -243,9 +311,9 @@ pub trait Framebuffer {
             for x in rect.min.x..rect.max.x {
                 let v = vec2!((x - center.x) as f32, (y - center.y) as f32);
                 let angle = v.angle();
-                let dist = v.length() - radius as f32;
-                let area = surface_area(dist, angle);
-                self.set_blended_pixel(x as u32, y as u32, color, area);
+                let delta_dist = v.length() - radius as f32;
+                let alpha = surface_area(delta_dist, angle);
+                self.set_blended_pixel(x as u32, y as u32, color, alpha);
             }
         }
     }
