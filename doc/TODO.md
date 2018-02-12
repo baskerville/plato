@@ -2,7 +2,6 @@
 - Add, remove, rename categories.
 - Table of contents view.
 - Pocket articles.
-- Emulator.
 - Landscape mode.
 - Fit to width. Repage.
 - Input field completions bar.
