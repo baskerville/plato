@@ -21,8 +21,8 @@ impl Shelf {
     pub fn new(rect: Rectangle) -> Shelf {
         Shelf {
             rect,
-            max_lines: 0,
             children: vec![],
+            max_lines: 0,
         }
     }
 
@@ -39,7 +39,8 @@ impl Shelf {
             let y_max = y_min + big_height as i32 - thickness;
             let book = Book::new(rect![self.rect.min.x, y_min,
                                        self.rect.max.x, y_max],
-                                 info.clone());
+                                 info.clone(),
+                                 index);
             self.children.push(Box::new(book) as Box<View>);
             if index < max_lines - 1 {
                 let separator = Filler::new(rect![self.rect.min.x, y_max,

@@ -15,27 +15,34 @@ pub struct Book {
     rect: Rectangle,
     children: Vec<Box<View>>,
     info: Info,
+    index: usize,
     active: bool,
 }
 
 impl Book {
-    pub fn new(rect: Rectangle, info: Info) -> Book {
+    pub fn new(rect: Rectangle, info: Info, index: usize) -> Book {
         Book {
             rect,
             children: vec![],
             info,
+            index,
             active: false,
         }
     }
 }
 
 impl View for Book {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => {
                 self.active = true;
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 hub.send(Event::Open(Box::new(self.info.clone()))).unwrap();
+                true
+            },
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
+                let pt = pt!(center.x, self.rect.center().y);
+                bus.push_back(Event::ToggleBookMenu(Rectangle::from_point(&pt), self.index));
                 true
             },
             Event::Invalid(ref info) => {

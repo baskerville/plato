@@ -10,7 +10,7 @@ use chrono::Local;
 use framebuffer::{Framebuffer, KoboFramebuffer, UpdateMode};
 use view::{View, Event, EntryId, ViewId};
 use view::{render, render_no_wait, handle_event, fill_crack};
-use view::common::{locate, locate_by_id};
+use view::common::{locate, locate_by_id, overlapping_rectangle};
 use view::frontlight::FrontlightWindow;
 use input::{DeviceEvent, ButtonCode, ButtonStatus};
 use input::{raw_events, device_events, usb_events};
@@ -405,9 +405,9 @@ pub fn run() -> Result<()> {
             },
             Event::Close(id) => {
                 if let Some(index) = locate_by_id(view.as_ref(), id) {
-                    let rect = *view.child(index).rect();
-                    view.children_mut().remove(index);
+                    let rect = overlapping_rectangle(view.as_ref());
                     tx.send(Event::Expose(rect)).unwrap();
+                    view.children_mut().remove(index);
                 }
             },
             Event::Select(EntryId::ToggleInverted) => {

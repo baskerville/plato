@@ -1,13 +1,12 @@
 use std::mem;
 use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, UpdateMode};
-use geom::{Rectangle, CornerSpec, Dir};
-use view::{View, Event, Hub, Bus, EntryKind, BORDER_RADIUS_MEDIUM, THICKNESS_LARGE};
+use geom::{Rectangle, CornerSpec};
+use view::{View, Event, Hub, Bus, EntryKind};
 use view::icon::ICONS_PIXMAPS;
 use input::{DeviceEvent, FingerStatus};
 use gesture::GestureEvent;
 use font::{Fonts, font_from_style, NORMAL_STYLE};
-use unit::scale_by_dpi;
 use color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use app::Context;
 
@@ -15,18 +14,18 @@ pub struct MenuEntry {
     rect: Rectangle,
     children: Vec<Box<View>>,
     kind: EntryKind,
-    dir: Option<Dir>,
+    corner_spec: Option<CornerSpec>,
     anchor: Rectangle,
     active: bool,
 }
 
 impl MenuEntry {
-    pub fn new(rect: Rectangle, kind: EntryKind, anchor: Rectangle, dir: Option<Dir>) -> MenuEntry {
+    pub fn new(rect: Rectangle, kind: EntryKind, anchor: Rectangle, corner_spec: Option<CornerSpec>) -> MenuEntry {
         MenuEntry {
             rect,
             children: vec![],
             kind,
-            dir,
+            corner_spec,
             anchor,
             active: false,
         }
@@ -119,15 +118,8 @@ impl View for MenuEntry {
             TEXT_NORMAL
         };
 
-        if let Some(dir) = self.dir {
-            let border_radius = scale_by_dpi(BORDER_RADIUS_MEDIUM - THICKNESS_LARGE, dpi) as i32;
-            let corners = if dir == Dir::South {
-                CornerSpec::South(border_radius)
-            } else {
-                CornerSpec::North(border_radius)
-            };
-
-            fb.draw_rounded_rectangle(&self.rect, &corners, scheme[0]);
+        if let Some(ref cs) = self.corner_spec {
+            fb.draw_rounded_rectangle(&self.rect, cs, scheme[0]);
         } else {
             fb.draw_rectangle(&self.rect, scheme[0]);
         }

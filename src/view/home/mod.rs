@@ -25,7 +25,7 @@ use self::search_bar::SearchBar;
 use view::common::{shift, locate, locate_by_id, toggle_main_menu};
 use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use view::named_input::NamedInput;
-use view::menu::Menu;
+use view::menu::{Menu, MenuKind};
 use view::menu_entry::MenuEntry;
 use self::bottom_bar::BottomBar;
 use device::{CURRENT_DEVICE, BAR_SIZES};
@@ -615,9 +615,48 @@ impl Home {
                                EntryKind::Separator,
                                EntryKind::CheckBox("Reverse Order".to_string(),
                                                    EntryId::ReverseOrder, self.reverse_order)];
-            let sort_menu = Menu::new(rect, ViewId::SortMenu, true, entries, fonts);
+            let sort_menu = Menu::new(rect, ViewId::SortMenu, MenuKind::DropDown, entries, fonts);
             hub.send(Event::Render(*sort_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(sort_menu) as Box<View>);
+        }
+    }
+
+    fn book_index(&self, index: usize) -> usize {
+        let max_lines = self.child(4).downcast_ref::<Shelf>().unwrap().max_lines;
+        let index_lower = self.current_page * max_lines;
+        (index_lower + index).min(self.visible_books.len())
+    }
+
+    fn toggle_book_menu(&mut self, index: usize, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+        if let Some(index) = locate_by_id(self, ViewId::BookMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let book_index = self.book_index(index);
+            let info = &self.visible_books[book_index];
+            let categories = info.categories.iter().enumerate()
+                                  .map(|(i, c)| EntryKind::Command(c.to_string(),
+                                                                   EntryId::RemoveCategory(index, i)))
+                                  .collect::<Vec<EntryKind>>();
+
+            let mut entries = vec![EntryKind::Command("Remove".to_string(), EntryId::Remove(index)),
+                                   EntryKind::Separator,
+                                   EntryKind::Command("Add Categories".to_string(), EntryId::AddCategories(index))];
+
+            if categories.len() > 0 {
+                entries.push(EntryKind::SubMenu("Remove Category".to_string(), categories));
+            }
+
+            let book_menu = Menu::new(rect, ViewId::BookMenu, MenuKind::Contextual, entries, fonts);
+            hub.send(Event::Render(*book_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(book_menu) as Box<View>);
         }
     }
 
@@ -632,9 +671,29 @@ impl Home {
             if let Some(false) = enable {
                 return;
             }
-            let entries = vec![EntryKind::Command("Export".to_string(),
-                                                  EntryId::ExportMatches)];
-            let matches_menu = Menu::new(rect, ViewId::MatchesMenu, true, entries, fonts);
+            use view::{Column, FirstColumn, SecondColumn};
+            let entries = vec![EntryKind::Command("Export".to_string(), EntryId::ExportMatches),
+                               EntryKind::Separator,
+                               EntryKind::SubMenu("Presentation".to_string(),
+                                   vec![EntryKind::SubMenu("Column 1".to_string(),
+                                        vec![EntryKind::RadioButton("Title & Author".to_string(),
+                                                                    EntryId::Column(Column::First(FirstColumn::TitleAndAuthor)),
+                                                                    true),
+                                             EntryKind::RadioButton("Title".to_string(),
+                                                                    EntryId::Column(Column::First(FirstColumn::Title)),
+                                                                    false)]),
+                                        EntryKind::SubMenu("Column 2".to_string(),
+                                        vec![EntryKind::RadioButton("Year".to_string(),
+                                                                    EntryId::Column(Column::Second(SecondColumn::Year)),
+                                                                    true),
+                                             EntryKind::RadioButton("Progress".to_string(),
+                                                                    EntryId::Column(Column::Second(SecondColumn::Progress)),
+                                                                    false),
+                                             EntryKind::RadioButton("None".to_string(),
+                                                                    EntryId::Column(Column::Second(SecondColumn::Nothing)),
+                                                                    false)])])];
+
+            let matches_menu = Menu::new(rect, ViewId::MatchesMenu, MenuKind::DropDown, entries, fonts);
             hub.send(Event::Render(*matches_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(matches_menu) as Box<View>);
         }
@@ -728,7 +787,7 @@ impl Home {
     }
 
     fn reseed(&mut self, hub: &Hub, context: &mut Context) {
-        let (tx, rx) = mpsc::channel();
+        let (tx, _rx) = mpsc::channel();
         self.refresh_visibles(true, false, &tx, context);
         self.sort(false, &mut context.metadata, &tx);
         self.child_mut(0).downcast_mut::<TopBar>()
@@ -776,6 +835,10 @@ impl View for Home {
             },
             Event::ToggleNear(ViewId::SortMenu, rect) => {
                 self.toggle_sort_menu(rect, None, hub, &mut context.fonts);
+                true
+            },
+            Event::ToggleBookMenu(rect, index) => {
+                self.toggle_book_menu(index, rect, None, hub, &mut context.fonts);
                 true
             },
             Event::ToggleNear(ViewId::MainMenu, rect) => {

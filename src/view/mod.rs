@@ -205,10 +205,12 @@ pub enum Event {
     Submit(ViewId, String),
     Slider(SliderId, f32, FingerStatus),
     ToggleNear(ViewId, Rectangle),
+    ToggleBookMenu(Rectangle, usize),
     SubMenu(Rectangle, Vec<EntryKind>),
     Toggle(ViewId),
     Show(ViewId),
     Close(ViewId),
+    CloseSub(ViewId),
     Finished,
     ClockTick,
     BatteryTick,
@@ -230,6 +232,7 @@ pub enum ViewId {
     Frontlight,
     FontSizeMenu,
     MatchesMenu,
+    BookMenu,
     GoToPage,
     GoToPageInput,
     SearchInput,
@@ -241,6 +244,7 @@ pub enum ViewId {
     TableOfContents,
     TakeScreenshotNotif,
     NetUpNotif,
+    SubMenu(u8),
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -305,7 +309,11 @@ pub enum EntryKind {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum EntryId {
+    Column(Column),
     Sort(SortMethod),
+    Remove(usize),
+    AddCategories(usize),
+    RemoveCategory(usize, usize),
     ExportMatches,
     ReverseOrder,
     ToggleInverted,
@@ -315,6 +323,25 @@ pub enum EntryId {
     StartNickel,
     Reboot,
     Quit,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Column {
+    First(FirstColumn),
+    Second(SecondColumn),
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum FirstColumn {
+    TitleAndAuthor,
+    Title,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SecondColumn {
+    Year,
+    Progress,
+    Nothing,
 }
 
 impl EntryKind {

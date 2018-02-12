@@ -2,7 +2,7 @@ use std::env;
 use view::{View, Event, Hub, ViewId, EntryId, EntryKind};
 use framebuffer::UpdateMode;
 use geom::{Point, Rectangle};
-use view::menu::Menu;
+use view::menu::{Menu, MenuKind};
 use app::Context;
 
 pub fn shift(view: &mut View, delta: &Point) {
@@ -23,6 +23,14 @@ pub fn locate<T: View>(view: &View) -> Option<usize> {
 
 pub fn locate_by_id(view: &View, id: ViewId) -> Option<usize> {
     view.children().iter().position(|c| c.id().map_or(false, |i| i == id))
+}
+
+pub fn overlapping_rectangle(view: &View) -> Rectangle {
+    let mut rect = *view.rect();
+    for child in view.children() {
+        rect.absorb(&overlapping_rectangle(child.as_ref()));
+    }
+    rect
 }
 
 pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
@@ -59,7 +67,7 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
         } else {
             entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
         }
-        let main_menu = Menu::new(rect, ViewId::MainMenu, true, entries, fonts);
+        let main_menu = Menu::new(rect, ViewId::MainMenu, MenuKind::DropDown, entries, fonts);
         hub.send(Event::Render(*main_menu.rect(), UpdateMode::Gui)).unwrap();
         view.children_mut().push(Box::new(main_menu) as Box<View>);
     }
