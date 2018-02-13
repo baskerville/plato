@@ -8,7 +8,7 @@ pub struct FakeBattery {
 
 impl FakeBattery {
     pub fn new() -> FakeBattery {
-        FakeBattery { capacity: 100.0, status: Status::Discharging }
+        FakeBattery { capacity: 50.0, status: Status::Discharging }
     }
 }
 
