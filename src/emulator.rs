@@ -63,8 +63,7 @@ use fnv::FnvHashMap;
 use chrono::Local;
 use png::HasParameters;
 use sdl2::event::Event as SdlEvent;
-use sdl2::mouse::MouseButton;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{Scancode, Keycode};
 use sdl2::render::{WindowCanvas, BlendMode};
 use sdl2::pixels::{Color as SdlColor, PixelFormatEnum};
 use sdl2::rect::Point as SdlPoint;
@@ -75,9 +74,9 @@ use view::home::Home;
 use view::reader::Reader;
 use view::notification::Notification;
 use view::frontlight::FrontlightWindow;
-use view::key::KeyKind;
+use view::keyboard::Keyboard;
 use view::common::{locate, locate_by_id, overlapping_rectangle};
-use geom::{Rectangle, LinearDir};
+use geom::Rectangle;
 use gesture::gesture_events;
 use device::CURRENT_DEVICE;
 use helpers::{load_json, save_json};
@@ -111,7 +110,7 @@ fn seconds(timestamp: u32) -> f64 {
 #[inline]
 pub fn device_event(event: SdlEvent) -> Option<DeviceEvent> {
     match event {
-        SdlEvent::MouseButtonDown { timestamp, x, y, .. } => 
+        SdlEvent::MouseButtonDown { timestamp, x, y, .. } =>
             Some(DeviceEvent::Finger { id: 0,
                                        status: FingerStatus::Down,
                                        position: pt!(x, y),
@@ -220,43 +219,44 @@ pub fn run() -> Result<()> {
     'outer: loop {
         if let Some(sdl_evt) = sdl_context.event_pump().unwrap().wait_event_timeout(20) {
             match sdl_evt {
-                SdlEvent::Quit { .. } => break,
-                SdlEvent::KeyDown { keycode: Some(keycode), .. } => {
-                    match keycode {
-                        Keycode::LShift | Keycode::RShift => {
-                            tx.send(Event::Key(KeyKind::Shift)).unwrap();
-                        },
-                        Keycode::LAlt => {
-                            tx.send(Event::Key(KeyKind::Combine)).unwrap();
-                        },
-                        Keycode::RAlt => {
-                            tx.send(Event::Key(KeyKind::Alternate)).unwrap();
-                        },
-                        Keycode::Return => {
-                            tx.send(Event::Key(KeyKind::Return)).unwrap();
-                        },
-                        Keycode::Left => {
-                            tx.send(Event::Key(KeyKind::Move(LinearDir::Backward))).unwrap();
-                        },
-                        Keycode::Right => {
-                            tx.send(Event::Key(KeyKind::Move(LinearDir::Forward))).unwrap();
-                        },
-                        Keycode::Backspace => {
-                            tx.send(Event::Key(KeyKind::Delete(LinearDir::Backward))).unwrap();
-                        },
-                        Keycode::Delete => {
-                            tx.send(Event::Key(KeyKind::Delete(LinearDir::Forward))).unwrap();
-                        },
-                        Keycode::Escape => break,
-                        _ => {
-                            let name = keycode.name();
-                            if name.len() == 1 {
-                                let c = name.chars().next().unwrap()
-                                            .to_lowercase().next().unwrap();
-                                tx.send(Event::Key(KeyKind::Output(c))).unwrap();
-                            }
-                        },
-
+                SdlEvent::Quit { .. } |
+                SdlEvent::KeyDown { keycode: Some(Keycode::Escape), .. } => break,
+                SdlEvent::KeyDown { scancode: Some(scancode), .. } => {
+                    if let Some(kb_idx) = locate::<Keyboard>(view.as_ref()) {
+                        let index = match scancode {
+                            Scancode::Backspace => Some(10),
+                            Scancode::Delete => Some(20),
+                            Scancode::LShift | Scancode::RShift => Some(21),
+                            Scancode::Return => Some(29),
+                            Scancode::Left => Some(30),
+                            Scancode::LGui | Scancode::RGui => Some(31),
+                            Scancode::Space => Some(32),
+                            Scancode::LAlt | Scancode::RAlt => Some(33),
+                            Scancode::Right => Some(34),
+                            _ => {
+                                let name = scancode.name();
+                                if name.len() == 1 {
+                                    let c = name.chars().next().unwrap()
+                                                .to_lowercase().next().unwrap();
+                                    if let Some(i) = "qwertyuiop".find(c) {
+                                        Some(i)
+                                    } else if let Some(i) = "asdfghjkl".find(c) {
+                                        Some(11+i)
+                                    } else if let Some(i) = "zxcvbnm".find(c) {
+                                        Some(22+i)
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            },
+                        };
+                        if index.is_some() {
+                            let position = view.child(kb_idx).child(index.unwrap()).rect().center();
+                            ty.send(DeviceEvent::Finger { status: FingerStatus::Down, position, id: 0, time: 0.0}).unwrap();
+                            ty.send(DeviceEvent::Finger { status: FingerStatus::Up, position, id: 0, time: 0.0}).unwrap();
+                        }
                     }
                 },
                 _ => {
