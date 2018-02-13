@@ -651,12 +651,23 @@ impl Font {
         let mut upper_index = index;
         let mut lower_index = index as i32 - 1;
 
-        while width <= max_width {
+        loop {
+            let next_width;
             if upper_index < len && (polarity % 2 == 0 || lower_index < 0) {
-                width += render_plan.glyphs[upper_index].advance.x as u32;
+                next_width = width + render_plan.glyphs[upper_index].advance.x as u32;
+                if next_width > max_width {
+                    break;
+                } else {
+                    width = next_width;
+                }
                 upper_index += 1;
             } else if lower_index >= 0 && (polarity % 2 == 1 || upper_index == len) {
-                width += render_plan.glyphs[lower_index as usize].advance.x as u32;
+                next_width = width + render_plan.glyphs[lower_index as usize].advance.x as u32;
+                if next_width > max_width {
+                    break;
+                } else {
+                    width = next_width;
+                }
                 lower_index -= 1;
             }
             polarity += 1;
@@ -683,6 +694,8 @@ impl Font {
             render_plan.glyphs = self.ellipsis.glyphs.iter()
                                  .chain(render_plan.glyphs[lower_index as usize..].iter()).cloned().collect();
         }
+
+        render_plan.width = width;
 
         if lower_index < 0 {
             0
