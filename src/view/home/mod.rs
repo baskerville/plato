@@ -575,7 +575,7 @@ impl Home {
             if let Some(false) = enable {
                 return;
             }
-            let go_to_page = NamedInput::new("Go to page".to_string(), ViewId::GoToPage, 3, ViewId::GoToPageInput, fonts);
+            let go_to_page = NamedInput::new("Go to page".to_string(), ViewId::GoToPage, 4, ViewId::GoToPageInput, fonts);
             hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).unwrap();
             hub.send(Event::Focus(Some(ViewId::GoToPageInput))).unwrap();
             self.focus = Some(ViewId::GoToPageInput);
