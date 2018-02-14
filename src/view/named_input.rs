@@ -21,7 +21,7 @@ impl NamedInput {
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = CURRENT_DEVICE.dims;
 
-        let input_size = input_size.min(3);
+        let input_size = input_size.max(3);
         let mut children = Vec::new();
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let x_height = font.x_heights.0 as i32;
