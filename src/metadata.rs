@@ -104,6 +104,8 @@ pub struct ReaderInfo {
     pub cropping_margins: FnvHashMap<usize, Margin>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub font_size: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_page: Option<usize>,
     pub finished: bool,
 }
 
@@ -163,6 +165,7 @@ impl Default for ReaderInfo {
             current_page: 0,
             pages_count: 1,
             font_size: None,
+            first_page: None,
             cropping_margins: FnvHashMap::default(),
             finished: false,
         }

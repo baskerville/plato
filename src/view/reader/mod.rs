@@ -5,11 +5,11 @@ mod margin_cropper;
 mod viewer;
 
 use std::rc::Rc;
-use fnv::FnvHashMap;
 use chrono::Local;
+use regex::Regex;
 use input::FingerStatus;
 use framebuffer::{Framebuffer, UpdateMode, Pixmap};
-use view::{View, Event, Hub, ViewId, EntryId, SliderId, Bus, THICKNESS_MEDIUM};
+use view::{View, Event, Hub, ViewId, EntryKind, EntryId, SliderId, Bus, THICKNESS_MEDIUM};
 use unit::{scale_by_dpi, pt_to_px};
 use device::{CURRENT_DEVICE, BAR_SIZES};
 use font::{Fonts, DEFAULT_FONT_SIZE};
@@ -22,6 +22,7 @@ use view::common::{locate, locate_by_id, toggle_main_menu};
 use view::filler::Filler;
 use view::named_input::NamedInput;
 use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
+use view::menu::{Menu, MenuKind};
 use document::{Document, open, chapter_at, chapter_relative};
 use metadata::{Info, ReaderInfo, Margin};
 use geom::{Rectangle, CycleDir, halves};
@@ -72,12 +73,9 @@ impl Reader {
                 current_page = 0;
                 pages_count = doc.pages_count();
                 info.reader = Some(ReaderInfo {
-                    opened: Local::now(),
                     current_page,
                     pages_count,
-                    cropping_margins: FnvHashMap::default(),
-                    font_size: None,
-                    finished: false,
+                    .. Default::default()
                 });
             }
 
@@ -319,6 +317,30 @@ impl Reader {
         }
     }
 
+    fn toggle_page_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+        if let Some(index) = locate_by_id(self, ViewId::PageMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let first_page = self.info.reader.as_ref()
+                                 .and_then(|r| r.first_page).unwrap_or(0);
+            let entries = vec![EntryKind::CheckBox("First Page".to_string(),
+                                                   EntryId::ToggleFirstPage,
+                                                   self.current_page == first_page)];
+            let page_menu = Menu::new(rect, ViewId::PageMenu, MenuKind::DropDown, entries, fonts);
+            hub.send(Event::Render(*page_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(page_menu) as Box<View>);
+        }
+    }
+
     fn toggle_margin_cropper(&mut self, enable: bool, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate::<MarginCropper>(self) {
             if enable {
@@ -362,9 +384,12 @@ impl Reader {
         self.doc.layout(width as f32, height as f32,
                         pt_to_px(font_size,
                                  CURRENT_DEVICE.dpi));
-        let position = self.current_page as f32 / self.pages_count as f32;
+        let ratio = self.doc.pages_count() as f32 / self.pages_count as f32;
+        self.current_page = (self.current_page as f32 * ratio) as usize;
+        if let Some(ref mut first_page) = self.info.reader.as_mut().and_then(|r| r.first_page) {
+            *first_page = (*first_page as f32 * ratio) as usize;
+        }
         self.pages_count = self.doc.pages_count();
-        self.current_page = ((position * self.pages_count as f32) as usize).min(self.pages_count - 1);
         self.update_viewer(hub);
         self.update_bottom_bar(hub);
     }
@@ -395,8 +420,17 @@ impl View for Reader {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
             Event::Submit(ViewId::GoToPageInput, ref text) => {
-                if let Ok(index) = text.parse::<usize>() {
-                    self.go_to_page(index.saturating_sub(1), hub);
+                let re = Regex::new(r#"^(")?(\d+)$"#).unwrap();
+                if let Some(caps) = re.captures(text) {
+                    if let Ok(mut index) = caps[2].parse::<usize>() {
+                        index = index.saturating_sub(1);
+                        if caps.get(1).is_some() {
+                            index = index.saturating_add(self.info.reader.as_ref()
+                                                             .and_then(|r| r.first_page).unwrap_or(0))
+                                         .min(self.pages_count - 1);
+                        }
+                        self.go_to_page(index, hub);
+                    }
                 }
                 true
             },
@@ -438,6 +472,10 @@ impl View for Reader {
                 toggle_main_menu(self, rect, None, hub, context);
                 true
             },
+            Event::ToggleNear(ViewId::PageMenu, rect) => {
+                self.toggle_page_menu(rect, None, hub, &mut context.fonts);
+                true
+            },
             Event::Close(ViewId::MainMenu) => {
                 toggle_main_menu(self, Rectangle::default(), Some(false), hub, context);
                 true
@@ -452,6 +490,17 @@ impl View for Reader {
             },
             Event::Close(ViewId::MarginCropper) => {
                 self.toggle_margin_cropper(false, hub, context);
+                true
+            },
+            Event::Select(EntryId::ToggleFirstPage) => {
+                let current_page = self.current_page;
+                if let Some(ref mut r) = self.info.reader.as_mut() {
+                    if r.first_page.unwrap_or(0) == current_page {
+                        r.first_page = None;
+                    } else {
+                        r.first_page = Some(current_page);
+                    }
+                }
                 true
             },
             Event::Select(EntryId::Quit) |

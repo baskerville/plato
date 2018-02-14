@@ -47,6 +47,10 @@ impl View for PageLabel {
                 bus.push_back(Event::Toggle(ViewId::GoToPage));
                 true
             },
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
+                bus.push_back(Event::ToggleNear(ViewId::PageMenu, self.rect));
+                true
+            },
             _ => false,
         }
     }
