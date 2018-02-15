@@ -335,7 +335,7 @@ impl Home {
             }
 
             self.pages_count = (self.visible_books.len() as f32 / max_lines as f32).ceil() as usize;
-            self.current_page = (page_guess as usize).min(self.pages_count - 1);
+            self.current_page = (page_guess as usize).min(self.pages_count.saturating_sub(1));
         }
 
         let index_lower = self.current_page * max_lines;
