@@ -296,11 +296,16 @@ pub fn run() -> Result<()> {
                         handle_event(view.as_mut(), &Event::Invalid(info2), &tx, &mut bus, &mut context);
                     }
                 },
+                Event::OpenToc(ref toc, current_page) => {
+                    let r = Reader::from_toc(fb_rect, toc, current_page, &tx, &mut context);
+                    history.push(view as Box<View>);
+                    view = Box::new(r) as Box<View>;
+                },
                 Event::Back => {
                     if let Some(v) = history.pop() {
                         view = v;
+                        view.handle_event(&Event::Reseed, &tx, &mut bus, &mut context);
                     }
-                    view.handle_event(&evt, &tx, &mut bus, &mut context);
                 },
                 Event::Show(ViewId::Frontlight) => {
                     if !context.settings.frontlight {

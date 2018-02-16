@@ -1,4 +1,4 @@
-use framebuffer::Framebuffer;
+use framebuffer::{Framebuffer, UpdateMode};
 use metadata::Info;
 use gesture::GestureEvent;
 use view::{View, Event, Hub, Bus, ViewId, Align};
@@ -63,6 +63,13 @@ impl TopBar {
             rect,
             children,
         }
+    }
+
+    pub fn update_frontlight_icon(&mut self, hub: &Hub, context: &mut Context) {
+        let name = if context.settings.frontlight { "frontlight" } else { "frontlight-disabled" };
+        let icon = self.child_mut(4).downcast_mut::<Icon>().unwrap();
+        icon.name = name.to_string();
+        hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).unwrap();
     }
 }
 

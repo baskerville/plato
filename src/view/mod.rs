@@ -37,6 +37,7 @@ use std::fmt::{self, Debug};
 use fnv::FnvHashMap;
 use downcast_rs::Downcast;
 use font::Fonts;
+use document::TocEntry;
 use metadata::{Info, SortMethod, Margin};
 use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
@@ -188,6 +189,7 @@ pub enum Event {
     Keyboard(KeyboardEvent),
     Key(KeyKind),
     Open(Box<Info>),
+    OpenToc(Vec<TocEntry>, usize),
     Invalid(Box<Info>),
     Remove(Box<Info>),
     Page(CycleDir),
@@ -219,6 +221,7 @@ pub enum Event {
     Mount,
     Validate,
     Cancel,
+    Reseed,
     Back,
     Quit,
 }

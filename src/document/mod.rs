@@ -69,7 +69,7 @@ pub fn toc_as_html(toc: &[TocEntry], index: usize) -> String {
 pub fn toc_as_html_aux(toc: &[TocEntry], buf: &mut String, chap: Option<&TocEntry>) {
     buf.push_str("<ul>");
     for entry in toc {
-        buf.push_str(&format!(r##"<li><a href="#{}">"##, entry.page));
+        buf.push_str(&format!(r#"<li><a href="@{}">"#, entry.page));
         let title = entry.title.replace('<', "&lt;").replace('>', "&gt;");
         if chap.is_some() && ptr::eq(entry, chap.unwrap()) {
             buf.push_str(&format!("<strong>{}</strong>", title));

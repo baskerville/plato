@@ -922,7 +922,7 @@ impl View for Home {
                 self.set_current_page(dir, hub);
                 true
             },
-            Event::Back => {
+            Event::Reseed => {
                 self.reseed(hub, context);
                 true
             },

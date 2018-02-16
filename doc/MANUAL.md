@@ -45,7 +45,7 @@ Gestures by region:
 	- hold: previous chapter.
 - *B*:
 	- tap: toggle the top and bottom bars.
-	- hold: take screenshot.
+	- hold: perform a full screen refresh.
 - *N*:
 	- tap: next page.
 	- hold: next chapter.

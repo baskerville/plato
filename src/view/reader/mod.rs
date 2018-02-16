@@ -5,6 +5,7 @@ mod margin_cropper;
 mod viewer;
 
 use std::rc::Rc;
+use std::path::PathBuf;
 use chrono::Local;
 use regex::Regex;
 use input::FingerStatus;
@@ -23,8 +24,9 @@ use view::filler::Filler;
 use view::named_input::NamedInput;
 use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use view::menu::{Menu, MenuKind};
-use document::{Document, open, chapter_at, chapter_relative};
-use metadata::{Info, ReaderInfo, Margin};
+use document::{Document, TocEntry, open, toc_as_html, chapter_at, chapter_relative};
+use document::pdf::PdfOpener;
+use metadata::{Info, FileInfo, ReaderInfo, Margin};
 use geom::{Rectangle, CycleDir, halves};
 use color::BLACK;
 use app::Context;
@@ -39,6 +41,7 @@ pub struct Reader {
     pages_count: usize,
     page_turns: usize,
     finished: bool,
+    ephemeral: bool,
     refresh_every: Option<u8>,
     focus: Option<ViewId>,
 }
@@ -84,13 +87,14 @@ impl Reader {
             let margin = info.reader.as_ref()
                              .and_then(|r| r.margin_at(current_page))
                              .cloned().unwrap_or_default();
-            let pixmap = Rc::new(build_pixmap(&rect, doc.as_ref(), current_page, &margin));
+            let (pixmap, scale) = build_pixmap(&rect, doc.as_ref(), current_page, &margin);
             let frame = rect![(margin.left * pixmap.width as f32).ceil() as i32,
                               (margin.top * pixmap.height as f32).ceil() as i32,
                               ((1.0 - margin.right) * pixmap.width as f32).floor() as i32,
                               ((1.0 - margin.bottom) * pixmap.height as f32).floor() as i32];
-
-            let viewer = Viewer::new(rect, pixmap.clone(), frame, UpdateMode::Partial);
+            let pixmap = Rc::new(pixmap);
+            let viewer = Viewer::new(rect, doc.links(current_page).unwrap_or_default(),
+                                     pixmap.clone(), frame, scale, UpdateMode::Partial);
             children.push(Box::new(viewer) as Box<View>);
 
             hub.send(Event::Render(rect, UpdateMode::Partial)).unwrap();
@@ -105,10 +109,62 @@ impl Reader {
                 pages_count,
                 page_turns: 0,
                 finished: false,
+                ephemeral: false,
                 refresh_every: settings.refresh_every,
                 focus: None,
             }
         })
+    }
+
+    pub fn from_toc(rect: Rectangle, toc: &[TocEntry], mut current_page: usize, hub: &Hub, context: &mut Context) -> Reader {
+        let mut children = Vec::new();
+        let html = toc_as_html(toc, current_page);
+
+        let info = Info {
+            title: "Table of Contents".to_string(),
+            file: FileInfo {
+                path: PathBuf::from("toc:"),
+                kind: "html".to_string(),
+                size: html.len() as u64,
+            },
+            .. Default::default()
+        };
+
+        let mut opener = PdfOpener::new().unwrap();
+        opener.set_user_css("css/toc.css").unwrap();
+        let doc = opener.open_memory("html", html.as_bytes()).unwrap();
+        let pages_count = doc.pages_count();
+
+        current_page = chapter_at(toc, current_page).and_then(|chap| {
+            let link_uri = format!("@{}", chap.page);
+            (0..pages_count).find(|index| doc.links(*index).as_ref()
+                                             .and_then(|links| links.iter()
+                                                                    .find(|link| link.uri == link_uri))
+                                             .is_some())}).unwrap_or(0);
+
+        let (pixmap, scale) = build_pixmap(&rect, &doc, current_page, &Margin::default());
+        let pixmap = Rc::new(pixmap);
+        let frame = rect![0, 0, pixmap.width, pixmap.height];
+        let viewer = Viewer::new(rect, doc.links(current_page).unwrap_or_default(),
+                                 pixmap.clone(), frame, scale, UpdateMode::Partial);
+
+        children.push(Box::new(viewer) as Box<View>);
+        hub.send(Event::Render(rect, UpdateMode::Partial)).unwrap();
+
+        Reader {
+            rect,
+            children,
+            info,
+            doc: Box::new(doc) as Box<Document>,
+            pixmap,
+            current_page,
+            pages_count,
+            page_turns: 0,
+            finished: false,
+            ephemeral: true,
+            refresh_every: context.settings.refresh_every,
+            focus: None,
+        }
     }
 
     fn go_to_page(&mut self, index: usize, hub: &Hub) {
@@ -174,14 +230,16 @@ impl Reader {
         let margin = self.info.reader.as_ref()
                          .and_then(|r| r.margin_at(self.current_page))
                          .cloned().unwrap_or_default();
-        self.pixmap = Rc::new(build_pixmap(&self.rect, self.doc.as_ref(), self.current_page, &margin));
+        let (pixmap, scale) = build_pixmap(&self.rect, self.doc.as_ref(), self.current_page, &margin);
+        self.pixmap = Rc::new(pixmap);
         let frame = rect![(margin.left * self.pixmap.width as f32).ceil() as i32,
                           (margin.top * self.pixmap.height as f32).ceil() as i32,
                           ((1.0 - margin.right) * self.pixmap.width as f32).floor() as i32,
                           ((1.0 - margin.bottom) * self.pixmap.height as f32).floor() as i32];
         if let Some(index) = locate::<Viewer>(self) {
             let viewer = self.children[index].as_mut().downcast_mut::<Viewer>().unwrap();
-            viewer.update(self.pixmap.clone(), frame, update_mode, hub);
+            viewer.update(self.doc.links(self.current_page).unwrap_or_default(),
+                          self.pixmap.clone(), frame, scale, update_mode, hub);
         }
     }
 
@@ -365,10 +423,10 @@ impl Reader {
                              .and_then(|r| r.margin_at(self.current_page))
                              .cloned().unwrap_or_default();
 
-            let pixmap = build_pixmap(&pixmap_rect,
-                                      self.doc.as_ref(),
-                                      self.current_page,
-                                      &Margin::default());
+            let (pixmap, _) = build_pixmap(&pixmap_rect,
+                                           self.doc.as_ref(),
+                                           self.current_page,
+                                           &Margin::default());
 
             let margin_cropper = MarginCropper::new(self.rect, pixmap, &margin);
             hub.send(Event::Render(*margin_cropper.rect(), UpdateMode::Gui)).unwrap();
@@ -401,12 +459,28 @@ impl Reader {
         self.update_viewer(hub);
     }
 
+    fn reseed(&mut self, hub: &Hub, context: &mut Context) {
+        if let Some(index) = locate::<TopBar>(self) {
+            self.child_mut(index).downcast_mut::<TopBar>().unwrap()
+                .update_frontlight_icon(hub, context);
+        }
+
+        hub.send(Event::ClockTick).unwrap();
+        hub.send(Event::BatteryTick).unwrap();
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+    }
+
     fn quit(&mut self, context: &mut Context) {
+        if self.ephemeral {
+            return;
+        }
+
         if let Some(ref mut r) = self.info.reader {
             r.current_page = self.current_page;
             r.pages_count = self.pages_count;
             r.finished = self.finished;
         }
+
         for i in &mut context.metadata {
             if i.file.path == self.info.file.path {
                 *i = self.info.clone();
@@ -452,12 +526,7 @@ impl View for Reader {
             },
             Event::Toggle(ViewId::TopBottomBars) => {
                 self.toggle_bars(context);
-                let update_mode = if locate::<TopBar>(self).is_some() {
-                    UpdateMode::Gui
-                } else {
-                    UpdateMode::Full
-                };
-                hub.send(Event::Render(self.rect, update_mode)).unwrap();
+                hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 true
             },
             Event::Toggle(ViewId::GoToPage) => {
@@ -484,6 +553,12 @@ impl View for Reader {
                 self.toggle_go_to_page(Some(false), hub, &mut context.fonts);
                 true
             },
+            Event::Show(ViewId::TableOfContents) => {
+                if self.doc.has_toc() {
+                    hub.send(Event::OpenToc(self.doc.toc().unwrap(), self.current_page)).unwrap();
+                }
+                true
+            },
             Event::Show(ViewId::MarginCropper) => {
                 self.toggle_margin_cropper(true, hub, context);
                 true
@@ -501,6 +576,10 @@ impl View for Reader {
                         r.first_page = Some(current_page);
                     }
                 }
+                true
+            },
+            Event::Reseed => {
+                self.reseed(hub, context);
                 true
             },
             Event::Select(EntryId::Quit) |
@@ -539,12 +618,12 @@ impl View for Reader {
     }
 }
 
-fn build_pixmap(rect: &Rectangle, doc: &Document, index: usize, margin: &Margin) -> Pixmap {
+fn build_pixmap(rect: &Rectangle, doc: &Document, index: usize, margin: &Margin) -> (Pixmap, f32) {
     let (width, height) = doc.dims(index).unwrap();
     let p_width = (1.0 - (margin.left + margin.right)) * width;
     let p_height = (1.0 - (margin.top + margin.bottom)) * height;
     let w_ratio = rect.width() as f32 / p_width;
     let h_ratio = rect.height() as f32 / p_height;
     let scale = w_ratio.min(h_ratio);
-    doc.pixmap(index, scale).unwrap()
+    (doc.pixmap(index, scale).unwrap(), scale)
 }

@@ -1,6 +1,5 @@
 - Search text within document.
 - Add, remove, rename categories.
-- Table of contents view.
 - Pocket articles.
 - Landscape mode.
 - Fit to width. Repage.
