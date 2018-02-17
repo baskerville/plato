@@ -201,8 +201,6 @@ enum FtCharMap {}
 enum FtSizeInternal {}
 enum FtSlotInternal {}
 enum FtFaceInternal {}
-#[derive(Debug)]
-enum FtSubGlyph {}
 enum FtListNode {}
 enum FtDriver {}
 enum FtMemory {}
@@ -332,7 +330,7 @@ struct FtGlyphSlot {
     outline: FtOutline,
 
     num_subglyphs: libc::c_uint,
-    subglyphs: FtSubGlyph,
+    subglyphs: *mut libc::c_void,
 
     control_data: *mut libc::c_void,
     control_len: libc::c_long,
