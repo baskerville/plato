@@ -24,8 +24,6 @@ pub struct OutputKeys<T: Copy> {
     row3: [T; 7],
 }
 
-pub struct Thumbs(OutputKeys<u8>);
-
 #[derive(Default)]
 pub struct State {
     shift: u8,
@@ -535,11 +533,3 @@ lazy_static! {
         m
     };
 }
-
-const THUMBS_ASSIGNMENT: Thumbs = Thumbs (
-    OutputKeys {
-        row1: [0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
-        row2:  [0, 0, 0, 0, 1, 1, 1, 1, 1],
-        row3:     [0, 0, 0, 0, 1, 1, 1],
-    }
-);

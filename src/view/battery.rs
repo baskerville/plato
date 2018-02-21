@@ -47,7 +47,7 @@ impl View for Battery {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
 
         let border_radius = scale_by_dpi(THICKNESS_LARGE / 2.0, dpi) as i32;

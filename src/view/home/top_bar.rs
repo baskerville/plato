@@ -64,12 +64,6 @@ impl TopBar {
         }
     }
 
-    // TODO: only update if needed
-    pub fn update_icons(&mut self, search_visible: bool, hub: &Hub, context: &mut Context) {
-        self.update_root_icon(search_visible, hub);
-        self.update_frontlight_icon(hub, context);
-    }
-
     pub fn update_root_icon(&mut self, search_visible: bool, hub: &Hub) {
         let icon = self.child_mut(0).downcast_mut::<Icon>().unwrap();
         let name = if search_visible { "home" } else { "search" };

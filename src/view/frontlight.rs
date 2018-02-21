@@ -117,7 +117,7 @@ impl FrontlightWindow {
 }
 
 impl View for FrontlightWindow {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
             Event::Slider(SliderId::LightIntensity, value, FingerStatus::Up) => {
                 context.frontlight.set_intensity(value);
@@ -136,7 +136,7 @@ impl View for FrontlightWindow {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
 
         let border_radius = scale_by_dpi(BORDER_RADIUS_MEDIUM, dpi) as i32;

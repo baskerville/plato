@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 pub const GRAY00: u8 = 0x00;
 pub const GRAY01: u8 = 0x11;
 pub const GRAY02: u8 = 0x22;
