@@ -1,6 +1,9 @@
 pub mod djvu;
 pub mod pdf;
 
+mod djvulibre_sys;
+mod mupdf_sys;
+
 use std::ptr;
 use std::path::Path;
 use std::str::FromStr;

@@ -1,3 +1,4 @@
+mod mxcfb_sys;
 mod kobo;
 mod image;
 
