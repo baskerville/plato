@@ -122,7 +122,7 @@ pub struct MxcfbUpdateData {
     pub alt_buffer_data: MxcfbAltBufferData,
 }
 
-pub const WAVEFORM_MODE_AUTO: u32 = 0x101; 
+pub const WAVEFORM_MODE_AUTO: u32 = 0x101;
 
 // Table taken from ice40_eink_controller
 //
