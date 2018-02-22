@@ -2,7 +2,6 @@ mod top_bar;
 mod tool_bar;
 mod bottom_bar;
 mod margin_cropper;
-mod viewer;
 
 use std::rc::Rc;
 use std::path::PathBuf;
@@ -16,7 +15,6 @@ use device::{CURRENT_DEVICE, BAR_SIZES};
 use font::{Fonts, DEFAULT_FONT_SIZE};
 use self::margin_cropper::{MarginCropper, BUTTON_DIAMETER};
 use self::top_bar::TopBar;
-use self::viewer::Viewer;
 use self::tool_bar::ToolBar;
 use self::bottom_bar::BottomBar;
 use view::common::{locate, locate_by_id, toggle_main_menu};
@@ -24,11 +22,12 @@ use view::filler::Filler;
 use view::named_input::NamedInput;
 use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use view::menu::{Menu, MenuKind};
+use gesture::GestureEvent;
 use document::{Document, TocEntry, open, toc_as_html, chapter_at, chapter_relative};
 use document::pdf::PdfOpener;
 use metadata::{Info, FileInfo, ReaderInfo, Margin};
-use geom::{Rectangle, CycleDir, halves};
-use color::BLACK;
+use geom::{Rectangle, Dir, CycleDir, halves};
+use color::{BLACK, WHITE};
 use app::Context;
 
 pub struct Reader {
@@ -43,6 +42,8 @@ pub struct Reader {
     finished: bool,
     ephemeral: bool,
     refresh_every: Option<u8>,
+    frame: Rectangle,
+    scale: f32,
     focus: Option<ViewId>,
 }
 
@@ -52,8 +53,6 @@ impl Reader {
         let path = settings.library_path.join(&info.file.path);
 
         open(&path).map(|mut doc| {
-            let mut children = Vec::new();
-
             let (width, height) = CURRENT_DEVICE.dims;
             let font_size = info.reader.as_ref().and_then(|r| r.font_size);
             doc.layout(width as f32, height as f32,
@@ -93,15 +92,12 @@ impl Reader {
                               ((1.0 - margin.right) * pixmap.width as f32).floor() as i32,
                               ((1.0 - margin.bottom) * pixmap.height as f32).floor() as i32];
             let pixmap = Rc::new(pixmap);
-            let viewer = Viewer::new(rect, doc.links(current_page).unwrap_or_default(),
-                                     pixmap.clone(), frame, scale, UpdateMode::Partial);
-            children.push(Box::new(viewer) as Box<View>);
 
             hub.send(Event::Render(rect, UpdateMode::Partial)).unwrap();
 
             Reader {
                 rect,
-                children,
+                children: vec![],
                 info,
                 doc,
                 pixmap,
@@ -111,13 +107,14 @@ impl Reader {
                 finished: false,
                 ephemeral: false,
                 refresh_every: settings.refresh_every,
+                frame,
+                scale,
                 focus: None,
             }
         })
     }
 
     pub fn from_toc(rect: Rectangle, toc: &[TocEntry], mut current_page: usize, hub: &Hub, context: &mut Context) -> Reader {
-        let mut children = Vec::new();
         let html = toc_as_html(toc, current_page);
 
         let info = Info {
@@ -145,15 +142,12 @@ impl Reader {
         let (pixmap, scale) = build_pixmap(&rect, &doc, current_page, &Margin::default());
         let pixmap = Rc::new(pixmap);
         let frame = rect![0, 0, pixmap.width, pixmap.height];
-        let viewer = Viewer::new(rect, doc.links(current_page).unwrap_or_default(),
-                                 pixmap.clone(), frame, scale, UpdateMode::Partial);
 
-        children.push(Box::new(viewer) as Box<View>);
         hub.send(Event::Render(rect, UpdateMode::Partial)).unwrap();
 
         Reader {
             rect,
-            children,
+            children: vec![],
             info,
             doc: Box::new(doc) as Box<Document>,
             pixmap,
@@ -163,6 +157,8 @@ impl Reader {
             finished: false,
             ephemeral: true,
             refresh_every: context.settings.refresh_every,
+            frame,
+            scale,
             focus: None,
         }
     }
@@ -172,7 +168,7 @@ impl Reader {
             return;
         }
         self.current_page = index;
-        self.update_viewer(hub);
+        self.update(hub);
         self.update_bottom_bar(hub);
     }
 
@@ -187,12 +183,12 @@ impl Reader {
         match dir {
             CycleDir::Next if self.current_page < self.pages_count - 1 => {
                 self.current_page += 1;
-                self.update_viewer(hub);
+                self.update(hub);
                 self.update_bottom_bar(hub);
             },
             CycleDir::Previous if self.current_page > 0 => {
                 self.current_page -= 1;
-                self.update_viewer(hub);
+                self.update(hub);
                 self.update_bottom_bar(hub);
             },
             CycleDir::Next if self.current_page == self.pages_count - 1 => {
@@ -216,7 +212,7 @@ impl Reader {
         }
     }
 
-    fn update_viewer(&mut self, hub: &Hub) {
+    fn update(&mut self, hub: &Hub) {
         self.page_turns += 1;
         let update_mode = if let Some(n) = self.refresh_every {
             if self.page_turns % (n as usize) == 0 {
@@ -236,11 +232,9 @@ impl Reader {
                           (margin.top * self.pixmap.height as f32).ceil() as i32,
                           ((1.0 - margin.right) * self.pixmap.width as f32).floor() as i32,
                           ((1.0 - margin.bottom) * self.pixmap.height as f32).floor() as i32];
-        if let Some(index) = locate::<Viewer>(self) {
-            let viewer = self.children[index].as_mut().downcast_mut::<Viewer>().unwrap();
-            viewer.update(self.doc.links(self.current_page).unwrap_or_default(),
-                          self.pixmap.clone(), frame, scale, update_mode, hub);
-        }
+        self.frame = frame;
+        self.scale = scale;
+        hub.send(Event::Render(self.rect, update_mode)).unwrap();
     }
 
     fn toggle_keyboard(&mut self, enable: bool, id: Option<ViewId>, hub: &Hub) {
@@ -448,7 +442,7 @@ impl Reader {
             *first_page = (*first_page as f32 * ratio) as usize;
         }
         self.pages_count = self.doc.pages_count();
-        self.update_viewer(hub);
+        self.update(hub);
         self.update_bottom_bar(hub);
     }
 
@@ -456,7 +450,7 @@ impl Reader {
         if let Some(ref mut r) = self.info.reader {
             r.cropping_margins.insert(self.current_page, margin.clone());
         }
-        self.update_viewer(hub);
+        self.update(hub);
     }
 
     fn reseed(&mut self, hub: &Hub, context: &mut Context) {
@@ -493,6 +487,73 @@ impl Reader {
 impl View for Reader {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
+            Event::Gesture(GestureEvent::Swipe { dir, ref start, .. }) if self.rect.includes(start) => {
+                match dir {
+                    Dir::West => self.set_current_page(CycleDir::Next, hub),
+                    Dir::East => self.set_current_page(CycleDir::Previous, hub),
+                    _ => (),
+                };
+                true
+            },
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
+                let w = self.rect.width() as i32;
+                let x1 = self.rect.min.x + w / 3;
+                let x2 = self.rect.max.x - w / 3;
+                if center.x < x1 {
+                    self.go_to_chapter(CycleDir::Previous, hub);
+                } else if center.x > x2 {
+                    self.go_to_chapter(CycleDir::Next, hub);
+                } else {
+                    hub.send(Event::Render(self.rect, UpdateMode::Full)).unwrap();
+                }
+                true
+            },
+            Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => {
+                let dx = (self.rect.width() - self.frame.width()) as i32 / 2;
+                let dy = (self.rect.height() - self.frame.height()) as i32 / 2;
+
+                for link in &self.doc.links(self.current_page).unwrap_or_default() {
+                    let r = link.rect;
+                    let x_min = r.min.x as f32 * self.scale;
+                    let y_min = r.min.y as f32 * self.scale;
+                    let x_max = r.max.x as f32 * self.scale;
+                    let y_max = r.max.y as f32 * self.scale;
+                    let rect = rect![x_min as i32 - self.frame.min.x + dx,
+                                     y_min as i32 - self.frame.min.y + dy,
+                                     x_max as i32 - self.frame.min.x + dx,
+                                     y_max as i32 - self.frame.min.y + dy];
+                    if rect.includes(center) {
+                        let re = Regex::new(r"^([#@])(\d+)$").unwrap();
+                        if let Some(caps) = re.captures(&link.uri) {
+                            if let Ok(index) = caps[2].parse::<usize>() {
+                                if &caps[1] == "@" {
+                                    hub.send(Event::Back).unwrap();
+                                    hub.send(Event::Toggle(ViewId::TopBottomBars)).unwrap();
+                                    hub.send(Event::GoTo(index)).unwrap();
+                                } else {
+                                    self.go_to_page(index.saturating_sub(1), hub);
+                                }
+                            }
+                        } else {
+                            println!("Unrecognized URI: {}.", link.uri);
+                        }
+                        return true;
+                    }
+                }
+
+                let w = self.rect.width() as i32;
+                let x1 = self.rect.min.x + w / 3;
+                let x2 = self.rect.max.x - w / 3;
+                if center.x < x1 {
+                    self.set_current_page(CycleDir::Previous, hub);
+                } else if center.x > x2 {
+                    self.set_current_page(CycleDir::Next, hub);
+                } else {
+                    self.toggle_bars(context);
+                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                }
+                true
+            },
             Event::Submit(ViewId::GoToPageInput, ref text) => {
                 let re = Regex::new(r#"^(")?(\d+)$"#).unwrap();
                 if let Some(caps) = re.captures(text) {
@@ -598,7 +659,15 @@ impl View for Reader {
         }
     }
 
-    fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
+        let dx = (self.rect.width() - self.frame.width()) as i32 / 2;
+        let dy = (self.rect.height() - self.frame.height()) as i32 / 2;
+        fb.draw_rectangle(&self.rect, WHITE);
+        fb.draw_framed_pixmap(&self.pixmap, &self.frame, &pt!(dx, dy));
+    }
+
+    fn is_background(&self) -> bool {
+        true
     }
 
     fn rect(&self) -> &Rectangle {
