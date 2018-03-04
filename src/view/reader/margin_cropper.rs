@@ -113,10 +113,10 @@ impl MarginCropper {
         let x_max = x_min + self.pixmap.width;
         let y_max = y_min + self.pixmap.height;
 
-        let top = self.frame.min.y.saturating_sub(y_min) as f32 / self.pixmap.height as f32;
-        let right = x_max.saturating_sub(self.frame.max.x) as f32 / self.pixmap.width as f32;
-        let bottom = y_max.saturating_sub(self.frame.max.y) as f32 / self.pixmap.height as f32;
-        let left = self.frame.min.x.saturating_sub(x_min) as f32 / self.pixmap.width as f32;
+        let top = (self.frame.min.y - y_min).max(0) as f32 / self.pixmap.height as f32;
+        let right = (x_max - self.frame.max.x).max(0) as f32 / self.pixmap.width as f32;
+        let bottom = (y_max - self.frame.max.y).max(0) as f32 / self.pixmap.height as f32;
+        let left = (self.frame.min.x - x_min).max(0) as f32 / self.pixmap.width as f32;
 
         Margin::new(top, right, bottom, left)
     }
