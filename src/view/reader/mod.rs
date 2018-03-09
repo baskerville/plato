@@ -946,7 +946,7 @@ impl View for Reader {
                                      y_max as i32 - self.frame.min.y + dy];
 
                     if rect.includes(center) {
-                        let re = Regex::new(r"^([#@])(\d+)$").unwrap();
+                        let re = Regex::new(r"^([#@])(\d+)(?:,\d+,\d+)$").unwrap();
                         if let Some(caps) = re.captures(&link.uri) {
                             if let Ok(index) = caps[2].parse::<usize>() {
                                 if &caps[1] == "@" {
