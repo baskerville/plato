@@ -262,6 +262,7 @@ pub static ref RECOGNIZED_KINDS: FnvHashSet<&'static str> =
     "xml",
     // pdf
     "pdf",
+    "ai",
     // svg
     "svg",
     // xps
