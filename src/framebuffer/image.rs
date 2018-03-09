@@ -58,6 +58,16 @@ impl Framebuffer for ImageFramebuffer {
         self.data[addr] = blended_color;
     }
 
+    fn invert_region(&mut self, rect: &Rectangle) {
+        for y in rect.min.y..rect.max.y {
+            for x in rect.min.x..rect.max.x {
+                let addr = (y * self.width as i32 + x) as usize;
+                let color = 255 - self.data[addr];
+                self.data[addr] = color;
+            }
+        }
+    }
+
     fn update(&mut self, _rect: &Rectangle, _mode: UpdateMode) -> Result<u32> {
         Ok(1)
     }

@@ -1,12 +1,12 @@
-- Search text within document.
-- Add, remove, rename categories.
+- Metadata: Load, Remove, Undo.
+- Fit to width.
+- ePUB renderer.
 - Pocket articles.
+- Add, remove, rename categories.
+- Preload next/previous page.
 - Landscape mode.
-- Fit to width. Repage.
 - Input field completions bar.
 - Metadata view.
-- Bookmarks.
 - Complex/fuzzy search queries?
 - Dictionary.
-- Calculator.
-- Browser.
+- Applications: Sketch, Calculator, Browser.

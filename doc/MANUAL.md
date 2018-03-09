@@ -17,38 +17,33 @@
 
 ## Viewer
 
-The screen is divided into three regions:
+The screen is divided into seven regions:
 
-	┌─────────┬─────────┬─────────┐
-	│         │         │         │
-	│         │         │         │
-	│         │         │         │
-	│         │         │         │
-	│         │         │         │
-	│         │         │         │
-	│    P    │    B    │    N    │
-	│         │         │         │
-	│         │         │         │
-	│         │         │         │
-	│         │         │         │
-	│         │         │         │
-	│         │         │         │
-	│         │         │         │
-	│         │         │         │
-	│         │         │         │
-	└─────────┴─────────┴─────────┘
- 
+![Touch Regions](../artworks/touch_regions.svg)
+
 Gestures by region:
 
-- *P*:
+- *LE* (Left Ear):
 	- tap: previous page.
 	- hold: previous chapter.
-- *B*:
+- *MB* (Middle Band):
 	- tap: toggle the top and bottom bars.
 	- hold: perform a full screen refresh.
-- *N*:
+- *RE* (Right Ear):
 	- tap: next page.
 	- hold: next chapter.
+- *TL* (Top Left Corner):
+	- tap: previous bookmark.
+	- hold: previous location.
+- *TR* (Top Right Corner):
+	- tap: next bookmark.
+	- hold: toggle bookmark.
+- *BL* (Bottom Left Corner):
+	- tap: previous page.
+	- hold: toggle frontlight.
+- *BR* (Bottom Right Corner):
+	- tap: next page.
+	- hold: invert colors.
 
 Swipe west/east to go to the next/previous page.
 

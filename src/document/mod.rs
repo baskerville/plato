@@ -16,37 +16,16 @@ use document::djvu::{DjvuOpener};
 use document::pdf::{PdfOpener};
 use framebuffer::Pixmap;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum LayerGrain {
-    Page,
-    Column,
-    Region,
-    Paragraph,
-    Line,
-    Word,
-    Character,
-}
-
 #[derive(Debug, Clone)]
-pub struct TextLayer {
-    pub grain: LayerGrain,
+pub struct BoundedText {
     pub rect: Rectangle,
-    pub text: Option<String>,
-    pub children: Vec<TextLayer>,
+    pub text: String,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct Link {
     pub uri: String,
     pub rect: Rectangle,
-}
-
-impl TextLayer {
-    fn is_empty(&self) -> bool {
-        self.text.is_none() &&
-            self.children.iter().all(|t| t.is_empty())
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -132,13 +111,13 @@ fn chapter_relative_prev<'a>(toc: &'a [TocEntry], index: usize, page: &mut Optio
     }
 }
 
-pub trait Document {
+pub trait Document: Send+Sync {
     fn pages_count(&self) -> usize;
     fn pixmap(&self, index: usize, scale: f32) -> Option<Pixmap>;
     fn dims(&self, index: usize) -> Option<(f32, f32)>;
 
     fn toc(&self) -> Option<Vec<TocEntry>>;
-    fn text(&self, index: usize) -> Option<TextLayer>;
+    fn words(&self, index: usize) -> Option<Vec<BoundedText>>;
     fn links(&self, index: usize) -> Option<Vec<Link>>;
 
     fn title(&self) -> Option<String>;
@@ -148,7 +127,7 @@ pub trait Document {
     fn layout(&mut self, width: f32, height: f32, em: f32);
 
     fn has_text(&self) -> bool {
-        (0..self.pages_count()).any(|i| self.text(i).map_or(false, |t| !t.is_empty()))
+        (0..self.pages_count()).any(|i| self.words(i).map_or(false, |w| !w.is_empty()))
     }
 
     fn has_toc(&self) -> bool {
@@ -159,8 +138,8 @@ pub trait Document {
         let mut found = false;
         let mut result = None;
         'pursuit: for index in 0..10 {
-            if let Some(ref text) = self.text(index) {
-                for word in text.words() {
+            if let Some(ref words) = self.words(index) {
+                for word in words.iter().map(|w| &*w.text) {
                     if word.contains("ISBN") {
                         found = true;
                         continue;
@@ -199,24 +178,6 @@ impl HumanSize for u64 {
         let factor = value / (1024f32).powi(level as i32);
         let precision = level.saturating_sub(1 + factor.log(10.0).floor() as usize);
         format!("{0:.1$} {2}", factor, precision, ['B', 'K', 'M', 'G'][level])
-    }
-}
-
-impl TextLayer {
-    pub fn words(&self) -> Vec<String> {
-        match self.grain {
-            LayerGrain::Word => {
-                vec![self.text.as_ref().unwrap().to_string()]
-            },
-            LayerGrain::Character => vec![],
-            _ => {
-                let mut result = Vec::new();
-                for child in &self.children {
-                    result.extend_from_slice(&child.words());
-                }
-                result
-            }
-        }
     }
 }
 

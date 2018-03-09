@@ -7,13 +7,13 @@ mod summary;
 mod category;
 mod shelf;
 mod book;
-mod search_bar;
 mod bottom_bar;
 
 use std::f32;
 use std::sync::mpsc;
 use std::collections::BTreeSet;
 use chrono::Local;
+use regex::Regex;
 use metadata::{Metadata, SortMethod, sort, make_query};
 use framebuffer::{Framebuffer, UpdateMode};
 use view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
@@ -21,12 +21,13 @@ use view::filler::Filler;
 use self::top_bar::TopBar;
 use self::summary::Summary;
 use self::shelf::Shelf;
-use self::search_bar::SearchBar;
 use view::common::{shift, locate, locate_by_id, toggle_main_menu};
 use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use view::named_input::NamedInput;
 use view::menu::{Menu, MenuKind};
 use view::menu_entry::MenuEntry;
+use view::search_bar::SearchBar;
+use view::notification::Notification;
 use self::bottom_bar::BottomBar;
 use device::{CURRENT_DEVICE, BAR_SIZES};
 use symbolic_path::SymbolicPath;
@@ -45,7 +46,7 @@ pub struct Home {
     current_page: usize,
     pages_count: usize,
     focus: Option<ViewId>,
-    query: String,
+    query: Option<Regex>,
     summary_size: u8,
     sort_method: SortMethod,
     reverse_order: bool,
@@ -148,7 +149,7 @@ impl Home {
             current_page,
             pages_count,
             focus: None,
-            query: "".to_string(),
+            query: None,
             summary_size,
             sort_method,
             reverse_order,
@@ -162,10 +163,9 @@ impl Home {
     fn refresh_visibles(&mut self, update: bool, reset_page: bool, hub: &Hub, context: &mut Context) {
         let fonts = &mut context.fonts;
         let metadata = &mut context.metadata;
-        let query = make_query(&self.query);
 
         self.visible_books = metadata.iter().filter(|info| {
-            info.is_match(&query) &&
+            info.is_match(&self.query) &&
             (self.selected_categories.is_subset(&info.categories) ||
              self.selected_categories.iter()
                                      .all(|s| info.categories
@@ -355,7 +355,7 @@ impl Home {
     fn update_bottom_bar(&mut self, hub: &Hub) {
         if let Some(index) = locate::<BottomBar>(self) {
             let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
-            let filter = !self.query.is_empty() ||
+            let filter = !self.query.is_none() ||
                          !self.selected_categories.is_empty() ||
                          !self.negated_categories.is_empty();
             bottom_bar.update_matches_label(self.visible_books.len(), filter, hub);
@@ -501,7 +501,7 @@ impl Home {
 
             self.resize_summary(-delta_y, false, hub, &mut context.fonts);
 
-            self.query.clear();
+            self.query = None;
 
             search_visible = false;
         } else {
@@ -513,7 +513,9 @@ impl Home {
 
             let search_bar = SearchBar::new(rect![self.rect.min.x, sp_rect.max.y,
                                                   self.rect.max.x,
-                                                  sp_rect.max.y + small_height as i32 - small_thickness]);
+                                                  sp_rect.max.y + small_height as i32 - small_thickness],
+                                            "Title, author, category",
+                                            "");
 
             self.children.insert(5, Box::new(search_bar) as Box<View>);
 
@@ -810,7 +812,7 @@ impl Home {
 
 // TODO: make the update_* and resize_* methods take a mutable bit fields as argument and make a
 // generic method for updating everything based on the bit field to avoid needlessly updating
-// things multiple times
+// things multiple times?
 
 impl View for Home {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
@@ -820,7 +822,6 @@ impl View for Home {
                 self.toggle_keyboard(true, true, v, hub, &mut context.fonts);
                 false // let the event reach every input view
             },
-            // TODO: handle other views
             Event::Show(ViewId::Keyboard) => {
                 self.toggle_keyboard(true, true, None, hub, &mut context.fonts);
                 true
@@ -882,11 +883,20 @@ impl View for Home {
                 self.export_matches(context);
                 true
             },
-            Event::Submit(ViewId::SearchInput, ref query) => {
-                self.query = query.clone();
-                // TODO: avoid updating things twice
-                self.toggle_keyboard(false, true, Some(ViewId::SearchInput), hub, &mut context.fonts);
-                self.refresh_visibles(true, true, hub, context);
+            Event::Submit(ViewId::SearchInput, ref text) => {
+                self.query = make_query(text);
+                if self.query.is_some() {
+                    // TODO: avoid updating things twice
+                    self.toggle_keyboard(false, true, Some(ViewId::SearchInput), hub, &mut context.fonts);
+                    self.refresh_visibles(true, true, hub, context);
+                } else {
+                    let notif = Notification::new(ViewId::InvalidSearchQueryNotif,
+                                                  "Invalid search query.".to_string(),
+                                                  &mut context.notification_index,
+                                                  &mut context.fonts,
+                                                  hub);
+                    self.children.push(Box::new(notif) as Box<View>);
+                }
                 true
             },
             Event::Submit(ViewId::GoToPageInput, ref text) => {

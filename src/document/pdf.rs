@@ -11,7 +11,7 @@ use std::io::Read;
 use std::fs::File;
 use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
-use document::{Document, TextLayer, LayerGrain, TocEntry, Link};
+use document::{Document, BoundedText, TocEntry, Link};
 use framebuffer::Pixmap;
 use geom::Rectangle;
 
@@ -56,7 +56,7 @@ pub struct PdfDocument {
 pub struct PdfPage<'a> {
     ctx: Rc<PdfContext>,
     page: *mut FzPage,
-    doc: &'a PdfDocument,
+    _doc: &'a PdfDocument,
 }
 
 impl PdfOpener {
@@ -125,6 +125,9 @@ impl PdfOpener {
     }
 }
 
+unsafe impl Send for PdfDocument {}
+unsafe impl Sync for PdfDocument {}
+
 impl PdfDocument {
     pub fn page(&self, index: usize) -> Option<PdfPage> {
         unsafe {
@@ -135,7 +138,7 @@ impl PdfDocument {
                 Some(PdfPage {
                     ctx: self.ctx.clone(),
                     page: page,
-                    doc: self,
+                    _doc: self,
                 })
             }
         }
@@ -216,8 +219,8 @@ impl Document for PdfDocument {
         }
     }
 
-    fn text(&self, index: usize) -> Option<TextLayer> {
-        self.page(index).and_then(|page| page.text())
+    fn words(&self, index: usize) -> Option<Vec<BoundedText>> {
+        self.page(index).and_then(|page| page.words())
     }
 
     fn links(&self, index: usize) -> Option<Vec<Link>> {
@@ -247,35 +250,25 @@ impl Document for PdfDocument {
 }
 
 impl<'a> PdfPage<'a> {
-    pub fn text(&self) -> Option<TextLayer> {
+    pub fn words(&self) -> Option<Vec<BoundedText>> {
         unsafe {
+            let mut words = Vec::new();
             let tp = mp_new_stext_page_from_page(self.ctx.0, self.page, ptr::null());
             if tp.is_null() {
                 return None;
             }
-            let mut text_page = TextLayer {
-                grain: LayerGrain::Page,
-                rect: Rectangle::default(),
-                children: vec![],
-                text: None,
-            };
-            let mut page_rect = FzRect::default();
             let mut block = (*tp).first_block;
+
             while !block.is_null() {
-                fz_union_rect(&mut page_rect, &(*block).bbox);
                 if (*block).kind == FZ_PAGE_BLOCK_TEXT {
                     let text_block = (*block).u.text;
                     let mut line = text_block.first_line;
+
                     while !line.is_null() {
                         let mut chr = (*line).first_char;
-                        let mut text_line = TextLayer {
-                            grain: LayerGrain::Line,
-                            rect: (*line).bbox.clone().into(),
-                            children: vec![],
-                            text: None,
-                        };
-                        let mut word = String::default();
-                        let mut word_rect = FzRect::default();
+                        let mut text = String::default();
+                        let mut rect = FzRect::default();
+
                         while !chr.is_null() {
                             while !chr.is_null() {
                                 if let Some(c) = char::from_u32((*chr).c as u32) {
@@ -283,36 +276,30 @@ impl<'a> PdfPage<'a> {
                                         chr = (*chr).next;
                                         break;
                                     } else {
-                                        fz_union_rect(&mut word_rect, &(*chr).bbox);
-                                        word.push(c);
+                                        fz_union_rect(&mut rect, &(*chr).bbox);
+                                        text.push(c);
                                     }
                                 }
                                 chr = (*chr).next;
                             }
-                            if !word.is_empty() {
-                                text_line.children.push(
-                                    TextLayer {
-                                        grain: LayerGrain::Word,
-                                        rect: word_rect.clone().into(),
-                                        children: vec![],
-                                        text: Some(word.clone()),
-                                    }
-                                );
-                                word.clear();
-                                word_rect = FzRect::default();
+
+                            if !text.is_empty() {
+                                words.push(BoundedText { text: text.clone(),
+                                                         rect: rect.into() });
+                                text.clear();
+                                rect = FzRect::default();
                             }
                         }
-                        if !text_line.children.is_empty() {
-                            text_page.children.push(text_line);
-                        }
+
                         line = (*line).next;
                     }
                 }
+
                 block = (*block).next;
             }
-            text_page.rect = page_rect.into();
+
             fz_drop_stext_page(self.ctx.0, tp);
-            Some(text_page)
+            Some(words)
         }
     }
 

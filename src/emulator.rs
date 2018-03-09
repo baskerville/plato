@@ -67,6 +67,7 @@ use sdl2::keyboard::{Scancode, Keycode};
 use sdl2::render::{WindowCanvas, BlendMode};
 use sdl2::pixels::{Color as SdlColor, PixelFormatEnum};
 use sdl2::rect::Point as SdlPoint;
+use sdl2::rect::Rect as SdlRect;
 use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
 use view::{View, Event, ViewId, EntryId, render, render_no_wait, handle_event, fill_crack};
@@ -138,6 +139,23 @@ impl Framebuffer for WindowCanvas {
     fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32) {
         self.set_draw_color(SdlColor::RGBA(color, color, color, (alpha * 255.0) as u8));
         self.draw_point(SdlPoint::new(x as i32, y as i32)).unwrap();
+    }
+
+    fn invert_region(&mut self, rect: &Rectangle) {
+        let width = rect.width();
+        let s_rect = Some(SdlRect::new(rect.min.x, rect.min.y,
+                                       width, rect.height()));
+        if let Ok(data) = self.read_pixels(s_rect, PixelFormatEnum::RGB24) {
+            for y in rect.min.y..rect.max.y {
+                let v = (y - rect.min.y) as u32;
+                for x in rect.min.x..rect.max.x {
+                    let u = (x - rect.min.x) as u32;
+                    let addr = 3 * (v * width + u);
+                    let color = 255 - data[addr as usize];
+                    self.set_pixel(x as u32, y as u32, color);
+                }
+            }
+        }
     }
 
     fn update(&mut self, _rect: &Rectangle, _mode: UpdateMode) -> Result<u32> {

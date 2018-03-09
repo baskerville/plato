@@ -7,7 +7,7 @@ use std::rc::Rc;
 use std::path::Path;
 use std::ffi::{CStr, CString};
 use std::os::unix::ffi::OsStrExt;
-use document::{Document, TextLayer, LayerGrain, TocEntry, Link};
+use document::{Document, BoundedText, TocEntry, Link};
 use framebuffer::Pixmap;
 use geom::Rectangle;
 
@@ -60,21 +60,6 @@ impl DjvuContext {
     }
 }
 
-impl LayerGrain {
-    pub fn from_bytes(name: &[u8]) -> LayerGrain {
-        match name {
-            b"page" => LayerGrain::Page,
-            b"column" => LayerGrain::Column,
-            b"region" => LayerGrain::Region,
-            b"para" => LayerGrain::Paragraph,
-            b"line" => LayerGrain::Line,
-            b"word" => LayerGrain::Word,
-            b"char" => LayerGrain::Character,
-            _ => LayerGrain::Character,
-        }
-    }
-}
-
 impl DjvuOpener {
     pub fn new() -> Option<DjvuOpener> {
         unsafe {
@@ -114,6 +99,9 @@ impl DjvuOpener {
     }
 }
 
+unsafe impl Send for DjvuDocument {}
+unsafe impl Sync for DjvuDocument {}
+
 impl Document for DjvuDocument {
     fn pages_count(&self) -> usize {
         unsafe { ddjvu_document_get_pagenum(self.doc) as usize }
@@ -147,13 +135,10 @@ impl Document for DjvuDocument {
         }
     }
 
-    fn text(&self, index: usize) -> Option<TextLayer> {
+    fn words(&self, index: usize) -> Option<Vec<BoundedText>> {
         unsafe {
-            let page = self.page(index);
-            if page.is_none() {
-                return None;
-            }
-            let height = page.unwrap().height() as i32;
+            let page = self.page(index)?;
+            let height = page.height() as i32;
             let grain = CString::new("word").unwrap();
             let mut exp = ddjvu_document_get_pagetext(self.doc, index as libc::c_int, grain.as_ptr());
             while exp == MINIEXP_DUMMY {
@@ -163,9 +148,10 @@ impl Document for DjvuDocument {
             if exp == MINIEXP_NIL {
                 None
             } else {
-                let text_page = Self::walk_text(exp, height);
+                let mut words = Vec::new();
+                Self::walk_words(exp, height, &mut words);
                 ddjvu_miniexp_release(self.doc, exp);
-                Some(text_page)
+                Some(words)
             }
         }
     }
@@ -248,11 +234,10 @@ impl DjvuDocument {
         }
     }
 
-    fn walk_text(exp: *mut MiniExp, height: i32) -> TextLayer {
+    fn walk_words(exp: *mut MiniExp, height: i32, words: &mut Vec<BoundedText>) {
         unsafe {
             let len = miniexp_length(exp);
-            let mut text: Option<String> = None;
-            let p_rect = {
+            let rect = {
                 let x_min = miniexp_nth(1, exp) as i32 >> 2;
                 let y_max = height - (miniexp_nth(2, exp) as i32 >> 2);
                 let x_max = miniexp_nth(3, exp) as i32 >> 2;
@@ -261,25 +246,17 @@ impl DjvuDocument {
             };
             let grain = {
                 let raw = miniexp_to_name(miniexp_nth(0, exp));
-                let c_str = CStr::from_ptr(raw);
-                LayerGrain::from_bytes(c_str.to_bytes())
+                CStr::from_ptr(raw).to_bytes()
             };
-            let mut children = Vec::new();
-            if miniexp_stringp(miniexp_nth(5, exp)) == 1 {
+            if grain == b"word" && miniexp_stringp(miniexp_nth(5, exp)) == 1 {
                 let raw = miniexp_to_str(miniexp_nth(5, exp));
                 let c_str = CStr::from_ptr(raw);
-                text = Some(c_str.to_string_lossy().into_owned());
+                let text = c_str.to_string_lossy().into_owned();
+                words.push(BoundedText { rect, text });
             } else {
                 for i in 5..len {
-                    let child = miniexp_nth(i, exp);
-                    children.push(Self::walk_text(child, height));
+                    Self::walk_words(miniexp_nth(i, exp), height, words);
                 }
-            }
-            TextLayer {
-                grain: grain,
-                rect: p_rect,
-                text: text,
-                children: children,
             }
         }
     }

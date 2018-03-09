@@ -17,15 +17,15 @@ pub struct SearchBar {
 }
 
 impl SearchBar {
-    pub fn new(rect: Rectangle) -> SearchBar {
+    pub fn new(rect: Rectangle, placeholder: &str, text: &str) -> SearchBar {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let side = rect.height() as i32;
 
         let search_icon = Icon::new("search",
-                                  rect![rect.min, rect.min + side],
-                                  Event::Focus(Some(ViewId::SearchInput)))
+                                    rect![rect.min, rect.min + side],
+                                    Event::Focus(Some(ViewId::SearchInput)))
                                .background(TEXT_BUMP_SMALL[0]);
 
         children.push(Box::new(search_icon) as Box<View>);
@@ -40,7 +40,8 @@ impl SearchBar {
                                                 pt!(rect.max.x - side - thickness, rect.max.y)],
                                           ViewId::SearchInput)
                                      .border(false)
-                                     .placeholder("Title, author, category".to_string());
+                                     .text(text)
+                                     .placeholder(placeholder);
 
         children.push(Box::new(input_field) as Box<View>);
 
@@ -51,9 +52,9 @@ impl SearchBar {
         children.push(Box::new(separator) as Box<View>);
 
         let close_icon = Icon::new("close",
-                                  rect![pt!(rect.max.x - side, rect.min.y),
-                                        pt!(rect.max.x, rect.max.y)],
-                                  Event::Close(ViewId::SearchBar))
+                                   rect![pt!(rect.max.x - side, rect.min.y),
+                                         pt!(rect.max.x, rect.max.y)],
+                                   Event::Close(ViewId::SearchBar))
                               .background(TEXT_BUMP_SMALL[0]);
 
         children.push(Box::new(close_icon) as Box<View>);

@@ -63,6 +63,18 @@ impl Framebuffer for KoboFramebuffer {
         (self.set_pixel_rgb)(self, x, y, [r as u8, g as u8, b as u8]);
     }
 
+    fn invert_region(&mut self, rect: &Rectangle) {
+        for y in rect.min.y..rect.max.y {
+            for x in rect.min.x..rect.max.x {
+                let rgb = (self.get_pixel_rgb)(self, x as u32, y as u32);
+                let r = 255 - rgb[0];
+                let g = 255 - rgb[1];
+                let b = 255 - rgb[2];
+                (self.set_pixel_rgb)(self, x as u32, y as u32, [r, g, b]);
+            }
+        }
+    }
+
     // Tell the driver that the screen needs to be redrawn.
     // The `rect` parameter is ignored for the `Full` mode.
     // The `Fast` mode maps everything to BLACK and WHITE.

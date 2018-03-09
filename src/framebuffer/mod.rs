@@ -28,6 +28,7 @@ pub struct Pixmap {
 pub trait Framebuffer {
     fn set_pixel(&mut self, x: u32, y: u32, color: u8);
     fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32);
+    fn invert_region(&mut self, rect: &Rectangle);
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32>;
     fn wait(&self, token: u32) -> Result<i32>;
     fn save(&self, path: &str) -> Result<()>;
@@ -310,7 +311,7 @@ pub trait Framebuffer {
 
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
-                let v = vec2!((x - center.x) as f32, (y - center.y) as f32);
+                let v = vec2!((x - center.x) as f32, (y - center.y) as f32) + 0.5;
                 let angle = v.angle();
                 let delta_dist = v.length() - radius as f32;
                 let alpha = surface_area(delta_dist, angle);

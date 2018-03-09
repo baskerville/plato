@@ -1,4 +1,5 @@
 //! Views are organized as a tree. A view might receive / send events and render itself.
+//!
 //! The z-level of the n-th child of a view is less or equal to the z-level of its n+1-th child.
 //!
 //! Events travel from the root to the leaves, only the leaf views will handle the root events, but
@@ -18,6 +19,7 @@ pub mod slider;
 pub mod input_field;
 pub mod page_label;
 pub mod named_input;
+pub mod search_bar;
 pub mod confirmation;
 pub mod notification;
 pub mod intermission;
@@ -193,7 +195,9 @@ pub enum Event {
     Invalid(Box<Info>),
     Remove(Box<Info>),
     Page(CycleDir),
+    ResultsPage(CycleDir),
     GoTo(usize),
+    ResultsGoTo(usize),
     CropMargins(Box<Margin>),
     Chapter(CycleDir),
     Sort(SortMethod),
@@ -213,6 +217,8 @@ pub enum Event {
     Show(ViewId),
     Close(ViewId),
     CloseSub(ViewId),
+    SearchResult(usize, Rectangle),
+    EndOfSearch,
     Finished,
     ClockTick,
     BatteryTick,
@@ -239,6 +245,8 @@ pub enum ViewId {
     BookMenu,
     GoToPage,
     GoToPageInput,
+    GoToResultsPage,
+    GoToResultsPageInput,
     SearchInput,
     SearchBar,
     Keyboard,
@@ -247,6 +255,8 @@ pub enum ViewId {
     TopBottomBars,
     TableOfContents,
     TakeScreenshotNotif,
+    NoSearchResultsNotif,
+    InvalidSearchQueryNotif,
     NetUpNotif,
     SubMenu(u8),
 }

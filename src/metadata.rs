@@ -106,6 +106,8 @@ pub struct ReaderInfo {
     pub font_size: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub first_page: Option<usize>,
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    pub bookmarks: BTreeSet<usize>,
     pub finished: bool,
 }
 
@@ -167,6 +169,7 @@ impl Default for ReaderInfo {
             font_size: None,
             first_page: None,
             cropping_margins: FnvHashMap::default(),
+            bookmarks: BTreeSet::new(),
             finished: false,
         }
     }
@@ -266,7 +269,7 @@ impl Info {
             self.categories.iter().any(|c| query.is_match(c)) ||
             self.file.path.to_str().map(|s| query.is_match(s)).unwrap_or(false)
         } else {
-            false
+            true
         }
     }
 
@@ -301,7 +304,9 @@ pub fn make_query(query: &str) -> Option<Regex> {
                      .replace('u', "[uúùûü]")
                      .replace("ae", "(ae|æ)")
                      .replace("oe", "(oe|œ)");
-    Regex::new(&format!("(?i){}", query)).ok()
+    Regex::new(&format!("(?i){}", query))
+          .map_err(|e| eprintln!("{}", e))
+          .ok()
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq)]

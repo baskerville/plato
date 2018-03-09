@@ -27,7 +27,7 @@ impl ToolBar {
             children.push(Box::new(font_size_icon) as Box<View>);
 
             let slider = Slider::new(rect![rect.min.x + side, rect.min.y,
-                                           rect.max.x - side, rect.max.y],
+                                           rect.max.x - 2 * side, rect.max.y],
                                      SliderId::FontSize,
                                      font_size,
                                      DEFAULT_FONT_SIZE / 2.0,
@@ -40,10 +40,16 @@ impl ToolBar {
             children.push(Box::new(crop_icon) as Box<View>);
 
             let filler = Filler::new(rect![rect.min.x + side, rect.min.y,
-                                           rect.max.x - side, rect.max.y],
+                                           rect.max.x - 2 * side, rect.max.y],
                                      WHITE);
             children.push(Box::new(filler) as Box<View>);
         }
+
+        let search_icon = Icon::new("search",
+                                    rect![rect.max.x - 2 * side, rect.min.y,
+                                          rect.max.x - side, rect.max.y],
+                                    Event::Show(ViewId::SearchBar));
+        children.push(Box::new(search_icon) as Box<View>);
 
         let toc_icon = Icon::new("toc",
                                  rect![rect.max - pt!(side), rect.max],

@@ -95,8 +95,14 @@ impl InputField {
         self
     }
 
-    pub fn placeholder(mut self, placeholder: String) -> InputField {
-        self.placeholder = placeholder;
+    pub fn placeholder(mut self, placeholder: &str) -> InputField {
+        self.placeholder = placeholder.to_string();
+        self
+    }
+
+    pub fn text(mut self, text: &str) -> InputField {
+        self.text = text.to_string();
+        self.cursor = self.text.len();
         self
     }
 
