@@ -73,10 +73,10 @@ impl View for MenuEntry {
                     _ => (),
                 };
                 match self.kind {
-                    EntryKind::Command(_, id) |
-                    EntryKind::CheckBox(_, id, _) |
-                    EntryKind::RadioButton(_, id, _) => {
-                        bus.push_back(Event::Select(id));
+                    EntryKind::Command(_, ref id) |
+                    EntryKind::CheckBox(_, ref id, _) |
+                    EntryKind::RadioButton(_, ref id, _) => {
+                        bus.push_back(Event::Select(id.clone()));
                         if let Event::Gesture(GestureEvent::Tap { .. }) = *evt {
                             bus.push_back(Event::Validate);
                         }

@@ -17,7 +17,7 @@ pub struct NamedInput {
 }
 
 impl NamedInput {
-    pub fn new(text: String, id: ViewId, input_size: usize, input_id: ViewId, fonts: &mut Fonts) -> NamedInput {
+    pub fn new(text: String, id: ViewId, input_id: ViewId, input_size: usize, fonts: &mut Fonts) -> NamedInput {
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = CURRENT_DEVICE.dims;
 

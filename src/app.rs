@@ -1,6 +1,6 @@
 use std::thread;
 use std::fs::{self, File};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::process::Command;
 use std::collections::VecDeque;
@@ -37,6 +37,7 @@ const BATTERY_REFRESH_INTERVAL_MS: u64 = 299*1000;
 pub struct Context {
     pub settings: Settings,
     pub metadata: Metadata,
+    pub filename: PathBuf,
     pub fonts: Fonts,
     pub frontlight: Box<Frontlight>,
     pub battery: Box<Battery>,
@@ -50,9 +51,9 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(settings: Settings, metadata: Metadata,
+    pub fn new(settings: Settings, metadata: Metadata, filename: PathBuf,
                fonts: Fonts, frontlight: Box<Frontlight>, battery: Box<Battery>) -> Context {
-        Context { settings, metadata, fonts, frontlight, battery,
+        Context { settings, metadata, filename, fonts, frontlight, battery,
                   notification_index: 0, resumed_at: Instant::now(),
                   inverted: false, monochrome: false, suspended: false,
                   plugged: false, mounted: false }
@@ -147,7 +148,7 @@ pub fn run() -> Result<()> {
 
     let battery = Box::new(KoboBattery::new().chain_err(|| "Can't create battery.")?) as Box<Battery>;
 
-    let mut context = Context::new(settings, metadata, fonts, frontlight, battery);
+    let mut context = Context::new(settings, metadata, PathBuf::from(METADATA_FILENAME), fonts, frontlight, battery);
     let mut history: Vec<Box<View>> = Vec::new();
     let mut view: Box<View> = Box::new(Home::new(fb_rect, &tx, &mut context)?);
 
@@ -230,7 +231,7 @@ pub fn run() -> Result<()> {
                             if Path::new("/mnt/onboard/.kobo/KoboRoot.tgz").exists() {
                                 tx.send(Event::Select(EntryId::Reboot)).unwrap();
                             }
-                            let path = context.settings.library_path.join(METADATA_FILENAME);
+                            let path = context.settings.library_path.join(&context.filename);
                             let metadata = load_json::<Metadata, _>(path)
                                                      .map_err(|e| eprintln!("Can't load metadata: {}", e))
                                                      .unwrap_or_default();
@@ -261,7 +262,7 @@ pub fn run() -> Result<()> {
                 updating.retain(|tok, _| fb.wait(*tok).is_err());
                 let path = Path::new(SETTINGS_PATH);
                 save_json(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {}", e)).ok();
-                let path = context.settings.library_path.join(METADATA_FILENAME);
+                let path = context.settings.library_path.join(&context.filename);
                 save_json(&context.metadata, path).map_err(|e| eprintln!("Can't save metadata: {}", e)).ok();
                 if context.settings.frontlight {
                     context.settings.frontlight_levels = context.frontlight.levels();
@@ -307,7 +308,7 @@ pub fn run() -> Result<()> {
                         view.handle_event(&Event::Back, &tx, &mut bus, &mut context);
                         view = v;
                     }
-                    let path = context.settings.library_path.join(METADATA_FILENAME);
+                    let path = context.settings.library_path.join(&context.filename);
                     save_json(&context.metadata, path).map_err(|e| eprintln!("Can't save metadata: {}", e)).ok();
                     if context.settings.frontlight {
                         context.settings.frontlight_levels = context.frontlight.levels();
@@ -473,7 +474,7 @@ pub fn run() -> Result<()> {
         context.settings.frontlight_levels = context.frontlight.levels();
     }
 
-    let path = context.settings.library_path.join(METADATA_FILENAME);
+    let path = context.settings.library_path.join(&context.filename);
     save_json(&context.metadata, path).chain_err(|| "Can't save metadata.")?;
 
     let path = Path::new(SETTINGS_PATH);

@@ -16,6 +16,7 @@ extern crate unicode_normalization;
 extern crate libc;
 extern crate regex;
 extern crate chrono;
+extern crate glob;
 extern crate fnv;
 extern crate png;
 extern crate isbn;

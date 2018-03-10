@@ -709,7 +709,7 @@ impl Reader {
                 return;
             }
 
-            let go_to_page = NamedInput::new(text.to_string(), id, 4, input_id, fonts);
+            let go_to_page = NamedInput::new(text.to_string(), id, input_id, 4, fonts);
             hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).unwrap();
             hub.send(Event::Focus(Some(input_id))).unwrap();
 

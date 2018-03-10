@@ -1,4 +1,4 @@
-- Metadata: Load, Remove, Undo.
+- Metadata: Remove, Undo.
 - Fit to width.
 - ePUB renderer.
 - Pocket articles.

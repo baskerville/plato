@@ -11,8 +11,9 @@ mod bottom_bar;
 
 use std::f32;
 use std::sync::mpsc;
+use std::path::PathBuf;
 use std::collections::BTreeSet;
-use chrono::Local;
+use glob::glob;
 use regex::Regex;
 use metadata::{Metadata, SortMethod, sort, make_query};
 use framebuffer::{Framebuffer, UpdateMode};
@@ -31,7 +32,7 @@ use view::notification::Notification;
 use self::bottom_bar::BottomBar;
 use device::{CURRENT_DEVICE, BAR_SIZES};
 use symbolic_path::SymbolicPath;
-use helpers::save_json;
+use helpers::{load_json, save_json};
 use unit::scale_by_dpi;
 use app::Context;
 use color::BLACK;
@@ -210,7 +211,7 @@ impl Home {
         if reset_page  {
             self.current_page = 0;
         } else if self.current_page >= self.pages_count {
-            self.current_page = self.pages_count - 1;
+            self.current_page = self.pages_count.saturating_sub(1);
         }
 
         if update {
@@ -577,7 +578,7 @@ impl Home {
             if let Some(false) = enable {
                 return;
             }
-            let go_to_page = NamedInput::new("Go to page".to_string(), ViewId::GoToPage, 4, ViewId::GoToPageInput, fonts);
+            let go_to_page = NamedInput::new("Go to page".to_string(), ViewId::GoToPage, ViewId::GoToPageInput, 4, fonts);
             hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).unwrap();
             hub.send(Event::Focus(Some(ViewId::GoToPageInput))).unwrap();
             self.focus = Some(ViewId::GoToPageInput);
@@ -662,38 +663,35 @@ impl Home {
         }
     }
 
-    fn toggle_matches_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_matches_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+        let fonts = &mut context.fonts;
         if let Some(index) = locate_by_id(self, ViewId::MatchesMenu) {
             if let Some(true) = enable {
                 return;
             }
+
             hub.send(Event::Expose(*self.child(index).rect())).unwrap();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
                 return;
             }
-            use view::{Column, FirstColumn, SecondColumn};
-            let entries = vec![EntryKind::Command("Export".to_string(), EntryId::ExportMatches),
-                               EntryKind::Separator,
-                               EntryKind::SubMenu("Presentation".to_string(),
-                                   vec![EntryKind::SubMenu("Column 1".to_string(),
-                                        vec![EntryKind::RadioButton("Title & Author".to_string(),
-                                                                    EntryId::Column(Column::First(FirstColumn::TitleAndAuthor)),
-                                                                    true),
-                                             EntryKind::RadioButton("Title".to_string(),
-                                                                    EntryId::Column(Column::First(FirstColumn::Title)),
-                                                                    false)]),
-                                        EntryKind::SubMenu("Column 2".to_string(),
-                                        vec![EntryKind::RadioButton("Year".to_string(),
-                                                                    EntryId::Column(Column::Second(SecondColumn::Year)),
-                                                                    true),
-                                             EntryKind::RadioButton("Progress".to_string(),
-                                                                    EntryId::Column(Column::Second(SecondColumn::Progress)),
-                                                                    false),
-                                             EntryKind::RadioButton("None".to_string(),
-                                                                    EntryId::Column(Column::Second(SecondColumn::Nothing)),
-                                                                    false)])])];
+
+            let loadables: Vec<PathBuf> = context.settings.library_path.join(".metadata*.json").to_str().and_then(|s| {
+                glob(s).ok().map(|paths| {
+                    paths.filter_map(|x| x.ok().and_then(|p| p.file_name().map(|n| PathBuf::from(n)))).collect()
+                })
+            }).unwrap_or_default();
+
+
+            let mut entries = vec![EntryKind::Command("Export As".to_string(), EntryId::ExportMatches)];
+
+            if !loadables.is_empty() {
+                entries.push(EntryKind::Separator);
+                entries.push(EntryKind::SubMenu("Load".to_string(),
+                                                loadables.into_iter().map(|e| EntryKind::Command(e.to_string_lossy().into_owned(),
+                                                                                                 EntryId::Load(e))).collect()));
+            }
 
             let matches_menu = Menu::new(rect, ViewId::MatchesMenu, MenuKind::DropDown, entries, fonts);
             hub.send(Event::Render(*matches_menu.rect(), UpdateMode::Gui)).unwrap();
@@ -799,14 +797,27 @@ impl Home {
         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
     }
 
-    fn export_matches(&self, context: &mut Context) {
-        let path = context.settings
-                          .library_path
-                          .join(&Local::now()
-                                .format(".metadata-matches_%Y%m%d_%H%M%S.json").to_string());
+    fn export_matches(&mut self, filename: &str, context: &mut Context) {
+        let path = context.settings.library_path.join(format!(".metadata-{}.json", filename));
         save_json(&self.visible_books, path).map_err(|e| {
             eprintln!("Couldn't export matches: {}.", e);
         }).ok();
+    }
+
+    fn load_metadata(&mut self, filename: &PathBuf, hub: &Hub, context: &mut Context) {
+        let metadata = load_json::<Metadata, _>(context.settings.library_path.join(filename))
+                                 .map_err(|e| eprintln!("Can't load metadata: {}", e))
+                                 .unwrap_or_default();
+        if !metadata.is_empty() {
+            let saved = save_json(&context.metadata,
+                                  context.settings.library_path.join(&context.filename))
+                                 .map_err(|e| eprintln!("Can't save metadata: {}", e)).is_ok();
+            if saved {
+                context.filename = filename.clone();
+                context.metadata = metadata;
+                self.reseed(hub, context);
+            }
+        }
     }
 }
 
@@ -847,7 +858,7 @@ impl View for Home {
                 true
             },
             Event::ToggleNear(ViewId::MatchesMenu, rect) => {
-                self.toggle_matches_menu(rect, None, hub, &mut context.fonts);
+                self.toggle_matches_menu(rect, None, hub, context);
                 true
             },
             Event::Close(ViewId::SearchBar) => {
@@ -859,7 +870,7 @@ impl View for Home {
                 true
             },
             Event::Close(ViewId::MatchesMenu) => {
-                self.toggle_matches_menu(Rectangle::default(), Some(false), hub, &mut context.fonts);
+                self.toggle_matches_menu(Rectangle::default(), Some(false), hub, context);
                 true
             },
             Event::Close(ViewId::MainMenu) => {
@@ -880,14 +891,32 @@ impl View for Home {
                 true
             },
             Event::Select(EntryId::ExportMatches) => {
-                self.export_matches(context);
+                let export_as = NamedInput::new("Export As".to_string(),
+                                                ViewId::ExportAs,
+                                                ViewId::ExportAsInput,
+                                                12,
+                                                &mut context.fonts);
+                hub.send(Event::Render(*export_as.rect(), UpdateMode::Gui)).unwrap();
+                hub.send(Event::Focus(Some(ViewId::ExportAsInput))).unwrap();
+                self.children.push(Box::new(export_as) as Box<View>);
+                true
+            },
+            Event::Select(EntryId::Load(ref filename)) => {
+                self.load_metadata(filename, hub, context);
+                true
+            },
+            Event::Submit(ViewId::ExportAsInput, ref text) => {
+                if !text.is_empty() {
+                    self.export_matches(text, context);
+                }
+                self.toggle_keyboard(false, true, None, hub, &mut context.fonts);
                 true
             },
             Event::Submit(ViewId::SearchInput, ref text) => {
                 self.query = make_query(text);
                 if self.query.is_some() {
                     // TODO: avoid updating things twice
-                    self.toggle_keyboard(false, true, Some(ViewId::SearchInput), hub, &mut context.fonts);
+                    self.toggle_keyboard(false, true, None, hub, &mut context.fonts);
                     self.refresh_visibles(true, true, hub, context);
                 } else {
                     let notif = Notification::new(ViewId::InvalidSearchQueryNotif,

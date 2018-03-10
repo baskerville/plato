@@ -33,6 +33,7 @@ pub mod key;
 pub mod home;
 pub mod reader;
 
+use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::collections::VecDeque;
 use std::fmt::{self, Debug};
@@ -223,6 +224,7 @@ pub enum Event {
     ClockTick,
     BatteryTick,
     ToggleFrontlight,
+    Load(PathBuf),
     Suspend,
     Mount,
     Validate,
@@ -247,6 +249,8 @@ pub enum ViewId {
     GoToPageInput,
     GoToResultsPage,
     GoToResultsPageInput,
+    ExportAs,
+    ExportAsInput,
     SearchInput,
     SearchBar,
     Keyboard,
@@ -321,13 +325,14 @@ pub enum EntryKind {
     Separator,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EntryId {
     Column(Column),
     Sort(SortMethod),
     Remove(usize),
     AddCategories(usize),
     RemoveCategory(usize, usize),
+    Load(PathBuf),
     ExportMatches,
     ToggleFirstPage,
     ReverseOrder,

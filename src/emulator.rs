@@ -16,6 +16,7 @@ extern crate unicode_normalization;
 extern crate libc;
 extern crate regex;
 extern crate chrono;
+extern crate glob;
 extern crate sdl2;
 extern crate fnv;
 extern crate png;
@@ -54,10 +55,10 @@ mod errors {
 }
 
 use std::thread;
-use std::path::Path;
 use std::fs::File;
 use std::sync::mpsc;
 use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use fnv::FnvHashMap;
 use chrono::Local;
@@ -100,7 +101,7 @@ pub fn build_context() -> Result<Context> {
     let frontlight = Box::new(FakeFrontlight::new()) as Box<Frontlight>;
     let battery = Box::new(FakeBattery::new()) as Box<Battery>;
     let fonts = Fonts::load()?;
-    Ok(Context::new(settings, metadata, fonts, frontlight, battery))
+    Ok(Context::new(settings, metadata, PathBuf::from(METADATA_FILENAME), fonts, frontlight, battery))
 }
 
 #[inline]
@@ -384,7 +385,7 @@ pub fn run() -> Result<()> {
         }
     }
 
-    let path = context.settings.library_path.join(METADATA_FILENAME);
+    let path = context.settings.library_path.join(&context.filename);
     save_json(&context.metadata, path).chain_err(|| "Can't save metadata.")?;
 
     let path = Path::new(SETTINGS_PATH);
