@@ -4,6 +4,8 @@ use view::{View, Event, Hub, Bus, ViewId, THICKNESS_MEDIUM};
 use view::icon::Icon;
 use view::input_field::InputField;
 use view::filler::Filler;
+use gesture::GestureEvent;
+use input::DeviceEvent;
 use color::{TEXT_BUMP_SMALL, SEPARATOR_NORMAL};
 use geom::Rectangle;
 use app::Context;
@@ -67,8 +69,14 @@ impl SearchBar {
 }
 
 impl View for SearchBar {
-    fn handle_event(&mut self, _evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
-        false
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+        match *evt {
+            Event::Gesture(GestureEvent::Tap { ref center, .. }) |
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => true,
+            Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(start) => true,
+            Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(position) => true,
+            _ => false,
+        }
     }
 
     fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {

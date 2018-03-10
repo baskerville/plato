@@ -1,10 +1,11 @@
 use framebuffer::{Framebuffer, UpdateMode};
-use gesture::GestureEvent;
 use view::{View, Event, Hub, Bus, Align};
 use view::icon::Icon;
 use view::filler::Filler;
 use view::label::Label;
 use view::page_label::PageLabel;
+use gesture::GestureEvent;
+use input::DeviceEvent;
 use geom::{Rectangle, CycleDir, halves};
 use document::{Document, chapter_at};
 use color::WHITE;
@@ -130,8 +131,10 @@ impl BottomBar {
 impl View for BottomBar {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => true,
+            Event::Gesture(GestureEvent::Tap { ref center, .. }) |
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => true,
             Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(start) => true,
+            Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(position) => true,
             _ => false,
         }
     }
