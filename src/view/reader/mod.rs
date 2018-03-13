@@ -951,7 +951,7 @@ impl View for Reader {
                             if let Ok(index) = caps[2].parse::<usize>() {
                                 if &caps[1] == "@" {
                                     hub.send(Event::Back).unwrap();
-                                    hub.send(Event::Toggle(ViewId::TopBottomBars)).unwrap();
+                                    hub.send(Event::Close(ViewId::TopBottomBars)).unwrap();
                                     hub.send(Event::GoTo(index)).unwrap();
                                 } else {
                                     self.go_to_page(index.saturating_sub(1), true, hub);
@@ -972,10 +972,18 @@ impl View for Reader {
                     let dx = x1 - center.x;
                     // Top left corner.
                     if center.y < self.rect.min.y + dx {
-                        self.go_to_bookmark(CycleDir::Previous, hub);
+                        self.go_to_last_page(hub);
                     // Bottom left corner.
                     } else if center.y > self.rect.max.y - dx {
-                        self.set_current_page(CycleDir::Previous, hub);
+                        if self.search.is_none() {
+                            if self.ephemeral {
+                                hub.send(Event::Back).unwrap();
+                            } else {
+                                hub.send(Event::Show(ViewId::TableOfContents)).unwrap();
+                            }
+                        } else {
+                            self.set_current_page(CycleDir::Previous, hub);
+                        }
                     // Left ear.
                     } else {
                         if self.search.is_none() {
@@ -988,10 +996,14 @@ impl View for Reader {
                     let dx = center.x - x2;
                     // Top right corner.
                     if center.y < self.rect.min.y + dx {
-                        self.go_to_bookmark(CycleDir::Next, hub);
+                        self.add_remove_bookmark(hub);
                     // Bottom right corner.
                     } else if center.y > self.rect.max.y - dx {
-                        self.set_current_page(CycleDir::Next, hub);
+                        if self.search.is_none() {
+                            hub.send(Event::Toggle(ViewId::GoToPage)).unwrap();
+                        } else {
+                            self.set_current_page(CycleDir::Next, hub);
+                        }
                     // Right ear.
                     } else {
                         if self.search.is_none() {
@@ -1020,25 +1032,34 @@ impl View for Reader {
                     let dx = x1 - center.x;
                     // Top left corner.
                     if center.y < self.rect.min.y + dx {
-                        self.go_to_last_page(hub);
+                        self.go_to_bookmark(CycleDir::Previous, hub);
                     // Bottom left corner.
                     } else if center.y > self.rect.max.y - dx {
                         hub.send(Event::ToggleFrontlight).unwrap();
                     // Left ear.
                     } else {
-                        self.go_to_chapter(CycleDir::Previous, hub);
+                        if self.search.is_none() {
+                            self.go_to_chapter(CycleDir::Previous, hub);
+                        } else {
+                            self.go_to_results_page(0, hub);
+                        }
                     }
                 } else if center.x > x2 {
                     let dx = center.x - x2;
                     // Top right corner.
                     if center.y < self.rect.min.y + dx {
-                        self.add_remove_bookmark(hub);
+                        self.go_to_bookmark(CycleDir::Next, hub);
                     // Bottom right corner.
                     } else if center.y > self.rect.max.y - dx {
                         hub.send(Event::Select(EntryId::ToggleInverted)).unwrap();
                     // Right ear.
                     } else {
-                        self.go_to_chapter(CycleDir::Next, hub);
+                        if self.search.is_none() {
+                            self.go_to_chapter(CycleDir::Next, hub);
+                        } else {
+                            let last_page = self.search.as_ref().unwrap().highlights.len() - 1;
+                            self.go_to_results_page(last_page, hub);
+                        }
                     }
                 } else {
                     hub.send(Event::Render(self.rect, UpdateMode::Full)).unwrap();
@@ -1127,6 +1148,10 @@ impl View for Reader {
             },
             Event::ToggleNear(ViewId::PageMenu, rect) => {
                 self.toggle_page_menu(rect, None, hub, &mut context.fonts);
+                true
+            },
+            Event::Close(ViewId::TopBottomBars) => {
+                self.toggle_bars(Some(false), hub, context);
                 true
             },
             Event::Close(ViewId::MainMenu) => {

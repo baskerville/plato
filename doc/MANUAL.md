@@ -24,26 +24,34 @@ The screen is divided into seven regions:
 Gestures by region:
 
 - *LE* (Left Ear):
-	- tap: previous page.
-	- hold: previous chapter.
+	- Normal Mode:
+		- Tap: previous page.
+		- Hold: previous chapter.
+	- Search Mode:
+		- Tap: previous results page.
+		- Hold: first results page.
 - *MB* (Middle Band):
-	- tap: toggle the top and bottom bars.
-	- hold: perform a full screen refresh.
+	- Tap: toggle the top and bottom bars.
+	- Hold: perform a full screen refresh.
 - *RE* (Right Ear):
-	- tap: next page.
-	- hold: next chapter.
+	- Normal Mode:
+		- Tap: next page.
+		- Hold: next chapter.
+	- Search Mode:
+		- Tap: next results page.
+		- Hold: last results page.
 - *TL* (Top Left Corner):
-	- tap: previous bookmark.
-	- hold: previous location.
+	- Tap: previous location.
+	- Hold: previous bookmark.
 - *TR* (Top Right Corner):
-	- tap: next bookmark.
-	- hold: toggle bookmark.
+	- Tap: toggle bookmark.
+	- Hold: next bookmark.
 - *BL* (Bottom Left Corner):
-	- tap: previous page.
-	- hold: toggle frontlight.
+	- Tap: table of contents in normal mode, previous page in search mode.
+	- Hold: toggle frontlight.
 - *BR* (Bottom Right Corner):
-	- tap: next page.
-	- hold: invert colors.
+	- Tap: go to page in normal mode, next page in search mode.
+	- Hold: invert colors.
 
 Swipe west/east to go to the next/previous page.
 
