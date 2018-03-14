@@ -36,7 +36,7 @@ use gesture::GestureEvent;
 use document::{Document, TocEntry, open, toc_as_html, chapter_at, chapter_relative};
 use document::pdf::PdfOpener;
 use metadata::{Info, FileInfo, ReaderInfo, Margin, make_query};
-use geom::{Rectangle, Dir, CycleDir, halves};
+use geom::{Rectangle, CornerSpec, BorderSpec, Dir, CycleDir, halves};
 use color::{BLACK, WHITE};
 use app::Context;
 
@@ -1299,10 +1299,14 @@ impl View for Reader {
 
         if self.info.reader.as_ref().map_or(false, |r| r.bookmarks.contains(&self.current_page)) {
             let dpi = CURRENT_DEVICE.dpi;
-            let radius = (mm_to_in(0.6) * dpi as f32) as i32;
-            let px = self.rect.max.x - 8 * radius;
-            let py = self.rect.min.y + 8 * radius;
-            fb.draw_disk(&pt!(px, py), radius, BLACK);
+            let thickness = scale_by_dpi(3.0, dpi) as u16;
+            let radius = (mm_to_in(0.4) * dpi as f32) as i32 + thickness as i32;
+            let center = pt!(self.rect.max.x - 5 * radius,
+                             self.rect.min.y + 5 * radius);
+            fb.draw_rounded_rectangle_with_border(&Rectangle::from_disk(&center, radius),
+                                                  &CornerSpec::Uniform(radius),
+                                                  &BorderSpec { thickness, color: WHITE },
+                                                  &BLACK);
         }
     }
 
