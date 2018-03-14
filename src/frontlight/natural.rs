@@ -4,14 +4,21 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 use fnv::FnvHashMap;
+use device::{CURRENT_DEVICE, Model};
 use frontlight::{Frontlight, LightLevels};
 use errors::*;
 
 const FRONTLIGHT_INTERFACE: &str = "/sys/class/backlight";
 
-const FRONTLIGHT_WHITE: &str = "lm3630a_led1b";
-const FRONTLIGHT_RED: &str = "lm3630a_led1a";
-const FRONTLIGHT_GREEN: &str = "lm3630a_ledb";
+// Aura ONE
+const FRONTLIGHT_WHITE_A: &str = "lm3630a_led1b";
+const FRONTLIGHT_RED_A: &str = "lm3630a_led1a";
+const FRONTLIGHT_GREEN_A: &str = "lm3630a_ledb";
+
+// Aura H₂O Edition 2
+const FRONTLIGHT_WHITE_B: &str = "lm3630a_ledb";
+const FRONTLIGHT_RED_B: &str = "lm3630a_led";
+const FRONTLIGHT_GREEN_B: &str = "lm3630a_leda";
 
 const FRONTLIGHT_VALUE: &str = "brightness";
 const FRONTLIGHT_MAX_VALUE: &str = "max_brightness";
@@ -29,9 +36,15 @@ pub enum LightColor {
 
 lazy_static! {
 pub static ref FRONTLIGHT_DIRS: FnvHashMap<LightColor, &'static str> =
-    [(LightColor::White, FRONTLIGHT_WHITE),
-     (LightColor::Red, FRONTLIGHT_RED),
-     (LightColor::Green, FRONTLIGHT_GREEN)].iter().cloned().collect();
+    if CURRENT_DEVICE.model == Model::AuraONE {
+        [(LightColor::White, FRONTLIGHT_WHITE_A),
+         (LightColor::Red, FRONTLIGHT_RED_A),
+         (LightColor::Green, FRONTLIGHT_GREEN_A)].iter().cloned().collect()
+    } else {
+        [(LightColor::White, FRONTLIGHT_WHITE_B),
+         (LightColor::Red, FRONTLIGHT_RED_B),
+         (LightColor::Green, FRONTLIGHT_GREEN_B)].iter().cloned().collect()
+    };
 }
 
 pub struct NaturalFrontlight {
