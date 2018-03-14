@@ -13,6 +13,10 @@
 - Swipe west/east to go to the next/previous page.
 - Tap on a book entry to open it.
 
+## Bottom bar
+
+Hold the next/previous page icon to go the last/first page.
+
 # Reader
 
 ## Viewer

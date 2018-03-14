@@ -957,6 +957,14 @@ impl View for Home {
                 self.go_to_page(index, hub);
                 true
             },
+            Event::Chapter(dir) => {
+                let pages_count = self.pages_count;
+                match dir {
+                    CycleDir::Previous => self.go_to_page(0, hub),
+                    CycleDir::Next => self.go_to_page(pages_count.saturating_sub(1), hub),
+                }
+                true
+            },
             Event::Page(dir) => {
                 self.set_current_page(dir, hub);
                 true
