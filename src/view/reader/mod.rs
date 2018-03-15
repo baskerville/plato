@@ -6,7 +6,7 @@ mod margin_cropper;
 mod results_label;
 
 use std::thread;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::rc::Rc;
@@ -877,13 +877,13 @@ impl Reader {
     }
 
     fn reseed(&mut self, hub: &Hub, context: &mut Context) {
+        let (tx, _rx) = mpsc::channel();
         if let Some(index) = locate::<TopBar>(self) {
             self.child_mut(index).downcast_mut::<TopBar>().unwrap()
-                .update_frontlight_icon(hub, context);
+                .update_frontlight_icon(&tx, context);
+            hub.send(Event::ClockTick).unwrap();
+            hub.send(Event::BatteryTick).unwrap();
         }
-
-        hub.send(Event::ClockTick).unwrap();
-        hub.send(Event::BatteryTick).unwrap();
         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
     }
 
@@ -951,7 +951,6 @@ impl View for Reader {
                             if let Ok(index) = caps[2].parse::<usize>() {
                                 if &caps[1] == "@" {
                                     hub.send(Event::Back).unwrap();
-                                    hub.send(Event::Close(ViewId::TopBottomBars)).unwrap();
                                     hub.send(Event::GoTo(index)).unwrap();
                                 } else {
                                     self.go_to_page(index.saturating_sub(1), true, hub);
@@ -1150,10 +1149,6 @@ impl View for Reader {
                 self.toggle_page_menu(rect, None, hub, &mut context.fonts);
                 true
             },
-            Event::Close(ViewId::TopBottomBars) => {
-                self.toggle_bars(Some(false), hub, context);
-                true
-            },
             Event::Close(ViewId::MainMenu) => {
                 toggle_main_menu(self, Rectangle::default(), Some(false), hub, context);
                 true
@@ -1171,6 +1166,9 @@ impl View for Reader {
                 true
             },
             Event::Show(ViewId::TableOfContents) => {
+                {
+                    self.toggle_bars(Some(false), hub, context);
+                }
                 let doc = self.doc.lock().unwrap();
                 if doc.has_toc() {
                     hub.send(Event::OpenToc(doc.toc().unwrap(), self.current_page)).unwrap();
