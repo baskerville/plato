@@ -296,15 +296,21 @@ impl Info {
     }
 }
 
-pub fn make_query(query: &str) -> Option<Regex> {
-    let query = query.replace('a', "[aáàâä]")
-                     .replace('e', "[eéèêë]")
-                     .replace('i', "[iíìîï]")
-                     .replace('o', "[oóòôö]")
-                     .replace('u', "[uúùûü]")
-                     .replace("ae", "(ae|æ)")
-                     .replace("oe", "(oe|œ)");
-    Regex::new(&format!("(?i){}", query))
+pub fn make_query(text: &str) -> Option<Regex> {
+    let any = Regex::new(r"^\.*$").unwrap();
+
+    if any.is_match(text) {
+        return None;
+    }
+
+    let text = text.replace('a', "[aáàâä]")
+                   .replace('e', "[eéèêë]")
+                   .replace('i', "[iíìîï]")
+                   .replace('o', "[oóòôö]")
+                   .replace('u', "[uúùûü]")
+                   .replace("ae", "(ae|æ)")
+                   .replace("oe", "(oe|œ)");
+    Regex::new(&format!("(?i){}", text))
           .map_err(|e| eprintln!("{}", e))
           .ok()
 }
