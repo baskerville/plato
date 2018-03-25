@@ -1,3 +1,4 @@
+- Reader: change the frontlight intensity/warmth by swiping on the edges.
 - Metadata: Remove, Undo.
 - Fit to width.
 - ePUB renderer.
