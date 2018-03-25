@@ -17,8 +17,7 @@ const FRONTLIGHT_GREEN_A: &str = "lm3630a_ledb";
 
 // Aura H₂O Edition 2
 const FRONTLIGHT_WHITE_B: &str = "lm3630a_ledb";
-const FRONTLIGHT_RED_B: &str = "lm3630a_led";
-const FRONTLIGHT_GREEN_B: &str = "lm3630a_leda";
+const FRONTLIGHT_ORANGE_B: &str = "lm3630a_leda";
 
 const FRONTLIGHT_VALUE: &str = "brightness";
 const FRONTLIGHT_MAX_VALUE: &str = "max_brightness";
@@ -27,11 +26,12 @@ const FRONTLIGHT_POWER: &str = "bl_power";
 const FRONTLIGHT_POWER_ON: i16 = 31;
 const FRONTLIGHT_POWER_OFF: i16 = 0;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum LightColor {
     White,
-    Green,
     Red,
+    Green,
+    Orange,
 }
 
 lazy_static! {
@@ -42,15 +42,13 @@ pub static ref FRONTLIGHT_DIRS: FnvHashMap<LightColor, &'static str> =
          (LightColor::Green, FRONTLIGHT_GREEN_A)].iter().cloned().collect()
     } else {
         [(LightColor::White, FRONTLIGHT_WHITE_B),
-         (LightColor::Red, FRONTLIGHT_RED_B),
-         (LightColor::Green, FRONTLIGHT_GREEN_B)].iter().cloned().collect()
+         (LightColor::Orange, FRONTLIGHT_ORANGE_B)].iter().cloned().collect()
     };
 }
 
 pub struct NaturalFrontlight {
     intensity: f32,
     warmth: f32,
-    base: PathBuf,
     values: FnvHashMap<LightColor, File>,
     powers: FnvHashMap<LightColor, File>,
     maxima: FnvHashMap<LightColor, i16>,
@@ -62,21 +60,20 @@ impl NaturalFrontlight {
         let mut values = FnvHashMap::default();
         let mut powers = FnvHashMap::default();
         let base = PathBuf::from(FRONTLIGHT_INTERFACE);
-        for c in [LightColor::White, LightColor::Red, LightColor::Green].iter().cloned() {
-            let dir = base.join(FRONTLIGHT_DIRS.get(&c).unwrap());
+        for (light, name) in FRONTLIGHT_DIRS.iter() {
+            let dir = base.join(name);
             let mut buf = String::new();
             let mut file = File::open(dir.join(FRONTLIGHT_MAX_VALUE))?;
             file.read_to_string(&mut buf)?;
-            maxima.insert(c, buf.trim_right().parse()?);
+            maxima.insert(*light, buf.trim_right().parse()?);
             let file = OpenOptions::new().write(true).open(dir.join(FRONTLIGHT_VALUE))?;
-            values.insert(c, file);
+            values.insert(*light, file);
             let file = OpenOptions::new().write(true).open(dir.join(FRONTLIGHT_POWER))?;
-            powers.insert(c, file);
+            powers.insert(*light, file);
         }
         Ok(NaturalFrontlight {
             intensity,
             warmth,
-            base,
             maxima,
             values,
             powers,
@@ -101,15 +98,22 @@ impl NaturalFrontlight {
         let i = intensity / 100.0;
         let w = warmth / 100.0;
         let white = 80.0 * i * (1.0 - w).sqrt();
-        let green = 64.0 * (w * i).sqrt();
-        let red = if w == 0.0 {
-            0.0
-        } else {
-            green + 20.0 + 7.0 * (1.0 - green / 64.0) + w * 4.0
-        };
         self.set(LightColor::White, white);
-        self.set(LightColor::Green, green);
-        self.set(LightColor::Red, red);
+
+        if self.values.len() == 3 {
+            let green = 64.0 * (w * i).sqrt();
+            let red = if w == 0.0 {
+                0.0
+            } else {
+                green + 20.0 + 7.0 * (1.0 - green / 64.0) + w * 4.0
+            };
+            self.set(LightColor::Red, red);
+            self.set(LightColor::Green, green);
+        } else {
+            let orange = 95.0 * (w * i).sqrt();
+            self.set(LightColor::Orange, orange);
+        }
+
         self.intensity = intensity;
         self.warmth = warmth;
     }
