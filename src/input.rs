@@ -276,6 +276,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                                 position,
                             }).unwrap();
                         }
+                        fingers.insert(id, position);
                     } else {
                         ty.send(DeviceEvent::Finger {
                             id,
