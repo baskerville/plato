@@ -10,7 +10,7 @@ use device::CURRENT_DEVICE;
 use geom::{Point, Dir, Axis};
 
 pub const JITTER_TOLERANCE_MM: f32 = 6.0;
-pub const FINGER_HOLD_DELAY_MS: u64 = 500;
+pub const FINGER_HOLD_DELAY_MS: u64 = 666;
 pub const BUTTON_HOLD_DELAY_MS: u64 = 1500;
 
 #[derive(Debug, Copy, Clone)]
