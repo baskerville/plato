@@ -1,5 +1,4 @@
 use std::thread;
-use std::time::Duration;
 use device::{CURRENT_DEVICE, BAR_SIZES};
 use font::{Fonts, font_from_style, NORMAL_STYLE};
 use geom::{Rectangle, CornerSpec, BorderSpec, small_half, big_half};
@@ -10,7 +9,7 @@ use framebuffer::{Framebuffer, UpdateMode};
 use view::filler::Filler;
 use view::menu_entry::MenuEntry;
 use view::common::locate_by_id;
-use view::{View, Event, Hub, Bus, EntryKind, ViewId, CLOSE_IGNITION_DELAY_MS};
+use view::{View, Event, Hub, Bus, EntryKind, ViewId, CLOSE_IGNITION_DELAY};
 use view::{THICKNESS_MEDIUM, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use app::Context;
 
@@ -247,7 +246,7 @@ impl View for Menu {
                 let hub2 = hub.clone();
                 let id = self.id;
                 thread::spawn(move || {
-                    thread::sleep(Duration::from_millis(CLOSE_IGNITION_DELAY_MS));
+                    thread::sleep(CLOSE_IGNITION_DELAY);
                     hub2.send(Event::Close(id)).unwrap();
                 });
                 true

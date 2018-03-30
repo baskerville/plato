@@ -33,6 +33,7 @@ pub mod key;
 pub mod home;
 pub mod reader;
 
+use std::time::Duration;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::collections::VecDeque;
@@ -57,7 +58,7 @@ pub const BORDER_RADIUS_SMALL: f32 = 6.0;
 pub const BORDER_RADIUS_MEDIUM: f32 = 9.0;
 pub const BORDER_RADIUS_LARGE: f32 = 12.0;
 
-pub const CLOSE_IGNITION_DELAY_MS: u64 = 150;
+pub const CLOSE_IGNITION_DELAY: Duration = Duration::from_millis(150);
 
 type Bus = VecDeque<Event>;
 type Hub = Sender<Event>;

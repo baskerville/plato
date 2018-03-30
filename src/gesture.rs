@@ -10,8 +10,8 @@ use device::CURRENT_DEVICE;
 use geom::{Point, Dir, Axis};
 
 pub const JITTER_TOLERANCE_MM: f32 = 6.0;
-pub const FINGER_HOLD_DELAY_MS: u64 = 666;
-pub const BUTTON_HOLD_DELAY_MS: u64 = 1500;
+pub const FINGER_HOLD_DELAY: Duration = Duration::from_millis(666);
+pub const BUTTON_HOLD_DELAY: Duration = Duration::from_millis(1500);
 
 #[derive(Debug, Copy, Clone)]
 pub enum GestureEvent {
@@ -71,7 +71,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                 let ty = ty.clone();
                 let contacts = contacts.clone();
                 thread::spawn(move || {
-                    thread::sleep(Duration::from_millis(FINGER_HOLD_DELAY_MS));
+                    thread::sleep(FINGER_HOLD_DELAY);
                     let mut ct = contacts.lock().unwrap();
                     let mut will_remove = None;
                     if let Some(ts) = ct.get(&id) {
@@ -161,7 +161,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                 let ty = ty.clone();
                 let buttons = buttons.clone();
                 thread::spawn(move || {
-                    thread::sleep(Duration::from_millis(BUTTON_HOLD_DELAY_MS));
+                    thread::sleep(BUTTON_HOLD_DELAY);
                     let bt = buttons.lock().unwrap();
                     if let Some(&initial_time) = bt.get(&code) {
                         if initial_time == time {

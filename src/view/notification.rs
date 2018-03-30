@@ -12,7 +12,7 @@ use input::DeviceEvent;
 use unit::scale_by_dpi;
 use app::Context;
 
-const NOTIFICATION_CLOSE_DELAY_S: u64 = 4;
+const NOTIFICATION_CLOSE_DELAY: Duration = Duration::from_secs(4);
 
 pub struct Notification {
     rect: Rectangle,
@@ -26,7 +26,7 @@ impl Notification {
         let hub2 = hub.clone();
 
         thread::spawn(move || {
-            thread::sleep(Duration::from_secs(NOTIFICATION_CLOSE_DELAY_S));
+            thread::sleep(NOTIFICATION_CLOSE_DELAY);
             hub2.send(Event::Close(id)).unwrap();
         });
 

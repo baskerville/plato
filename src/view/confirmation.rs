@@ -1,10 +1,9 @@
 use std::thread;
-use std::time::Duration;
 use device::CURRENT_DEVICE;
 use geom::{Rectangle, CornerSpec, BorderSpec};
 use font::{Fonts, font_from_style, NORMAL_STYLE};
 use view::{View, Event, Hub, Bus, ViewId, Align};
-use view::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM, CLOSE_IGNITION_DELAY_MS};
+use view::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM, CLOSE_IGNITION_DELAY};
 use view::button::Button;
 use view::label::Label;
 use framebuffer::Framebuffer;
@@ -100,7 +99,7 @@ impl View for Confirmation {
                 let hub2 = hub.clone();
                 let id = self.id;
                 thread::spawn(move || {
-                    thread::sleep(Duration::from_millis(CLOSE_IGNITION_DELAY_MS));
+                    thread::sleep(CLOSE_IGNITION_DELAY);
                     hub2.send(Event::Close(id)).unwrap();
                 });
                 if let Event::Validate = *evt {

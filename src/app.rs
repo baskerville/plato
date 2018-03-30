@@ -14,7 +14,7 @@ use view::common::{locate, locate_by_id, overlapping_rectangle};
 use view::frontlight::FrontlightWindow;
 use input::{DeviceEvent, ButtonCode, ButtonStatus};
 use input::{raw_events, device_events, usb_events};
-use gesture::{GestureEvent, gesture_events, BUTTON_HOLD_DELAY_MS};
+use gesture::{GestureEvent, gesture_events, BUTTON_HOLD_DELAY};
 use helpers::{load_json, save_json};
 use metadata::{Metadata, METADATA_FILENAME, import};
 use settings::{Settings, SETTINGS_PATH};
@@ -31,8 +31,8 @@ use errors::*;
 
 pub const APP_NAME: &str = "Plato";
 
-const CLOCK_REFRESH_INTERVAL_MS: u64 = 60*1000;
-const BATTERY_REFRESH_INTERVAL_MS: u64 = 299*1000;
+const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
+const BATTERY_REFRESH_INTERVAL: Duration = Duration::from_secs(299);
 
 pub struct Context {
     pub settings: Settings,
@@ -106,7 +106,7 @@ pub fn run() -> Result<()> {
     let tx4 = tx.clone();
     thread::spawn(move || {
         loop {
-            thread::sleep(Duration::from_millis(CLOCK_REFRESH_INTERVAL_MS));
+            thread::sleep(CLOCK_REFRESH_INTERVAL);
             tx4.send(Event::ClockTick).unwrap();
         }
     });
@@ -114,7 +114,7 @@ pub fn run() -> Result<()> {
     let tx5 = tx.clone();
     thread::spawn(move || {
         loop {
-            thread::sleep(Duration::from_millis(BATTERY_REFRESH_INTERVAL_MS));
+            thread::sleep(BATTERY_REFRESH_INTERVAL);
             tx5.send(Event::BatteryTick).unwrap();
         }
     });
@@ -168,7 +168,7 @@ pub fn run() -> Result<()> {
                     DeviceEvent::Button { code: ButtonCode::Power, status: ButtonStatus::Released, .. } |
                     DeviceEvent::CoverOn => {
                         if context.mounted || context.suspended ||
-                           context.resumed_at.elapsed() <= Duration::from_millis(BUTTON_HOLD_DELAY_MS) {
+                           context.resumed_at.elapsed() <= BUTTON_HOLD_DELAY {
                             continue;
                         }
 
