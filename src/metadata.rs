@@ -93,6 +93,51 @@ impl Default for Margin {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PageScheme {
+    Any,
+    EvenOdd,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CroppingMargins {
+    Any(Margin),
+    EvenOdd([Margin; 2]),
+}
+
+impl CroppingMargins {
+    pub fn margin(&self, index: usize) -> &Margin {
+        match *self {
+            CroppingMargins::Any(ref margin) => margin,
+            CroppingMargins::EvenOdd(ref pair) => &pair[index % 2],
+        }
+    }
+
+    pub fn margin_mut(&mut self, index: usize) -> &mut Margin {
+        match *self {
+            CroppingMargins::Any(ref mut margin) => margin,
+            CroppingMargins::EvenOdd(ref mut pair) => &mut pair[index % 2],
+        }
+    }
+
+    pub fn apply(&mut self, index: usize, scheme: PageScheme) {
+        let margin = self.margin(index).clone();
+
+        match scheme {
+            PageScheme::Any => *self = CroppingMargins::Any(margin),
+            PageScheme::EvenOdd => *self = CroppingMargins::EvenOdd([margin.clone(), margin]),
+        }
+    }
+
+    pub fn is_split(&self) -> bool {
+        match *self {
+            CroppingMargins::Any(..) => false,
+            _ => true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReaderInfo {
@@ -100,8 +145,8 @@ pub struct ReaderInfo {
     pub opened: DateTime<Local>,
     pub current_page: usize,
     pub pages_count: usize,
-    #[serde(skip_serializing_if = "FnvHashMap::is_empty")]
-    pub cropping_margins: FnvHashMap<usize, Margin>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cropping_margins: Option<CroppingMargins>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub font_size: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -111,35 +156,9 @@ pub struct ReaderInfo {
     pub finished: bool,
 }
 
-
 impl ReaderInfo {
     pub fn progress(&self) -> f32 {
         (self.current_page + 1) as f32 / self.pages_count as f32
-    }
-
-    pub fn margin_at(&self, index: usize) -> Option<&Margin> {
-        if self.cropping_margins.is_empty() {
-            return None;
-        }
-
-        self.cropping_margins.get(&index).or_else(|| {
-            let parity = index % 2;
-            let mut best_index: i32 = -1;
-
-            for i in self.cropping_margins.keys() {
-                if i % 2 == parity {
-                    best_index = *i as i32;
-                    break;
-                }
-            }
-
-            if best_index < 0 {
-                self.cropping_margins.values().next()
-            } else {
-                let index = best_index as usize;
-                self.cropping_margins.get(&index)
-            }
-        })
     }
 }
 
@@ -168,7 +187,7 @@ impl Default for ReaderInfo {
             pages_count: 1,
             font_size: None,
             first_page: None,
-            cropping_margins: FnvHashMap::default(),
+            cropping_margins: None,
             bookmarks: BTreeSet::new(),
             finished: false,
         }

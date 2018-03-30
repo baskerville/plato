@@ -35,7 +35,7 @@ use view::notification::Notification;
 use gesture::GestureEvent;
 use document::{Document, TocEntry, open, toc_as_html, chapter_at, chapter_relative};
 use document::pdf::PdfOpener;
-use metadata::{Info, FileInfo, ReaderInfo, Margin, make_query};
+use metadata::{Info, FileInfo, ReaderInfo, PageScheme, Margin, CroppingMargins, make_query};
 use geom::{Rectangle, CornerSpec, BorderSpec, Dir, CycleDir, halves};
 use color::{BLACK, WHITE};
 use app::Context;
@@ -118,7 +118,8 @@ impl Reader {
             println!("{}", info.file.path.display());
 
             let margin = info.reader.as_ref()
-                             .and_then(|r| r.margin_at(current_page))
+                             .and_then(|r| r.cropping_margins.as_ref()
+                                            .map(|c| c.margin(current_page)))
                              .cloned().unwrap_or_default();
             let (pixmap, scale) = build_pixmap(&rect, doc.as_ref(), current_page, &margin);
             let frame = rect![(margin.left * pixmap.width as f32).ceil() as i32,
@@ -357,7 +358,8 @@ impl Reader {
             UpdateMode::Partial
         };
         let margin = self.info.reader.as_ref()
-                         .and_then(|r| r.margin_at(self.current_page))
+                         .and_then(|r| r.cropping_margins.as_ref()
+                                        .map(|c| c.margin(self.current_page)))
                          .cloned().unwrap_or_default();
         let doc = self.doc.lock().unwrap();
         let (pixmap, scale) = build_pixmap(&self.rect, doc.as_ref(), self.current_page, &margin);
@@ -742,6 +744,45 @@ impl Reader {
         }
     }
 
+    fn toggle_margin_cropper_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+        if let Some(index) = locate_by_id(self, ViewId::MarginCropperMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let current_page = self.current_page;
+            let is_split = self.info.reader.as_ref()
+                               .and_then(|r| r.cropping_margins
+                                              .as_ref().map(|c| c.is_split()));
+
+            let mut entries = vec![EntryKind::RadioButton("Any".to_string(),
+                                                          EntryId::ApplyCroppings(current_page, PageScheme::Any),
+                                                          is_split.is_some() && !is_split.unwrap()),
+                                   EntryKind::RadioButton("Even/Odd".to_string(),
+                                                          EntryId::ApplyCroppings(current_page, PageScheme::EvenOdd),
+                                                          is_split.is_some() && is_split.unwrap())];
+
+            let is_applied = self.info.reader.as_ref()
+                                 .map(|r| r.cropping_margins.is_some())
+                                 .unwrap_or(false);
+            if is_applied {
+                entries.extend_from_slice(&[EntryKind::Separator,
+                                            EntryKind::Command("Remove".to_string(), EntryId::RemoveCroppings)]);
+            }
+
+            let margin_cropper_menu = Menu::new(rect, ViewId::MarginCropperMenu, MenuKind::DropDown, entries, fonts);
+            hub.send(Event::Render(*margin_cropper_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(margin_cropper_menu) as Box<View>);
+        }
+    }
+
     fn toggle_search_bar(&mut self, enable: bool, hub: &Hub, context: &mut Context) {
         if locate::<SearchBar>(self).is_some() {
             if enable {
@@ -808,7 +849,8 @@ impl Reader {
                                     self.rect.max - pt!(padding)];
 
             let margin = self.info.reader.as_ref()
-                             .and_then(|r| r.margin_at(self.current_page))
+                             .and_then(|r| r.cropping_margins.as_ref()
+                                            .map(|c| c.margin(self.current_page)))
                              .cloned().unwrap_or_default();
 
             let doc = self.doc.lock().unwrap();
@@ -869,10 +911,15 @@ impl Reader {
         self.update(hub);
     }
 
-    fn crop_margins(&mut self, margin: &Margin, hub: &Hub) {
-        if let Some(ref mut r) = self.info.reader {
-            r.cropping_margins.insert(self.current_page, margin.clone());
-        }
+    fn crop_margins(&mut self, index: usize, margin: &Margin, hub: &Hub) {
+        self.info.reader.as_mut().map(|r| {
+            if r.cropping_margins.is_none() {
+                r.cropping_margins = Some(CroppingMargins::Any(Margin::default()));
+            }
+            for c in r.cropping_margins.iter_mut() {
+                *c.margin_mut(index) = margin.clone();
+            }
+        });
         self.update(hub);
     }
 
@@ -1122,7 +1169,8 @@ impl View for Reader {
                 true
             },
             Event::CropMargins(ref margin) => {
-                self.crop_margins(margin.as_ref(), hub);
+                let current_page = self.current_page;
+                self.crop_margins(current_page, margin.as_ref(), hub);
                 true
             },
             Event::Toggle(ViewId::TopBottomBars) => {
@@ -1143,6 +1191,10 @@ impl View for Reader {
             },
             Event::ToggleNear(ViewId::MainMenu, rect) => {
                 toggle_main_menu(self, rect, None, hub, context);
+                true
+            },
+            Event::ToggleNear(ViewId::MarginCropperMenu, rect) => {
+                self.toggle_margin_cropper_menu(rect, None, hub, &mut context.fonts);
                 true
             },
             Event::ToggleNear(ViewId::PageMenu, rect) => {
@@ -1223,6 +1275,20 @@ impl View for Reader {
                     self.toggle_bars(Some(true), hub, context);
                     hub.send(Event::Focus(Some(ViewId::SearchInput))).unwrap();
                 }
+                true
+            },
+            Event::Select(EntryId::ApplyCroppings(index, scheme)) => {
+                self.info.reader.as_mut().map(|r| {
+                    if r.cropping_margins.is_none() {
+                        r.cropping_margins = Some(CroppingMargins::Any(Margin::default()));
+                    }
+                    r.cropping_margins.as_mut().map(|c| c.apply(index, scheme))
+                });
+                true
+            },
+            Event::Select(EntryId::RemoveCroppings) => {
+                self.info.reader.as_mut().map(|r| r.cropping_margins = None);
+                self.update(hub);
                 true
             },
             Event::Select(EntryId::ToggleFirstPage) => {

@@ -41,7 +41,7 @@ use fnv::FnvHashMap;
 use downcast_rs::Downcast;
 use font::Fonts;
 use document::TocEntry;
-use metadata::{Info, SortMethod, Margin};
+use metadata::{Info, SortMethod, PageScheme, Margin};
 use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
 use gesture::GestureEvent;
@@ -245,6 +245,7 @@ pub enum ViewId {
     MatchesMenu,
     PageMenu,
     BookMenu,
+    MarginCropperMenu,
     GoToPage,
     GoToPageInput,
     GoToResultsPage,
@@ -329,6 +330,8 @@ pub enum EntryKind {
 pub enum EntryId {
     Column(Column),
     Sort(SortMethod),
+    ApplyCroppings(usize, PageScheme),
+    RemoveCroppings,
     Remove(usize),
     AddCategories(usize),
     RemoveCategory(usize, usize),

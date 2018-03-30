@@ -110,6 +110,9 @@ impl View for Icon {
                         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                         hub.send(Event::ToggleFrontlight).unwrap();
                     },
+                    Event::Show(ViewId::MarginCropper) => {
+                        bus.push_back(Event::ToggleNear(ViewId::MarginCropperMenu, self.rect));
+                    },
                     _ => (),
                 }
                 true
