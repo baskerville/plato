@@ -57,7 +57,7 @@ impl MatchesLabel {
 impl View for MatchesLabel {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
                 bus.push_back(Event::ToggleNear(ViewId::MatchesMenu, self.rect));
                 true
             },

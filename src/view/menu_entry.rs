@@ -59,7 +59,7 @@ impl View for MenuEntry {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap { ref center, .. }) |
+            Event::Gesture(GestureEvent::Tap(ref center)) |
             Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
                 match self.kind {
                     EntryKind::CheckBox(_, _, ref mut value) => {

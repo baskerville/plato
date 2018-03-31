@@ -15,24 +15,28 @@ pub const BUTTON_HOLD_DELAY: Duration = Duration::from_millis(1500);
 
 #[derive(Debug, Copy, Clone)]
 pub enum GestureEvent {
-    Tap {
-        center: Point,
-        fingers_count: usize,
-    },
+    Tap(Point),
+    MultiTap([Point; 2]),
     Swipe {
         dir: Dir,
         start: Point,
         end: Point,
-        fingers_count: usize,
+    },
+    MultiSwipe {
+        dir: Dir,
+        starts: [Point; 2],
+        ends: [Point; 2],
     },
     Pinch {
         axis: Axis,
-        target: Point,
+        starts: [Point; 2],
+        ends: [Point; 2],
         strength: u32,
     },
     Spread {
         axis: Axis,
-        target: Point,
+        starts: [Point; 2],
+        ends: [Point; 2],
         strength: u32,
     },
     Rotate {
@@ -105,19 +109,15 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                         let ge1 = interpret_segment(segments.pop().unwrap(), jitter);
                         let ge2 = interpret_segment(segments.pop().unwrap(), jitter);
                         match (ge1, ge2) {
-                            (GestureEvent::Tap { center: c1, .. }, GestureEvent::Tap { center: c2, .. }) => {
-                                ty.send(Event::Gesture(GestureEvent::Tap {
-                                    center: (c1 + c2) / 2,
-                                    fingers_count: 2,
-                                })).unwrap();
-                            }
+                            (GestureEvent::Tap(c1), GestureEvent::Tap(c2)) => {
+                                ty.send(Event::Gesture(GestureEvent::MultiTap([c1, c2]))).unwrap();
+                            },
                             (GestureEvent::Swipe { dir: d1, start: s1, end: e1, .. },
                              GestureEvent::Swipe { dir: d2, start: s2, end: e2, .. }) if d1 == d2 => {
-                                ty.send(Event::Gesture(GestureEvent::Swipe {
+                                ty.send(Event::Gesture(GestureEvent::MultiSwipe {
                                     dir: d1,
-                                    start: (s1 + s2) / 2,
-                                    end: (e1 + e2) / 2,
-                                    fingers_count: 2,
+                                    starts: [s1, s2],
+                                    ends: [e1, e2],
                                 })).unwrap();
                             },
                             (GestureEvent::Swipe { dir: d1, start: s1, end: e1, .. },
@@ -127,19 +127,21 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                                 if ds > de {
                                     ty.send(Event::Gesture(GestureEvent::Pinch {
                                         axis: d1.axis(),
-                                        target: (e1 + e2) / 2,
+                                        starts: [s1, s2],
+                                        ends: [e1, e2],
                                         strength: (ds - de) as u32,
                                     })).unwrap();
                                 } else {
                                     ty.send(Event::Gesture(GestureEvent::Spread {
                                         axis: d1.axis(),
-                                        target: (s1 + s2) / 2,
+                                        starts: [s1, s2],
+                                        ends: [e1, e2],
                                         strength: (de - ds) as u32,
                                     })).unwrap();
                                 }
                             },
-                            (GestureEvent::Swipe { start: s, end: e, .. }, GestureEvent::Tap { center: c, .. }) | 
-                            (GestureEvent::Tap { center: c, .. }, GestureEvent::Swipe { start: s, end: e, .. }) => {
+                            (GestureEvent::Swipe { start: s, end: e, .. }, GestureEvent::Tap(c)) |
+                            (GestureEvent::Tap(c), GestureEvent::Swipe { start: s, end: e, .. }) => {
                                 let angle = ((s - c).angle() - (e - c).angle()).to_degrees();
                                 let quarter_turns = (angle.signum() * (angle / 90.0).abs().ceil()) as i8;
                                 ty.send(Event::Gesture(GestureEvent::Rotate {
@@ -182,16 +184,12 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
 fn interpret_segment((a, b): (Point, Point), jitter: f32) -> GestureEvent {
     let ab = b - a;
     if ab.length() < jitter {
-        GestureEvent::Tap {
-            center: a,
-            fingers_count: 1,
-        }
+        GestureEvent::Tap(a)
     } else {
         GestureEvent::Swipe {
             dir: ab.dir(),
             start: a,
             end: b,
-            fingers_count: 1,
         }
     }
 }

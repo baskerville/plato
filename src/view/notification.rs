@@ -71,7 +71,7 @@ impl Notification {
 impl View for Notification {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => true,
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => true,
             Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(start) => true,
             Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(position) => true,
             _ => false,

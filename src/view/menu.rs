@@ -251,7 +251,7 @@ impl View for Menu {
                 });
                 true
             },
-            Event::Gesture(GestureEvent::Tap { ref center, .. }) if !self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if !self.rect.includes(center) => {
                 if self.root {
                     hub.send(Event::Close(self.id)).unwrap();
                 } else {

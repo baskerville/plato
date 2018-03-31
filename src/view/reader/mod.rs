@@ -969,7 +969,7 @@ impl View for Reader {
                 };
                 true
             },
-            Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
                 if self.focus.is_some() {
                     return true;
                 }
