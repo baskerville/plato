@@ -1,8 +1,15 @@
-![logo](artworks/plato-logo.svg)
+![Logo](artworks/plato-logo.svg)
 
-*plato* is a document reader for *Kobo*'s e-ink devices.
+*Plato* is a document reader for *Kobo*'s e-readers.
 
-It was tested on a *Glo HD* and an *Aura ONE*.
+It was tested on the following devices:
+
+- *Aura ONE* (FW 4.7.10413).
+- *Glo HD* (FW 4.7.10413 and 3.19.5761).
+- *Aura H₂O Edition 2*.
+- *Aura Edition 2*.
+- *Glo*.
+- *Touch C*.
 
 ## Supported formats
 
@@ -14,5 +21,7 @@ It was tested on a *Glo HD* and an *Aura ONE*.
 - Hierarchical categories.
 - The metadata for each document is read from a single JSON file.
 - Crop margins of non-reflowable documents.
+
+[![Tn01](artworks/thumbnail01.png)](artworks/screenshot01.png) [![Tn02](artworks/thumbnail02.png)](artworks/screenshot02.png)
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KNAR2VKYRYUV6)
