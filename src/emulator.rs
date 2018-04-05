@@ -1,5 +1,6 @@
 #![recursion_limit = "1024"]
 
+extern crate rand;
 #[macro_use]
 extern crate error_chain;
 extern crate serde;
@@ -40,6 +41,7 @@ mod metadata;
 mod settings;
 mod frontlight;
 mod symbolic_path;
+mod trash;
 mod app;
 
 mod errors {

@@ -253,6 +253,8 @@ pub enum ViewId {
     GoToResultsPageInput,
     ExportAs,
     ExportAsInput,
+    AddCategories,
+    AddCategoriesInput,
     SearchInput,
     SearchBar,
     Keyboard,
@@ -333,9 +335,12 @@ pub enum EntryId {
     Sort(SortMethod),
     ApplyCroppings(usize, PageScheme),
     RemoveCroppings,
-    Remove(usize),
-    AddCategories(usize),
-    RemoveCategory(usize, usize),
+    Remove(PathBuf),
+    AddBookCategories(PathBuf),
+    RemoveBookCategory(PathBuf, String),
+    RemoveMatches,
+    AddMatchesCategories,
+    RemoveMatchesCategory(String),
     Load(PathBuf),
     ExportMatches,
     ToggleFirstPage,
@@ -347,6 +352,7 @@ pub enum EntryId {
     StartNickel,
     Reboot,
     Quit,
+    Undo,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
