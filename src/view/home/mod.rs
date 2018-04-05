@@ -194,12 +194,14 @@ impl Home {
                                       .flat_map(|info| info.categories.clone()).collect();
 
         self.visible_categories = self.visible_categories.iter().map(|c| {
-            if let Some(p) = c.parent() {
+            let mut c: &str = c;
+            while let Some(p) = c.parent() {
                 if self.selected_categories.contains(p) {
-                    return c.clone();
+                    break;
                 }
+                c = p;
             }
-            c.first_component().to_string()
+            c.to_string()
         }).collect();
 
         for s in &self.selected_categories {
