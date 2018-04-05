@@ -145,8 +145,8 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                                 let angle = ((s - c).angle() - (e - c).angle()).to_degrees();
                                 let quarter_turns = (angle.signum() * (angle / 90.0).abs().ceil()) as i8;
                                 ty.send(Event::Gesture(GestureEvent::Rotate {
-                                    angle: angle,
-                                    quarter_turns: quarter_turns,
+                                    angle,
+                                    quarter_turns,
                                     center: c,
                                 })).unwrap();
                             },

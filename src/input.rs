@@ -145,7 +145,7 @@ pub fn parse_raw_events(paths: &[String], tx: &Sender<InputEvent>) -> Result<()>
         let fd = file.as_raw_fd();
         files.push(file);
         pfds.push(libc::pollfd {
-            fd: fd,
+            fd,
             events: libc::POLLIN,
             revents: 0,
         });

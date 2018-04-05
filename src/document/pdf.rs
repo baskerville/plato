@@ -83,7 +83,7 @@ impl PdfOpener {
             } else {
                 Some(PdfDocument {
                     ctx: self.0.clone(),
-                    doc: doc,
+                    doc,
                 })
             }
         }
@@ -100,7 +100,7 @@ impl PdfOpener {
             } else {
                 Some(PdfDocument {
                     ctx: self.0.clone(),
-                    doc: doc,
+                    doc,
                 })
             }
         }
@@ -137,7 +137,7 @@ impl PdfDocument {
             } else {
                 Some(PdfPage {
                     ctx: self.ctx.clone(),
-                    page: page,
+                    page,
                     _doc: self,
                 })
             }
@@ -157,11 +157,7 @@ impl PdfDocument {
                 } else {
                     Vec::new()
                 };
-                vec.push(TocEntry {
-                    title: title,
-                    page: page,
-                    children: children,
-                });
+                vec.push(TocEntry { title, page, children });
                 cur = (*cur).next;
             }
             vec

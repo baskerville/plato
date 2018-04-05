@@ -323,7 +323,7 @@ impl Reader {
             bottom_bar.update_page_label(self.current_page, self.pages_count, hub);
             bottom_bar.update_icons(self.current_page, self.pages_count, hub);
             let doc = self.doc.lock().unwrap();
-            let chapter = doc.toc().as_ref().and_then(|t| chapter_at(&t, current_page))
+            let chapter = doc.toc().as_ref().and_then(|t| chapter_at(t, current_page))
                                    .map(|c| c.title.clone())
                                    .unwrap_or_default();
             bottom_bar.update_chapter(chapter, hub);

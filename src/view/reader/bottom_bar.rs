@@ -45,7 +45,7 @@ impl BottomBar {
         let chapter_rect = rect![pt!(rect.min.x + side, rect.min.y),
                                  pt!(rect.min.x + side + small_half_width, rect.max.y)];
 
-        let chapter = doc.toc().as_ref().and_then(|t| chapter_at(&t, current_page))
+        let chapter = doc.toc().as_ref().and_then(|t| chapter_at(t, current_page))
                                .map(|c| c.title.clone())
                                .unwrap_or_default();
         let chapter_label = Label::new(chapter_rect,
