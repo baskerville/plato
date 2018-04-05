@@ -100,7 +100,7 @@ impl Menu {
 
         let mut y_pos = y_start + dir * (border_space - border_thickness);
 
-        let max_width = width as i32 / 2;
+        let max_width = 2 * width as i32 / 3;
         let free_width = padding + 2 * border_thickness +
                          entries.iter().map(|e| font.plan(e.text(), None, None).width as i32)
                                 .max().unwrap();
