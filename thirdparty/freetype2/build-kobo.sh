@@ -10,7 +10,7 @@ export ZLIB_LIBS="-L../zlib -lz"
 export BZIP2_CFLAGS="-I../bzip2"
 export BZIP2_LIBS="-L../bzip2 -lbz2"
 export LIBPNG_CFLAGS="-I../libpng"
-export LIBPNG_LIBS="-L../libpng/.libs -lpng"
+export LIBPNG_LIBS="-L../libpng/.libs -lpng16"
 export HARFBUZZ_CFLAGS="-I../harfbuzz/src"
 export HARFBUZZ_LIBS="-L../harfbuzz/src/.libs -lharfbuzz"
 

@@ -1,6 +1,6 @@
 #! /bin/sh
 
-git revert --no-edit 3ed5858902055d3500a6ab183f1395686921d026 > /dev/null
+#git revert --no-edit 3ed5858902055d3500a6ab183f1395686921d026 > /dev/null
 [ -d build ] || mkdir build
 cd build
 
