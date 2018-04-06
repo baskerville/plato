@@ -36,7 +36,7 @@ use gesture::GestureEvent;
 use document::{Document, TocEntry, open, toc_as_html, chapter_at, chapter_relative};
 use document::pdf::PdfOpener;
 use metadata::{Info, FileInfo, ReaderInfo, PageScheme, Margin, CroppingMargins, make_query};
-use geom::{Rectangle, CornerSpec, BorderSpec, Dir, CycleDir, halves};
+use geom::{Rectangle, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, halves};
 use color::{BLACK, WHITE};
 use app::Context;
 
@@ -54,6 +54,7 @@ pub struct Reader {
     finished: bool,
     ephemeral: bool,
     refresh_every: Option<u8>,
+    search_direction: LinearDir,
     frame: Rectangle,
     scale: f32,
     focus: Option<ViewId>,
@@ -142,6 +143,7 @@ impl Reader {
                 finished: false,
                 ephemeral: false,
                 refresh_every: settings.refresh_every,
+                search_direction: LinearDir::Forward,
                 frame,
                 scale,
                 focus: None,
@@ -194,6 +196,7 @@ impl Reader {
             finished: false,
             ephemeral: true,
             refresh_every: context.settings.refresh_every,
+            search_direction: LinearDir::Forward,
             frame,
             scale,
             focus: None,
@@ -384,22 +387,41 @@ impl Reader {
         let running = Arc::clone(&s.running);
         let current_page = self.current_page;
         let pages_count = self.pages_count;
+        let search_direction = self.search_direction;
 
         thread::spawn(move || {
-            for i in (current_page..pages_count).chain(0..current_page) {
+            let mut index = current_page;
+            loop {
                 if !running.load(Ordering::Relaxed) {
                     break;
                 }
+
                 let doc = doc2.lock().unwrap();
-                if let Some(ref words) = doc.words(i) {
+
+                if let Some(ref words) = doc.words(index) {
                     for word in words {
                         if query.is_match(&word.text) {
                             if !running.load(Ordering::Relaxed) {
                                 break;
                             }
-                            hub2.send(Event::SearchResult(i, word.rect)).unwrap();
+                            hub2.send(Event::SearchResult(index, word.rect)).unwrap();
                         }
                     }
+                }
+
+                index = match search_direction {
+                    LinearDir::Forward => (index + 1) % pages_count,
+                    LinearDir::Backward => {
+                        if index == 0 {
+                            pages_count - 1
+                        } else {
+                            index - 1
+                        }
+                    },
+                };
+
+                if index == current_page {
+                    break;
                 }
             }
 
@@ -780,6 +802,37 @@ impl Reader {
             let margin_cropper_menu = Menu::new(rect, ViewId::MarginCropperMenu, MenuKind::DropDown, entries, fonts);
             hub.send(Event::Render(*margin_cropper_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(margin_cropper_menu) as Box<View>);
+        }
+    }
+
+    fn toggle_search_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+        if let Some(index) = locate_by_id(self, ViewId::SearchMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let mut entries = vec![EntryKind::RadioButton("Forward".to_string(),
+                                                          EntryId::SearchDirection(LinearDir::Forward),
+                                                          self.search_direction == LinearDir::Forward),
+                                   EntryKind::RadioButton("Backward".to_string(),
+                                                          EntryId::SearchDirection(LinearDir::Backward),
+                                                          self.search_direction == LinearDir::Backward)];
+
+            let kind = if locate::<SearchBar>(self).is_some() {
+                MenuKind::Contextual
+            } else {
+                MenuKind::DropDown
+            };
+            let search_menu = Menu::new(rect, ViewId::SearchMenu, kind, entries, fonts);
+            hub.send(Event::Render(*search_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(search_menu) as Box<View>);
         }
     }
 
@@ -1197,6 +1250,10 @@ impl View for Reader {
                 self.toggle_margin_cropper_menu(rect, None, hub, &mut context.fonts);
                 true
             },
+            Event::ToggleNear(ViewId::SearchMenu, rect) => {
+                self.toggle_search_menu(rect, None, hub, &mut context.fonts);
+                true
+            },
             Event::ToggleNear(ViewId::PageMenu, rect) => {
                 self.toggle_page_menu(rect, None, hub, &mut context.fonts);
                 true
@@ -1289,6 +1346,10 @@ impl View for Reader {
             Event::Select(EntryId::RemoveCroppings) => {
                 self.info.reader.as_mut().map(|r| r.cropping_margins = None);
                 self.update(hub);
+                true
+            },
+            Event::Select(EntryId::SearchDirection(dir)) => {
+                self.search_direction = dir;
                 true
             },
             Event::Select(EntryId::ToggleFirstPage) => {
