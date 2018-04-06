@@ -1,7 +1,7 @@
 use std::thread;
 use device::{CURRENT_DEVICE, BAR_SIZES};
 use font::{Fonts, font_from_style, NORMAL_STYLE};
-use geom::{Rectangle, CornerSpec, BorderSpec, small_half, big_half};
+use geom::{Point, Rectangle, CornerSpec, BorderSpec, small_half, big_half};
 use gesture::GestureEvent;
 use unit::scale_by_dpi;
 use color::{BLACK, WHITE, SEPARATOR_NORMAL};
@@ -18,6 +18,7 @@ pub struct Menu {
     children: Vec<Box<View>>,
     id: ViewId,
     kind: MenuKind,
+    center: Point,
     root: bool,
     sub_id: u8,
     dir: i32,
@@ -52,6 +53,7 @@ impl Menu {
 
         let north_space = target.min.y;
         let south_space = height as i32 - target.max.y;
+        let center = target.center();
 
         let (dir, y_start): (i32, i32) = if kind == MenuKind::SubMenu {
             if north_space < south_space {
@@ -116,7 +118,6 @@ impl Menu {
                 (target.max.x, target.max.x + entry_width)
             }
         } else {
-            let center = target.center();
             (center.x - small_half(entry_width), center.x + big_half(entry_width))
         };
 
@@ -215,6 +216,7 @@ impl Menu {
             children,
             id,
             kind,
+            center,
             root: true,
             sub_id: 0,
             dir,
@@ -312,16 +314,17 @@ impl View for Menu {
                                                                 color: BLACK },
                                                   &WHITE);
 
-            let x_b = (rect.min.x + rect.max.x) / 2;
             let y_b = if self.dir.is_positive() {
                 self.rect.min.y
             } else {
                 self.rect.max.y - 1
             };
 
-            let mut b = pt!(x_b, y_b);
             let side = triangle_space + border_thickness as i32;
+            let x_b = self.center.x.max(rect.min.x + 2 * side)
+                                   .min(rect.max.x - 2 * side);
 
+            let mut b = pt!(x_b, y_b);
             let mut a = b + pt!(-side, self.dir * side);
             let mut c = a + pt!(2 * side, 0);
 
