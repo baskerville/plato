@@ -23,6 +23,9 @@ extern crate html_entities;
 #[macro_use]
 mod geom;
 mod color;
+mod device;
+mod input;
+mod unit;
 mod framebuffer;
 mod helpers;
 mod document;

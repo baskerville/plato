@@ -92,7 +92,7 @@ impl DjvuOpener {
             } else {
                 Some(DjvuDocument {
                     ctx: self.0.clone(),
-                    doc: doc,
+                    doc,
                 })
             }
         }
@@ -286,11 +286,7 @@ impl DjvuDocument {
                 } else {
                     Vec::new()
                 };
-                vec.push(TocEntry {
-                    title: title,
-                    page: page,
-                    children: children,
-                });
+                vec.push(TocEntry { title, page, children });
             }
             vec
         }

@@ -1,5 +1,6 @@
 #![recursion_limit = "1024"]
 
+extern crate rand;
 #[macro_use]
 extern crate error_chain;
 extern crate serde;
@@ -49,6 +50,7 @@ mod document;
 mod metadata;
 mod symbolic_path;
 mod settings;
+mod trash;
 mod view;
 mod font;
 mod app;

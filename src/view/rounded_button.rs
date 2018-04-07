@@ -49,7 +49,7 @@ impl View for RoundedButton {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
                 bus.push_back(self.event.clone());
                 true
             },

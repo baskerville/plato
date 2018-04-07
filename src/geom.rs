@@ -180,10 +180,7 @@ impl Dir {
 
 impl Point {
     pub fn new(x: i32, y: i32) -> Point {
-        Point {
-            x: x,
-            y: y,
-        }
+        Point { x, y }
     }
 
     pub fn dist2(&self, pt: &Point) -> u32 {
@@ -269,10 +266,7 @@ macro_rules! vec2 {
 
 impl Vec2 {
     pub fn new(x: f32, y: f32) -> Vec2 {
-        Vec2 {
-            x: x,
-            y: y,
-        }
+        Vec2 { x, y }
     }
 
     pub fn dot(&self, other: Vec2) -> f32 {
@@ -302,8 +296,8 @@ pub struct Rectangle {
 impl Rectangle {
     pub fn new(min: Point, max: Point) -> Rectangle {
         Rectangle {
-            min: min,
-            max: max,
+            min,
+            max,
         }
     }
 

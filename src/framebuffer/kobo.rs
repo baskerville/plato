@@ -202,17 +202,17 @@ impl KoboFramebuffer {
                 (set_pixel_rgb_16, get_pixel_rgb_16, as_rgb_16)
             };
             Ok(KoboFramebuffer {
-                   device: device,
-                   frame: frame,
-                   frame_size: frame_size,
+                   device,
+                   frame,
+                   frame_size,
                    token: 1,
                    flags: 0,
-                   set_pixel_rgb: set_pixel_rgb,
-                   get_pixel_rgb: get_pixel_rgb,
-                   as_rgb: as_rgb,
+                   set_pixel_rgb,
+                   get_pixel_rgb,
+                   as_rgb,
                    bytes_per_pixel: bytes_per_pixel as u8,
-                   var_info: var_info,
-                   fix_info: fix_info,
+                   var_info,
+                   fix_info,
                })
         }
     }

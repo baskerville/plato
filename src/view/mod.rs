@@ -33,6 +33,7 @@ pub mod key;
 pub mod home;
 pub mod reader;
 
+use std::time::Duration;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::collections::VecDeque;
@@ -41,7 +42,7 @@ use fnv::FnvHashMap;
 use downcast_rs::Downcast;
 use font::Fonts;
 use document::TocEntry;
-use metadata::{Info, SortMethod, Margin};
+use metadata::{Info, SortMethod, PageScheme, Margin};
 use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
 use gesture::GestureEvent;
@@ -57,7 +58,7 @@ pub const BORDER_RADIUS_SMALL: f32 = 6.0;
 pub const BORDER_RADIUS_MEDIUM: f32 = 9.0;
 pub const BORDER_RADIUS_LARGE: f32 = 12.0;
 
-pub const CLOSE_IGNITION_DELAY_MS: u64 = 150;
+pub const CLOSE_IGNITION_DELAY: Duration = Duration::from_millis(150);
 
 type Bus = VecDeque<Event>;
 type Hub = Sender<Event>;
@@ -245,12 +246,16 @@ pub enum ViewId {
     MatchesMenu,
     PageMenu,
     BookMenu,
+    MarginCropperMenu,
+    SearchMenu,
     GoToPage,
     GoToPageInput,
     GoToResultsPage,
     GoToResultsPageInput,
     ExportAs,
     ExportAsInput,
+    AddCategories,
+    AddCategoriesInput,
     SearchInput,
     SearchBar,
     Keyboard,
@@ -329,9 +334,15 @@ pub enum EntryKind {
 pub enum EntryId {
     Column(Column),
     Sort(SortMethod),
-    Remove(usize),
-    AddCategories(usize),
-    RemoveCategory(usize, usize),
+    ApplyCroppings(usize, PageScheme),
+    RemoveCroppings,
+    Remove(PathBuf),
+    SearchDirection(LinearDir),
+    AddBookCategories(PathBuf),
+    RemoveBookCategory(PathBuf, String),
+    RemoveMatches,
+    AddMatchesCategories,
+    RemoveMatchesCategory(String),
     Load(PathBuf),
     ExportMatches,
     ToggleFirstPage,
@@ -343,6 +354,7 @@ pub enum EntryId {
     StartNickel,
     Reboot,
     Quit,
+    Undo,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

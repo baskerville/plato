@@ -1,8 +1,7 @@
 use std::thread;
-use std::time::Duration;
 use device::{CURRENT_DEVICE, BAR_SIZES};
 use font::{Fonts, font_from_style, NORMAL_STYLE};
-use geom::{Rectangle, CornerSpec, BorderSpec, small_half, big_half};
+use geom::{Point, Rectangle, CornerSpec, BorderSpec, small_half, big_half};
 use gesture::GestureEvent;
 use unit::scale_by_dpi;
 use color::{BLACK, WHITE, SEPARATOR_NORMAL};
@@ -10,7 +9,7 @@ use framebuffer::{Framebuffer, UpdateMode};
 use view::filler::Filler;
 use view::menu_entry::MenuEntry;
 use view::common::locate_by_id;
-use view::{View, Event, Hub, Bus, EntryKind, ViewId, CLOSE_IGNITION_DELAY_MS};
+use view::{View, Event, Hub, Bus, EntryKind, ViewId, CLOSE_IGNITION_DELAY};
 use view::{THICKNESS_MEDIUM, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use app::Context;
 
@@ -19,6 +18,7 @@ pub struct Menu {
     children: Vec<Box<View>>,
     id: ViewId,
     kind: MenuKind,
+    center: Point,
     root: bool,
     sub_id: u8,
     dir: i32,
@@ -53,6 +53,7 @@ impl Menu {
 
         let north_space = target.min.y;
         let south_space = height as i32 - target.max.y;
+        let center = target.center();
 
         let (dir, y_start): (i32, i32) = if kind == MenuKind::SubMenu {
             if north_space < south_space {
@@ -101,7 +102,7 @@ impl Menu {
 
         let mut y_pos = y_start + dir * (border_space - border_thickness);
 
-        let max_width = width as i32 / 2;
+        let max_width = 2 * width as i32 / 3;
         let free_width = padding + 2 * border_thickness +
                          entries.iter().map(|e| font.plan(e.text(), None, None).width as i32)
                                 .max().unwrap();
@@ -117,7 +118,6 @@ impl Menu {
                 (target.max.x, target.max.x + entry_width)
             }
         } else {
-            let center = target.center();
             (center.x - small_half(entry_width), center.x + big_half(entry_width))
         };
 
@@ -216,6 +216,7 @@ impl Menu {
             children,
             id,
             kind,
+            center,
             root: true,
             sub_id: 0,
             dir,
@@ -247,12 +248,12 @@ impl View for Menu {
                 let hub2 = hub.clone();
                 let id = self.id;
                 thread::spawn(move || {
-                    thread::sleep(Duration::from_millis(CLOSE_IGNITION_DELAY_MS));
+                    thread::sleep(CLOSE_IGNITION_DELAY);
                     hub2.send(Event::Close(id)).unwrap();
                 });
                 true
             },
-            Event::Gesture(GestureEvent::Tap { ref center, .. }) if !self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if !self.rect.includes(center) => {
                 if self.root {
                     hub.send(Event::Close(self.id)).unwrap();
                 } else {
@@ -313,16 +314,17 @@ impl View for Menu {
                                                                 color: BLACK },
                                                   &WHITE);
 
-            let x_b = (rect.min.x + rect.max.x) / 2;
             let y_b = if self.dir.is_positive() {
                 self.rect.min.y
             } else {
                 self.rect.max.y - 1
             };
 
-            let mut b = pt!(x_b, y_b);
             let side = triangle_space + border_thickness as i32;
+            let x_b = self.center.x.max(rect.min.x + 2 * side)
+                                   .min(rect.max.x - 2 * side);
 
+            let mut b = pt!(x_b, y_b);
             let mut a = b + pt!(-side, self.dir * side);
             let mut c = a + pt!(2 * side, 0);
 

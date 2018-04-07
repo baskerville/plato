@@ -230,6 +230,8 @@ impl Summary {
                             line.width -= width + padding;
                             line.labels_count -= 1;
                             end_index -= 1;
+                        } else {
+                            break;
                         }
                     }
                 } else {

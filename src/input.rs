@@ -1,14 +1,14 @@
 extern crate libc;
 
-use std::sync::mpsc::{self, Sender, Receiver};
-use std::os::unix::io::AsRawFd;
-use std::ffi::CString;
+use std::mem;
+use std::slice;
 use std::thread;
 use std::io::Read;
 use std::fs::File;
-use std::slice;
-use std::mem;
-use fnv::FnvHashMap;
+use std::sync::mpsc::{self, Sender, Receiver};
+use std::os::unix::io::AsRawFd;
+use std::ffi::CString;
+use fnv::{FnvHashMap, FnvHashSet};
 use device::CURRENT_DEVICE;
 use geom::Point;
 use errors::*;
@@ -19,32 +19,36 @@ pub const EV_KEY: u16 = 1;
 pub const EV_ABS: u16 = 3;
 
 // Event codes
-pub const SYN_MT_REPORT: u16 = 2;
-pub const SYN_REPORT: u16 = 0;
 pub const ABS_MT_TRACKING_ID: u16 = 57;
-pub const ABS_MT_TOUCH_MAJOR: u16 = 48;
-pub const ABS_PRESSURE: u16 = 24;
 pub const ABS_MT_POSITION_X: u16 = 53;
 pub const ABS_MT_POSITION_Y: u16 = 54;
+pub const ABS_MT_PRESSURE: u16 = 58;
+pub const ABS_MT_TOUCH_MAJOR: u16 = 48;
+pub const SYN_MT_REPORT: u16 = 2;
 pub const ABS_X: u16 = 0;
 pub const ABS_Y: u16 = 1;
+pub const ABS_PRESSURE: u16 = 24;
+pub const SYN_REPORT: u16 = 0;
 
 pub const KEY_POWER: u16 = 116;
 pub const KEY_HOME: u16 = 102;
 pub const SLEEP_COVER: u16 = 59;
 
 pub const SINGLE_TOUCH_CODES: TouchCodes = TouchCodes {
-    report: SYN_REPORT,
     pressure: ABS_PRESSURE,
     x: ABS_X,
     y: ABS_Y,
 };
 
-pub const MULTI_TOUCH_CODES: TouchCodes = TouchCodes {
-    report: SYN_MT_REPORT,
+pub const MULTI_TOUCH_CODES_A: TouchCodes = TouchCodes {
     pressure: ABS_MT_TOUCH_MAJOR,
     x: ABS_MT_POSITION_X,
     y: ABS_MT_POSITION_Y,
+};
+
+pub const MULTI_TOUCH_CODES_B: TouchCodes = TouchCodes {
+    pressure: ABS_MT_PRESSURE,
+    .. MULTI_TOUCH_CODES_A
 };
 
 #[repr(C)]
@@ -58,7 +62,6 @@ pub struct InputEvent {
 // Handle different touch protocols
 #[derive(Debug)]
 pub struct TouchCodes {
-    report: u16,
     pressure: u16,
     x: u16,
     y: u16,
@@ -67,7 +70,8 @@ pub struct TouchCodes {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TouchProto {
     Single,
-    Multi,
+    MultiA,
+    MultiB,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -141,7 +145,7 @@ pub fn parse_raw_events(paths: &[String], tx: &Sender<InputEvent>) -> Result<()>
         let fd = file.as_raw_fd();
         files.push(file);
         pfds.push(libc::pollfd {
-            fd: fd,
+            fd,
             events: libc::POLLIN,
             revents: 0,
         });
@@ -231,49 +235,77 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
     let mut position = Point::default();
     let mut pressure = 0;
     let mut fingers: FnvHashMap<i32, Point> = FnvHashMap::default();
-    let mut tc = if CURRENT_DEVICE.proto == TouchProto::Multi { MULTI_TOUCH_CODES } else { SINGLE_TOUCH_CODES };
+    let mut packet_ids: FnvHashSet<i32> = FnvHashSet::default();
+    let proto = CURRENT_DEVICE.proto;
+
+    let mut tc = match proto {
+        TouchProto::Single => SINGLE_TOUCH_CODES,
+        TouchProto::MultiA => MULTI_TOUCH_CODES_A,
+        TouchProto::MultiB => MULTI_TOUCH_CODES_B,
+    };
+
     mem::swap(&mut tc.x, &mut tc.y);
+
     while let Ok(evt) = rx.recv() {
         if evt.kind == EV_ABS {
-            if evt.code == tc.pressure {
-                pressure = evt.value;
+            if evt.code == ABS_MT_TRACKING_ID {
+                id = evt.value;
+                if proto == TouchProto::MultiB {
+                    packet_ids.insert(id);
+                }
             } else if evt.code == tc.x {
-                position.x = dims.0 as i32 - 1 - evt.value;
+                position.x = if CURRENT_DEVICE.mirrored_x {
+                    dims.0 as i32 - 1 - evt.value
+                } else {
+                    evt.value
+                };
             } else if evt.code == tc.y {
                 position.y = evt.value;
-            } else if evt.code == ABS_MT_TRACKING_ID {
-                id = evt.value;
+            } else if evt.code == tc.pressure {
+                pressure = evt.value;
             }
         } else if evt.kind == EV_SYN {
-            if evt.code == tc.report {
+            if evt.code == SYN_MT_REPORT || (proto == TouchProto::Single && evt.code == SYN_REPORT) {
                 if let Some(&p) = fingers.get(&id) {
                     if pressure > 0 {
                         if p != position {
                             ty.send(DeviceEvent::Finger {
-                                id: id,
+                                id,
                                 time: seconds(evt.time),
                                 status: FingerStatus::Motion,
-                                position: position,
+                                position,
                             }).unwrap();
+                            fingers.insert(id, position);
                         }
                     } else {
                         ty.send(DeviceEvent::Finger {
-                            id: id,
+                            id,
                             time: seconds(evt.time),
                             status: FingerStatus::Up,
-                            position: position,
+                            position,
                         }).unwrap();
                         fingers.remove(&id);
                     }
                 } else {
                     ty.send(DeviceEvent::Finger {
-                        id: id,
+                        id,
                         time: seconds(evt.time),
                         status: FingerStatus::Down,
-                        position: position,
+                        position,
                     }).unwrap();
                     fingers.insert(id, position);
                 }
+            } else if proto == TouchProto::MultiB && evt.code == SYN_REPORT {
+                fingers.retain(|other_id, other_position| {
+                    packet_ids.contains(other_id) ||
+                    ty.send(DeviceEvent::Finger {
+                        id: *other_id,
+                        time: seconds(evt.time),
+                        status: FingerStatus::Up,
+                        position: *other_position,
+                    }).is_err()
+                });
+                packet_ids.clear();
             }
         } else if evt.kind == EV_KEY {
             if evt.code == SLEEP_COVER {

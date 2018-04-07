@@ -12,7 +12,7 @@ use input::DeviceEvent;
 use unit::scale_by_dpi;
 use app::Context;
 
-const NOTIFICATION_CLOSE_DELAY_S: u64 = 4;
+const NOTIFICATION_CLOSE_DELAY: Duration = Duration::from_secs(4);
 
 pub struct Notification {
     rect: Rectangle,
@@ -26,7 +26,7 @@ impl Notification {
         let hub2 = hub.clone();
 
         thread::spawn(move || {
-            thread::sleep(Duration::from_secs(NOTIFICATION_CLOSE_DELAY_S));
+            thread::sleep(NOTIFICATION_CLOSE_DELAY);
             hub2.send(Event::Close(id)).unwrap();
         });
 
@@ -71,7 +71,7 @@ impl Notification {
 impl View for Notification {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => true,
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => true,
             Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(start) => true,
             Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(position) => true,
             _ => false,

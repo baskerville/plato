@@ -66,7 +66,7 @@ pub fn toc_as_html_aux(toc: &[TocEntry], buf: &mut String, chap: Option<&TocEntr
     buf.push_str("</ul>");
 }
 
-pub fn chapter_at<'a>(toc: &'a [TocEntry], index: usize) -> Option<&'a TocEntry> {
+pub fn chapter_at(toc: &[TocEntry], index: usize) -> Option<&TocEntry> {
     let mut chap = None;
     chapter_at_aux(toc, index, &mut chap);
     chap

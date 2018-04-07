@@ -1,5 +1,6 @@
 #![recursion_limit = "1024"]
 
+extern crate rand;
 #[macro_use]
 extern crate error_chain;
 extern crate serde;
@@ -40,6 +41,7 @@ mod metadata;
 mod settings;
 mod frontlight;
 mod symbolic_path;
+mod trash;
 mod app;
 
 mod errors {
@@ -92,7 +94,7 @@ use errors::*;
 
 pub const APP_NAME: &str = "Plato";
 
-const CLOCK_REFRESH_INTERVAL_MS: u64 = 60*1000;
+const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
 pub fn build_context() -> Result<Context> {
     let settings = load_json::<Settings, _>(SETTINGS_PATH)?;
@@ -216,7 +218,7 @@ pub fn run() -> Result<()> {
     let tx3 = tx.clone();
     thread::spawn(move || {
         loop {
-            thread::sleep(Duration::from_millis(CLOCK_REFRESH_INTERVAL_MS));
+            thread::sleep(CLOCK_REFRESH_INTERVAL);
             tx3.send(Event::ClockTick).unwrap();
         }
     });

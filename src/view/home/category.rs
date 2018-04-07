@@ -42,12 +42,8 @@ impl Category {
 impl View for Category {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap { ref center, fingers_count: 1 }) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
                 bus.push_back(Event::ToggleSelectCategory(self.text.clone()));
-                true
-            },
-            Event::Gesture(GestureEvent::Tap { ref center, fingers_count: 2 } ) if self.rect.includes(center) => {
-                bus.push_back(Event::ToggleNegateCategoryChildren(self.text.clone()));
                 true
             },
             Event::Gesture(GestureEvent::Swipe { dir: Dir::North, ref start, .. }) if self.rect.includes(start) => {

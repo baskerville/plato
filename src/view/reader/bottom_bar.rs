@@ -45,7 +45,7 @@ impl BottomBar {
         let chapter_rect = rect![pt!(rect.min.x + side, rect.min.y),
                                  pt!(rect.min.x + side + small_half_width, rect.max.y)];
 
-        let chapter = doc.toc().as_ref().and_then(|t| chapter_at(&t, current_page))
+        let chapter = doc.toc().as_ref().and_then(|t| chapter_at(t, current_page))
                                .map(|c| c.title.clone())
                                .unwrap_or_default();
         let chapter_label = Label::new(chapter_rect,
@@ -131,7 +131,7 @@ impl BottomBar {
 impl View for BottomBar {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap { ref center, .. }) |
+            Event::Gesture(GestureEvent::Tap(ref center)) |
             Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => true,
             Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(start) => true,
             Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(position) => true,

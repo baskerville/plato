@@ -94,7 +94,7 @@ impl View for Icon {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap { ref center, .. }) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
                 bus.push_back(self.event.clone());
                 true
             },
@@ -109,6 +109,12 @@ impl View for Icon {
                         };
                         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                         hub.send(Event::ToggleFrontlight).unwrap();
+                    },
+                    Event::Show(ViewId::MarginCropper) => {
+                        bus.push_back(Event::ToggleNear(ViewId::MarginCropperMenu, self.rect));
+                    },
+                    Event::Show(ViewId::SearchBar) | Event::Focus(Some(ViewId::SearchInput)) => {
+                        bus.push_back(Event::ToggleNear(ViewId::SearchMenu, self.rect));
                     },
                     _ => (),
                 }

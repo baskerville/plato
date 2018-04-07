@@ -287,7 +287,7 @@ pub trait Framebuffer {
                 let mut dmin = ::std::f32::MAX;
                 let mut nearest = None;
 
-                for &(u, v) in [(a, b), (b, c), (a, c)].iter() {
+                for &(u, v) in &[(a, b), (b, c), (a, c)] {
                     let n = nearest_segment_point(p, u, v);
                     let d = (n - p).length();
                     if d < dmin {

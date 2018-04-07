@@ -12,9 +12,10 @@ mod bottom_bar;
 use std::f32;
 use std::sync::mpsc;
 use std::path::PathBuf;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, VecDeque};
 use glob::glob;
 use regex::Regex;
+use fnv::FnvHashSet;
 use metadata::{Metadata, SortMethod, sort, make_query};
 use framebuffer::{Framebuffer, UpdateMode};
 use view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
@@ -34,11 +35,14 @@ use device::{CURRENT_DEVICE, BAR_SIZES};
 use symbolic_path::SymbolicPath;
 use helpers::{load_json, save_json};
 use unit::scale_by_dpi;
+use trash::{trash, untrash};
 use app::Context;
 use color::BLACK;
 use geom::{Rectangle, CycleDir, halves, small_half};
 use font::Fonts;
 use errors::*;
+
+const HISTORY_SIZE: usize = 8;
 
 #[derive(Debug)]
 pub struct Home {
@@ -48,6 +52,7 @@ pub struct Home {
     pages_count: usize,
     focus: Option<ViewId>,
     query: Option<Regex>,
+    target_path: Option<PathBuf>,
     summary_size: u8,
     sort_method: SortMethod,
     reverse_order: bool,
@@ -55,6 +60,13 @@ pub struct Home {
     visible_categories: BTreeSet<String>,
     selected_categories: BTreeSet<String>,
     negated_categories: BTreeSet<String>,
+    history: VecDeque<HistoryEntry>,
+}
+
+#[derive(Debug)]
+struct HistoryEntry {
+    metadata: Metadata,
+    restore_books: bool,
 }
 
 impl Home {
@@ -151,13 +163,15 @@ impl Home {
             pages_count,
             focus: None,
             query: None,
+            target_path: None,
             summary_size,
             sort_method,
             reverse_order,
-            visible_books: visible_books,
-            visible_categories: visible_categories,
-            selected_categories: selected_categories,
-            negated_categories: negated_categories,
+            visible_books,
+            visible_categories,
+            selected_categories,
+            negated_categories,
+            history: VecDeque::new(),
         })
     }
 
@@ -180,12 +194,14 @@ impl Home {
                                       .flat_map(|info| info.categories.clone()).collect();
 
         self.visible_categories = self.visible_categories.iter().map(|c| {
-            if let Some(p) = c.parent() {
+            let mut c: &str = c;
+            while let Some(p) = c.parent() {
                 if self.selected_categories.contains(p) {
-                    return c.clone();
+                    break;
                 }
+                c = p;
             }
-            c.first_component().to_string()
+            c.to_string()
         }).collect();
 
         for s in &self.selected_categories {
@@ -356,7 +372,7 @@ impl Home {
     fn update_bottom_bar(&mut self, hub: &Hub) {
         if let Some(index) = locate::<BottomBar>(self) {
             let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
-            let filter = !self.query.is_none() ||
+            let filter = self.query.is_some() ||
                          !self.selected_categories.is_empty() ||
                          !self.negated_categories.is_empty();
             bottom_bar.update_matches_label(self.visible_books.len(), filter, hub);
@@ -644,18 +660,22 @@ impl Home {
 
             let book_index = self.book_index(index);
             let info = &self.visible_books[book_index];
-            let categories = info.categories.iter().enumerate()
-                                  .map(|(i, c)| EntryKind::Command(c.to_string(),
-                                                                   EntryId::RemoveCategory(index, i)))
+            let path = &info.file.path;
+
+            let categories = info.categories.iter()
+                                  .map(|c| EntryKind::Command(c.to_string(),
+                                                              EntryId::RemoveBookCategory(path.clone(),
+                                                                                          c.to_string())))
                                   .collect::<Vec<EntryKind>>();
 
-            let mut entries = vec![EntryKind::Command("Remove".to_string(), EntryId::Remove(index)),
-                                   EntryKind::Separator,
-                                   EntryKind::Command("Add Categories".to_string(), EntryId::AddCategories(index))];
+            let mut entries = vec![EntryKind::Command("Add Categories".to_string(), EntryId::AddBookCategories(path.clone()))];
 
-            if categories.len() > 0 {
+            if !categories.is_empty() {
                 entries.push(EntryKind::SubMenu("Remove Category".to_string(), categories));
             }
+
+            entries.push(EntryKind::Separator);
+            entries.push(EntryKind::Command("Remove".to_string(), EntryId::Remove(path.clone())));
 
             let book_menu = Menu::new(rect, ViewId::BookMenu, MenuKind::Contextual, entries, fonts);
             hub.send(Event::Render(*book_menu.rect(), UpdateMode::Gui)).unwrap();
@@ -679,7 +699,7 @@ impl Home {
 
             let loadables: Vec<PathBuf> = context.settings.library_path.join(".metadata*.json").to_str().and_then(|s| {
                 glob(s).ok().map(|paths| {
-                    paths.filter_map(|x| x.ok().and_then(|p| p.file_name().map(|n| PathBuf::from(n)))).collect()
+                    paths.filter_map(|x| x.ok().and_then(|p| p.file_name().map(PathBuf::from))).collect()
                 })
             }).unwrap_or_default();
 
@@ -687,10 +707,28 @@ impl Home {
             let mut entries = vec![EntryKind::Command("Export As".to_string(), EntryId::ExportMatches)];
 
             if !loadables.is_empty() {
-                entries.push(EntryKind::Separator);
                 entries.push(EntryKind::SubMenu("Load".to_string(),
                                                 loadables.into_iter().map(|e| EntryKind::Command(e.to_string_lossy().into_owned(),
                                                                                                  EntryId::Load(e))).collect()));
+            }
+
+            if !self.visible_books.is_empty() {
+                entries.push(EntryKind::Separator);
+                entries.push(EntryKind::Command("Add categories".to_string(), EntryId::AddMatchesCategories));
+                let categories: BTreeSet<String> = self.visible_books.iter().flat_map(|info| info.categories.clone()).collect();
+                let categories: Vec<EntryKind> = categories.iter().map(|c| EntryKind::Command(c.clone(), EntryId::RemoveMatchesCategory(c.clone()))).collect();
+
+                if !categories.is_empty() {
+                    entries.push(EntryKind::SubMenu("Remove Category".to_string(), categories));
+                }
+            }
+
+
+            entries.push(EntryKind::Separator);
+            entries.push(EntryKind::Command("Remove".to_string(), EntryId::RemoveMatches));
+
+            if !self.history.is_empty() {
+                entries.push(EntryKind::Command("Undo".to_string(), EntryId::Undo));
             }
 
             let matches_menu = Menu::new(rect, ViewId::MatchesMenu, MenuKind::DropDown, entries, fonts);
@@ -757,6 +795,115 @@ impl Home {
         }
     }
 
+    fn history_push(&mut self, restore_books: bool, context: &mut Context) {
+        self.history.push_back(HistoryEntry { metadata: context.metadata.clone(),
+                                              restore_books });
+        if self.history.len() > HISTORY_SIZE {
+            self.history.pop_front();
+        }
+    }
+
+    fn undo(&mut self, hub: &Hub, context: &mut Context) {
+        if let Some(entry) = self.history.pop_back() {
+            context.metadata = entry.metadata;
+            if entry.restore_books {
+                untrash(context).map_err(|e| eprintln!("Couldn't restore books from trash: {}", e)).ok();
+            }
+            sort(&mut context.metadata, self.sort_method, self.reverse_order);
+            self.refresh_visibles(true, false, hub, context);
+        }
+    }
+
+    fn remove_matches(&mut self, hub: &Hub, context: &mut Context) {
+        let paths: FnvHashSet<PathBuf> = self.visible_books.drain(..)
+                                             .map(|info| info.file.path).collect();
+        if trash(&paths, context).map_err(|e| eprintln!("Can't trash matches: {}", e)).is_ok() {
+            self.history_push(true, context);
+            context.metadata.retain(|info| !paths.contains(&info.file.path));
+            self.refresh_visibles(true, false, hub, context);
+        }
+    }
+
+    fn add_matches_categories(&mut self, categs: &Vec<String>, hub: &Hub, context: &mut Context) {
+        if categs.is_empty() {
+            return;
+        }
+
+        self.history_push(false, context);
+        let mut paths: FnvHashSet<PathBuf> = self.visible_books.drain(..)
+                                                 .map(|info| info.file.path).collect();
+
+        for info in context.metadata.iter_mut() {
+            if paths.remove(&info.file.path) {
+                info.categories.extend(categs.clone());
+                if paths.is_empty() {
+                    break;
+                }
+            }
+        }
+
+        self.refresh_visibles(true, false, hub, context);
+    }
+
+    fn remove_matches_category(&mut self, categ: &str, hub: &Hub, context: &mut Context) {
+        self.history_push(false, context);
+
+        let mut paths: FnvHashSet<PathBuf> = self.visible_books.drain(..)
+                                                 .map(|info| info.file.path).collect();
+
+        for info in &mut context.metadata {
+            if paths.remove(&info.file.path) {
+                info.categories.remove(categ);
+                if paths.is_empty() {
+                    break;
+                }
+            }
+        }
+
+        self.refresh_visibles(true, false, hub, context);
+    }
+
+
+    fn remove(&mut self, path: &PathBuf, hub: &Hub, context: &mut Context) {
+        let paths: FnvHashSet<PathBuf> = [path.clone()].iter().cloned().collect();
+        if trash(&paths, context).map_err(|e| eprintln!("Can't trash {}: {}", path.display(), e)).is_ok() {
+            self.history_push(true, context);
+            context.metadata.retain(|info| info.file.path != *path);
+            self.refresh_visibles(true, false, hub, context);
+        }
+    }
+
+    fn add_book_categories(&mut self, path: &PathBuf, categs: &Vec<String>, hub: &Hub, context: &mut Context) {
+        if categs.is_empty() {
+            return;
+        }
+
+        self.history_push(false, context);
+
+        for info in &mut context.metadata {
+            if info.file.path == *path {
+                info.categories.extend(categs.clone());
+                break;
+            }
+        }
+
+        self.refresh_visibles(true, false, hub, context);
+    }
+
+
+    fn remove_book_category(&mut self, path: &PathBuf, categ: &str, hub: &Hub, context: &mut Context) {
+        self.history_push(false, context);
+
+        for info in &mut context.metadata {
+            if info.file.path == *path {
+                info.categories.remove(categ);
+                break;
+            }
+        }
+
+        self.refresh_visibles(true, false, hub, context);
+    }
+
     fn set_reverse_order(&mut self, value: bool, hub: &Hub, context: &mut Context) {
         self.reverse_order = value;
         self.sort(true, &mut context.metadata, hub);
@@ -765,12 +912,14 @@ impl Home {
     fn set_sort_method(&mut self, sort_method: SortMethod, hub: &Hub, context: &mut Context) {
         self.sort_method = sort_method;
         self.reverse_order = sort_method.reverse_order();
+
         if let Some(index) = locate_by_id(self, ViewId::SortMenu) {
             self.child_mut(index)
                 .children_mut().last_mut().unwrap()
                 .downcast_mut::<MenuEntry>().unwrap()
                 .update(sort_method.reverse_order(), hub);
         }
+
         self.sort(true, &mut context.metadata, hub);
     }
 
@@ -778,6 +927,7 @@ impl Home {
         if reset_page {
             self.current_page = 0;
         }
+
         sort(metadata, self.sort_method, self.reverse_order);
         sort(&mut self.visible_books, self.sort_method, self.reverse_order);
         self.update_shelf(false, hub);
@@ -786,9 +936,9 @@ impl Home {
         self.update_bottom_bar(hub);
     }
 
-    fn reseed(&mut self, hub: &Hub, context: &mut Context) {
+    fn reseed(&mut self, reset_page: bool, hub: &Hub, context: &mut Context) {
         let (tx, _rx) = mpsc::channel();
-        self.refresh_visibles(true, false, &tx, context);
+        self.refresh_visibles(true, reset_page, &tx, context);
         self.sort(false, &mut context.metadata, &tx);
         self.child_mut(0).downcast_mut::<TopBar>()
             .map(|top_bar| top_bar.update_frontlight_icon(hub, context));
@@ -815,7 +965,7 @@ impl Home {
             if saved {
                 context.filename = filename.clone();
                 context.metadata = metadata;
-                self.reseed(hub, context);
+                self.reseed(true, hub, context);
             }
         }
     }
@@ -891,7 +1041,7 @@ impl View for Home {
                 true
             },
             Event::Select(EntryId::ExportMatches) => {
-                let export_as = NamedInput::new("Export As".to_string(),
+                let export_as = NamedInput::new("Export as".to_string(),
                                                 ViewId::ExportAs,
                                                 ViewId::ExportAsInput,
                                                 12,
@@ -905,9 +1055,54 @@ impl View for Home {
                 self.load_metadata(filename, hub, context);
                 true
             },
+            Event::Select(EntryId::Remove(ref path)) => {
+                self.remove(path, hub, context);
+                true
+            },
+            Event::Select(EntryId::RemoveBookCategory(ref path, ref categ)) => {
+                self.remove_book_category(path, categ, hub, context);
+                true
+            },
+            Event::Select(ref id @ EntryId::AddBookCategories(..)) |
+            Event::Select(ref id @ EntryId::AddMatchesCategories) => {
+                if let EntryId::AddBookCategories(ref path) = *id {
+                    self.target_path = Some(path.clone());
+                }
+                let add_categs = NamedInput::new("Add categories".to_string(),
+                                                 ViewId::AddCategories,
+                                                 ViewId::AddCategoriesInput,
+                                                 21,
+                                                 &mut context.fonts);
+                hub.send(Event::Render(*add_categs.rect(), UpdateMode::Gui)).unwrap();
+                hub.send(Event::Focus(Some(ViewId::AddCategoriesInput))).unwrap();
+                self.children.push(Box::new(add_categs) as Box<View>);
+                true
+            },
+            Event::Select(EntryId::RemoveMatches) => {
+                self.remove_matches(hub, context);
+                true
+            },
+            Event::Select(EntryId::RemoveMatchesCategory(ref categ)) => {
+                self.remove_matches_category(categ, hub, context);
+                true
+            },
+            Event::Select(EntryId::Undo) => {
+                self.undo(hub, context);
+                true
+            },
             Event::Submit(ViewId::ExportAsInput, ref text) => {
                 if !text.is_empty() {
                     self.export_matches(text, context);
+                }
+                self.toggle_keyboard(false, true, None, hub, &mut context.fonts);
+                true
+            },
+            Event::Submit(ViewId::AddCategoriesInput, ref text) => {
+                let categs = text.split(',').map(|s| s.trim().to_string()).collect();
+                if let Some(ref path) = self.target_path.take() {
+                    self.add_book_categories(path, &categs, hub, context);
+                } else {
+                    self.add_matches_categories(&categs, hub, context);
                 }
                 self.toggle_keyboard(false, true, None, hub, &mut context.fonts);
                 true
@@ -970,7 +1165,7 @@ impl View for Home {
                 true
             },
             Event::Reseed => {
-                self.reseed(hub, context);
+                self.reseed(false, hub, context);
                 true
             },
             _ => false,
