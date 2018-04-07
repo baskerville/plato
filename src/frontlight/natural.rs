@@ -102,7 +102,7 @@ impl NaturalFrontlight {
 
         if self.values.len() == 3 {
             let green = 64.0 * (w * i).sqrt();
-            let red = if w == 0.0 {
+            let red = if i == 0.0 {
                 0.0
             } else {
                 green + 20.0 + 7.0 * (1.0 - green / 64.0) + w * 4.0
