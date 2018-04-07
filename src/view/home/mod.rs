@@ -965,6 +965,7 @@ impl Home {
             if saved {
                 context.filename = filename.clone();
                 context.metadata = metadata;
+                self.history.clear();
                 self.reseed(true, hub, context);
             }
         }
