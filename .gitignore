@@ -9,3 +9,7 @@ src/wrapper/*.so
 src/wrapper/*.dylib
 src/test.rs
 **/*.rs.bk
+dist/
+thirdparty/
+.*
+!/.gitignore
