@@ -11,9 +11,24 @@ pub struct Settings {
     pub refresh_every: Option<u8>,
     pub summary_size: u8,
     pub import: ImportSettings,
+    pub reader: ReaderSettings,
     pub frontlight_levels: LightLevels,
     pub frontlight: bool,
     pub wifi: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ReaderSettings {
+    pub frontlight_edges: bool,
+}
+
+impl Default for ReaderSettings {
+    fn default() -> Self {
+        ReaderSettings {
+            frontlight_edges: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,6 +54,7 @@ impl Default for Settings {
             library_path: PathBuf::from("/mnt/onboard"),
             refresh_every: Some(24),
             summary_size: 1,
+            reader: ReaderSettings::default(),
             import: ImportSettings::default(),
             frontlight_levels: LightLevels::Standard(0.0),
             frontlight: true,

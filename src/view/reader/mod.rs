@@ -14,7 +14,8 @@ use std::path::PathBuf;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use chrono::Local;
 use regex::Regex;
-use input::FingerStatus;
+use fnv::FnvHashMap;
+use input::{DeviceEvent, FingerStatus};
 use framebuffer::{Framebuffer, UpdateMode, Pixmap};
 use view::{View, Event, Hub, ViewId, EntryKind, EntryId, SliderId, Bus, THICKNESS_MEDIUM};
 use unit::{scale_by_dpi, pt_to_px, mm_to_in};
@@ -36,7 +37,7 @@ use gesture::GestureEvent;
 use document::{Document, TocEntry, open, toc_as_html, chapter_at, chapter_relative};
 use document::pdf::PdfOpener;
 use metadata::{Info, FileInfo, ReaderInfo, PageScheme, Margin, CroppingMargins, make_query};
-use geom::{Rectangle, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, halves};
+use geom::{Point, Rectangle, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, halves};
 use color::{BLACK, WHITE};
 use app::Context;
 
@@ -55,6 +56,7 @@ pub struct Reader {
     ephemeral: bool,
     refresh_every: Option<u8>,
     search_direction: LinearDir,
+    frontlight_interaction: FnvHashMap<i32, Anchor>,
     frame: Rectangle,
     scale: f32,
     focus: Option<ViewId>,
@@ -68,6 +70,17 @@ struct Search {
     running: Arc<AtomicBool>,
     current_page: usize,
     results_count: usize,
+}
+
+struct Anchor {
+    position: Point,
+    channel: FrontlightChannel,
+    value: f32,
+}
+
+enum FrontlightChannel {
+    Intensity,
+    Warmth,
 }
 
 impl Default for Search {
@@ -144,6 +157,7 @@ impl Reader {
                 ephemeral: false,
                 refresh_every: settings.refresh_every,
                 search_direction: LinearDir::Forward,
+                frontlight_interaction: FnvHashMap::default(),
                 frame,
                 scale,
                 focus: None,
@@ -197,6 +211,7 @@ impl Reader {
             ephemeral: true,
             refresh_every: context.settings.refresh_every,
             search_direction: LinearDir::Forward,
+            frontlight_interaction: FnvHashMap::default(),
             frame,
             scale,
             focus: None,
@@ -1020,6 +1035,45 @@ impl View for Reader {
                     Dir::East => self.set_current_page(CycleDir::Previous, hub),
                     _ => (),
                 };
+                true
+            },
+            Event::Device(DeviceEvent::Finger { status: FingerStatus::Down, ref id, position, .. }) => {
+                if context.settings.frontlight && context.settings.reader.frontlight_edges {
+                    let dpi = CURRENT_DEVICE.dpi;
+                    let gutter = 3 * dpi as i32 / 4;
+                    let x1 = self.rect.min.x + gutter;
+                    let x2 = self.rect.max.x - gutter;
+                    // Left gutter: intensity.
+                    if position.x < x1 {
+                        self.frontlight_interaction.insert(*id, Anchor {
+                            position,
+                            channel: FrontlightChannel::Intensity,
+                            value: context.frontlight.intensity(),
+                        });
+                    // Right gutter: warmth.
+                    } else if position.x > x2 {
+                        self.frontlight_interaction.insert(*id, Anchor {
+                            position,
+                            channel: FrontlightChannel::Warmth,
+                            value: context.frontlight.warmth(),
+                        });
+                    }
+                }
+                true
+            },
+            Event::Device(DeviceEvent::Finger { status: FingerStatus::Motion, ref id, position, .. }) => {
+                if let Some(anchor) = self.frontlight_interaction.get(id) {
+                    let delta = 100.0 * ((anchor.position.y - position.y) as f32 / self.rect.height() as f32);
+                    let value = (anchor.value + delta).max(0.0).min(100.0);
+                    match anchor.channel {
+                        FrontlightChannel::Intensity => context.frontlight.set_intensity(value),
+                        FrontlightChannel::Warmth => context.frontlight.set_warmth(value),
+                    }
+                }
+                true
+            },
+            Event::Device(DeviceEvent::Finger { status: FingerStatus::Up, ref id, .. }) => {
+                self.frontlight_interaction.remove(id);
                 true
             },
             Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {

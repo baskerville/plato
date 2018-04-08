@@ -3,7 +3,6 @@ extra/
 archives/
 resources/
 libs/
-fonts/
 settings.json
 user.css
 src/wrapper/*.so
