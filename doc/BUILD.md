@@ -109,7 +109,7 @@ cp src/wrapper/*.so libs
 cargo clean
 ./build.sh
 
-#create dist folder (note: fonts are missing)
+#create dist folder
 ./dist.sh
 ```
 
