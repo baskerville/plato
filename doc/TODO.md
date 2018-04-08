@@ -1,13 +1,12 @@
-- Reader: change the frontlight intensity/warmth by swiping on the edges.
-- Metadata: Remove, Undo.
+- Document the build process.
 - Fit to width.
 - ePUB renderer.
 - Pocket articles.
-- Add, remove, rename categories.
+- Rename categories.
 - Preload next/previous page.
 - Landscape mode.
+- Dictionary.
 - Input field completions bar.
 - Metadata view.
 - Complex/fuzzy search queries?
-- Dictionary.
 - Applications: Sketch, Calculator, Browser.
