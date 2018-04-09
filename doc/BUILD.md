@@ -21,7 +21,7 @@ Supposing that you are running Ubuntu 12.04.5 i386, you can build plato this way
 ```sh
 #install needed tools
 sudo apt-get upgrade
-sudo apt-get install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf git build-essential libtool automake cmake ragel pck-config
+sudo apt-get install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf git build-essential libtool automake cmake ragel pck-config unzip
 
 #download plato from git
 git clone http://github.com/traycold/plato.git
@@ -96,8 +96,11 @@ cd ../..
 
 #make wrapper
 cd src/wrapper
-./build-kobo.sh
+./build-kobo
 cd ../..
+
+#clean plato
+cargo clean
 
 #copy thirdparty libs into libs folder
 rm -rf libs
@@ -106,7 +109,6 @@ find thirdparty -name *.so -exec cp {} libs \;
 cp src/wrapper/*.so libs
 
 #make plato
-cargo clean
 ./build.sh
 
 #create dist folder
