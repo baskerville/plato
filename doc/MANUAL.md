@@ -59,8 +59,6 @@ Gestures by region:
 
 Swipe west/east to go to the next/previous page.
 
-Swipe along the left/right edges to adjust the frontlight's intensity/warmth (enabled through the `reader.frontlightEdges` setting).
-
 ## Bottom bar
 
 Hold the next/previous page icon to go the next/previous chapter.
