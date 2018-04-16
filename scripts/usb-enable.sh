@@ -26,10 +26,12 @@ MODULE_PARAMETERS="vendor=${VENDOR_ID} product=${PRODUCT_ID} vendor_id=Kobo prod
 GADGETS=/drivers/${PLATFORM}/usb/gadget
 
 if [ -e "$GADGETS"/arcotg_udc.ko ] ; then
+	# shellcheck disable=SC2086
 	insmod "$GADGETS"/arcotg_udc.ko $MODULE_PARAMETERS
 	sleep 2
 fi
 
+# shellcheck disable=SC2086
 insmod "$GADGETS"/g_file_storage.ko file="$PARTITIONS" stall=1 removable=1 $MODULE_PARAMETERS
 
 sleep 1
