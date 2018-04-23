@@ -218,7 +218,7 @@ pub trait Framebuffer {
                     if dist < mid_radius {
                         let delta_dist = small_radius as f32 - dist;
                         alpha = surface_area(delta_dist, angle);
-                        color = lerp(color, border_color, alpha);
+                        color = lerp(color as f32, border_color as f32, alpha) as u8;
                         alpha = 1.0;
                     } else {
                         let delta_dist = dist - radius as f32;

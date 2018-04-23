@@ -130,15 +130,10 @@ impl Frontlight for NaturalFrontlight {
         self.update(intensity, value);
     }
 
-    fn intensity(&self) -> f32 {
-        self.intensity
-    }
-
-    fn warmth(&self) -> f32 {
-        self.warmth
-    }
-
     fn levels(&self) -> LightLevels {
-        LightLevels::Natural(self.intensity, self.warmth)
+        LightLevels {
+            intensity: self.intensity,
+            warmth: self.warmth,
+        }
     }
 }

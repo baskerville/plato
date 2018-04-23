@@ -24,6 +24,8 @@ pub mod confirmation;
 pub mod notification;
 pub mod intermission;
 pub mod frontlight;
+pub mod presets_list;
+pub mod preset;
 pub mod menu;
 pub mod menu_entry;
 pub mod clock;
@@ -214,6 +216,7 @@ pub enum Event {
     Slider(SliderId, f32, FingerStatus),
     ToggleNear(ViewId, Rectangle),
     ToggleBookMenu(Rectangle, usize),
+    TogglePresetMenu(Rectangle, usize),
     SubMenu(Rectangle, Vec<EntryKind>),
     Toggle(ViewId),
     Show(ViewId),
@@ -226,6 +229,9 @@ pub enum Event {
     BatteryTick,
     ToggleFrontlight,
     Load(PathBuf),
+    LoadPreset(usize),
+    Save,
+    Guess,
     Suspend,
     Mount,
     Validate,
@@ -246,6 +252,7 @@ pub enum ViewId {
     MatchesMenu,
     PageMenu,
     BookMenu,
+    PresetMenu,
     MarginCropperMenu,
     SearchMenu,
     GoToPage,
@@ -341,6 +348,7 @@ pub enum EntryId {
     AddBookCategories(PathBuf),
     RemoveBookCategory(PathBuf, String),
     RemoveMatches,
+    RemovePreset(usize),
     AddMatchesCategories,
     RemoveMatchesCategory(String),
     Load(PathBuf),

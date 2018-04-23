@@ -67,6 +67,13 @@ impl Device {
             _ => false,
         }
     }
+
+    pub fn has_lightsensor(&self) -> bool {
+        match self.model {
+            Model::AuraONE => true,
+            _ => false,
+        }
+    }
 }
 
 lazy_static! {

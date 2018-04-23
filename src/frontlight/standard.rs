@@ -23,14 +23,6 @@ impl StandardFrontlight {
 }
 
 impl Frontlight for StandardFrontlight {
-    fn intensity(&self) -> f32 {
-        self.value
-    }
-
-    fn warmth(&self) -> f32 {
-        0.0
-    }
-
     fn set_intensity(&mut self, value: f32) {
         let ret = unsafe {
             libc::ioctl(self.interface.as_raw_fd(),
@@ -41,10 +33,12 @@ impl Frontlight for StandardFrontlight {
         }
     }
 
-    fn set_warmth(&mut self, _value: f32) {
-    }
+    fn set_warmth(&mut self, _value: f32) { }
 
     fn levels(&self) -> LightLevels {
-        LightLevels::Standard(self.value)
+        LightLevels {
+            intensity: self.value,
+            warmth: 0.0,
+        }
     }
 }

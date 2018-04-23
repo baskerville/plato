@@ -157,8 +157,20 @@ pub fn divide(n: i32, p: i32) -> Vec<i32> {
     vec
 }
 
-pub fn lerp(c1: u8, c2: u8, a: f32) -> u8 {
-    ((1.0 - a) * (c1 as f32) + a * c2 as f32) as u8
+#[inline]
+pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    (1.0 - t) * a + t * b
+}
+
+// Returns the clockwise and anti-clockwise modulo p distance from a to b.
+#[inline]
+pub fn circular_distances(a: u16, mut b: u16, p: u16) -> (u16, u16) {
+    if b < a {
+        b = p + b;
+    }
+    let d0 = b - a;
+    let d1 = p - d0;
+    (d0, d1)
 }
 
 impl Dir {

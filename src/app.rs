@@ -8,10 +8,11 @@ use std::time::{Instant, Duration};
 use fnv::FnvHashMap;
 use chrono::Local;
 use framebuffer::{Framebuffer, KoboFramebuffer, UpdateMode};
-use view::{View, Event, EntryId, ViewId};
+use view::{View, Event, EntryId, EntryKind, ViewId};
 use view::{render, render_no_wait, handle_event, fill_crack};
 use view::common::{locate, locate_by_id, overlapping_rectangle};
 use view::frontlight::FrontlightWindow;
+use view::menu::{Menu, MenuKind};
 use input::{DeviceEvent, ButtonCode, ButtonStatus};
 use input::{raw_events, device_events, usb_events};
 use gesture::{GestureEvent, gesture_events, BUTTON_HOLD_DELAY};
@@ -19,6 +20,7 @@ use helpers::{load_json, save_json};
 use metadata::{Metadata, METADATA_FILENAME, import};
 use settings::{Settings, SETTINGS_PATH};
 use frontlight::{Frontlight, NaturalFrontlight, StandardFrontlight};
+use lightsensor::{LightSensor, KoboLightSensor};
 use battery::{Battery, KoboBattery};
 use view::home::Home;
 use view::reader::Reader;
@@ -41,6 +43,7 @@ pub struct Context {
     pub fonts: Fonts,
     pub frontlight: Box<Frontlight>,
     pub battery: Box<Battery>,
+    pub lightsensor: Box<LightSensor>,
     pub notification_index: u8,
     pub resumed_at: Instant,
     pub inverted: bool,
@@ -51,11 +54,13 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(settings: Settings, metadata: Metadata, filename: PathBuf,
-               fonts: Fonts, frontlight: Box<Frontlight>, battery: Box<Battery>) -> Context {
-        Context { settings, metadata, filename, fonts, frontlight, battery,
-                  notification_index: 0, resumed_at: Instant::now(),
-                  inverted: false, monochrome: false, suspended: false,
+    pub fn new(settings: Settings, metadata: Metadata,
+               filename: PathBuf, fonts: Fonts, battery: Box<Battery>,
+               frontlight: Box<Frontlight>, lightsensor: Box<LightSensor>) -> Context {
+        Context { settings, metadata, filename, fonts, battery,
+                  frontlight, lightsensor, notification_index: 0,
+                  resumed_at: Instant::now(), inverted: false,
+                  monochrome: false, suspended: false,
                   plugged: false, mounted: false }
     }
 }
@@ -131,16 +136,16 @@ pub fn run() -> Result<()> {
 
     let levels = settings.frontlight_levels;
     let mut frontlight = if CURRENT_DEVICE.has_natural_light() {
-        Box::new(NaturalFrontlight::new(levels.intensity(), levels.warmth())
+        Box::new(NaturalFrontlight::new(levels.intensity, levels.warmth)
                                    .chain_err(|| "Can't create natural frontlight.")?) as Box<Frontlight>
     } else {
-        Box::new(StandardFrontlight::new(levels.intensity())
+        Box::new(StandardFrontlight::new(levels.intensity)
                                     .chain_err(|| "Can't create standard frontlight.")?) as Box<Frontlight>
     };
 
     if settings.frontlight {
-        frontlight.set_intensity(levels.intensity());
-        frontlight.set_warmth(levels.warmth());
+        frontlight.set_intensity(levels.intensity);
+        frontlight.set_warmth(levels.warmth);
     } else {
         frontlight.set_warmth(0.0);
         frontlight.set_intensity(0.0);
@@ -148,7 +153,14 @@ pub fn run() -> Result<()> {
 
     let battery = Box::new(KoboBattery::new().chain_err(|| "Can't create battery.")?) as Box<Battery>;
 
-    let mut context = Context::new(settings, metadata, PathBuf::from(METADATA_FILENAME), fonts, frontlight, battery);
+    let lightsensor = if CURRENT_DEVICE.has_lightsensor() {
+        Box::new(KoboLightSensor::new().chain_err(|| "Can't create light sensor.")?) as Box<LightSensor>
+    } else {
+        Box::new(0u16) as Box<LightSensor>
+    };
+
+    let mut context = Context::new(settings, metadata, PathBuf::from(METADATA_FILENAME),
+                                   fonts, battery, frontlight, lightsensor);
     let mut history: Vec<Box<View>> = Vec::new();
     let mut view: Box<View> = Box::new(Home::new(fb_rect, &tx, &mut context)?);
 
@@ -220,8 +232,8 @@ pub fn run() -> Result<()> {
                             }
                             if context.settings.frontlight {
                                 let levels = context.settings.frontlight_levels;
-                                context.frontlight.set_intensity(levels.intensity());
-                                context.frontlight.set_warmth(levels.warmth());
+                                context.frontlight.set_intensity(levels.intensity);
+                                context.frontlight.set_warmth(levels.warmth);
                             }
                             if let Some(index) = locate::<Intermission>(view.as_ref()) {
                                 let rect = *view.child(index).rect();
@@ -296,8 +308,8 @@ pub fn run() -> Result<()> {
                 }
                 if context.settings.frontlight {
                     let levels = context.settings.frontlight_levels;
-                    context.frontlight.set_intensity(levels.intensity());
-                    context.frontlight.set_warmth(levels.warmth());
+                    context.frontlight.set_intensity(levels.intensity);
+                    context.frontlight.set_warmth(levels.warmth);
                 }
                 tx.send(Event::ClockTick).unwrap();
                 tx.send(Event::BatteryTick).unwrap();
@@ -348,8 +360,8 @@ pub fn run() -> Result<()> {
                 context.settings.frontlight = !context.settings.frontlight;
                 if context.settings.frontlight {
                     let levels = context.settings.frontlight_levels;
-                    context.frontlight.set_intensity(levels.intensity());
-                    context.frontlight.set_warmth(levels.warmth());
+                    context.frontlight.set_intensity(levels.intensity);
+                    context.frontlight.set_warmth(levels.warmth);
                 } else {
                     context.settings.frontlight_levels = context.frontlight.levels();
                     context.frontlight.set_warmth(0.0);
@@ -392,6 +404,20 @@ pub fn run() -> Result<()> {
                 if let Some(v) = history.pop() {
                     view = v;
                     view.handle_event(&Event::Reseed, &tx, &mut bus, &mut context);
+                }
+            },
+            Event::TogglePresetMenu(rect, index) => {
+                if let Some(index) = locate_by_id(view.as_ref(), ViewId::PresetMenu) {
+                    let rect = *view.child(index).rect();
+                    view.children_mut().remove(index);
+                    tx.send(Event::Expose(rect)).unwrap();
+                } else {
+                    let preset_menu = Menu::new(rect, ViewId::PresetMenu, MenuKind::Contextual,
+                                                vec![EntryKind::Command("Remove".to_string(),
+                                                                        EntryId::RemovePreset(index))],
+                                                &mut context.fonts);
+                    tx.send(Event::Render(*preset_menu.rect(), UpdateMode::Gui)).unwrap();
+                    view.children_mut().push(Box::new(preset_menu) as Box<View>);
                 }
             },
             Event::Show(ViewId::Frontlight) => {

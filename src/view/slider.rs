@@ -12,10 +12,10 @@ const PROGRESS_HEIGHT: f32 = 7.0;
 const BUTTON_DIAMETER: f32 = 46.0;
 
 pub struct Slider {
-    pub rect: Rectangle,
+    rect: Rectangle,
     children: Vec<Box<View>>,
     id: SliderId,
-    value: f32,
+    pub value: f32,
     min_value: f32,
     max_value: f32,
     active: bool,

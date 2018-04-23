@@ -42,6 +42,7 @@ mod color;
 mod device;
 mod framebuffer;
 mod frontlight;
+mod lightsensor;
 mod battery;
 mod input;
 mod gesture;

@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 use std::cmp::Ordering;
 use fnv::{FnvHashMap, FnvHashSet};
 use chrono::{Local, DateTime};
+use helpers::simple_date_format;
 use regex::Regex;
 use document::file_kind;
 use symbolic_path;
@@ -159,23 +160,6 @@ pub struct ReaderInfo {
 impl ReaderInfo {
     pub fn progress(&self) -> f32 {
         (self.current_page + 1) as f32 / self.pages_count as f32
-    }
-}
-
-mod simple_date_format {
-    use chrono::{DateTime, Local, TimeZone};
-    use serde::{self, Deserialize, Serializer, Deserializer};
-
-    const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
-
-    pub fn serialize<S>(date: &DateTime<Local>, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        let s = format!("{}", date.format(FORMAT));
-        serializer.serialize_str(&s)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Local>, D::Error> where D: Deserializer<'de> {
-        let s = String::deserialize(deserializer)?;
-        Local.datetime_from_str(&s, FORMAT).map_err(serde::de::Error::custom)
     }
 }
 

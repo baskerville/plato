@@ -1,6 +1,10 @@
+mod preset;
+
 use std::path::PathBuf;
 use fnv::FnvHashSet;
 use frontlight::LightLevels;
+
+pub use self::preset::{LightPreset, guess_frontlight};
 
 pub const SETTINGS_PATH: &str = "settings.json";
 
@@ -12,6 +16,8 @@ pub struct Settings {
     pub summary_size: u8,
     pub import: ImportSettings,
     pub frontlight_levels: LightLevels,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub frontlight_presets: Vec<LightPreset>,
     pub frontlight: bool,
     pub wifi: bool,
 }
@@ -40,7 +46,8 @@ impl Default for Settings {
             refresh_every: Some(24),
             summary_size: 1,
             import: ImportSettings::default(),
-            frontlight_levels: LightLevels::Standard(0.0),
+            frontlight_levels: LightLevels::default(),
+            frontlight_presets: Vec::new(),
             frontlight: true,
             wifi: false,
         }

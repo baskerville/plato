@@ -833,7 +833,7 @@ impl Home {
         let mut paths: FnvHashSet<PathBuf> = self.visible_books.drain(..)
                                                  .map(|info| info.file.path).collect();
 
-        for info in context.metadata.iter_mut() {
+        for info in &mut context.metadata {
             if paths.remove(&info.file.path) {
                 info.categories.extend(categs.clone());
                 if paths.is_empty() {

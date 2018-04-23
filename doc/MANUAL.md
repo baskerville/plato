@@ -52,7 +52,7 @@ Gestures by region:
 	- Hold: next bookmark.
 - *BL* (Bottom Left Corner):
 	- Tap: table of contents in normal mode, previous page in search mode.
-	- Hold: toggle frontlight.
+	- Hold: guess the frontlight if there's more than two frontlight presets defined, toggle the frontlight otherwise.
 - *BR* (Bottom Right Corner):
 	- Tap: go to page in normal mode, next page in search mode.
 	- Hold: invert colors.

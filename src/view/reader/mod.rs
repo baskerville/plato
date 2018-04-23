@@ -32,6 +32,8 @@ use view::search_bar::SearchBar;
 use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use view::menu::{Menu, MenuKind};
 use view::notification::Notification;
+use settings::guess_frontlight;
+use frontlight::LightLevels;
 use gesture::GestureEvent;
 use document::{Document, TocEntry, open, toc_as_html, chapter_at, chapter_relative};
 use document::pdf::PdfOpener;
@@ -1134,7 +1136,22 @@ impl View for Reader {
                         self.go_to_bookmark(CycleDir::Previous, hub);
                     // Bottom left corner.
                     } else if center.y > self.rect.max.y - dx {
-                        hub.send(Event::ToggleFrontlight).unwrap();
+                        if context.settings.frontlight_presets.len() > 1 {
+                            if context.settings.frontlight {
+                                let lightsensor_level = if CURRENT_DEVICE.has_lightsensor() {
+                                    context.lightsensor.level().ok()
+                                } else {
+                                    None
+                                };
+                                if let Some(ref frontlight_levels) = guess_frontlight(lightsensor_level, &context.settings.frontlight_presets) {
+                                    let LightLevels { intensity, warmth } = *frontlight_levels;
+                                    context.frontlight.set_intensity(intensity);
+                                    context.frontlight.set_warmth(warmth);
+                                }
+                            }
+                        } else {
+                            hub.send(Event::ToggleFrontlight).unwrap();
+                        }
                     // Left ear.
                     } else {
                         if self.search.is_none() {
@@ -1303,7 +1320,7 @@ impl View for Reader {
                 let mut results_count = 0;
                 if let Some(ref mut s) = self.search {
                     let pages_count = s.highlights.len();
-                    s.highlights.entry(index).or_insert(vec![]).push(rect);
+                    s.highlights.entry(index).or_insert_with(|| Vec::new()).push(rect);
                     s.results_count += 1;
                     results_count = s.results_count;
                     if results_count > 1 && index <= self.current_page && s.highlights.len() > pages_count {

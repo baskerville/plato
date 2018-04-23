@@ -54,7 +54,7 @@ impl Framebuffer for ImageFramebuffer {
             return;
         }
         let addr = (y * self.width + x) as usize;
-        let blended_color = lerp(self.data[addr], color, alpha);
+        let blended_color = lerp(self.data[addr] as f32, color as f32, alpha) as u8;
         self.data[addr] = blended_color;
     }
 

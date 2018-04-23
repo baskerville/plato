@@ -40,6 +40,7 @@ mod document;
 mod metadata;
 mod settings;
 mod frontlight;
+mod lightsensor;
 mod symbolic_path;
 mod trash;
 mod app;
@@ -73,12 +74,14 @@ use sdl2::rect::Point as SdlPoint;
 use sdl2::rect::Rect as SdlRect;
 use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
-use view::{View, Event, ViewId, EntryId, render, render_no_wait, handle_event, fill_crack};
+use view::{View, Event, ViewId, EntryId, EntryKind};
+use view::{render, render_no_wait, handle_event, fill_crack};
 use view::home::Home;
 use view::reader::Reader;
 use view::notification::Notification;
 use view::frontlight::FrontlightWindow;
 use view::keyboard::Keyboard;
+use view::menu::{Menu, MenuKind};
 use view::common::{locate, locate_by_id, overlapping_rectangle};
 use geom::Rectangle;
 use gesture::gesture_events;
@@ -86,8 +89,9 @@ use device::CURRENT_DEVICE;
 use helpers::{load_json, save_json};
 use metadata::{Metadata, METADATA_FILENAME};
 use settings::{Settings, SETTINGS_PATH};
-use frontlight::{Frontlight, FakeFrontlight};
 use battery::{Battery, FakeBattery};
+use frontlight::{Frontlight, LightLevels};
+use lightsensor::LightSensor;
 use font::Fonts;
 use app::Context;
 use errors::*;
@@ -100,10 +104,12 @@ pub fn build_context() -> Result<Context> {
     let settings = load_json::<Settings, _>(SETTINGS_PATH)?;
     let path = settings.library_path.join(METADATA_FILENAME);
     let metadata = load_json::<Metadata, _>(path)?;
-    let frontlight = Box::new(FakeFrontlight::new()) as Box<Frontlight>;
     let battery = Box::new(FakeBattery::new()) as Box<Battery>;
+    let frontlight = Box::new(LightLevels::default()) as Box<Frontlight>;
+    let lightsensor = Box::new(0u16) as Box<LightSensor>;
     let fonts = Fonts::load()?;
-    Ok(Context::new(settings, metadata, PathBuf::from(METADATA_FILENAME), fonts, frontlight, battery))
+    Ok(Context::new(settings, metadata, PathBuf::from(METADATA_FILENAME),
+                    fonts, battery, frontlight, lightsensor))
 }
 
 #[inline]
@@ -230,6 +236,15 @@ pub fn run() -> Result<()> {
 
     let mut updating = FnvHashMap::default();
 
+    if context.settings.frontlight {
+        let levels = context.settings.frontlight_levels;
+        context.frontlight.set_intensity(levels.intensity);
+        context.frontlight.set_warmth(levels.warmth);
+    } else {
+        context.frontlight.set_warmth(0.0);
+        context.frontlight.set_intensity(0.0);
+    }
+
     println!("{} is running on a Kobo {}.", APP_NAME,
                                             CURRENT_DEVICE.model);
     println!("The framebuffer resolution is {} by {}.", fb_rect.width(),
@@ -328,6 +343,20 @@ pub fn run() -> Result<()> {
                         view.handle_event(&Event::Reseed, &tx, &mut bus, &mut context);
                     }
                 },
+                Event::TogglePresetMenu(rect, index) => {
+                    if let Some(index) = locate_by_id(view.as_ref(), ViewId::PresetMenu) {
+                        let rect = *view.child(index).rect();
+                        view.children_mut().remove(index);
+                        tx.send(Event::Expose(rect)).unwrap();
+                    } else {
+                        let preset_menu = Menu::new(rect, ViewId::PresetMenu, MenuKind::Contextual,
+                                                    vec![EntryKind::Command("Remove".to_string(),
+                                                                            EntryId::RemovePreset(index))],
+                                                    &mut context.fonts);
+                        tx.send(Event::Render(*preset_menu.rect(), UpdateMode::Gui)).unwrap();
+                        view.children_mut().push(Box::new(preset_menu) as Box<View>);
+                    }
+                },
                 Event::Show(ViewId::Frontlight) => {
                     if !context.settings.frontlight {
                         continue;
@@ -385,6 +414,10 @@ pub fn run() -> Result<()> {
                 tx.send(ce).unwrap();
             }
         }
+    }
+
+    if context.settings.frontlight {
+        context.settings.frontlight_levels = context.frontlight.levels();
     }
 
     let path = context.settings.library_path.join(&context.filename);
