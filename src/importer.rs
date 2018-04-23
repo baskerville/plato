@@ -32,6 +32,7 @@ mod document;
 mod metadata;
 mod settings;
 mod frontlight;
+mod lightsensor;
 mod symbolic_path;
 
 mod errors {
@@ -73,6 +74,7 @@ pub fn run() -> Result<()> {
     opts.optflag("M", "extract-metadata", "Try to extract metadata from the books.");
     opts.optflag("C", "consolidate", "Consolidate an existing database.");
     opts.optflag("N", "rename", "Rename files based on their info.");
+    opts.optflag("Y", "synchronize", "Synchronize libraries.");
     opts.optflag("Z", "initialize", "Initialize a database.");
     opts.optopt("a", "allowed-kinds", "Comma separated list of allowed kinds.", "ALLOWED_KINDS");
     opts.optopt("i", "input", "Input file name.", "INPUT_NAME");
@@ -83,7 +85,7 @@ pub fn run() -> Result<()> {
     )?;
 
     if matches.opt_present("h") {
-        println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-C|-N|-Z [-a ALLOWED_KINDS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH"));
+        println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-C|-N|-Z|-Y [-a ALLOWED_KINDS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
         return Ok(());
     }
 
@@ -133,6 +135,16 @@ pub fn run() -> Result<()> {
         if matches.opt_present("N") {
             rename(library_path, &mut metadata);
         }
+
+        if matches.opt_present("Y") {
+            if matches.free.len() < 2 {
+                return Err(Error::from("Missing required argument: destination library path."));
+            }
+
+            let dest_library_path = Path::new(&matches.free[1]);
+
+            synchronize(library_path, dest_library_path, &metadata);
+        }
         
         save_json(&metadata, output_path)?;
     }
@@ -141,7 +153,7 @@ pub fn run() -> Result<()> {
 }
 
 pub fn extract_isbn(dir: &Path, metadata: &mut Metadata) {
-    for info in metadata.iter_mut() {
+    for info in metadata {
         if !info.isbn.is_empty() {
             continue;
         }
@@ -156,7 +168,7 @@ pub fn extract_isbn(dir: &Path, metadata: &mut Metadata) {
 }
 
 pub fn extract_metadata(dir: &Path, metadata: &mut Metadata) {
-    for info in metadata.iter_mut() {
+    for info in metadata {
         if !info.title.is_empty() {
             continue;
         }
@@ -245,7 +257,7 @@ pub fn retriever_amazon(info: &mut Info, _: bool) {
 }
 
 pub fn consolidate(metadata: &mut Metadata) {
-    for info in metadata.iter_mut() {
+    for info in metadata {
         if info.subtitle.is_empty() {
             let colon = info.title.find(':');
 
@@ -274,19 +286,43 @@ pub fn consolidate(metadata: &mut Metadata) {
 }
 
 pub fn rename(dir: &Path, metadata: &mut Metadata) {
-    for info in metadata.iter_mut() {
+    for info in metadata {
         let new_file_name = file_name_from_info(info);
         if !new_file_name.is_empty() {
             let old_rel_path = info.file.path.clone();
             let new_rel_path = old_rel_path.with_file_name(&new_file_name);
             if old_rel_path != new_rel_path {
                 match fs::rename(dir.join(&old_rel_path), dir.join(&new_rel_path)) {
-                    err @ Err(_) => println!("Can't rename {} to {}: {:?}.",
-                                             old_rel_path.display(),
-                                             new_rel_path.display(), err),
-                    Ok(_) => info.file.path = new_rel_path,
+                    Err(e) => println!("Can't rename {} to {}: {}.",
+                                       old_rel_path.display(),
+                                       new_rel_path.display(), e),
+                    Ok(..) => info.file.path = new_rel_path,
                 }
             }
+        }
+    }
+}
+
+pub fn synchronize(src_dir: &Path, dest_dir: &Path, metadata: &Metadata) {
+    for info in metadata {
+        if let Some(parent) = info.file.path.parent() {
+            let dest_parent = dest_dir.join(parent);
+            if !dest_parent.exists() {
+                if let Err(e) = fs::create_dir_all(&dest_parent) {
+                    println!("Can't create {}: {}.",
+                             dest_parent.display(), e);
+                    continue;
+                }
+            }
+        }
+
+        let src = src_dir.join(&info.file.path);
+        let dest = dest_dir.join(&info.file.path);
+
+        if let Err(e) = fs::copy(&src, &dest) {
+            println!("Can't copy {} to {}: {}.", src.display(), dest.display(), e);
+        } else {
+            println!("{} -> {}", src.display(), dest.display());
         }
     }
 }
