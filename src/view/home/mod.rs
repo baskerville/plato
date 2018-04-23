@@ -941,7 +941,7 @@ impl Home {
         self.refresh_visibles(true, reset_page, &tx, context);
         self.sort(false, &mut context.metadata, &tx);
         self.child_mut(0).downcast_mut::<TopBar>()
-            .map(|top_bar| top_bar.update_frontlight_icon(hub, context));
+            .map(|top_bar| top_bar.update_frontlight_icon(&tx, context));
         hub.send(Event::ClockTick).unwrap();
         hub.send(Event::BatteryTick).unwrap();
         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
