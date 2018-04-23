@@ -437,7 +437,7 @@ pub fn run() -> Result<()> {
             },
             Event::Close(id) => {
                 if let Some(index) = locate_by_id(view.as_ref(), id) {
-                    let rect = overlapping_rectangle(view.as_ref());
+                    let rect = overlapping_rectangle(view.child(index));
                     tx.send(Event::Expose(rect)).unwrap();
                     view.children_mut().remove(index);
                 }
