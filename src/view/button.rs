@@ -16,6 +16,7 @@ pub struct Button {
     event: Event,
     text: String,
     active: bool,
+    pub disabled: bool,
 }
 
 impl Button {
@@ -26,14 +27,20 @@ impl Button {
             event,
             text,
             active: false,
+            disabled: false,
         }
+    }
+
+    pub fn disabled(mut self, value: bool) -> Button {
+        self.disabled = value;
+        self
     }
 }
 
 impl View for Button {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
+            Event::Device(DeviceEvent::Finger { status, ref position, .. }) if !self.disabled => {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
@@ -49,7 +56,9 @@ impl View for Button {
                 }
             },
             Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
-                bus.push_back(self.event.clone());
+                if !self.disabled {
+                    bus.push_back(self.event.clone());
+                }
                 true
             },
             _ => false,
@@ -85,7 +94,8 @@ impl View for Button {
         let dy = (self.rect.height() as i32 - x_height) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 
-        font.render(fb, scheme[1], &plan, &pt);
+        let foreground = if self.disabled { scheme[2] } else { scheme[1] };
+        font.render(fb, foreground, &plan, &pt);
     }
 
     fn rect(&self) -> &Rectangle {
