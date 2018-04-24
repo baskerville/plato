@@ -15,6 +15,7 @@ pub struct Settings {
     pub refresh_every: Option<u8>,
     pub summary_size: u8,
     pub import: ImportSettings,
+    pub reader: ReaderSettings,
     pub frontlight_levels: LightLevels,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub frontlight_presets: Vec<LightPreset>,
@@ -27,6 +28,27 @@ pub struct Settings {
 pub struct ImportSettings {
     pub unmount_trigger: bool,
     pub allowed_kinds: FnvHashSet<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ReaderSettings {
+    pub finished: FinishedAction,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FinishedAction {
+    Notify,
+    Close,
+}
+
+impl Default for ReaderSettings {
+    fn default() -> Self {
+        ReaderSettings {
+            finished: FinishedAction::Notify,
+        }
+    }
 }
 
 impl Default for ImportSettings {
@@ -46,6 +68,7 @@ impl Default for Settings {
             refresh_every: Some(24),
             summary_size: 1,
             import: ImportSettings::default(),
+            reader: ReaderSettings::default(),
             frontlight_levels: LightLevels::default(),
             frontlight_presets: Vec::new(),
             frontlight: true,

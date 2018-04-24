@@ -32,7 +32,7 @@ use view::search_bar::SearchBar;
 use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use view::menu::{Menu, MenuKind};
 use view::notification::Notification;
-use settings::guess_frontlight;
+use settings::{guess_frontlight, FinishedAction};
 use frontlight::LightLevels;
 use gesture::GestureEvent;
 use document::{Document, TocEntry, open, toc_as_html, chapter_at, chapter_relative};
@@ -268,7 +268,7 @@ impl Reader {
         }
     }
 
-    fn set_current_page(&mut self, dir: CycleDir, hub: &Hub) {
+    fn set_current_page(&mut self, dir: CycleDir, hub: &Hub, context: &mut Context) {
         let current_page = self.current_page;
         match dir {
             CycleDir::Next if current_page < self.pages_count - 1 => {
@@ -278,8 +278,20 @@ impl Reader {
                 self.go_to_page(current_page - 1, false, hub);
             },
             CycleDir::Next if current_page == self.pages_count - 1 => {
-                // TODO: create popup, or close?
                 self.finished = true;
+                match context.settings.reader.finished {
+                    FinishedAction::Notify => {
+                        let notif = Notification::new(ViewId::FinishedNotif,
+                                                      "No next page.".to_string(),
+                                                      &mut context.notification_index,
+                                                      &mut context.fonts,
+                                                      hub);
+                        self.children.push(Box::new(notif) as Box<View>);
+                    },
+                    FinishedAction::Close => {
+                        hub.send(Event::Back).unwrap();
+                    },
+                }
             },
             _ => (),
         }
@@ -1018,8 +1030,8 @@ impl View for Reader {
         match *evt {
             Event::Gesture(GestureEvent::Swipe { dir, ref start, .. }) if self.rect.includes(start) => {
                 match dir {
-                    Dir::West => self.set_current_page(CycleDir::Next, hub),
-                    Dir::East => self.set_current_page(CycleDir::Previous, hub),
+                    Dir::West => self.set_current_page(CycleDir::Next, hub, context),
+                    Dir::East => self.set_current_page(CycleDir::Previous, hub, context),
                     _ => (),
                 };
                 true
@@ -1083,12 +1095,12 @@ impl View for Reader {
                                 hub.send(Event::Show(ViewId::TableOfContents)).unwrap();
                             }
                         } else {
-                            self.set_current_page(CycleDir::Previous, hub);
+                            self.set_current_page(CycleDir::Previous, hub, context);
                         }
                     // Left ear.
                     } else {
                         if self.search.is_none() {
-                            self.set_current_page(CycleDir::Previous, hub);
+                            self.set_current_page(CycleDir::Previous, hub, context);
                         } else {
                             self.set_current_results_page(CycleDir::Previous, hub);
                         }
@@ -1103,12 +1115,12 @@ impl View for Reader {
                         if self.search.is_none() {
                             hub.send(Event::Toggle(ViewId::GoToPage)).unwrap();
                         } else {
-                            self.set_current_page(CycleDir::Next, hub);
+                            self.set_current_page(CycleDir::Next, hub, context);
                         }
                     // Right ear.
                     } else {
                         if self.search.is_none() {
-                            self.set_current_page(CycleDir::Next, hub);
+                            self.set_current_page(CycleDir::Next, hub, context);
                         } else {
                             self.set_current_results_page(CycleDir::Next, hub);
                         }
@@ -1223,7 +1235,7 @@ impl View for Reader {
                 true
             },
             Event::Page(dir) => {
-                self.set_current_page(dir, hub);
+                self.set_current_page(dir, hub, context);
                 true
             },
             Event::GoTo(index) => {

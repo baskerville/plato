@@ -270,6 +270,7 @@ pub enum ViewId {
     MarginCropper,
     TopBottomBars,
     TableOfContents,
+    FinishedNotif,
     TakeScreenshotNotif,
     NoSearchResultsNotif,
     InvalidSearchQueryNotif,
