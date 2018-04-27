@@ -5,7 +5,7 @@ extern crate libc;
 use std::mem;
 
 pub const FZ_MAX_COLORS: usize = 32;
-pub const FZ_VERSION: &str = "1.12.0";
+pub const FZ_VERSION: &str = "1.13.0";
 
 pub const FZ_META_INFO_AUTHOR: &str = "info:Author";
 pub const FZ_META_INFO_TITLE: &str = "info:Title";

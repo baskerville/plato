@@ -1,0 +1,11 @@
+diff -ru a/Makefile.am b/Makefile.am
+--- a/Makefile.am	2018-04-26 14:46:02.170734178 +0200
++++ b/Makefile.am	2018-04-26 14:46:17.558417283 +0200
+@@ -1,6 +1,6 @@
+ ACLOCAL_AMFLAGS = -I config
+ 
+-SUBDIRS = libdjvu tools share
++SUBDIRS = libdjvu
+ 
+ if WANT_XMLTOOLS
+ SUBDIRS += xmltools

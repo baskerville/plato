@@ -1,3 +1,0 @@
-#! /bin/sh
-
-CFLAGS="-I${HOME}/deps/mupdf/include" CC=arm-linux-gnueabihf-gcc AR=arm-linux-gnueabihf-ar ./build

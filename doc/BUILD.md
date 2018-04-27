@@ -1,25 +1,58 @@
-# Setup
+## Preliminary
 
-The OS used on the *Kobo* devices is *Linaro 2011.07*.
+Install Ubuntu 12.04.5.
 
-In order to build for this OS / architecture you can, for example, install *Ubuntu LTS 12.04* (the *GLIBC* version must be old enough) in a VM and install the following package: `gcc-4.6-arm-linux-gnueabihf`.
+Install the required packages:
+```sh
+sudo apt-get install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+sudo apt-get install pkg-config libtool automake cmake ragel git curl wget zip unzip
+```
+
+Install *rustup*:
+```sh
+curl https://sh.rustup.rs -sSf | sh
+```
 
 Install the appropriate target:
 ```sh
 rustup target add arm-unknown-linux-gnueabihf
 ```
 
-Append this:
+Create *cargo*'s configuration file:
+```sh
+touch ~/.cargo/config
+```
+
+And append the following contents to it:
 ```toml
 [target.arm-unknown-linux-gnueabihf]
 linker = "arm-linux-gnueabihf-gcc"
 rustflags = ["-C", "target-feature=+v7,+vfp3,+a9,+neon"]
 ```
-to `~/.cargo/config`.
 
-The binary can then be generated with:
+## Build Phase
+
 ```sh
-cargo build --release --target=arm-unknown-linux-gnueabihf
+git clone https://github.com/baskerville/plato.git
+cd plato
 ```
 
-You can tell what features are supported by your device from the output of `cat /proc/cpuinfo`.
+### Fast Method
+
+```sh
+./build.sh fast
+```
+
+### Slow Method
+
+If you want to build the thirdparty dependencies (instead of using the prebuilt ones), you shall use this method:
+
+```sh
+./build.sh slow
+```
+
+## Distribution
+
+```sh
+./dist.sh
+```

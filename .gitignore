@@ -8,3 +8,6 @@
 /user.css
 /src/wrapper/*.so
 /src/wrapper/*.dylib
+/dist
+/thirdparty/*/*
+!/thirdparty/*/*kobo*

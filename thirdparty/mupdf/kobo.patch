@@ -1,10 +1,9 @@
-diff --git a/Makefile b/Makefile
-index 114a6eb..60b2804 100644
---- a/Makefile
-+++ b/Makefile
-@@ -347,8 +347,8 @@ $(MUPDF_LIB) : $(MUPDF_OBJ)
- $(THIRD_LIB) : $(THIRD_OBJ)
+diff -ru a/Makefile b/Makefile
+--- a/Makefile	2018-04-12 15:14:06.000000000 +0200
++++ b/Makefile	2018-04-26 17:28:57.393916084 +0200
+@@ -360,8 +360,8 @@
  $(THREAD_LIB) : $(THREAD_OBJ)
+ $(PKCS7_LIB) : $(PKCS7_OBJ)
  
 -INSTALL_LIBS := $(MUPDF_LIB) $(THIRD_LIB)
 -
@@ -13,7 +12,7 @@ index 114a6eb..60b2804 100644
  # --- Tools and Apps ---
  
  MUTOOL_EXE := $(OUT)/mutool
-@@ -502,7 +502,7 @@ cscope.files: $(shell find include source platform -name '*.[ch]')
+@@ -517,7 +517,7 @@
  cscope.out: cscope.files
  	cscope -b
  
@@ -22,11 +21,10 @@ index 114a6eb..60b2804 100644
  
  clean:
  	rm -rf $(OUT)
-diff --git a/Makerules b/Makerules
-index 5b475a9..d28b32a 100644
---- a/Makerules
-+++ b/Makerules
-@@ -155,6 +155,34 @@ endif
+diff -ru a/Makerules b/Makerules
+--- a/Makerules	2018-04-12 15:14:06.000000000 +0200
++++ b/Makerules	2018-04-26 17:09:23.140857713 +0200
+@@ -155,6 +155,34 @@
  #   2) do a non cross compile build (e.g. windows in MSVC) first.
  #   3) download the generated files from mupdf.com.
  
@@ -60,4 +58,25 @@ index 5b475a9..d28b32a 100644
 +
  ifeq "$(OS)" "beagle-cross"
  CC = arm-none-linux-gnueabi-gcc
- LD = arm-none-linux-gnueabi-gcc
+ CXX = arm-none-linux-gnueabi-g++
+diff -ru a/source/svg/svg-run.c b/source/svg/svg-run.c
+--- a/source/svg/svg-run.c	2018-04-12 15:14:06.000000000 +0200
++++ b/source/svg/svg-run.c	2018-04-27 11:40:50.101616658 +0200
+@@ -812,7 +812,6 @@
+ 	if (h_att) h = svg_parse_length(h_att, state->viewbox_h, state->fontsize);
+ 
+ 	/* TODO: new transform */
+-	fz_warn(ctx, "push viewport: %g %g %g %g", x, y, w, h);
+ 
+ 	state->viewport_w = w;
+ 	state->viewport_h = h;
+@@ -832,8 +831,7 @@
+ 	{
+ 		sscanf(viewbox_att, "%g %g %g %g", &min_x, &min_y, &box_w, &box_h);
+ 
+-		/* scale and translate to fit [x y w h] to [0 0 viewport.w viewport.h] */
+-		fz_warn(ctx, "push viewbox: %g %g %g %g", min_x, min_y, box_w, box_h);
++		/* TODO: scale and translate to fit [x y w h] to [0 0 viewport.w viewport.h] */
+ 	}
+ }
+ 
