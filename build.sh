@@ -4,13 +4,18 @@ set -e
 
 method=${*:-"fast"}
 
+[ -d libs ] && method=skip
+
 case "$method" in
 	fast)
 		version=0.4.0
+		archive="plato-${version}.zip"
 		info_url="https://github.com/baskerville/plato/releases/tag/${version}"
-		release_url=$(wget -q -O - "$info_url" | grep -Eo "https[^\"]+files[^\"]+plato-${version}.zip")
+		echo "Downloading ${archive}."
+		release_url=$(wget -q -O - "$info_url" | grep -Eo "https[^\"]+files[^\"]+${archive}")
 		wget -q "$release_url"
-		unzip "plato-${version}".zip 'libs/*'
+		unzip "$archive" 'libs/*'
+		rm "$archive"
 		cd libs
 		
 		ln -s libz.so.1 libz.so
@@ -35,7 +40,7 @@ case "$method" in
 		./build-kobo.sh
 		cd ../..
 
-		[ -d libs ] || mkdir libs
+		mkdir libs
 
 		cp thirdparty/zlib/libz.so libs
 		cp thirdparty/bzip2/libbz2.so libs
@@ -53,6 +58,8 @@ case "$method" in
 		cp src/wrapper/libmupdfwrapper.so libs
 		;;
 
+	skip)
+		;;
 	*)
 		printf "Unknown build method: %s.\n" "$method" 1>&2
 		exit 1
