@@ -1,11 +1,13 @@
 ## Preliminary
 
-Install Ubuntu 12.04.5.
+Install [Ubuntu 12.04.5](http://releases.ubuntu.com/12.04/).
 
 Install the required packages:
 ```sh
-sudo apt-get install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
-sudo apt-get install pkg-config libtool automake cmake ragel git curl wget zip unzip
+sudo apt-get upgrade
+sudo apt-get install curl git libtool {auto,c}make ragel
+sudo apt-get install {zlib1g,libjpeg8,libjbig2dec0}-dev
+sudo apt-get install g{cc,++}-arm-linux-gnueabihf
 ```
 
 Install *rustup*:
