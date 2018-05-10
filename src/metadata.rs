@@ -311,6 +311,7 @@ pub fn make_query(text: &str) -> Option<Regex> {
                    .replace('i', "[iíìîï]")
                    .replace('o', "[oóòôö]")
                    .replace('u', "[uúùûü]")
+                   .replace('c', "[cç]")
                    .replace("ae", "(ae|æ)")
                    .replace("oe", "(oe|œ)");
     Regex::new(&format!("(?i){}", text))
