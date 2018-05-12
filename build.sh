@@ -8,7 +8,7 @@ method=${*:-"fast"}
 
 case "$method" in
 	fast)
-		version=0.4.0
+		version=$(cargo pkgid | cut -d '#' -f 2)
 		archive="plato-${version}.zip"
 		info_url="https://github.com/baskerville/plato/releases/tag/${version}"
 		echo "Downloading ${archive}."
