@@ -7,7 +7,7 @@ use std::collections::VecDeque;
 use std::time::{Instant, Duration};
 use fnv::FnvHashMap;
 use chrono::Local;
-use framebuffer::{Framebuffer, KoboFramebuffer, UpdateMode};
+use framebuffer::{Framebuffer, KoboFramebuffer, RemarkableFramebuffer, UpdateMode};
 use view::{View, Event, EntryId, EntryKind, ViewId};
 use view::{render, render_no_wait, handle_event, fill_crack};
 use view::common::{locate, locate_by_id, overlapping_rectangle};
@@ -86,7 +86,8 @@ pub fn run() -> Result<()> {
                                                  &settings.import.allowed_kinds))
                              .unwrap_or_default();
 
-    let mut fb = KoboFramebuffer::new("/dev/fb0").chain_err(|| "Can't create framebuffer.")?;
+    let mut fb = RemarkableFramebuffer::new().chain_err(|| "Can't create framebuffer.")?;
+    // let mut fb = KoboFramebuffer::new("/dev/fb0").chain_err(|| "Can't create framebuffer.")?;
     let paths = vec!["/dev/input/event0".to_string(),
                      "/dev/input/event1".to_string()];
     let touch_screen = gesture_events(device_events(raw_events(paths), fb.dims()));
