@@ -19,7 +19,7 @@ use gesture::{GestureEvent, gesture_events, BUTTON_HOLD_DELAY};
 use helpers::{load_json, save_json};
 use metadata::{Metadata, METADATA_FILENAME, import};
 use settings::{Settings, SETTINGS_PATH};
-use frontlight::{Frontlight, NaturalFrontlight, StandardFrontlight};
+use frontlight::{Frontlight, FakeFrontlight, NaturalFrontlight, StandardFrontlight};
 use lightsensor::{LightSensor, KoboLightSensor};
 use battery::{Battery, KoboBattery};
 use view::home::Home;
@@ -136,7 +136,10 @@ pub fn run() -> Result<()> {
     }
 
     let levels = settings.frontlight_levels;
-    let mut frontlight = if CURRENT_DEVICE.has_natural_light() {
+    let mut frontlight =  if ! CURRENT_DEVICE.has_light() {
+        Box::new(FakeFrontlight::new()
+                           .chain_err(|| "Can't create fake frontlight.")?) as Box<Frontlight>
+    } else if CURRENT_DEVICE.has_natural_light() {
         Box::new(NaturalFrontlight::new(levels.intensity, levels.warmth)
                                    .chain_err(|| "Can't create natural frontlight.")?) as Box<Frontlight>
     } else {
@@ -152,7 +155,7 @@ pub fn run() -> Result<()> {
         frontlight.set_intensity(0.0);
     }
 
-    let battery = Box::new(KoboBattery::new().chain_err(|| "Can't create battery.")?) as Box<Battery>;
+    let battery = CURRENT_DEVICE.create_battery();
 
     let lightsensor = if CURRENT_DEVICE.has_lightsensor() {
         Box::new(KoboLightSensor::new().chain_err(|| "Can't create light sensor.")?) as Box<LightSensor>

@@ -18,6 +18,8 @@ path = "src/emulator.rs"
 required-features = ["emulator"]
 
 [dependencies]
+libremarkable = "0.1.26"
+
 bitflags = "1.0.3"
 downcast-rs = "1.0.1"
 error-chain = "0.11.0"

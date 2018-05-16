@@ -1,8 +1,10 @@
 mod standard;
 mod natural;
+mod fake;
 
 pub use self::standard::StandardFrontlight;
 pub use self::natural::NaturalFrontlight;
+pub use self::fake::FakeFrontlight;
 use geom::lerp;
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]

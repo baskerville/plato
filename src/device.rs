@@ -6,6 +6,11 @@ use std::collections::HashMap;
 use unit::scale_by_dpi;
 use input::TouchProto;
 
+use framebuffer::{Framebuffer, KoboFramebuffer, RemarkableFramebuffer};
+use battery::{Battery, KoboBattery, RemarkableBattery};
+use errors::*;
+
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
     AuraH2OEdition2,
@@ -19,6 +24,7 @@ pub enum Model {
     Mini,
     Glo,
     Touch,
+    Remarkable,
 }
 
 impl fmt::Display for Model {
@@ -35,6 +41,7 @@ impl fmt::Display for Model {
             Model::Mini            => write!(f, "Mini"),
             Model::Glo             => write!(f, "Glo"),
             Model::Touch           => write!(f, "Touch"),
+            Model::Remarkable      => write!(f, "Remarkable"),
         }
     }
 }
@@ -61,6 +68,13 @@ impl Default for Device {
 }
 
 impl Device {
+    pub fn has_light(&self) -> bool {
+        match self.model {
+            Model::Remarkable => false,
+            _ => true,
+        }
+    }
+
     pub fn has_natural_light(&self) -> bool {
         match self.model {
             Model::AuraONE | Model::AuraH2OEdition2 => true,
@@ -74,12 +88,34 @@ impl Device {
             _ => false,
         }
     }
+
+    pub fn create_battery(&self) -> Box<Battery> {
+        match self.model {
+            Model::Remarkable => Box::new(RemarkableBattery::new()) as Box<Battery>,
+            _ => Box::new(KoboBattery::new().chain_err(|| "Can't create battery.").unwrap()) as Box<Battery>,
+        }
+    }
+
+    pub fn create_framebuffer(&self) -> Box<Framebuffer> {
+        match self.model {
+            Model::Remarkable => Box::new(RemarkableFramebuffer::new().chain_err(|| "Can't create framebuffer.").unwrap()) as Box<Framebuffer>,
+            _ => Box::new(KoboFramebuffer::new("/dev/fb0").chain_err(|| "Can't create framebuffer.").unwrap()) as Box<Framebuffer>,
+        }
+    }
+
 }
 
 lazy_static! {
     pub static ref CURRENT_DEVICE: Device = {
         let product = env::var("PRODUCT").unwrap_or_default();
         match product.as_ref() {
+            "remarkable" => Device {
+                model: Model::Remarkable,
+                proto: TouchProto::Single,
+                mirrored_x: true,
+                dims: (758, 1024),
+                dpi: 212,
+            },
             "kraken" => Device {
                 model: Model::Glo,
                 proto: TouchProto::Single,

@@ -1,5 +1,6 @@
 mod mxcfb_sys;
 mod kobo;
+mod remarkable;
 mod image;
 
 use geom::{Point, Rectangle, surface_area, nearest_segment_point, lerp};
@@ -7,6 +8,7 @@ use geom::{CornerSpec, BorderSpec, ColorSource, Vec2};
 use errors::*;
 
 pub use self::kobo::KoboFramebuffer;
+pub use self::remarkable::RemarkableFramebuffer;
 pub use self::image::ImageFramebuffer;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
