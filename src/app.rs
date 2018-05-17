@@ -88,9 +88,7 @@ pub fn run() -> Result<()> {
 
     let mut fb = RemarkableFramebuffer::new().chain_err(|| "Can't create framebuffer.")?;
     // let mut fb = KoboFramebuffer::new("/dev/fb0").chain_err(|| "Can't create framebuffer.")?;
-    let paths = vec!["/dev/input/event0".to_string(),
-                     "/dev/input/event1".to_string()];
-    let touch_screen = gesture_events(device_events(raw_events(paths), fb.dims()));
+    let touch_screen = CURRENT_DEVICE.create_touchscreen(fb.dims());
     let usb_port = usb_events();
 
     let (tx, rx) = mpsc::channel();

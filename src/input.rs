@@ -72,6 +72,7 @@ pub enum TouchProto {
     Single,
     MultiA,
     MultiB,
+    MultiRemarkable,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -224,13 +225,15 @@ fn parse_usb_events(tx: &Sender<DeviceEvent>) {
     }
 }
 
-pub fn device_events(rx: Receiver<InputEvent>, dims: (u32, u32)) -> Receiver<DeviceEvent> {
+pub fn device_events(rx: Receiver<InputEvent>, dims: (u32, u32), touchscreen_dims: (u32, u32)) -> Receiver<DeviceEvent> {
     let (ty, ry) = mpsc::channel();
-    thread::spawn(move || parse_device_events(&rx, &ty, dims));
+    thread::spawn(move || parse_device_events(&rx, &ty, dims, touchscreen_dims));
     ry
 }
 
-pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, dims: (u32, u32)) {
+pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, dims: (u32, u32), touchscreen_dims: (u32, u32)) {
+    let (tc_width, tc_height) = touchscreen_dims;
+    let (scr_width, scr_height) = dims;
     let mut id = 0;
     let mut position = Point::default();
     let mut pressure = 0;
@@ -242,30 +245,39 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
         TouchProto::Single => SINGLE_TOUCH_CODES,
         TouchProto::MultiA => MULTI_TOUCH_CODES_A,
         TouchProto::MultiB => MULTI_TOUCH_CODES_B,
+        TouchProto::MultiRemarkable => MULTI_TOUCH_CODES_B,
     };
 
-    mem::swap(&mut tc.x, &mut tc.y);
+    if CURRENT_DEVICE.touchscreen_x_y_swapped {
+        mem::swap(&mut tc.x, &mut tc.y);
+    }
 
     while let Ok(evt) = rx.recv() {
         if evt.kind == EV_ABS {
             if evt.code == ABS_MT_TRACKING_ID {
                 id = evt.value;
-                if proto == TouchProto::MultiB {
+                if proto == TouchProto::MultiB || proto == TouchProto::MultiRemarkable {
                     packet_ids.insert(id);
                 }
             } else if evt.code == tc.x {
-                position.x = if CURRENT_DEVICE.mirrored_x {
-                    dims.0 as i32 - 1 - evt.value
+                let pos = if CURRENT_DEVICE.mirrored_x {
+                    tc_width as i32 - 1 - evt.value
                 } else {
                     evt.value
                 };
+                position.x = (pos as f32 / tc_width as f32 * scr_width as f32) as i32;
             } else if evt.code == tc.y {
-                position.y = evt.value;
+                let pos = if CURRENT_DEVICE.mirrored_y {
+                    tc_height as i32 - 1 - evt.value
+                } else {
+                    evt.value
+                };
+                position.y = (pos as f32 / tc_height as f32 * scr_height as f32) as i32;
             } else if evt.code == tc.pressure {
                 pressure = evt.value;
             }
         } else if evt.kind == EV_SYN {
-            if evt.code == SYN_MT_REPORT || (proto == TouchProto::Single && evt.code == SYN_REPORT) {
+            if evt.code == SYN_MT_REPORT || ((proto == TouchProto::Single || proto == TouchProto::MultiRemarkable) && evt.code == SYN_REPORT) {
                 if let Some(&p) = fingers.get(&id) {
                     if pressure > 0 {
                         if p != position {

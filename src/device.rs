@@ -5,11 +5,14 @@ use std::fmt;
 use std::collections::HashMap;
 use unit::scale_by_dpi;
 use input::TouchProto;
+use input::{raw_events, device_events, usb_events};
+use gesture::gesture_events;
+use view::Event;
 
 use framebuffer::{Framebuffer, KoboFramebuffer, RemarkableFramebuffer};
 use battery::{Battery, KoboBattery, RemarkableBattery};
 use errors::*;
-
+use std::sync::mpsc::Receiver;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
@@ -51,8 +54,10 @@ pub struct Device {
     pub model: Model,
     pub proto: TouchProto,
     pub mirrored_x: bool,
+    pub mirrored_y: bool,
     pub dims: (u32, u32),
     pub dpi: u16,
+    pub touchscreen_x_y_swapped: bool,
 }
 
 impl Default for Device {
@@ -61,6 +66,8 @@ impl Default for Device {
             model: Model::Touch,
             proto: TouchProto::Single,
             mirrored_x: true,
+            mirrored_y: false,
+            touchscreen_x_y_swapped: true,
             dims: (600, 800),
             dpi: 167,
         }
@@ -68,6 +75,7 @@ impl Default for Device {
 }
 
 impl Device {
+
     pub fn has_light(&self) -> bool {
         match self.model {
             Model::Remarkable => false,
@@ -96,6 +104,26 @@ impl Device {
         }
     }
 
+    pub fn create_touchscreen(&self, screen_size: (u32, u32)) -> Receiver<Event> {
+        return match self.model {
+            Model::Remarkable => {
+                let paths = vec!["/dev/input/event1".to_string()];
+                let touchscreen_size = (767, 1023);
+                let touch_screen = gesture_events(device_events(raw_events(paths), screen_size, touchscreen_size));
+                touch_screen
+            },
+            _ => {
+                let paths = vec!["/dev/input/event0".to_string(),
+                                 "/dev/input/event1".to_string()];
+                let touch_screen = gesture_events(device_events(raw_events(paths), screen_size, screen_size));
+                touch_screen
+            }
+        }
+
+
+
+    }
+
     pub fn create_framebuffer(&self) -> Box<Framebuffer> {
         match self.model {
             Model::Remarkable => Box::new(RemarkableFramebuffer::new().chain_err(|| "Can't create framebuffer.").unwrap()) as Box<Framebuffer>,
@@ -111,8 +139,10 @@ lazy_static! {
         match product.as_ref() {
             "remarkable" => Device {
                 model: Model::Remarkable,
-                proto: TouchProto::Single,
-                mirrored_x: false,
+                proto: TouchProto::MultiRemarkable,
+                mirrored_x: true,
+                mirrored_y: true,
+                touchscreen_x_y_swapped: false,
                 dims: (758, 1024),
                 dpi: 212,
             },
@@ -120,6 +150,8 @@ lazy_static! {
                 model: Model::Glo,
                 proto: TouchProto::Single,
                 mirrored_x: true,
+                mirrored_y: false,
+                touchscreen_x_y_swapped: true,
                 dims: (1872, 1404),
                 dpi: 212,
             },
@@ -127,6 +159,8 @@ lazy_static! {
                 model: Model::Mini,
                 proto: TouchProto::Single,
                 mirrored_x: true,
+                mirrored_y: false,
+                touchscreen_x_y_swapped: true,
                 dims: (600, 800),
                 dpi: 200,
             },
@@ -134,6 +168,8 @@ lazy_static! {
                 model: Model::AuraHD,
                 proto: TouchProto::Single,
                 mirrored_x: true,
+                mirrored_y: false,
+                touchscreen_x_y_swapped: true,
                 dims: (1080, 1440),
                 dpi: 265,
             },
@@ -141,6 +177,8 @@ lazy_static! {
                 model: Model::Aura,
                 proto: TouchProto::MultiA,
                 mirrored_x: true,
+                mirrored_y: false,
+                touchscreen_x_y_swapped: true,
                 dims: (758, 1024),
                 dpi: 212,
             },
@@ -148,6 +186,8 @@ lazy_static! {
                 model: Model::AuraH2O,
                 proto: TouchProto::MultiA,
                 mirrored_x: true,
+                mirrored_y: false,
+                touchscreen_x_y_swapped: true,
                 dims: (1080, 1440),
                 dpi: 265,
             },
@@ -155,6 +195,8 @@ lazy_static! {
                 model: Model::GloHD,
                 proto: TouchProto::MultiA,
                 mirrored_x: true,
+                mirrored_y: false,
+                touchscreen_x_y_swapped: true,
                 dims: (1072, 1448),
                 dpi: 300,
             },
@@ -162,6 +204,8 @@ lazy_static! {
                 model: Model::Touch2,
                 proto: TouchProto::MultiA,
                 mirrored_x: true,
+                mirrored_y: false,
+                touchscreen_x_y_swapped: true,
                 dims: (600, 800),
                 dpi: 167,
             },
@@ -169,6 +213,8 @@ lazy_static! {
                 model: Model::AuraONE,
                 proto: TouchProto::MultiA,
                 mirrored_x: true,
+                mirrored_y: false,
+                touchscreen_x_y_swapped: true,
                 dims: (1404, 1872),
                 dpi: 300,
             },
@@ -176,6 +222,8 @@ lazy_static! {
                 model: Model::AuraEdition2,
                 proto: TouchProto::MultiA,
                 mirrored_x: true,
+                mirrored_y: false,
+                touchscreen_x_y_swapped: true,
                 dims: (758, 1024),
                 dpi: 212,
             },
@@ -183,6 +231,8 @@ lazy_static! {
                 model: Model::AuraH2OEdition2,
                 proto: TouchProto::MultiB,
                 mirrored_x: false,
+                mirrored_y: false,
+                touchscreen_x_y_swapped: true,
                 dims: (1080, 1440),
                 dpi: 265,
             },
