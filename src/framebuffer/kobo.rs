@@ -125,7 +125,7 @@ impl Framebuffer for KoboFramebuffer {
     }
 
     // Wait for a specific update to complete
-    fn wait(&self, token: u32) -> Result<i32> {
+    fn wait(&mut self, token: u32) -> Result<i32> {
         let result = unsafe {
             libc::ioctl(self.device.as_raw_fd(), MXCFB_WAIT_FOR_UPDATE_COMPLETE, &token)
         };

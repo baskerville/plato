@@ -112,7 +112,7 @@ lazy_static! {
             "remarkable" => Device {
                 model: Model::Remarkable,
                 proto: TouchProto::Single,
-                mirrored_x: true,
+                mirrored_x: false,
                 dims: (758, 1024),
                 dpi: 212,
             },
@@ -120,7 +120,7 @@ lazy_static! {
                 model: Model::Glo,
                 proto: TouchProto::Single,
                 mirrored_x: true,
-                dims: (758, 1024),
+                dims: (1872, 1404),
                 dpi: 212,
             },
             "pixie" => Device {
