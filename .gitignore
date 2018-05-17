@@ -12,3 +12,6 @@
 /thirdparty/*/*
 !/thirdparty/*/*kobo*
 .docker_cargo_cache
+plato\.iml
+
+\.idea/
