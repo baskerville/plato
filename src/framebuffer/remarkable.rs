@@ -56,7 +56,7 @@ pub struct RemarkableFramebuffer<'a>  {
 impl<'a> Framebuffer for RemarkableFramebuffer<'a> {
     fn set_pixel(&mut self, x: u32, y: u32, color: u8) {
 //        print!("-set_pixel {} {} {}\n", x, y, color);
-        self.fb.write_pixel(y as usize, x as usize, color::GRAY(color));
+        self.fb.write_pixel(y as usize, x as usize, color::NATIVE_COMPONENTS(color,color,color,color));
     }
 
     fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32) {
@@ -71,9 +71,10 @@ impl<'a> Framebuffer for RemarkableFramebuffer<'a> {
         let r = src_alpha + (1.0 - alpha) * dst_r as f32;
         let g = src_alpha + (1.0 - alpha) * dst_g as f32;
         let b = src_alpha + (1.0 - alpha) * dst_b as f32;
+        let a = (r+g+b)/3.0;
         //we ignoring alpha of pixel read
-        print!("setting blended color: dst: {} {} {}  src: {}   res: {} {} {} \n" , dst_r, dst_g, dst_b, src_alpha, r, g, b);
-        self.fb.write_pixel(y as usize, x as usize, color::RGB(r as u8, b as u8, g as u8));
+//        print!("setting blended color: dst: {} {} {}  src: {}   res: {} {} {} {} \n" , dst_r, dst_g, dst_b, src_alpha, r, g, b, a);
+        self.fb.write_pixel(y as usize, x as usize, color::NATIVE_COMPONENTS(r as u8, b as u8, g as u8, a as u8));
     }
 
 
@@ -87,49 +88,32 @@ impl<'a> Framebuffer for RemarkableFramebuffer<'a> {
             width: rect.width(),
             height: rect.height()
         };
-        return match mode {
-            Gui => {
-                print!("update GUI\n");
-                Ok(self.fb.partial_refresh(
-                    &rmRect,
-                    PartialRefreshMode::Async,
-                    waveform_mode::WAVEFORM_MODE_DU,
-                    display_temp::TEMP_USE_REMARKABLE_DRAW,
-                    dither_mode::EPDC_FLAG_EXP1,
-                    DRAWING_QUANT_BIT,
-                    false,
-                ))
-            },
-            Partial => {
-                print!("update Partial\n");
 
-                Ok(self.fb.partial_refresh(
-                    &rmRect,
-                    PartialRefreshMode::Async,
-                    waveform_mode::WAVEFORM_MODE_DU,
-                    display_temp::TEMP_USE_REMARKABLE_DRAW,
-                    dither_mode::EPDC_FLAG_EXP1,
-                    DRAWING_QUANT_BIT,
-                    false,
-                    ))
-            },
-            Full => {
-                print!("update Full\n");
-                Ok(self.fb.full_refresh(
-                    waveform_mode::WAVEFORM_MODE_DU,
-                    display_temp::TEMP_USE_REMARKABLE_DRAW,
-                    dither_mode::EPDC_FLAG_EXP1,
-                    DRAWING_QUANT_BIT,
+        let (is_partial, waveform_mode) = match mode {
+            UpdateMode::Gui |
+            UpdateMode::Partial  => (true, waveform_mode::WAVEFORM_MODE_AUTO),
+            UpdateMode::Full     => (false, waveform_mode::WAVEFORM_MODE_GC16),
+            UpdateMode::Fast |
+            UpdateMode::FastMono => (true, waveform_mode::WAVEFORM_MODE_GLR16),
+        };
+
+        return if is_partial {
+            Ok(self.fb.partial_refresh(
+                &rmRect,
+                PartialRefreshMode::Async,
+                waveform_mode::WAVEFORM_MODE_DU,
+                display_temp::TEMP_USE_REMARKABLE_DRAW,
+                dither_mode::EPDC_FLAG_USE_DITHERING_PASSTHROUGH,
+                0,
+                false,
+            ))
+        } else {
+            Ok(self.fb.full_refresh(
+                waveform_mode::WAVEFORM_MODE_DU,
+                display_temp::TEMP_USE_REMARKABLE_DRAW,
+                dither_mode::EPDC_FLAG_USE_DITHERING_PASSTHROUGH,
+                0,
                 false))
-            },
-            Fast => {
-                print!("update Fast\n");
-                Ok(0)
-            },
-            FastMono => {
-                print!("update FastMono\n");
-                Ok(0)
-            },
         };
     }
     fn wait(&mut self, token: u32) -> Result<i32> {
@@ -149,17 +133,19 @@ impl<'a> Framebuffer for RemarkableFramebuffer<'a> {
         print!("toggle_monochrome");
     }
 
-
-    fn dims(&self) -> (u32, u32) {
-        (self.fb.var_screen_info.xres_virtual, self.fb.var_screen_info.yres_virtual)
+    fn width(&self) -> u32 {
+        self.fb.var_screen_info.xres
     }
+
+    fn height(&self) -> u32 {
+        self.fb.var_screen_info.yres
+    }
+
 }
 
 impl<'a> RemarkableFramebuffer <'a> {
     pub fn new()  -> Result<RemarkableFramebuffer<'static>>  {
         let framebuffer = remarkable_fb::core::Framebuffer::new("/dev/fb0");
-        // let yres = framebuffer.var_screen_info.yres;
-        // let xres = framebuffer.var_screen_info.xres;
         Ok(RemarkableFramebuffer {
              fb: framebuffer
         })
