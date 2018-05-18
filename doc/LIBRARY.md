@@ -5,7 +5,7 @@ Install the required libraries: *mupdf* and *djvulibre*.
 Then build the *mupdf* wrapper in `src/wrapper`:
 
 ```
-CFLAGS='-I/path/to/mupdf/include' LDFLAGS='-lmupdf' ./build
+CFLAGS='-I/path/to/mupdf/include' LDFLAGS='-lmupdf' ./build.sh
 ```
 
 And put the generated library in `libs`.
@@ -14,7 +14,7 @@ And put the generated library in `libs`.
 
 The following tools will be used in the examples: [jq](https://stedolan.github.io/jq/), [rsync](https://rsync.samba.org/) and [stest](https://git.suckless.org/dmenu/tree/stest.c).
 
-First build the importer with `cargo build --release --bin plato-import --features importer`. (The resulting binary is in `./target/release`.)
+First install the importer with `cargo install --bin plato-import --features importer`.
 
 Then, create an empty database with `plato-import -Z LIBRARY_PATH`.
 
