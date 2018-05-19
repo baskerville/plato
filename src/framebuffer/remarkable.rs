@@ -31,28 +31,6 @@ pub struct RemarkableFramebuffer<'a>  {
 
 
 
-
-// pub trait FramebufferIO {
-//     fn write_frame(&mut self, frame: &[u8]);
-//     fn write_pixel(&mut self, y: usize, x: usize, v: u8);
-//     fn read_pixel(&mut self, y: usize, x: usize) -> u8;
-//     fn read_offset(&mut self, ofst: isize) -> u8;
-// }
-
-//    fn wait_refresh_complete(&mut self, marker: u32);
-//     fn refresh(
-    //     &mut self,
-    //     region: &mxc_types::mxcfb_rect,
-    //     update_mode: mxc_types::update_mode,
-    //     waveform_mode: mxc_types::waveform_mode,
-    //     temperature: mxc_types::display_temp,
-    //     dither_mode: mxc_types::dither_mode,
-    //     quant_bit: i32,
-    //     flags: u32,
-    // ) -> u32;
-
-
-
 impl<'a> Framebuffer for RemarkableFramebuffer<'a> {
     fn set_pixel(&mut self, x: u32, y: u32, color: u8) {
 //        print!("-set_pixel {} {} {}\n", x, y, color);
@@ -78,9 +56,12 @@ impl<'a> Framebuffer for RemarkableFramebuffer<'a> {
     }
 
 
-    fn invert_region(&mut self, rect: &Rectangle) {}
+    fn invert_region(&mut self, rect: &Rectangle) {
+        println!("invert_region");
+    }
+
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32> {
-        // print!("update {} {}", rect, mode);
+        println!("update (mode {:?})",  mode);
 
         let rmRect = mxcfb_rect {
             top: rect.min.y as u32,
@@ -89,48 +70,50 @@ impl<'a> Framebuffer for RemarkableFramebuffer<'a> {
             height: rect.height()
         };
 
-        let (is_partial, waveform_mode) = match mode {
+        let (is_partial, waveform_mode, temperature) = match mode {
             UpdateMode::Gui |
-            UpdateMode::Partial  => (true, waveform_mode::WAVEFORM_MODE_AUTO),
-            UpdateMode::Full     => (false, waveform_mode::WAVEFORM_MODE_GC16),
+            UpdateMode::Partial  => (true,   waveform_mode::WAVEFORM_MODE_GC16_FAST,    display_temp::TEMP_USE_REMARKABLE_DRAW),
+            UpdateMode::Full     => (false,  waveform_mode::WAVEFORM_MODE_GC16_FAST,    display_temp::TEMP_USE_REMARKABLE_DRAW),
             UpdateMode::Fast |
-            UpdateMode::FastMono => (true, waveform_mode::WAVEFORM_MODE_GLR16),
+            UpdateMode::FastMono => (true,   waveform_mode::WAVEFORM_MODE_GC16_FAST,    display_temp::TEMP_USE_REMARKABLE_DRAW),
         };
 
-        return if is_partial {
-            Ok(self.fb.partial_refresh(
+        let token = if is_partial {
+            self.fb.partial_refresh(
                 &rmRect,
                 PartialRefreshMode::Async,
-                waveform_mode::WAVEFORM_MODE_DU,
-                display_temp::TEMP_USE_REMARKABLE_DRAW,
+                waveform_mode,
+                temperature,
                 dither_mode::EPDC_FLAG_USE_DITHERING_PASSTHROUGH,
                 0,
                 false,
-            ))
+            )
         } else {
-            Ok(self.fb.full_refresh(
-                waveform_mode::WAVEFORM_MODE_DU,
-                display_temp::TEMP_USE_REMARKABLE_DRAW,
+            self.fb.full_refresh(
+                waveform_mode,
+                temperature,
                 dither_mode::EPDC_FLAG_USE_DITHERING_PASSTHROUGH,
                 0,
-                false))
+                false)
         };
+        println!("update completed -> {}", token);
+        Ok(token)
     }
     fn wait(&mut self, token: u32) -> Result<i32> {
-        print!("wait {}\n", token);
+        println!("wait token {}\n", token);
         let res = self.fb.wait_refresh_complete(token) as i32;
+        println!("wait completed -> {}\n", res);
         Ok(res)
     }
     fn save(&self, path: &str) -> Result<()> {
-        print!("save {}", path);
-
+        println!("save {}", path);
         Ok(())
     }
     fn toggle_inverted(&mut self) {
-        print!("toggle_inverted");
+        println!("toggle_inverted");
     }
     fn toggle_monochrome(&mut self) {
-        print!("toggle_monochrome");
+        println!("toggle_monochrome");
     }
 
     fn width(&self) -> u32 {
