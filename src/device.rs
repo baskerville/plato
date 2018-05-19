@@ -99,8 +99,8 @@ impl Device {
 
     pub fn create_battery(&self) -> Box<Battery> {
         match self.model {
-            Model::Remarkable => Box::new(RemarkableBattery::new()) as Box<Battery>,
-            _ => Box::new(KoboBattery::new().chain_err(|| "Can't create battery.").unwrap()) as Box<Battery>,
+            Model::Remarkable  => Box::new(RemarkableBattery::new().chain_err(|| "Can't create battery.").unwrap()) as Box<Battery>,
+            _                  => Box::new(KoboBattery::new().chain_err(|| "Can't create battery.").unwrap()) as Box<Battery>,
         }
     }
 
