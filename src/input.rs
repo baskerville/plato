@@ -261,7 +261,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
     }
 
     while let Ok(evt) = rx.recv() {
-        println!("{:.6} {} {} {}", seconds(evt.time), evt.kind, evt.code, evt.value);
+//        println!("{:.6} {} {} {}", seconds(evt.time), evt.kind, evt.code, evt.value);
 
         if evt.kind == EV_ABS {
             if evt.code == ABS_MT_TRACKING_ID {
@@ -337,6 +337,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                     ty.send(DeviceEvent::CoverOff).unwrap();
                 }
             } else {
+                println!("BUTTON PRESSED: CODE {}", evt.code);
                 ty.send(DeviceEvent::Button {
                     time: seconds(evt.time),
                     code: ButtonCode::from_raw(evt.code),

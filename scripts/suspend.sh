@@ -5,7 +5,7 @@
 sleep 15
 
 # De-activate the touch screen.
-echo 1 > /sys/power/state-extended
+[[ -f /sys/power/state-extended ]] && echo 1 > /sys/power/state-extended
 
 # Prevent the following error on the last line:
 # *write error: Operation not permitted*.
