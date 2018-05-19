@@ -1,24 +1,10 @@
 //#![feature(remarkable)]
 extern crate libremarkable;
 use self::libremarkable::framebuffer as remarkable_fb;
-use self::libremarkable::framebuffer::{FramebufferIO, FramebufferDraw, FramebufferRefresh, FramebufferBase};
-// use libremarkable::fb as remarkable_fb;
-// use libremarkable::fbdraw::FramebufferDraw;
-// use libremarkable::mxc_types::{VarScreeninfo,FixScreeninfo};
+use self::libremarkable::framebuffer::{FramebufferIO, FramebufferRefresh, FramebufferBase};
 
-use std::ptr;
-use std::path::Path;
-use std::io;
-use std::fs::{OpenOptions, File};
-use std::slice;
-use std::borrow::Cow;
-use std::os::unix::io::AsRawFd;
-use std::ops::Drop;
-use libc::ioctl;
-use png::HasParameters;
 use geom::Rectangle;
 use framebuffer::{UpdateMode, Framebuffer};
-use framebuffer::mxcfb_sys::*;
 use errors::*;
 
 use self::libremarkable::framebuffer::common::*;
@@ -63,7 +49,7 @@ impl<'a> Framebuffer for RemarkableFramebuffer<'a> {
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32> {
 //        println!("update (mode {:?})",  mode);
 
-        let rmRect = mxcfb_rect {
+        let rm_mxcfb_rect = mxcfb_rect {
             top: rect.min.y as u32,
             left: rect.min.x as u32,
             width: rect.width(),
@@ -80,7 +66,7 @@ impl<'a> Framebuffer for RemarkableFramebuffer<'a> {
 
         let token = if is_partial {
             self.fb.partial_refresh(
-                &rmRect,
+                &rm_mxcfb_rect,
                 PartialRefreshMode::Async,
                 waveform_mode,
                 temperature,

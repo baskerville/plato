@@ -245,6 +245,7 @@ struct TouchState {
     position: Point,
     pressure: i32,
     status: FingerStatus,
+    track_id: i32,
 }
 
 impl Default for TouchState {
@@ -253,6 +254,7 @@ impl Default for TouchState {
             pressure: 0,
             position: Point::default(),
             status: FingerStatus::Down,
+            track_id: 0,
         }
     }
 }
@@ -262,6 +264,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
     let (scr_width, scr_height) = dims;
     let mut slot = 0;
     let mut fingers: FnvHashMap<i32, TouchState> = FnvHashMap::default();
+
     let proto = CURRENT_DEVICE.proto;
 
     let mut tc = match proto {
@@ -280,13 +283,15 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
 
         if evt.kind == EV_ABS {
             if evt.code == ABS_MT_SLOT {
+//                println!("ABS_MT_SLOT {}", evt.value);
+
                 slot = evt.value;
                 if fingers.contains_key(&slot) {
 //                    println!("Finger moves: {}", slot);
                     fingers.get_mut(&slot).unwrap().status = FingerStatus::Motion;
                 } else {
                     fingers.insert(slot, TouchState::default());
-                    println!("Finger added: {}", slot);
+//                    println!("Finger added: {}", slot);
                 }
             } else if evt.code == tc.x {
                 if let Some(ts) = fingers.get_mut(&slot) {
@@ -318,22 +323,13 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                     ts.status = FingerStatus::Up;
                 }
             } else if evt.code == ABS_MT_TRACKING_ID {
-                //we need to reset previous slot
-                if fingers.contains_key(&slot) {
-                    if fingers.get_mut(&slot).unwrap().status == FingerStatus::Down {
-                        fingers.get_mut(&slot).unwrap().status = FingerStatus::Motion;
-                    }
-                }
-                slot = 0;
-                if fingers.contains_key(&slot) {
-//                    println!("Finger moves: {}", slot);
-                    fingers.get_mut(&slot).unwrap().status = FingerStatus::Motion;
-                } else {
+                if slot == 0 {
                     fingers.insert(slot, TouchState::default());
-                    println!("Finger added: {} (Trackingid)", slot);
                 }
+                fingers.get_mut(&slot).unwrap().track_id = evt.value;
+
             } else {
-                println!("UNKNOWN EV_ABS CODE: {} {}", evt.code, evt.value);
+//                println!("UNKNOWN EV_ABS CODE: {} {}", evt.code, evt.value);
             }
         } else if evt.kind == EV_SYN && evt.code == SYN_REPORT {
 //            println!("Finger reporting: #{}", fingers.len());
@@ -348,6 +344,13 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 }).unwrap();
                 ts.status != FingerStatus::Up
             });
+            //once we reported down, for one finger, next reports should be up
+            //Remarkable doesnt generate move event for one finger
+            if fingers.contains_key(&0) {
+                if fingers.get_mut(&0).unwrap().status == FingerStatus::Down {
+                    fingers.get_mut(&0).unwrap().status = FingerStatus::Motion
+                }
+            }
         } else if evt.kind == EV_KEY {
             if evt.code == SLEEP_COVER {
                 if evt.value == 1 {

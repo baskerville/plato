@@ -5,7 +5,7 @@ use std::fmt;
 use std::collections::HashMap;
 use unit::scale_by_dpi;
 use input::TouchProto;
-use input::{raw_events, device_events, usb_events};
+use input::{raw_events, device_events};
 use gesture::gesture_events;
 use view::Event;
 
