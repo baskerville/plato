@@ -61,7 +61,7 @@ impl<'a> Framebuffer for RemarkableFramebuffer<'a> {
     }
 
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32> {
-        println!("update (mode {:?})",  mode);
+//        println!("update (mode {:?})",  mode);
 
         let rmRect = mxcfb_rect {
             top: rect.min.y as u32,
@@ -96,17 +96,17 @@ impl<'a> Framebuffer for RemarkableFramebuffer<'a> {
                 0,
                 false)
         };
-        println!("update completed -> {}", token);
+//        println!("update completed -> {}", token);
         Ok(token)
     }
     fn wait(&mut self, token: u32) -> Result<i32> {
-        println!("wait token {}\n", token);
+//        println!("wait token {}", token);
         let res = self.fb.wait_refresh_complete(token) as i32;
-        println!("wait completed -> {}\n", res);
+//        println!("wait completed -> {}\n", res);
         Ok(res)
     }
     fn save(&self, path: &str) -> Result<()> {
-        println!("save {}", path);
+//        println!("save {}", path);
         Ok(())
     }
     fn toggle_inverted(&mut self) {

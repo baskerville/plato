@@ -21,7 +21,7 @@ use metadata::{Metadata, METADATA_FILENAME, import};
 use settings::{Settings, SETTINGS_PATH};
 use frontlight::{Frontlight, FakeFrontlight, NaturalFrontlight, StandardFrontlight};
 use lightsensor::{LightSensor, KoboLightSensor};
-use battery::{Battery, KoboBattery};
+use battery::Battery;
 use view::home::Home;
 use view::reader::Reader;
 use view::confirmation::Confirmation;
