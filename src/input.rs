@@ -32,6 +32,8 @@ pub const SYN_REPORT: u16 = 0;
 
 pub const KEY_POWER: u16 = 116;
 pub const KEY_HOME: u16 = 102;
+pub const KEY_LEFT: u16 = 105;
+pub const KEY_RIGHT: u16 = 106;
 pub const SLEEP_COVER: u16 = 59;
 
 pub const SINGLE_TOUCH_CODES: TouchCodes = TouchCodes {
@@ -92,6 +94,8 @@ pub enum ButtonStatus {
 pub enum ButtonCode {
     Power,
     Home,
+    Left,
+    Right,
     Raw(u16),
 }
 
@@ -101,6 +105,10 @@ impl ButtonCode {
             ButtonCode::Power
         } else if code == KEY_HOME {
             ButtonCode::Home
+        } else if code == KEY_LEFT {
+            ButtonCode::Left
+        } else if code == KEY_RIGHT {
+            ButtonCode::Right
         } else {
             ButtonCode::Raw(code)
         }
@@ -253,6 +261,8 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
     }
 
     while let Ok(evt) = rx.recv() {
+        println!("{:.6} {} {} {}", seconds(evt.time), evt.kind, evt.code, evt.value);
+
         if evt.kind == EV_ABS {
             if evt.code == ABS_MT_TRACKING_ID {
                 id = evt.value;

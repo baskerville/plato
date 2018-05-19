@@ -107,14 +107,15 @@ impl Device {
     pub fn create_touchscreen(&self, screen_size: (u32, u32)) -> Receiver<Event> {
         return match self.model {
             Model::Remarkable => {
-                let paths = vec!["/dev/input/event1".to_string()];
+                let paths = vec!["/dev/input/event1".to_string(), //this is touchscreen
+                                            "/dev/input/event2".to_string()]; //this is buttons
                 let touchscreen_size = (767, 1023);
                 let touch_screen = gesture_events(device_events(raw_events(paths), screen_size, touchscreen_size));
                 touch_screen
             },
             _ => {
                 let paths = vec!["/dev/input/event0".to_string(),
-                                 "/dev/input/event1".to_string()];
+                                            "/dev/input/event1".to_string()];
                 let touch_screen = gesture_events(device_events(raw_events(paths), screen_size, screen_size));
                 touch_screen
             }
