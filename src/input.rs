@@ -326,8 +326,9 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 if slot == 0 {
                     fingers.insert(slot, TouchState::default());
                 }
-                fingers.get_mut(&slot).unwrap().track_id = evt.value;
-
+                if fingers.contains_key(&slot) {
+                    fingers.get_mut(&slot).unwrap().track_id = evt.value;
+                }
             } else {
 //                println!("UNKNOWN EV_ABS CODE: {} {}", evt.code, evt.value);
             }
@@ -342,15 +343,12 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                     status: ts.status,
                     position: ts.position,
                 }).unwrap();
+                //once we reported down, for one finger, next reports should be up
+                if ts.status == FingerStatus::Down {
+                   ts.status = FingerStatus::Motion;
+                }
                 ts.status != FingerStatus::Up
             });
-            //once we reported down, for one finger, next reports should be up
-            //Remarkable doesnt generate move event for one finger
-            if fingers.contains_key(&0) {
-                if fingers.get_mut(&0).unwrap().status == FingerStatus::Down {
-                    fingers.get_mut(&0).unwrap().status = FingerStatus::Motion
-                }
-            }
         } else if evt.kind == EV_KEY {
             if evt.code == SLEEP_COVER {
                 if evt.value == 1 {
