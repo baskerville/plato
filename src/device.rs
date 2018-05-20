@@ -147,7 +147,7 @@ lazy_static! {
                 model: Model::Glo,
                 proto: TouchProto::Single,
                 mirrored_x: true,
-                dims: (1872, 1404),
+                dims: (758, 1024),
                 dpi: 212,
             },
             "pixie" => Device {

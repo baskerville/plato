@@ -12,8 +12,8 @@ case "$method" in
 		archive="plato-${version}.zip"
 		info_url="https://github.com/baskerville/plato/releases/tag/${version}"
 		echo "Downloading ${archive}."
-		# release_url=$(wget -q -O - "$info_url" | grep -Eo "https[^\"]+files[^\"]+${archive}")
-		wget -q "https://github.com/baskerville/plato/archive/0.4.0.zip"
+		release_url=$(wget -q -O - "$info_url" | grep -Eo "https[^\"]+files[^\"]+${archive}")
+		wget -q "$release_url"
 		unzip "$archive" 'libs/*'
 		rm "$archive"
 		cd libs
