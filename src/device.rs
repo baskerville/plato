@@ -135,7 +135,7 @@ impl Device {
 
             },
             _ => {
-                
+
             },
         }
     }
@@ -152,29 +152,7 @@ lazy_static! {
                 proto: TouchProto::MultiB,
                 mirrored_x: true,
                 dims: (1404, 1872),
-                dpi: 300, //todo fixme actual 226, but it crashes weirdly without stacktrace:
-//thread 'main' panicked at 'called `Option::unwrap()` on a `None` value', libcore/option.rs:335:21
-//Error: could not get list of modules: No such file or directory
-//stack backtrace:
-//   0: <unknown>
-//   1: <unknown>
-//   2: <unknown>
-//   3: <unknown>
-//   4: <unknown>
-//   5: <unknown>
-//   6: <unknown>
-//   7: <unknown>
-//   8: <unknown>
-//   9: <unknown>
-//  10: <unknown>
-//  11: <unknown>
-//  12: <unknown>
-//  13: <unknown>
-//  14: <unknown>
-//  15: <unknown>
-//  16: main
-//  17: __libc_start_main
-
+                dpi: 226,
             },
             "kraken" => Device {
                 model: Model::Glo,
@@ -258,6 +236,7 @@ lazy_static! {
 // SMALL_HEIGHT / DPI * 2.54 is as close as possible to 1 cm
 pub static ref BAR_SIZES: HashMap<(u32, u16), (u32, u32)> =
     [((1872, 300), (126, 166)),
+     ((1872, 226), (91, 123)),
      ((1448, 300), (121, 155)),
      ((1440, 265), (104, 141)),
      ((1024, 212), ( 87, 109)),
