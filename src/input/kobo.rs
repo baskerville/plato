@@ -6,6 +6,8 @@ use std::mem;
 use input::*;
 use std::sync::mpsc::{self, Sender, Receiver};
 
+pub const SLEEP_COVER: u16 = 59;
+
 
 pub fn kobo_parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, dims: (u32, u32)) {
     let mut id = 0;

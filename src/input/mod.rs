@@ -41,7 +41,6 @@ pub const KEY_POWER: u16 = 116;
 pub const KEY_HOME: u16 = 102;
 pub const KEY_LEFT: u16 = 105;
 pub const KEY_RIGHT: u16 = 106;
-pub const SLEEP_COVER: u16 = 59;
 
 pub const SINGLE_TOUCH_CODES: TouchCodes = TouchCodes {
     pressure: ABS_PRESSURE,
