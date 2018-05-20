@@ -129,6 +129,18 @@ impl Device {
         }
     }
 
+    pub fn suspend(&self) {
+        match self.model {
+            Model::Remarkable => {
+
+            },
+            _ => {
+                
+            },
+        }
+    }
+
+
 }
 
 lazy_static! {

@@ -288,6 +288,7 @@ pub fn run() -> Result<()> {
                             .status()
                             .ok();
                 }
+                CURRENT_DEVICE.suspend();
                 println!("{}", Local::now().format("Went to sleep on %B %d, %Y at %H:%M."));
                 Command::new("scripts/suspend.sh")
                         .status()
