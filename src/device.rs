@@ -1,5 +1,4 @@
 extern crate libc;
-
 use std::env;
 use std::fmt;
 use std::collections::HashMap;
@@ -140,8 +139,30 @@ lazy_static! {
                 model: Model::Remarkable,
                 proto: TouchProto::MultiB,
                 mirrored_x: true,
-                dims: (758, 1024),
-                dpi: 212,
+                dims: (1404, 1872),
+                dpi: 300, //todo fixme actual 226, but it crashes weirdly without stacktrace:
+//thread 'main' panicked at 'called `Option::unwrap()` on a `None` value', libcore/option.rs:335:21
+//Error: could not get list of modules: No such file or directory
+//stack backtrace:
+//   0: <unknown>
+//   1: <unknown>
+//   2: <unknown>
+//   3: <unknown>
+//   4: <unknown>
+//   5: <unknown>
+//   6: <unknown>
+//   7: <unknown>
+//   8: <unknown>
+//   9: <unknown>
+//  10: <unknown>
+//  11: <unknown>
+//  12: <unknown>
+//  13: <unknown>
+//  14: <unknown>
+//  15: <unknown>
+//  16: main
+//  17: __libc_start_main
+
             },
             "kraken" => Device {
                 model: Model::Glo,

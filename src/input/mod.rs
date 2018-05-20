@@ -238,6 +238,8 @@ fn parse_usb_events(tx: &Sender<DeviceEvent>) {
     }
 }
 
+
+
 pub fn device_events(rx: Receiver<InputEvent>, dims: (u32, u32)) -> Receiver<DeviceEvent> {
     let (ty, ry) = mpsc::channel();
     thread::spawn(move || CURRENT_DEVICE.parse_device_events(&rx, &ty, dims));

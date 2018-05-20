@@ -5,7 +5,8 @@ use geom::Point;
 use std::mem;
 use input::*;
 use std::sync::mpsc::{self, Sender, Receiver};
-
+extern crate libremarkable;
+use self::libremarkable::framebuffer::common::{MTWIDTH, MTHEIGHT};
 
 struct TouchState {
     position: Point,
@@ -27,9 +28,6 @@ impl Default for TouchState {
 
 
 pub fn remarkable_parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, dims: (u32, u32)) {
-    static touchscreen_dims: (u32, u32) = (767, 1023);
-
-    let (tc_width, tc_height) = touchscreen_dims;
     let (scr_width, scr_height) = dims;
     let mut slot = 0;
     let mut fingers: FnvHashMap<i32, TouchState> = FnvHashMap::default();
@@ -55,13 +53,13 @@ pub fn remarkable_parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<Dev
                 }
             } else if evt.code == tc.x {
                 if let Some(ts) = fingers.get_mut(&slot) {
-                    let pos = tc_width as i32 - 1 - evt.value;
-                    ts.position.x = (pos as f32 / tc_width as f32 * scr_width as f32) as i32;
+                    let pos = MTWIDTH as i32 - 1 - evt.value;
+                    ts.position.x = (pos as f32 / MTWIDTH as f32 * scr_width as f32) as i32;
                 }
             } else if evt.code == tc.y {
                 if let Some(ts) = fingers.get_mut(&slot) {
-                    let pos = tc_height as i32 - 1 - evt.value;
-                    ts.position.y = (pos as f32 / tc_height as f32 * scr_height as f32) as i32;
+                    let pos = MTHEIGHT as i32 - 1 - evt.value;
+                    ts.position.y = (pos as f32 / MTHEIGHT as f32 * scr_height as f32) as i32;
                 }
             } else if evt.code == tc.pressure {
                 if let Some(ts) = fingers.get_mut(&slot) {

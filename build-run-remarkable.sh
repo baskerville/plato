@@ -1,4 +1,7 @@
-dockcross-linux-armv7-rust ./build.sh && \
+#!/bin/bash
+set -ex
+
+dockcross-linux-armv7-rust ./build.sh
 dockcross-linux-armv7-rust ./dist.sh
 
 DEVICE_IP="10.11.99.1"
