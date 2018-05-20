@@ -86,8 +86,7 @@ pub fn run() -> Result<()> {
                                                  &settings.import.allowed_kinds))
                              .unwrap_or_default();
 
-    let mut fb = RemarkableFramebuffer::new().chain_err(|| "Can't create framebuffer.")?;
-    // let mut fb = KoboFramebuffer::new("/dev/fb0").chain_err(|| "Can't create framebuffer.")?;
+    let mut fb : RemarkableFramebuffer = RemarkableFramebuffer::new().chain_err(|| "Can't create framebuffer.")?;
     let touch_screen = CURRENT_DEVICE.create_touchscreen(fb.dims());
     let usb_port = usb_events();
 

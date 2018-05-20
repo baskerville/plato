@@ -7,8 +7,6 @@ use input::{DeviceEvent, TouchProto, InputEvent, raw_events, device_events, rema
 use gesture::gesture_events;
 use view::Event;
 use std::sync::mpsc::{self, Sender, Receiver};
-
-use framebuffer::{Framebuffer, KoboFramebuffer, RemarkableFramebuffer};
 use battery::{Battery, KoboBattery, RemarkableBattery};
 use errors::*;
 
@@ -56,17 +54,7 @@ pub struct Device {
     pub dpi: u16,
 }
 
-impl Default for Device {
-    fn default() -> Device {
-        Device {
-            model: Model::Touch,
-            proto: TouchProto::Single,
-            mirrored_x: true,
-            dims: (600, 800),
-            dpi: 167,
-        }
-    }
-}
+
 
 impl Device {
 
@@ -122,13 +110,6 @@ impl Device {
         }
     }
 
-    pub fn create_framebuffer(&self) -> Box<Framebuffer> {
-        match self.model {
-            Model::Remarkable => Box::new(RemarkableFramebuffer::new().chain_err(|| "Can't create framebuffer.").unwrap()) as Box<Framebuffer>,
-            _ => Box::new(KoboFramebuffer::new("/dev/fb0").chain_err(|| "Can't create framebuffer.").unwrap()) as Box<Framebuffer>,
-        }
-    }
-
     pub fn suspend(&self) {
         match self.model {
             Model::Remarkable => {
@@ -145,87 +126,13 @@ impl Device {
 
 lazy_static! {
     pub static ref CURRENT_DEVICE: Device = {
-        let product = env::var("PRODUCT").unwrap_or_default();
-        match product.as_ref() {
-            "remarkable" => Device {
+        Device {
                 model: Model::Remarkable,
                 proto: TouchProto::MultiB,
                 mirrored_x: true,
                 dims: (1404, 1872),
                 dpi: 226,
-            },
-            "kraken" => Device {
-                model: Model::Glo,
-                proto: TouchProto::Single,
-                mirrored_x: true,
-                dims: (758, 1024),
-                dpi: 212,
-            },
-            "pixie" => Device {
-                model: Model::Mini,
-                proto: TouchProto::Single,
-                mirrored_x: true,
-                dims: (600, 800),
-                dpi: 200,
-            },
-            "dragon" => Device {
-                model: Model::AuraHD,
-                proto: TouchProto::Single,
-                mirrored_x: true,
-                dims: (1080, 1440),
-                dpi: 265,
-            },
-            "phoenix" => Device {
-                model: Model::Aura,
-                proto: TouchProto::MultiA,
-                mirrored_x: true,
-                dims: (758, 1024),
-                dpi: 212,
-            },
-            "dahlia" => Device {
-                model: Model::AuraH2O,
-                proto: TouchProto::MultiA,
-                mirrored_x: true,
-                dims: (1080, 1440),
-                dpi: 265,
-            },
-            "alyssum" => Device {
-                model: Model::GloHD,
-                proto: TouchProto::MultiA,
-                mirrored_x: true,
-                dims: (1072, 1448),
-                dpi: 300,
-            },
-            "pika" => Device {
-                model: Model::Touch2,
-                proto: TouchProto::MultiA,
-                mirrored_x: true,
-                dims: (600, 800),
-                dpi: 167,
-            },
-            "daylight" => Device {
-                model: Model::AuraONE,
-                proto: TouchProto::MultiA,
-                mirrored_x: true,
-                dims: (1404, 1872),
-                dpi: 300,
-            },
-            "star" => Device {
-                model: Model::AuraEdition2,
-                proto: TouchProto::MultiA,
-                mirrored_x: true,
-                dims: (758, 1024),
-                dpi: 212,
-            },
-            "snow" => Device {
-                model: Model::AuraH2OEdition2,
-                proto: TouchProto::MultiB,
-                mirrored_x: false,
-                dims: (1080, 1440),
-                dpi: 265,
-            },
-            _ => Device::default(),
-        }
+            }
     };
 
 // Tuples of the form
@@ -235,13 +142,9 @@ lazy_static! {
 // BIG_HEIGHT / SMALL_HEIGHT is as close as possible to 83/63
 // SMALL_HEIGHT / DPI * 2.54 is as close as possible to 1 cm
 pub static ref BAR_SIZES: HashMap<(u32, u16), (u32, u32)> =
-    [((1872, 300), (126, 166)),
-     ((1872, 226), (91, 123)),
-     ((1448, 300), (121, 155)),
-     ((1440, 265), (104, 141)),
-     ((1024, 212), ( 87, 109)),
-     (( 800, 167), ( 66,  86)),
-     (( 800, 200), ( 80, 112))].iter().cloned().collect();
+    [
+    ((1872, 226), (91, 123)),
+    ].iter().cloned().collect();
 }
 
 pub fn optimal_bars_setup(height: u32, dpi: u16) -> (u32, u32) {
