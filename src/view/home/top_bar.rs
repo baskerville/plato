@@ -8,6 +8,7 @@ use metadata::SortMethod;
 use app::Context;
 use font::Fonts;
 use geom::{Rectangle};
+use device::CURRENT_DEVICE;
 
 #[derive(Debug)]
 pub struct TopBar {
@@ -45,12 +46,15 @@ impl TopBar {
                                           status);
         children.push(Box::new(battery_widget) as Box<View>);
 
-        let name = if context.settings.frontlight { "frontlight" } else { "frontlight-disabled" };
-        let frontlight_icon = Icon::new(name,
-                                        rect![rect.max - pt!(2*side, side),
+
+        if CURRENT_DEVICE.has_light() {
+            let name = if context.settings.frontlight { "frontlight" } else { "frontlight-disabled" };
+            let frontlight_icon = Icon::new(name,
+                                            rect![rect.max - pt!(2*side, side),
                                               rect.max - pt!(side, 0)],
-                                        Event::Show(ViewId::Frontlight));
-        children.push(Box::new(frontlight_icon) as Box<View>);
+                                            Event::Show(ViewId::Frontlight));
+            children.push(Box::new(frontlight_icon) as Box<View>);
+        }
 
         let menu_rect = rect![rect.max-side, rect.max];
         let menu_icon = Icon::new("menu",
@@ -72,10 +76,12 @@ impl TopBar {
     }
 
     pub fn update_frontlight_icon(&mut self, hub: &Hub, context: &mut Context) {
-        let name = if context.settings.frontlight { "frontlight" } else { "frontlight-disabled" };
-        let icon = self.child_mut(4).downcast_mut::<Icon>().unwrap();
-        icon.name = name.to_string();
-        hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).unwrap();
+        if CURRENT_DEVICE.has_light() {
+            let name = if context.settings.frontlight { "frontlight" } else { "frontlight-disabled" };
+            let icon = self.child_mut(4).downcast_mut::<Icon>().unwrap();
+            icon.name = name.to_string();
+            hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).unwrap();
+        }
     }
 
     pub fn update_sort_label(&mut self, sort_method: SortMethod, hub: &Hub) {
