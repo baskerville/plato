@@ -41,6 +41,8 @@ use metadata::{Info, FileInfo, ReaderInfo, PageScheme, Margin, CroppingMargins, 
 use geom::{Rectangle, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, halves};
 use color::{BLACK, WHITE};
 use app::Context;
+use input::{DeviceEvent, ButtonCode, ButtonStatus};
+
 
 const HISTORY_SIZE: usize = 32;
 
@@ -1028,6 +1030,14 @@ impl Reader {
 impl View for Reader {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
+            Event::Device(DeviceEvent::Button { code: code, status: ButtonStatus::Released, ..}) => {
+                match code {
+                    ButtonCode::Right => self.set_current_page(CycleDir::Next, hub, context),
+                    ButtonCode::Left => self.set_current_page(CycleDir::Previous, hub, context),
+                    _ => (),
+                };
+                true
+            },
             Event::Gesture(GestureEvent::Swipe { dir, ref start, .. }) if self.rect.includes(start) => {
                 match dir {
                     Dir::West => self.set_current_page(CycleDir::Next, hub, context),
