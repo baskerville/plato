@@ -68,8 +68,6 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
     let jitter = CURRENT_DEVICE.dpi as f32 * mm_to_in(JITTER_TOLERANCE_MM);
     while let Ok(evt) = rx.recv() {
         ty.send(Event::Device(evt)).unwrap();
-        println!("parse_gesture_events  {:?}  ", evt);
-
         match evt {
             DeviceEvent::Finger { status: FingerStatus::Down, position, id, time } => {
                 let mut ct = contacts.lock().unwrap();
