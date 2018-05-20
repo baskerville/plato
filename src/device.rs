@@ -4,15 +4,14 @@ use std::env;
 use std::fmt;
 use std::collections::HashMap;
 use unit::scale_by_dpi;
-use input::TouchProto;
-use input::{raw_events, device_events};
+use input::{DeviceEvent, TouchProto, InputEvent, raw_events, device_events, remarkable_parse_device_events, kobo_parse_device_events};
 use gesture::gesture_events;
 use view::Event;
+use std::sync::mpsc::{self, Sender, Receiver};
 
 use framebuffer::{Framebuffer, KoboFramebuffer, RemarkableFramebuffer};
 use battery::{Battery, KoboBattery, RemarkableBattery};
 use errors::*;
-use std::sync::mpsc::Receiver;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
@@ -109,20 +108,23 @@ impl Device {
             Model::Remarkable => {
                 let paths = vec!["/dev/input/event1".to_string(), //this is touchscreen
                                             "/dev/input/event2".to_string()]; //this is buttons
-                let touchscreen_size = (767, 1023);
-                let touch_screen = gesture_events(device_events(raw_events(paths), screen_size, touchscreen_size));
+                let touch_screen = gesture_events(device_events(raw_events(paths), screen_size));
                 touch_screen
             },
             _ => {
                 let paths = vec!["/dev/input/event0".to_string(),
                                             "/dev/input/event1".to_string()];
-                let touch_screen = gesture_events(device_events(raw_events(paths), screen_size, screen_size));
+                let touch_screen = gesture_events(device_events(raw_events(paths), screen_size));
                 touch_screen
             }
         }
+    }
 
-
-
+    pub fn parse_device_events(&self, rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, dims: (u32, u32)) {
+        match self.model {
+            Model::Remarkable   => remarkable_parse_device_events(rx, ty, dims),
+            _                   => kobo_parse_device_events(rx, ty, dims),
+        }
     }
 
     pub fn create_framebuffer(&self) -> Box<Framebuffer> {
@@ -140,7 +142,7 @@ lazy_static! {
         match product.as_ref() {
             "remarkable" => Device {
                 model: Model::Remarkable,
-                proto: TouchProto::MultiRemarkable,
+                proto: TouchProto::MultiB,
                 mirrored_x: true,
                 mirrored_y: true,
                 touchscreen_x_y_swapped: false,

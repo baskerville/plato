@@ -35,12 +35,12 @@ pub mod key;
 pub mod home;
 pub mod reader;
 
+use fnv::FnvHashMap;
 use std::time::Duration;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::collections::VecDeque;
 use std::fmt::{self, Debug};
-use fnv::FnvHashMap;
 use downcast_rs::Downcast;
 use font::Fonts;
 use document::TocEntry;
