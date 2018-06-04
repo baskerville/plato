@@ -101,8 +101,8 @@ lazy_static! {
             "dragon" => Device {
                 model: Model::AuraHD,
                 proto: TouchProto::Single,
-                mirrored_x: true,
-                mirrored_y: false,
+                mirrored_x: false,
+                mirrored_y: true,
                 dims: (1080, 1440),
                 dpi: 265,
             },
