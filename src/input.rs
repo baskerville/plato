@@ -5,7 +5,7 @@ use std::slice;
 use std::thread;
 use std::io::Read;
 use std::fs::File;
-use std::sync::mpsc::{self, Sender, Receiver};
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::os::unix::io::AsRawFd;
 use std::ffi::CString;
 use fnv::{FnvHashMap, FnvHashSet};
@@ -48,7 +48,7 @@ pub const MULTI_TOUCH_CODES_A: TouchCodes = TouchCodes {
 
 pub const MULTI_TOUCH_CODES_B: TouchCodes = TouchCodes {
     pressure: ABS_MT_PRESSURE,
-    .. MULTI_TOUCH_CODES_A
+    ..MULTI_TOUCH_CODES_A
 };
 
 #[repr(C)]
@@ -160,8 +160,10 @@ pub fn parse_raw_events(paths: &[String], tx: &Sender<InputEvent>) -> Result<()>
             if pfd.revents & libc::POLLIN != 0 {
                 let mut input_event: InputEvent = unsafe { mem::uninitialized() };
                 unsafe {
-                    let event_slice = slice::from_raw_parts_mut(&mut input_event as *mut InputEvent as *mut u8,
-                                                                mem::size_of::<InputEvent>());
+                    let event_slice = slice::from_raw_parts_mut(
+                        &mut input_event as *mut InputEvent as *mut u8,
+                        mem::size_of::<InputEvent>(),
+                    );
                     if file.read_exact(event_slice).is_err() {
                         break;
                     }
@@ -260,12 +262,17 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                     evt.value
                 };
             } else if evt.code == tc.y {
-                position.y = evt.value;
+                position.y = if CURRENT_DEVICE.mirrored_y {
+                    dims.1 as i32 - 1 - evt.value
+                } else {
+                    evt.value
+                };
             } else if evt.code == tc.pressure {
                 pressure = evt.value;
             }
         } else if evt.kind == EV_SYN {
-            if evt.code == SYN_MT_REPORT || (proto == TouchProto::Single && evt.code == SYN_REPORT) {
+            if evt.code == SYN_MT_REPORT || (proto == TouchProto::Single && evt.code == SYN_REPORT)
+            {
                 if let Some(&p) = fingers.get(&id) {
                     if pressure > 0 {
                         if p != position {
@@ -297,8 +304,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 }
             } else if proto == TouchProto::MultiB && evt.code == SYN_REPORT {
                 fingers.retain(|other_id, other_position| {
-                    packet_ids.contains(other_id) ||
-                    ty.send(DeviceEvent::Finger {
+                    packet_ids.contains(other_id) || ty.send(DeviceEvent::Finger {
                         id: *other_id,
                         time: seconds(evt.time),
                         status: FingerStatus::Up,
@@ -318,8 +324,11 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 ty.send(DeviceEvent::Button {
                     time: seconds(evt.time),
                     code: ButtonCode::from_raw(evt.code),
-                    status: if evt.value == 1 { ButtonStatus::Pressed } else
-                                              { ButtonStatus::Released },
+                    status: if evt.value == 1 {
+                        ButtonStatus::Pressed
+                    } else {
+                        ButtonStatus::Released
+                    },
                 }).unwrap();
             }
         }
