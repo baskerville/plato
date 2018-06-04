@@ -25,16 +25,16 @@ impl fmt::Display for Model {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Model::AuraH2OEdition2 => write!(f, "Aura H₂O Edition 2"),
-            Model::AuraEdition2    => write!(f, "Aura Edition 2"),
-            Model::AuraONE         => write!(f, "Aura ONE"),
-            Model::Touch2          => write!(f, "Touch 2.0"),
-            Model::GloHD           => write!(f, "Glo HD"),
-            Model::AuraH2O         => write!(f, "Aura H₂O"),
-            Model::Aura            => write!(f, "Aura"),
-            Model::AuraHD          => write!(f, "Aura HD"),
-            Model::Mini            => write!(f, "Mini"),
-            Model::Glo             => write!(f, "Glo"),
-            Model::Touch           => write!(f, "Touch"),
+            Model::AuraEdition2 => write!(f, "Aura Edition 2"),
+            Model::AuraONE => write!(f, "Aura ONE"),
+            Model::Touch2 => write!(f, "Touch 2.0"),
+            Model::GloHD => write!(f, "Glo HD"),
+            Model::AuraH2O => write!(f, "Aura H₂O"),
+            Model::Aura => write!(f, "Aura"),
+            Model::AuraHD => write!(f, "Aura HD"),
+            Model::Mini => write!(f, "Mini"),
+            Model::Glo => write!(f, "Glo"),
+            Model::Touch => write!(f, "Touch"),
         }
     }
 }
@@ -44,6 +44,7 @@ pub struct Device {
     pub model: Model,
     pub proto: TouchProto,
     pub mirrored_x: bool,
+    pub mirrored_y: bool,
     pub dims: (u32, u32),
     pub dpi: u16,
 }
@@ -54,6 +55,7 @@ impl Default for Device {
             model: Model::Touch,
             proto: TouchProto::Single,
             mirrored_x: true,
+            mirrored_y: false,
             dims: (600, 800),
             dpi: 167,
         }
@@ -84,6 +86,7 @@ lazy_static! {
                 model: Model::Glo,
                 proto: TouchProto::Single,
                 mirrored_x: true,
+                mirrored_y: false,
                 dims: (758, 1024),
                 dpi: 212,
             },
@@ -91,13 +94,15 @@ lazy_static! {
                 model: Model::Mini,
                 proto: TouchProto::Single,
                 mirrored_x: true,
+                mirrored_y: false,
                 dims: (600, 800),
                 dpi: 200,
             },
             "dragon" => Device {
                 model: Model::AuraHD,
                 proto: TouchProto::Single,
-                mirrored_x: true,
+                mirrored_x: false,
+                mirrored_y: true,
                 dims: (1080, 1440),
                 dpi: 265,
             },
@@ -105,6 +110,7 @@ lazy_static! {
                 model: Model::Aura,
                 proto: TouchProto::MultiA,
                 mirrored_x: true,
+                mirrored_y: false,
                 dims: (758, 1024),
                 dpi: 212,
             },
@@ -112,6 +118,7 @@ lazy_static! {
                 model: Model::AuraH2O,
                 proto: TouchProto::MultiA,
                 mirrored_x: true,
+                mirrored_y: false,
                 dims: (1080, 1440),
                 dpi: 265,
             },
@@ -119,6 +126,7 @@ lazy_static! {
                 model: Model::GloHD,
                 proto: TouchProto::MultiA,
                 mirrored_x: true,
+                mirrored_y: false,
                 dims: (1072, 1448),
                 dpi: 300,
             },
@@ -126,6 +134,7 @@ lazy_static! {
                 model: Model::Touch2,
                 proto: TouchProto::MultiA,
                 mirrored_x: true,
+                mirrored_y: false,
                 dims: (600, 800),
                 dpi: 167,
             },
@@ -133,6 +142,7 @@ lazy_static! {
                 model: Model::AuraONE,
                 proto: TouchProto::MultiA,
                 mirrored_x: true,
+                mirrored_y: false,
                 dims: (1404, 1872),
                 dpi: 300,
             },
@@ -140,6 +150,7 @@ lazy_static! {
                 model: Model::AuraEdition2,
                 proto: TouchProto::MultiA,
                 mirrored_x: true,
+                mirrored_y: false,
                 dims: (758, 1024),
                 dpi: 212,
             },
@@ -147,6 +158,7 @@ lazy_static! {
                 model: Model::AuraH2OEdition2,
                 proto: TouchProto::MultiB,
                 mirrored_x: false,
+                mirrored_y: false,
                 dims: (1080, 1440),
                 dpi: 265,
             },
@@ -176,7 +188,7 @@ pub fn optimal_bars_setup(height: u32, dpi: u16) -> (u32, u32) {
     let minimum_small_height = 2 * target_small_height / 3;
     let mut max_score = 0;
     let mut result = (0, 0);
-    for small_height in minimum_small_height..target_small_height+1 {
+    for small_height in minimum_small_height..target_small_height + 1 {
         let remaining_height = height - 3 * small_height;
         for big_height in small_height..maximum_big_height {
             if remaining_height % big_height == 0 {
@@ -204,11 +216,11 @@ pub fn optimal_key_setup(width: u32, height: u32, dpi: u16) -> (u32, u32) {
     let minimum_padding = 4 * target_padding / 5;
     let mut max_score = 0;
     let mut result = (0, 0);
-    for side in minimum_side..target_side+1 {
-        for padding in minimum_padding..target_padding+1 {
+    for side in minimum_side..target_side + 1 {
+        for padding in minimum_padding..target_padding + 1 {
             let w = 11 * side + 12 * padding;
             let h = 4 * side + 5 * padding;
-            if  w <= width && h <= height {
+            if w <= width && h <= height {
                 let score = side + padding;
                 if score > max_score {
                     result = (side, padding);
