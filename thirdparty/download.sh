@@ -16,7 +16,7 @@ declare -A urls=(
 	["djvulibre"]="http://downloads.sourceforge.net/djvu/djvulibre-3.5.27.tar.gz"
 	["mupdf"]="https://mupdf.com/downloads/mupdf-1.13.0-source.tar.gz"
 	# Helper
-	["chrpath"]="https://alioth.debian.org/frs/download.php/file/3648/chrpath-0.14.tar.gz"
+	["chrpath"]="http://archive.ubuntu.com/ubuntu/pool/main/c/chrpath/chrpath_0.14.orig.tar.gz"
 )
 
 for name in "${@:-${!urls[@]}}" ; do
