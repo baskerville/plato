@@ -172,7 +172,7 @@ impl Framebuffer for WindowCanvas {
         Ok(1)
     }
 
-    fn wait(&self, _: u32) -> Result<i32> {
+    fn wait(&mut self, _: u32) -> Result<i32> {
         Ok(1)
     }
 

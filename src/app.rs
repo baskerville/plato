@@ -7,21 +7,21 @@ use std::collections::VecDeque;
 use std::time::{Instant, Duration};
 use fnv::FnvHashMap;
 use chrono::Local;
-use framebuffer::{Framebuffer, KoboFramebuffer, UpdateMode};
+use framebuffer::{Framebuffer, KoboFramebuffer, RemarkableFramebuffer, UpdateMode};
 use view::{View, Event, EntryId, EntryKind, ViewId};
 use view::{render, render_no_wait, handle_event, fill_crack};
 use view::common::{locate, locate_by_id, overlapping_rectangle};
 use view::frontlight::FrontlightWindow;
 use view::menu::{Menu, MenuKind};
 use input::{DeviceEvent, ButtonCode, ButtonStatus};
-use input::{raw_events, device_events, usb_events};
-use gesture::{GestureEvent, gesture_events, BUTTON_HOLD_DELAY};
+use input::usb_events;
+use gesture::{GestureEvent, BUTTON_HOLD_DELAY};
 use helpers::{load_json, save_json};
 use metadata::{Metadata, METADATA_FILENAME, import};
 use settings::{Settings, SETTINGS_PATH};
-use frontlight::{Frontlight, NaturalFrontlight, StandardFrontlight};
+use frontlight::{Frontlight, FakeFrontlight, NaturalFrontlight, StandardFrontlight};
 use lightsensor::{LightSensor, KoboLightSensor};
-use battery::{Battery, KoboBattery};
+use battery::Battery;
 use view::home::Home;
 use view::reader::Reader;
 use view::confirmation::Confirmation;
@@ -86,10 +86,8 @@ pub fn run() -> Result<()> {
                                                  &settings.import.allowed_kinds))
                              .unwrap_or_default();
 
-    let mut fb = KoboFramebuffer::new("/dev/fb0").chain_err(|| "Can't create framebuffer.")?;
-    let paths = vec!["/dev/input/event0".to_string(),
-                     "/dev/input/event1".to_string()];
-    let touch_screen = gesture_events(device_events(raw_events(paths), fb.dims()));
+    let mut fb : RemarkableFramebuffer = RemarkableFramebuffer::new().chain_err(|| "Can't create framebuffer.")?;
+    let touch_screen = CURRENT_DEVICE.create_touchscreen(fb.dims());
     let usb_port = usb_events();
 
     let (tx, rx) = mpsc::channel();
@@ -135,7 +133,10 @@ pub fn run() -> Result<()> {
     }
 
     let levels = settings.frontlight_levels;
-    let mut frontlight = if CURRENT_DEVICE.has_natural_light() {
+    let mut frontlight =  if ! CURRENT_DEVICE.has_light() {
+        Box::new(FakeFrontlight::new()
+                           .chain_err(|| "Can't create fake frontlight.")?) as Box<Frontlight>
+    } else if CURRENT_DEVICE.has_natural_light() {
         Box::new(NaturalFrontlight::new(levels.intensity, levels.warmth)
                                    .chain_err(|| "Can't create natural frontlight.")?) as Box<Frontlight>
     } else {
@@ -151,7 +152,7 @@ pub fn run() -> Result<()> {
         frontlight.set_intensity(0.0);
     }
 
-    let battery = Box::new(KoboBattery::new().chain_err(|| "Can't create battery.")?) as Box<Battery>;
+    let battery = CURRENT_DEVICE.create_battery();
 
     let lightsensor = if CURRENT_DEVICE.has_lightsensor() {
         Box::new(KoboLightSensor::new().chain_err(|| "Can't create light sensor.")?) as Box<LightSensor>
@@ -286,6 +287,7 @@ pub fn run() -> Result<()> {
                             .status()
                             .ok();
                 }
+                CURRENT_DEVICE.suspend();
                 println!("{}", Local::now().format("Went to sleep on %B %d, %Y at %H:%M."));
                 Command::new("scripts/suspend.sh")
                         .status()

@@ -1,5 +1,6 @@
 mod mxcfb_sys;
 mod kobo;
+mod remarkable;
 mod image;
 
 use geom::{Point, Rectangle, surface_area, nearest_segment_point, lerp};
@@ -7,6 +8,7 @@ use geom::{CornerSpec, BorderSpec, ColorSource, Vec2};
 use errors::*;
 
 pub use self::kobo::KoboFramebuffer;
+pub use self::remarkable::RemarkableFramebuffer;
 pub use self::image::ImageFramebuffer;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -30,7 +32,7 @@ pub trait Framebuffer {
     fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32);
     fn invert_region(&mut self, rect: &Rectangle);
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32>;
-    fn wait(&self, token: u32) -> Result<i32>;
+    fn wait(&mut self, token: u32) -> Result<i32>;
     fn save(&self, path: &str) -> Result<()>;
     fn toggle_inverted(&mut self);
     fn toggle_monochrome(&mut self);
