@@ -17,6 +17,7 @@ pub enum HbFont {}
 #[link(name="harfbuzz")]
 extern {
     pub fn hb_ft_font_create(face: *mut FtFace, destroy: *const libc::c_void) -> *mut HbFont;
+    pub fn hb_ft_font_changed(font: *mut HbFont);
     pub fn hb_font_destroy(font: *mut HbFont);
     pub fn hb_buffer_create() -> *mut HbBuffer;
     pub fn hb_buffer_destroy(buf: *mut HbBuffer);
@@ -24,7 +25,7 @@ extern {
     pub fn hb_buffer_set_direction(buf: *mut HbBuffer, dir: HbDirection);
     pub fn hb_buffer_guess_segment_properties(buf: *mut HbBuffer);
     pub fn hb_shape(font: *mut HbFont, buf: *mut HbBuffer, features: *const HbFeature, features_count: libc::c_uint);
-    pub fn hb_feature_from_string(abbr: *const libc::c_char, len: libc::c_int, feature: *mut HbFeature) -> HbBool;
+    pub fn hb_feature_from_string(s: *const libc::c_char, len: libc::c_int, feature: *mut HbFeature) -> HbBool;
     pub fn hb_buffer_get_length(buf: *mut HbBuffer) -> libc::c_uint;
     pub fn hb_buffer_get_glyph_infos(buf: *mut HbBuffer, len: *mut libc::c_uint) -> *mut HbGlyphInfo;
     pub fn hb_buffer_get_glyph_positions(buf: *mut HbBuffer, len: *mut libc::c_uint) -> *mut HbGlyphPosition;

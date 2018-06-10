@@ -9,7 +9,6 @@ pub const FT_LOAD_NO_SCALE: i32 = 0x1 << 0;
 pub const FT_LOAD_NO_HINTING: i32 = 0x1 << 1;
 pub const FT_LOAD_RENDER: i32 = 0x1 << 2;
 
-pub const FT_KERNING_DEFAULT: FtKerningMode = 0;
 
 pub const FT_GLYPH_BBOX_UNSCALED: GlyphBBoxMode = 0;
 pub const FT_GLYPH_BBOX_PIXELS: GlyphBBoxMode = 3;
@@ -21,7 +20,6 @@ pub type FtPos = libc::c_long;
 pub type FtFixed = libc::c_long;
 pub type FtGlyphFormat = libc::c_uint;
 pub type GlyphBBoxMode = libc::c_uint;
-pub type FtKerningMode = libc::c_uint;
 pub type FtGenericFinalizer = extern fn(*mut libc::c_void);
 
 pub enum FtLibrary {}
@@ -33,6 +31,7 @@ pub enum FtListNode {}
 pub enum FtDriver {}
 pub enum FtMemory {}
 pub enum FtStream {}
+pub enum FtNamedStyle {}
 
 #[link(name="freetype")]
 extern {
@@ -44,9 +43,31 @@ extern {
     pub fn FT_Set_Char_Size(face: *mut FtFace, sx: FtF26Dot6, sy: FtF26Dot6, rx: libc::c_uint, ry: libc::c_uint) -> FtError;
     pub fn FT_Load_Glyph(face: *const FtFace, idx: libc::c_uint, flags: i32) -> FtError;
     pub fn FT_Load_Char(face: *const FtFace, code: libc::c_ulong, flags: i32) -> FtError;
-    pub fn FT_Glyph_Get_CBox(glyph: *mut FtGlyph, bbox_mode: GlyphBBoxMode, acbox: *mut FtBBox);
     pub fn FT_Get_Char_Index(face: *const FtFace, code: libc::c_ulong) -> libc::c_uint;
-    pub fn FT_Get_Kerning(face: *const FtFace, l_glyph: libc::c_uint, r_glyph: libc::c_uint, kern_mode: FtKerningMode, kerning: *mut FtVector) -> FtError;
+    pub fn FT_Get_MM_Var(face: *const FtFace, varia: *mut *mut FtMmVar) -> FtError;
+    pub fn FT_Done_MM_Var(lib: *mut FtLibrary, varia: *mut FtMmVar) -> FtError;
+    pub fn FT_Set_Var_Design_Coordinates(face: *mut FtFace, num_coords: libc::c_uint, coords: *const FtFixed) -> FtError;
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct FtMmVar {
+    pub num_axis: libc::c_uint,
+    num_designs: libc::c_uint,
+    num_namedstyles: libc::c_uint,
+    pub axis: *mut FtVarAxis,
+    namedstyle: *mut FtNamedStyle,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct FtVarAxis {
+    name: *mut libc::c_char,
+    pub minimum: FtFixed,
+    pub def: FtFixed,
+    pub maximum: FtFixed,
+    pub tag: libc::c_ulong,
+    strid: libc::c_uint,
 }
 
 #[repr(C)]
@@ -182,15 +203,6 @@ pub struct FtGlyphSlot {
     other: *mut libc::c_void,
 
     internal: *mut FtSlotInternal,
-}
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct FtGlyph {
-    library: *mut FtLibrary,
-    class: *const libc::c_void,
-    format: FtGlyphFormat,
-    advance: FtVector,
 }
 
 #[repr(C)]

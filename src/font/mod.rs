@@ -18,7 +18,6 @@ use framebuffer::Framebuffer;
 pub const DEFAULT_FONT_SIZE: f32 = 11.0;
 
 // Font sizes in 1/64th of a point
-// 2, 3, and 4 px at 300 DPI for Noto Sans UI
 pub const FONT_SIZES: [u32; 3] = [349, 524, 699];
 
 pub const KEYBOARD_FONT_SIZES: [u32; 2] = [337, 843];
@@ -177,7 +176,7 @@ pub struct FontLibrary(*mut FtLibrary);
 pub struct FontOpener(Rc<FontLibrary>);
 
 pub struct Font {
-    _lib: Rc<FontLibrary>,
+    lib: Rc<FontLibrary>,
     face: *mut FtFace,
     font: *mut HbFont,
     size: u32,
@@ -226,7 +225,7 @@ impl FontOpener {
             let ellipsis = RenderPlan::default();
             let x_heights = (0, 0);
             let space_codepoint = FT_Get_Char_Index(face, ' ' as libc::c_ulong);
-            Ok(Font { _lib: self.0.clone(), face, font,
+            Ok(Font { lib: self.0.clone(), face, font,
                       size: 0, dpi: 0, ellipsis, x_heights, space_codepoint })
         }
     }
@@ -242,7 +241,7 @@ impl FontOpener {
             let font = ptr::null_mut();
             let x_heights = (0, 0);
             let space_codepoint = FT_Get_Char_Index(face, ' ' as libc::c_ulong);
-            Ok(Font { _lib: self.0.clone(), face, font,
+            Ok(Font { lib: self.0.clone(), face, font,
                       size: 0, dpi: 0, ellipsis, x_heights, space_codepoint })
         }
     }
@@ -250,20 +249,76 @@ impl FontOpener {
 
 impl Font {
     pub fn set_size(&mut self, size: u32, dpi: u16) {
+        if !self.font.is_null() && self.size == size && self.dpi == dpi {
+            return;
+        }
+
+        self.size = size;
+        self.dpi = dpi;
+
         unsafe {
-            if !self.font.is_null() {
-                if self.size == size && self.dpi == dpi {
-                    return;
-                } else {
-                    hb_font_destroy(self.font);
-                }
+            let ret = FT_Set_Char_Size(self.face, size as FtF26Dot6, 0, dpi as libc::c_uint, 0);
+
+            if ret != FT_ERR_OK {
+                return;
             }
-            self.size = size;
-            self.dpi = dpi;
-            FT_Set_Char_Size(self.face, size as FtF26Dot6, 0, dpi as libc::c_uint, 0);
-            self.font = hb_ft_font_create(self.face, ptr::null());
+
+            if self.font.is_null() {
+                self.font = hb_ft_font_create(self.face, ptr::null());
+            } else {
+                hb_ft_font_changed(self.font);
+            }
+
             self.ellipsis = self.plan("…", None, None);
             self.x_heights = (self.height('x'), self.height('X'));
+        }
+    }
+
+    pub fn set_variations(&mut self, specs: &[&str]) {
+        if self.font.is_null() {
+            return;
+        }
+
+        unsafe {
+            let mut varia = ptr::null_mut();
+            let ret = FT_Get_MM_Var(self.face, &mut varia);
+
+            if ret != FT_ERR_OK {
+                return;
+            }
+
+            let axes_count = (*varia).num_axis as usize;
+            let mut coords = Vec::with_capacity(axes_count);
+
+            for i in 0..(axes_count as isize) {
+                let axis = ((*varia).axis).offset(i);
+                coords.push((*axis).def);
+            }
+
+            for s in specs {
+                let tn = s[..4].as_bytes();
+                let tag = tag(tn[0], tn[1], tn[2], tn[3]);
+                let value: f32 = s[5..].parse().unwrap_or_default();
+
+                for i in 0..(axes_count as isize) {
+                    let axis = ((*varia).axis).offset(i);
+
+                    if (*axis).tag == tag as libc::c_ulong {
+                        let scaled_value = ((value * 65536.0) as FtFixed).min((*axis).maximum)
+                                                                         .max((*axis).minimum);
+                        *coords.get_unchecked_mut(i as usize) = scaled_value;
+                        break;
+                    }
+                }
+            }
+
+            let ret = FT_Set_Var_Design_Coordinates(self.face, coords.len() as libc::c_uint, coords.as_ptr());
+
+            if ret == FT_ERR_OK {
+                hb_ft_font_changed(self.font);
+            }
+
+            FT_Done_MM_Var(self.lib.0, varia);
         }
     }
 
@@ -282,7 +337,9 @@ impl Font {
                 features_txt.split(' ')
                     .filter_map(|f| {
                         let mut feature = HbFeature::default();
-                        let ret = hb_feature_from_string(f.as_ptr() as *const libc::c_char, f.len() as libc::c_int, &mut feature);
+                        let ret = hb_feature_from_string(f.as_ptr() as *const libc::c_char,
+                                                         f.len() as libc::c_int,
+                                                         &mut feature);
                         if ret == 1 {
                             Some(feature)
                         } else {
@@ -451,9 +508,6 @@ impl Font {
         }
     }
 
-    // This is an approximation of the height of a character.
-    // In the cases of *Noto Sans UI* and *Noto Serif*, the value given
-    // for the height of the letter *x* is the exact height.
     pub fn height(&self, c: char) -> u32 {
         unsafe {
             FT_Load_Char(self.face, c as libc::c_ulong, FT_LOAD_DEFAULT);
@@ -464,7 +518,7 @@ impl Font {
 
     pub fn em(&self) -> u16 {
         unsafe {
-            ((*(*self.face).size).metrics).x_ppem
+            (*(*self.face).size).metrics.x_ppem
         }
     }
 }
@@ -522,6 +576,10 @@ impl Drop for Font {
             }
         }
     }
+}
+
+fn tag(c1: u8, c2: u8, c3: u8, c4: u8) -> u32 {
+    ((c1 as u32) << 24) | ((c2 as u32) << 16) | ((c3 as u32) << 8) | c4 as u32
 }
 
 error_chain! {
