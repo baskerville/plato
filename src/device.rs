@@ -79,6 +79,8 @@ impl Device {
 lazy_static! {
     pub static ref CURRENT_DEVICE: Device = {
         let product = env::var("PRODUCT").unwrap_or_default();
+        let model_number = env::var("MODEL_NUMBER").unwrap_or_default();
+
         match product.as_ref() {
             "kraken" => Device {
                 model: Model::Glo,
@@ -146,7 +148,7 @@ lazy_static! {
             "snow" => Device {
                 model: Model::AuraH2OEdition2,
                 proto: TouchProto::MultiB,
-                mirrored_x: false,
+                mirrored_x: model_number == "378",
                 dims: (1080, 1440),
                 dpi: 265,
             },
