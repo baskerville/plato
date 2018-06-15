@@ -1,6 +1,6 @@
 diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
---- a/etc/init.d/rcS	2017-12-13 17:36:42.000000000 +0100
-+++ b/etc/init.d/rcS	2018-04-16 15:29:53.000000000 +0200
+--- a/etc/init.d/rcS	2018-03-26 15:29:50.000000000 +0200
++++ b/etc/init.d/rcS	2018-06-15 09:29:32.000000000 +0200
 @@ -70,8 +70,7 @@
  FS_CORRUPT=0
  dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || FS_CORRUPT=1
@@ -11,7 +11,7 @@ diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
  	case $PRODUCT in
  		kraken|phoenix|star)
  			export COORDINATES="80 870 70 70 200 870 70 70";;
-@@ -176,7 +175,12 @@
+@@ -178,7 +177,12 @@
  /bin/dbus-daemon --system &
  export DBUS_SESSION_BUS_ADDRESS=`/bin/dbus-daemon --session --print-address --fork`
  
