@@ -99,9 +99,9 @@ pub struct FtSizeMetrics {
     x_scale: FtFixed,
     y_scale: FtFixed,
 
-    ascender: FtPos,
-    descender: FtPos,
-    height: FtPos,
+    pub ascender: FtPos,
+    pub descender: FtPos,
+    pub height: FtPos,
     max_advance: FtPos
 }
 

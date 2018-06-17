@@ -518,7 +518,25 @@ impl Font {
 
     pub fn em(&self) -> u16 {
         unsafe {
-            (*(*self.face).size).metrics.x_ppem
+            (*(*self.face).size).metrics.x_ppem as u16
+        }
+    }
+
+    pub fn ascender(&self) -> i32 {
+        unsafe {
+            (*(*self.face).size).metrics.ascender as i32
+        }
+    }
+
+    pub fn descender(&self) -> i32 {
+        unsafe {
+            (*(*self.face).size).metrics.descender as i32
+        }
+    }
+
+    pub fn line_height(&self) -> i32 {
+        unsafe {
+            (*(*self.face).size).metrics.height as i32
         }
     }
 }
