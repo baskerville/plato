@@ -7,7 +7,7 @@ use view::page_label::PageLabel;
 use gesture::GestureEvent;
 use input::DeviceEvent;
 use geom::{Rectangle, CycleDir, halves};
-use document::{Document, chapter_at};
+use document::{Document, Neighbors, chapter_at};
 use color::WHITE;
 use font::Fonts;
 use app::Context;
@@ -21,11 +21,11 @@ pub struct BottomBar {
 }
 
 impl BottomBar {
-    pub fn new(rect: Rectangle, doc: &Document, current_page: usize, pages_count: usize) -> BottomBar {
+    pub fn new(rect: Rectangle, doc: &mut Document, current_page: f32, pages_count: f32, neighbors: &Neighbors, synthetic: bool) -> BottomBar {
         let mut children = Vec::new();
         let side = rect.height() as i32;
-        let is_prev_disabled = pages_count < 2 || current_page == 0;
-        let is_next_disabled = pages_count < 2 || current_page == pages_count - 1;
+        let is_prev_disabled = neighbors.previous_page.is_none();
+        let is_next_disabled = neighbors.next_page.is_none();
 
         let prev_rect = rect![rect.min, rect.min + side];
 
@@ -56,7 +56,8 @@ impl BottomBar {
         let page_label = PageLabel::new(rect![pt!(rect.max.x - side - big_half_width, rect.min.y),
                                               pt!(rect.max.x - side, rect.max.y)],
                                         current_page,
-                                        pages_count);
+                                        pages_count,
+                                        synthetic);
         children.push(Box::new(page_label) as Box<View>);
 
         let next_rect = rect![rect.max - side, rect.max];
@@ -79,18 +80,13 @@ impl BottomBar {
         }
     }
 
-    pub fn update_page_label(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
+    pub fn update_page_label(&mut self, current_page: f32, pages_count: f32, hub: &Hub) {
         let page_label = self.child_mut(2).downcast_mut::<PageLabel>().unwrap();
         page_label.update(current_page, pages_count, hub);
     }
 
-    pub fn update_chapter(&mut self, text: String, hub: &Hub) {
-        let chapter_label = self.child_mut(1).downcast_mut::<Label>().unwrap();
-        chapter_label.update(text, hub);
-    }
-
-    pub fn update_icons(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
-        let is_prev_disabled = pages_count < 2 || current_page == 0;
+    pub fn update_icons(&mut self, neighbors: &Neighbors, hub: &Hub) {
+        let is_prev_disabled = neighbors.previous_page.is_none();
 
         if self.is_prev_disabled != is_prev_disabled {
             let index = 0;
@@ -108,7 +104,7 @@ impl BottomBar {
             hub.send(Event::Render(prev_rect, UpdateMode::Gui)).unwrap();
         }
 
-        let is_next_disabled = pages_count < 2 || current_page == pages_count - 1;
+        let is_next_disabled = neighbors.next_page.is_none();
 
         if self.is_next_disabled != is_next_disabled {
             let index = self.len() - 1;
@@ -126,15 +122,20 @@ impl BottomBar {
             hub.send(Event::Render(next_rect, UpdateMode::Gui)).unwrap();
         }
     }
+
+    pub fn update_chapter(&mut self, text: String, hub: &Hub) {
+        let chapter_label = self.child_mut(1).downcast_mut::<Label>().unwrap();
+        chapter_label.update(text, hub);
+    }
 }
 
 impl View for BottomBar {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(ref center)) |
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => true,
-            Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(start) => true,
-            Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(position) => true,
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => true,
+            Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(*start) => true,
+            Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(*position) => true,
             _ => false,
         }
     }

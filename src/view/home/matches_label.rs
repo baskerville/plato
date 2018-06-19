@@ -57,7 +57,7 @@ impl MatchesLabel {
 impl View for MatchesLabel {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
                 bus.push_back(Event::ToggleNear(ViewId::MatchesMenu, self.rect));
                 true
             },
@@ -75,7 +75,7 @@ impl View for MatchesLabel {
         let dy = (self.rect.height() as i32 - font.x_heights.0 as i32) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
         fb.draw_rectangle(&self.rect, WHITE);
-        font.render(fb, BLACK, &plan, &pt);
+        font.render(fb, BLACK, &plan, pt);
     }
 
     fn rect(&self) -> &Rectangle {

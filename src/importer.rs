@@ -3,7 +3,11 @@ extern crate serde;
 #[macro_use] extern crate serde_derive;
 extern crate serde_json;
 #[macro_use] extern crate lazy_static;
+#[macro_use] extern crate bitflags;
 extern crate unicode_normalization;
+extern crate paragraph_breaker;
+extern crate hyphenation;
+extern crate entities;
 extern crate libc;
 extern crate regex;
 extern crate isbn;
@@ -11,9 +15,10 @@ extern crate titlecase;
 extern crate fnv;
 extern crate png;
 extern crate chrono;
+extern crate zip;
 extern crate reqwest;
 extern crate getopts;
-extern crate html_entities;
+extern crate glob;
 
 #[macro_use] mod geom;
 mod color;
@@ -22,6 +27,7 @@ mod input;
 mod unit;
 mod framebuffer;
 mod helpers;
+mod font;
 mod document;
 mod metadata;
 mod settings;
@@ -37,13 +43,13 @@ use std::path::Path;
 use failure::{Error, ResultExt};
 use regex::Regex;
 use getopts::Options;
-use html_entities::decode_html_entities;
 use titlecase::titlecase;
 use helpers::{load_json, save_json};
-use settings::ImportSettings;
+use settings::{ImportSettings, EpubEngine};
 use metadata::{Info, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
 use metadata::{import};
-use document::{open, asciify};
+use document::epub::xml::decode_entities;
+use document::{DocumentOpener, asciify};
 
 pub fn run() -> Result<(), Error> {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -136,7 +142,7 @@ pub fn run() -> Result<(), Error> {
 
 fn main() {
     if let Err(e) = run() {
-        for e in e.causes() {
+        for e in e.iter_chain() {
             eprintln!("plato-import: {}", e);
         }
         process::exit(1);
@@ -151,7 +157,8 @@ pub fn extract_isbn(dir: &Path, metadata: &mut Metadata) {
 
         let path = dir.join(&info.file.path);
 
-        if let Some(isbn) = open(&path).and_then(|d| d.isbn()) {
+        if let Some(isbn) = DocumentOpener::new(EpubEngine::BuiltIn)
+                                           .open(&path).and_then(|mut doc| doc.isbn()) {
             println!("{}", isbn);
             info.isbn = isbn;
         }
@@ -166,7 +173,8 @@ pub fn extract_metadata(dir: &Path, metadata: &mut Metadata) {
 
         let path = dir.join(&info.file.path);
 
-        if let Some(doc) = open(&path) {
+        if let Some(doc) = DocumentOpener::new(EpubEngine::BuiltIn)
+                                          .open(&path) {
             info.title = doc.title().unwrap_or_default();
             info.author = doc.author().unwrap_or_default();
         }
@@ -207,10 +215,10 @@ pub fn retriever_lookup_by_isbn(info: &mut Info, strict: bool) {
                                   <i>([^<]+)</i>.+?
                                   <i>([^<]+)</i>").unwrap();
             if let Some(caps) = re.captures(&content) {
-                info.title = decode_html_entities(&caps[1]).unwrap_or_default();
-                info.author = decode_html_entities(&caps[2]).unwrap_or_default();
-                info.publisher = decode_html_entities(&caps[3]).unwrap_or_default();
-                info.year = decode_html_entities(&caps[4]).unwrap_or_default();
+                info.title = decode_entities(&caps[1]).into_owned();
+                info.author = decode_entities(&caps[2]).into_owned();
+                info.publisher = decode_entities(&caps[3]).into_owned();
+                info.year = decode_entities(&caps[4]).into_owned();
                 println!("{}", info.label());
             }
         } else {
@@ -232,11 +240,11 @@ pub fn retriever_amazon(info: &mut Info, _: bool) {
                 let re = Regex::new(r">([^<]+)<").unwrap();
                 for cap in re.captures_iter(&content[mat.start()..mat.end()]) {
                     if info.title.is_empty() {
-                        info.title = decode_html_entities(&cap[1]).unwrap_or_default();
+                        info.title = decode_entities(&cap[1]).into_owned();
                     } else if info.year.is_empty() {
-                        info.year = decode_html_entities(&cap[1]).unwrap_or_default();
+                        info.year = decode_entities(&cap[1]).into_owned();
                     } else {
-                        info.author += &decode_html_entities(&cap[1]).unwrap_or_default();
+                        info.author += &decode_entities(&cap[1]);
                     }
                 }
                 println!("{}", info.label());
@@ -250,11 +258,9 @@ pub fn retriever_amazon(info: &mut Info, _: bool) {
 pub fn consolidate(metadata: &mut Metadata) {
     for info in metadata {
         if info.subtitle.is_empty() {
-            let colon = info.title.find(':');
-
-            if colon.is_some() {
+            if let Some(index) = info.title.find(':') {
                 let cur_title = info.title.clone();
-                let (title, subtitle) = cur_title.split_at(colon.unwrap());
+                let (title, subtitle) = cur_title.split_at(index);
                 info.title = title.trim_right().to_string();
                 info.subtitle = subtitle[1..].trim_left().to_string();
             }
@@ -339,6 +345,7 @@ pub fn file_name_from_info(info: &Info) -> String {
     base.replace("..", ".")
         .replace('/', " ")
         .replace('?', "")
+        .replace('!', "")
         .replace(':', "")
 }
 

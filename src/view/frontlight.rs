@@ -3,14 +3,14 @@ use device::{CURRENT_DEVICE, BAR_SIZES};
 use framebuffer::{Framebuffer, UpdateMode};
 use geom::{Rectangle, CornerSpec, BorderSpec};
 use font::{Fonts, font_from_style, NORMAL_STYLE};
-use view::{View, Event, Hub, Bus, ViewId, EntryId, SliderId, Align};
-use view::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
-use view::label::Label;
-use view::button::Button;
-use view::slider::Slider;
-use view::icon::Icon;
-use view::presets_list::PresetsList;
-use view::common::shift;
+use super::{View, Event, Hub, Bus, ViewId, EntryId, SliderId, Align};
+use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
+use super::label::Label;
+use super::button::Button;
+use super::slider::Slider;
+use super::icon::Icon;
+use super::presets_list::PresetsList;
+use super::common::shift;
 use frontlight::LightLevels;
 use gesture::GestureEvent;
 use input::FingerStatus;
@@ -182,7 +182,7 @@ impl FrontlightWindow {
                 let font = font_from_style(&mut context.fonts, &NORMAL_STYLE, dpi);
                 font.em() as i32
             };
-            shift(self, &pt!(0, -(small_height as i32) / 2));
+            shift(self, pt!(0, -(small_height as i32) / 2));
             self.rect.max.y += small_height as i32;
             let (tx, _rx) = mpsc::channel();
             let presets_rect = rect![self.rect.min.x + thickness + 4 * padding,
@@ -196,29 +196,24 @@ impl FrontlightWindow {
         } else {
             self.children.pop();
             hub.send(Event::Expose(self.rect)).unwrap();
-            shift(self, &pt!(0, small_height as i32 / 2));
+            shift(self, pt!(0, small_height as i32 / 2));
             self.rect.max.y -= small_height as i32;
         }
     }
 
-    fn set_frontlight_levels(&mut self, frontlight_levels: &LightLevels, hub: &Hub, context: &mut Context) {
-        let LightLevels { intensity, warmth } = *frontlight_levels;
+    fn set_frontlight_levels(&mut self, frontlight_levels: LightLevels, hub: &Hub, context: &mut Context) {
+        let LightLevels { intensity, warmth } = frontlight_levels;
         context.frontlight.set_intensity(intensity);
         context.frontlight.set_warmth(warmth);
         if CURRENT_DEVICE.has_natural_light() {
             if let Some(slider_intensity) = self.child_mut(3).downcast_mut::<Slider>() {
-                slider_intensity.value = intensity;
-                hub.send(Event::Render(*slider_intensity.rect(), UpdateMode::Gui)).unwrap();
+                slider_intensity.update(intensity, hub);
             }
             if let Some(slider_warmth) = self.child_mut(5).downcast_mut::<Slider>() {
-                slider_warmth.value = warmth;
-                hub.send(Event::Render(*slider_warmth.rect(), UpdateMode::Gui)).unwrap();
+                slider_warmth.update(warmth, hub);
             }
-        } else {
-            if let Some(slider_intensity) = self.child_mut(2).downcast_mut::<Slider>() {
-                slider_intensity.value = intensity;
-                hub.send(Event::Render(*slider_intensity.rect(), UpdateMode::Gui)).unwrap();
-            }
+        } else if let Some(slider_intensity) = self.child_mut(2).downcast_mut::<Slider>() {
+            slider_intensity.update(intensity, hub);
         }
     }
 
@@ -241,7 +236,7 @@ impl View for FrontlightWindow {
                 context.frontlight.set_warmth(value);
                 true
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if !self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if !self.rect.includes(*center) => {
                 hub.send(Event::Close(ViewId::Frontlight)).unwrap();
                 true
             },
@@ -293,7 +288,7 @@ impl View for FrontlightWindow {
             },
             Event::LoadPreset(index) => {
                 let frontlight_levels = context.settings.frontlight_presets[index].frontlight_levels;
-                self.set_frontlight_levels(&frontlight_levels, hub, context);
+                self.set_frontlight_levels(frontlight_levels, hub, context);
                 true
             },
             Event::Guess => {
@@ -303,7 +298,7 @@ impl View for FrontlightWindow {
                     None
                 };
                 if let Some(ref frontlight_levels) = guess_frontlight(lightsensor_level, &context.settings.frontlight_presets) {
-                    self.set_frontlight_levels(frontlight_levels, hub, context);
+                    self.set_frontlight_levels(*frontlight_levels, hub, context);
                 }
                 true
             },

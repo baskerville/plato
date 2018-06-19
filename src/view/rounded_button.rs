@@ -1,8 +1,8 @@
 use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, UpdateMode};
-use view::{View, Event, Hub, Bus};
-use view::THICKNESS_MEDIUM;
-use view::icon::ICONS_PIXMAPS;
+use super::{View, Event, Hub, Bus};
+use super::THICKNESS_MEDIUM;
+use super::icon::ICONS_PIXMAPS;
 use gesture::GestureEvent;
 use input::{DeviceEvent, FingerStatus};
 use unit::scale_by_dpi;
@@ -36,7 +36,7 @@ impl View for RoundedButton {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
                 match status {
-                    FingerStatus::Down if self.rect.includes(position) => {
+                    FingerStatus::Down if self.rect.includes(*position) => {
                         self.active = true;
                         hub.send(Event::Render(self.rect, UpdateMode::Fast)).unwrap();
                         true
@@ -49,7 +49,7 @@ impl View for RoundedButton {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
                 bus.push_back(self.event.clone());
                 true
             },
@@ -69,8 +69,8 @@ impl View for RoundedButton {
         };
 
         let pixmap = ICONS_PIXMAPS.get(&self.name[..]).unwrap();
-        let dx = (self.rect.width() as i32 - pixmap.width) / 2;
-        let dy = (self.rect.height() as i32 - pixmap.height) / 2;
+        let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
+        let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
         let pt = self.rect.min + pt!(dx, dy);
 
         fb.draw_rounded_rectangle_with_border(&self.rect,

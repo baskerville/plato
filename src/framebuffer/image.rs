@@ -2,55 +2,44 @@ extern crate png;
 
 use std::fs::File;
 use png::HasParameters;
-use framebuffer::{Framebuffer, UpdateMode};
+use failure::{Error, ResultExt};
+use super::{Framebuffer, UpdateMode};
 use color::WHITE;
 use geom::{Rectangle, lerp};
-use failure::{Error, ResultExt};
 
-pub struct ImageFramebuffer {
-    width: u32,
-    height: u32,
-    data: Vec<u8>,
-    inverted: bool,
-    monochrome: bool,
+#[derive(Debug, Clone)]
+pub struct Pixmap {
+    pub width: u32,
+    pub height: u32,
+    pub data: Vec<u8>,
 }
 
-impl ImageFramebuffer {
-    pub fn new(width: u32, height: u32) -> ImageFramebuffer {
+impl Pixmap {
+    pub fn new(width: u32, height: u32) -> Pixmap {
         let len = (width * height) as usize;
-        ImageFramebuffer {
+        Pixmap {
             width,
             height,
             data: vec![WHITE; len],
-            inverted: false,
-            monochrome: false,
         }
     }
 }
 
-#[inline]
-fn transform_color(color: u8, inverted: bool, monochrome: bool) -> u8 {
-    let color = if inverted {
-        255 - color
-    } else {
-        color
-    };
-    if monochrome {
-        (color > 127) as u8 * 255
-    } else {
-        color
-    }
-}
-
-impl Framebuffer for ImageFramebuffer {
+impl Framebuffer for Pixmap {
     fn set_pixel(&mut self, x: u32, y: u32, color: u8) {
+        if x >= self.width || y >= self.height {
+            return;
+        }
         let addr = (y * self.width + x) as usize;
         self.data[addr] = color;
     }
 
     fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32) {
-        if alpha == 1.0 {
+        if alpha >= 1.0 {
             self.set_pixel(x, y, color);
+            return;
+        }
+        if x >= self.width || y >= self.height {
             return;
         }
         let addr = (y * self.width + x) as usize;
@@ -82,17 +71,14 @@ impl Framebuffer for ImageFramebuffer {
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set(png::ColorType::Grayscale).set(png::BitDepth::Eight);
         let mut writer = encoder.write_header().context("Can't write header.")?;
-        let data: Vec<u8> = self.data.iter().map(|c| transform_color(*c, self.inverted, self.monochrome)).collect();
-        writer.write_image_data(&data).context("Can't write data to file.")?;
+        writer.write_image_data(&self.data).context("Can't write data to file.")?;
         Ok(())
     }
 
     fn toggle_inverted(&mut self) {
-        self.inverted = !self.inverted;
     }
 
     fn toggle_monochrome(&mut self) {
-        self.monochrome = !self.monochrome;
     }
 
     fn dims(&self) -> (u32, u32) {

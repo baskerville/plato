@@ -1,6 +1,6 @@
 extern crate libc;
 
-use document::mupdf_sys::*;
+use super::mupdf_sys::*;
 
 use std::ptr;
 use std::slice;
@@ -12,7 +12,8 @@ use std::fs::File;
 use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
 use failure::Error;
-use document::{Document, BoundedText, TocEntry, Link};
+use super::{Document, Location, BoundedText, TocEntry};
+use unit::pt_to_px;
 use framebuffer::Pixmap;
 use geom::Rectangle;
 
@@ -83,11 +84,14 @@ impl PdfOpener {
         }
     }
 
-    pub fn open_memory(&self, kind: &str, buf: &[u8]) -> Option<PdfDocument> {
+    // *magic* is a filename or a MIME type.
+    pub fn open_memory(&self, magic: &str, buf: &[u8]) -> Option<PdfDocument> {
         unsafe {
-            let stream = fz_open_memory((self.0).0, buf.as_ptr() as *const libc::c_uchar, buf.len() as libc::size_t);
-            let c_kind = CString::new(kind).unwrap();
-            let doc = mp_open_document_with_stream((self.0).0, c_kind.as_ptr(), stream);
+            let stream = fz_open_memory((self.0).0,
+                                        buf.as_ptr() as *const libc::c_uchar,
+                                        buf.len() as libc::size_t);
+            let c_magic = CString::new(magic).unwrap();
+            let doc = mp_open_document_with_stream((self.0).0, c_magic.as_ptr(), stream);
             fz_drop_stream((self.0).0, stream);
             if doc.is_null() {
                 None
@@ -145,29 +149,16 @@ impl PdfDocument {
             while !cur.is_null() {
                 let title = CStr::from_ptr((*cur).title).to_string_lossy().into_owned();
                 // TODO: handle page == -1
-                let page = (*cur).page as usize;
+                let location = (*cur).page as f32;
                 let children = if !(*cur).down.is_null() {
                     Self::walk_toc((*cur).down)
                 } else {
                     Vec::new()
                 };
-                vec.push(TocEntry { title, page, children });
+                vec.push(TocEntry { title, location, children });
                 cur = (*cur).next;
             }
             vec
-        }
-    }
-
-    pub fn info(&self, key: &str) -> Option<String> {
-        unsafe {
-            let key = CString::new(key).unwrap();
-            let mut buf: [libc::c_char; 256] = [0; 256];
-            let len = fz_lookup_metadata(self.ctx.0, self.doc, key.as_ptr(), buf.as_mut_ptr(), buf.len() as libc::c_int);
-            if len == -1 {
-                None
-            } else {
-                Some(CStr::from_ptr(buf.as_ptr()).to_string_lossy().into_owned())
-            }
         }
     }
 
@@ -177,26 +168,20 @@ impl PdfDocument {
 }
 
 impl Document for PdfDocument {
-    fn pages_count(&self) -> usize {
-        unsafe {
-            let count = mp_count_pages(self.ctx.0, self.doc);
-            if count < 0 {
-                0
-            } else {
-                count as usize
-            }
-        }
-    }
-
-    fn pixmap(&self, index: usize, scale: f32) -> Option<Pixmap> {
-        self.page(index).and_then(|p| p.pixmap(scale))
-    }
-
     fn dims(&self, index: usize) -> Option<(f32, f32)> {
         self.page(index).map(|page| page.dims())
     }
 
-    fn toc(&self) -> Option<Vec<TocEntry>> {
+    fn pages_count(&self) -> f32 {
+        unsafe { mp_count_pages(self.ctx.0, self.doc) as f32 }
+    }
+
+    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, f32)> {
+        let index = self.resolve_location(loc)? as usize;
+        self.page(index).and_then(|page| page.pixmap(scale)).map(|pixmap| (pixmap, index as f32))
+    }
+
+    fn toc(&mut self) -> Option<Vec<TocEntry>> {
         unsafe {
             let outline = mp_load_outline(self.ctx.0, self.doc);
             if outline.is_null() {
@@ -209,33 +194,84 @@ impl Document for PdfDocument {
         }
     }
 
-    fn words(&self, index: usize) -> Option<Vec<BoundedText>> {
-        self.page(index).and_then(|page| page.words())
+    fn metadata(&self, key: &str) -> Option<String> {
+        unsafe {
+            let key = CString::new(key).unwrap();
+            let mut buf: [libc::c_char; 256] = [0; 256];
+            let len = fz_lookup_metadata(self.ctx.0, self.doc, key.as_ptr(), buf.as_mut_ptr(), buf.len() as libc::c_int);
+            if len == -1 {
+                None
+            } else {
+                Some(CStr::from_ptr(buf.as_ptr()).to_string_lossy().into_owned())
+            }
+        }
     }
 
-    fn links(&self, index: usize) -> Option<Vec<Link>> {
-        self.page(index).and_then(|page| page.links())
+    fn resolve_location(&mut self, loc: Location) -> Option<f32> {
+        if self.pages_count() < 1.0 {
+            return None;
+        }
+        match loc {
+            Location::Exact(l) => {
+                Some(l.max(0.0).min(self.pages_count() - 1.0))
+            },
+            Location::Previous(l) => {
+                if l >= 1.0 {
+                    Some(l - 1.0)
+                } else {
+                    None
+                }
+            },
+            Location::Next(l) => {
+                if l < self.pages_count() - 1.0 {
+                    Some(l + 1.0)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f32)> {
+        let index = self.resolve_location(loc)? as usize;
+        self.page(index).and_then(|page| page.words()).map(|words| (words, index as f32))
+    }
+
+    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f32)> {
+        let index = self.resolve_location(loc)? as usize;
+        self.page(index).and_then(|page| page.links()).map(|links| (links, index as f32))
     }
 
     fn title(&self) -> Option<String> {
-        self.info(FZ_META_INFO_TITLE)
+        self.metadata(FZ_META_INFO_TITLE)
     }
 
     fn author(&self) -> Option<String> {
-        self.info(FZ_META_INFO_AUTHOR)
+        self.metadata(FZ_META_INFO_AUTHOR)
     }
 
     fn is_reflowable(&self) -> bool {
         unsafe { fz_is_document_reflowable(self.ctx.0, self.doc) == 1 }
     }
 
-    fn layout(&mut self, width: f32, height: f32, em: f32) {
+    fn layout(&mut self, width: u32, height: u32, font_size: f32, dpi: u16) {
+        let em = pt_to_px(font_size, dpi);
         unsafe {
             fz_layout_document(self.ctx.0, self.doc,
                                width as libc::c_float,
                                height as libc::c_float,
                                em as libc::c_float);
         }
+    }
+
+    fn set_font_family(&mut self, _family_name: &str, _search_path: &str) {
+    }
+
+    fn set_margin_width(&mut self, _width: i32) {
+    }
+
+    fn set_line_height(&mut self, _line_height: f32) {
     }
 }
 
@@ -293,7 +329,7 @@ impl<'a> PdfPage<'a> {
         }
     }
 
-    pub fn links(&self) -> Option<Vec<Link>> {
+    pub fn links(&self) -> Option<Vec<BoundedText>> {
         unsafe {
             let links = fz_load_links(self.ctx.0, self.page);
 
@@ -305,9 +341,9 @@ impl<'a> PdfPage<'a> {
             let mut result = Vec::new();
 
             while !link.is_null() {
-                let uri = CStr::from_ptr((*link).uri).to_string_lossy().into_owned();
+                let text = CStr::from_ptr((*link).uri).to_string_lossy().into_owned();
                 let rect = (*link).rect.clone().into();
-                result.push(Link { uri, rect });
+                result.push(BoundedText { text, rect });
                 link = (*link).next;
             }
 
@@ -330,14 +366,14 @@ impl<'a> PdfPage<'a> {
                 return None;
             }
 
-            let width = (*pixmap).w;
-            let height = (*pixmap).h;
+            let width = (*pixmap).w as u32;
+            let height = (*pixmap).h as u32;
             let len = (width * height) as usize;
-            let buf = slice::from_raw_parts((*pixmap).samples, len).to_vec();
+            let data = slice::from_raw_parts((*pixmap).samples, len).to_vec();
 
             fz_drop_pixmap(self.ctx.0, pixmap);
 
-            Some(Pixmap { buf, width, height })
+            Some(Pixmap { width, height, data })
         }
     }
 

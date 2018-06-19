@@ -1,5 +1,5 @@
 use framebuffer::Framebuffer;
-use view::{View, Event, Hub, Bus};
+use super::{View, Event, Hub, Bus};
 use geom::Rectangle;
 use app::Context;
 use font::Fonts;

@@ -2,8 +2,8 @@ use framebuffer::{Framebuffer, UpdateMode};
 use view::{View, Event, Hub, Bus};
 use view::icon::Icon;
 use view::filler::Filler;
-use view::home::matches_label::MatchesLabel;
 use view::page_label::PageLabel;
+use super::matches_label::MatchesLabel;
 use geom::{Rectangle, CycleDir, halves};
 use color::WHITE;
 use app::Context;
@@ -45,8 +45,9 @@ impl BottomBar {
 
         let page_label = PageLabel::new(rect![pt!(rect.max.x - side - big_half_width, rect.min.y),
                                               pt!(rect.max.x - side, rect.max.y)],
-                                        current_page,
-                                        pages_count);
+                                        current_page as f32,
+                                        pages_count as f32,
+                                        false);
         children.push(Box::new(page_label) as Box<View>);
 
         let next_rect = rect![rect.max - side, rect.max];
@@ -76,7 +77,7 @@ impl BottomBar {
 
     pub fn update_page_label(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
         let page_label = self.children[2].as_mut().downcast_mut::<PageLabel>().unwrap();
-        page_label.update(current_page, pages_count, hub);
+        page_label.update(current_page as f32, pages_count as f32, hub);
     }
 
     pub fn update_icons(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {

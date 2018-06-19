@@ -6,11 +6,11 @@ use gesture::GestureEvent;
 use unit::scale_by_dpi;
 use color::{BLACK, WHITE, SEPARATOR_NORMAL};
 use framebuffer::{Framebuffer, UpdateMode};
-use view::filler::Filler;
-use view::menu_entry::MenuEntry;
-use view::common::locate_by_id;
-use view::{View, Event, Hub, Bus, EntryKind, ViewId, CLOSE_IGNITION_DELAY};
-use view::{THICKNESS_MEDIUM, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
+use super::filler::Filler;
+use super::menu_entry::MenuEntry;
+use super::common::locate_by_id;
+use super::{View, Event, Hub, Bus, EntryKind, ViewId, CLOSE_IGNITION_DELAY};
+use super::{THICKNESS_MEDIUM, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use app::Context;
 
 pub struct Menu {
@@ -253,7 +253,7 @@ impl View for Menu {
                 });
                 true
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if !self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if !self.rect.includes(*center) => {
                 if self.root {
                     hub.send(Event::Close(self.id)).unwrap();
                 } else {
@@ -261,7 +261,7 @@ impl View for Menu {
                 }
                 self.root
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if !self.rect.includes(center) => self.root,
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if !self.rect.includes(*center) => self.root,
             Event::SubMenu(rect, ref entries) => {
                 let menu = Menu::new(rect, ViewId::SubMenu(self.sub_id),
                                      MenuKind::SubMenu, entries.clone(), &mut context.fonts).root(false);

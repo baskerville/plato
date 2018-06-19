@@ -2,7 +2,7 @@ use device::CURRENT_DEVICE;
 use document::pdf::PdfOpener;
 use geom::Rectangle;
 use font::{Fonts, font_from_style, DISPLAY_STYLE};
-use view::{View, Event, Hub, Bus};
+use super::{View, Event, Hub, Bus};
 use framebuffer::Framebuffer;
 use color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use app::Context;
@@ -58,14 +58,14 @@ impl View for Intermission {
 
         fb.draw_rectangle(&self.rect, scheme[0]);
 
-        font.render(fb, scheme[1], &plan, &pt!(dx, dy));
+        font.render(fb, scheme[1], &plan, pt!(dx, dy));
 
         let doc = PdfOpener::new().and_then(|o| o.open("icons/dodecahedron.svg")).unwrap();
         let page = doc.page(0).unwrap();
         let (width, height) = page.dims();
         let scale = (plan.width as f32 / width.max(height) as f32) / 4.0;
         let pixmap = page.pixmap(scale).unwrap();
-        let dx = (self.rect.width() as i32 - pixmap.width) / 2;
+        let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
         let dy = dy + 2 * x_height;
         let pt = self.rect.min + pt!(dx, dy);
 

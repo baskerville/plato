@@ -2,8 +2,8 @@ use std::path::Path;
 use fnv::FnvHashMap;
 use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, Pixmap, UpdateMode};
-use view::{View, Event, Hub, Bus, ViewId, Align};
-use view::BORDER_RADIUS_SMALL;
+use super::{View, Event, Hub, Bus, ViewId, Align};
+use super::BORDER_RADIUS_SMALL;
 use gesture::GestureEvent;
 use input::{DeviceEvent, FingerStatus};
 use document::pdf::PdfOpener;
@@ -25,7 +25,8 @@ lazy_static! {
                      "delete-backward", "delete-forward", "move-backward", "move-forward",
                      "close",  "check_mark-small", "check_mark","check_mark-large",
                      "bullet", "arrow-left", "arrow-right", "double_angle-left", "double_angle-right",
-                     "angle-down", "plus", "minus", "crop", "toc", "font_size", "plug"].iter().cloned() {
+                     "angle-down", "plus", "minus", "crop", "toc", "font_family", "font_size",
+                     "line_height", "margin", "plug"].iter().cloned() {
             let path = dir.join(&format!("{}.svg", name));
             let doc = PdfOpener::new().and_then(|o| o.open(path)).unwrap();
             let pixmap = doc.page(0).and_then(|p| p.pixmap(scale)).unwrap();
@@ -81,7 +82,7 @@ impl View for Icon {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
                 match status {
-                    FingerStatus::Down if self.rect.includes(position) => {
+                    FingerStatus::Down if self.rect.includes(*position) => {
                         self.active = true;
                         hub.send(Event::Render(self.rect, UpdateMode::Fast)).unwrap();
                         true
@@ -94,11 +95,11 @@ impl View for Icon {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
                 bus.push_back(self.event.clone());
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => {
                 match self.event {
                     Event::Page(dir) => bus.push_back(Event::Chapter(dir)),
                     Event::Show(ViewId::Frontlight) => {
@@ -134,8 +135,8 @@ impl View for Icon {
         };
 
         let pixmap = ICONS_PIXMAPS.get(&self.name[..]).unwrap();
-        let dx = self.align.offset(pixmap.width, self.rect.width() as i32);
-        let dy = (self.rect.height() as i32 - pixmap.height) / 2;
+        let dx = self.align.offset(pixmap.width as i32, self.rect.width() as i32);
+        let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
         let pt = self.rect.min + pt!(dx, dy);
 
         if let Some(ref cs) = self.corners {
@@ -145,8 +146,8 @@ impl View for Icon {
         }
 
         if self.active {
-            let padding = ((self.rect.width() as i32 - pixmap.width).min(self.rect.height() as i32 - pixmap.height) / 3).max(1);
-            let bg_rect = rect![pt - padding, pt + pt!(pixmap.width, pixmap.height) + padding];
+            let padding = ((self.rect.width() as i32 - pixmap.width as i32).min(self.rect.height() as i32 - pixmap.height as i32) / 3).max(1);
+            let bg_rect = rect![pt - padding, pt + pt!(pixmap.width as i32, pixmap.height as i32) + padding];
             let border_radius = scale_by_dpi(BORDER_RADIUS_SMALL, dpi) as i32;
             fb.draw_rounded_rectangle(&bg_rect, &CornerSpec::Uniform(border_radius), scheme[0]);
         }

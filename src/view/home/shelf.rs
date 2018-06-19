@@ -1,5 +1,7 @@
 use device::{CURRENT_DEVICE, BAR_SIZES};
 use view::{View, Event, Hub, Bus, THICKNESS_MEDIUM};
+use view::filler::Filler;
+use super::book::Book;
 use framebuffer::{Framebuffer, UpdateMode};
 use font::Fonts;
 use metadata::Info;
@@ -8,8 +10,6 @@ use color::{WHITE, SEPARATOR_NORMAL};
 use gesture::GestureEvent;
 use unit::scale_by_dpi;
 use app::Context;
-use view::home::book::Book;
-use view::filler::Filler;
 
 pub struct Shelf {
     pub rect: Rectangle,
@@ -66,7 +66,7 @@ impl Shelf {
 impl View for Shelf {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Swipe { dir, ref start, ref end, .. }) if self.rect.includes(start) => {
+            Event::Gesture(GestureEvent::Swipe { dir, ref start, ref end, .. }) if self.rect.includes(*start) => {
                 match dir {
                     Dir::West => {
                         bus.push_back(Event::Page(CycleDir::Next));
@@ -76,7 +76,7 @@ impl View for Shelf {
                         bus.push_back(Event::Page(CycleDir::Previous));
                         true
                     },
-                    Dir::North if !self.rect.includes(end) => {
+                    Dir::North if !self.rect.includes(*end) => {
                         bus.push_back(Event::ResizeSummary(end.y - self.rect.min.y));
                         true
                     },

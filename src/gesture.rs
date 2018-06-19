@@ -1,9 +1,10 @@
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::sync::{Arc, Mutex};
 use fnv::FnvHashMap;
+use std::f64;
 use std::time::Duration;
 use std::thread;
-use unit::mm_to_in;
+use unit::mm_to_px;
 use input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use view::Event;
 use device::CURRENT_DEVICE;
@@ -65,7 +66,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
     let contacts: Arc<Mutex<FnvHashMap<i32, TouchState>>> = Arc::new(Mutex::new(FnvHashMap::default()));
     let buttons: Arc<Mutex<FnvHashMap<ButtonCode, f64>>> = Arc::new(Mutex::new(FnvHashMap::default()));
     let mut segments: Vec<(Point, Point)> = Vec::new();
-    let jitter = CURRENT_DEVICE.dpi as f32 * mm_to_in(JITTER_TOLERANCE_MM);
+    let jitter = mm_to_px(JITTER_TOLERANCE_MM, CURRENT_DEVICE.dpi);
     while let Ok(evt) = rx.recv() {
         ty.send(Event::Device(evt)).unwrap();
         match evt {
@@ -79,7 +80,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                     let mut ct = contacts.lock().unwrap();
                     let mut will_remove = None;
                     if let Some(ts) = ct.get(&id) {
-                        if ts.time == time && (ts.current - position).length() < jitter {
+                        if (ts.time - time).abs() < f64::EPSILON && (ts.current - position).length() < jitter {
                             ty.send(Event::Gesture(GestureEvent::HoldFinger(position))).unwrap();
                             will_remove = Some(id);
                         }
@@ -166,7 +167,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                     thread::sleep(BUTTON_HOLD_DELAY);
                     let bt = buttons.lock().unwrap();
                     if let Some(&initial_time) = bt.get(&code) {
-                        if initial_time == time {
+                        if (initial_time - time).abs() < f64::EPSILON {
                             ty.send(Event::Gesture(GestureEvent::HoldButton(code))).unwrap();
                         }
                     }

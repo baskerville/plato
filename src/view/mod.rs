@@ -19,6 +19,7 @@ pub mod slider;
 pub mod input_field;
 pub mod page_label;
 pub mod named_input;
+pub mod labeled_icon;
 pub mod search_bar;
 pub mod confirmation;
 pub mod notification;
@@ -195,12 +196,12 @@ pub enum Event {
     Keyboard(KeyboardEvent),
     Key(KeyKind),
     Open(Box<Info>),
-    OpenToc(Vec<TocEntry>, usize),
+    OpenToc(Vec<TocEntry>, f32),
     Invalid(Box<Info>),
     Remove(Box<Info>),
     Page(CycleDir),
     ResultsPage(CycleDir),
-    GoTo(usize),
+    GoTo(f32),
     ResultsGoTo(usize),
     CropMargins(Box<Margin>),
     Chapter(CycleDir),
@@ -222,7 +223,7 @@ pub enum Event {
     Show(ViewId),
     Close(ViewId),
     CloseSub(ViewId),
-    SearchResult(usize, Rectangle),
+    SearchResult(f32, Rectangle),
     EndOfSearch,
     Finished,
     ClockTick,
@@ -249,6 +250,9 @@ pub enum ViewId {
     MainMenu,
     Frontlight,
     FontSizeMenu,
+    FontFamilyMenu,
+    MarginWidthMenu,
+    LineHeightMenu,
     MatchesMenu,
     PageMenu,
     BookMenu,
@@ -270,7 +274,7 @@ pub enum ViewId {
     MarginCropper,
     TopBottomBars,
     TableOfContents,
-    FinishedNotif,
+    BoundaryNotif,
     TakeScreenshotNotif,
     NoSearchResultsNotif,
     InvalidSearchQueryNotif,
@@ -286,8 +290,8 @@ pub enum SliderId {
 }
 
 impl SliderId {
-    pub fn label(&self) -> String {
-        match *self {
+    pub fn label(self) -> String {
+        match self {
             SliderId::LightIntensity => "Intensity".to_string(),
             SliderId::LightWarmth => "Warmth".to_string(),
             SliderId::FontSize => "Font Size".to_string(),
@@ -343,6 +347,10 @@ pub enum EntryId {
     Column(Column),
     Sort(SortMethod),
     ApplyCroppings(usize, PageScheme),
+    SetFontFamily(String),
+    SetFontSize(i32),
+    SetMarginWidth(i32),
+    SetLineHeight(i32),
     RemoveCroppings,
     Remove(PathBuf),
     SearchDirection(LinearDir),

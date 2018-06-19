@@ -8,18 +8,20 @@ mod results_label;
 use std::thread;
 use std::sync::{Arc, Mutex, mpsc};
 use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::Ordering as AtomicOrdering;
 use std::rc::Rc;
+use std::cmp::Ordering;
 use std::path::PathBuf;
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::VecDeque;
 use chrono::Local;
 use regex::Regex;
 use input::FingerStatus;
 use framebuffer::{Framebuffer, UpdateMode, Pixmap};
 use view::{View, Event, Hub, ViewId, EntryKind, EntryId, SliderId, Bus, THICKNESS_MEDIUM};
-use unit::{scale_by_dpi, pt_to_px, mm_to_in};
+use unit::{scale_by_dpi, mm_to_px};
 use device::{CURRENT_DEVICE, BAR_SIZES};
-use font::{Fonts, DEFAULT_FONT_SIZE};
+use font::Fonts;
+use font::family_names;
 use self::margin_cropper::{MarginCropper, BUTTON_DIAMETER};
 use self::top_bar::TopBar;
 use self::tool_bar::ToolBar;
@@ -32,11 +34,14 @@ use view::search_bar::SearchBar;
 use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use view::menu::{Menu, MenuKind};
 use view::notification::Notification;
-use settings::{guess_frontlight, FinishedAction};
+use settings::{guess_frontlight, FinishedAction, DEFAULT_FONT_FAMILY};
+use settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_LINE_HEIGHT};
 use frontlight::LightLevels;
 use gesture::GestureEvent;
-use document::{Document, TocEntry, open, toc_as_html, chapter_at, chapter_relative};
+use document::{Document, DocumentOpener, Location, Neighbors};
+use document::{TocEntry, toc_as_html, chapter_at, chapter_relative};
 use document::pdf::PdfOpener;
+use document::epub::LOCATION_EPSILON;
 use metadata::{Info, FileInfo, ReaderInfo, PageScheme, Margin, CroppingMargins, make_query};
 use geom::{Rectangle, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, halves};
 use color::{BLACK, WHITE};
@@ -50,8 +55,9 @@ pub struct Reader {
     info: Info,
     doc: Arc<Mutex<Box<Document>>>,
     pixmap: Rc<Pixmap>,
-    current_page: usize,
-    pages_count: usize,
+    current_page: f32,
+    pages_count: f32,
+    synthetic: bool,
     page_turns: usize,
     finished: bool,
     ephemeral: bool,
@@ -61,22 +67,29 @@ pub struct Reader {
     scale: f32,
     focus: Option<ViewId>,
     search: Option<Search>,
-    history: VecDeque<usize>,
+    history: VecDeque<f32>,
 }
 
+#[derive(Debug)]
 struct Search {
     query: String,
-    highlights: BTreeMap<usize, Vec<Rectangle>>,
+    highlights: Vec<Highlight>,
     running: Arc<AtomicBool>,
     current_page: usize,
     results_count: usize,
+}
+
+#[derive(Debug)]
+struct Highlight {
+    location: f32,
+    rects: Vec<Rectangle>,
 }
 
 impl Default for Search {
     fn default() -> Self {
         Search {
             query: String::new(),
-            highlights: BTreeMap::new(),
+            highlights: Vec::new(),
             running: Arc::new(AtomicBool::new(true)),
             current_page: 0,
             results_count: 0,
@@ -88,28 +101,37 @@ impl Reader {
     pub fn new(rect: Rectangle, mut info: Info, hub: &Hub, context: &mut Context) -> Option<Reader> {
         let settings = &context.settings;
         let path = settings.library_path.join(&info.file.path);
+        let opener = DocumentOpener::new(settings.reader.epub_engine);
 
-        open(&path).map(|mut doc| {
+        opener.open(&path).and_then(|mut doc| {
             let (width, height) = CURRENT_DEVICE.dims;
-            let font_size = info.reader.as_ref().and_then(|r| r.font_size);
-            doc.layout(width as f32, height as f32,
-                       pt_to_px(font_size.unwrap_or(DEFAULT_FONT_SIZE),
-                                CURRENT_DEVICE.dpi));
+            let font_size = info.reader.as_ref().and_then(|r| r.font_size)
+                                .unwrap_or(settings.reader.font_size);
+            let first_location = doc.resolve_location(Location::Exact(0.0))?;
+
+            doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
 
             let pages_count;
-            let current_page;
+            let mut current_page;
 
             // TODO: use get_or_insert_with?
             if let Some(ref mut r) = info.reader {
                 r.opened = Local::now();
                 if r.finished {
                     r.finished = false;
-                    r.current_page = 0;
+                    r.current_page = first_location;
                 }
                 current_page = r.current_page;
                 pages_count = r.pages_count;
+                if let Some(ref font_family) = r.font_family {
+                    doc.set_font_family(font_family, &settings.reader.font_path);
+                }
+                doc.set_margin_width(r.margin_width.unwrap_or(settings.reader.margin_width));
+                if let Some(line_height) = r.line_height {
+                    doc.set_line_height(line_height);
+                }
             } else {
-                current_page = 0;
+                current_page = first_location;
                 pages_count = doc.pages_count();
                 info.reader = Some(ReaderInfo {
                     current_page,
@@ -118,22 +140,25 @@ impl Reader {
                 });
             }
 
+            let synthetic = doc.has_synthetic_page_numbers();
+
             println!("{}", info.file.path.display());
 
             let margin = info.reader.as_ref()
                              .and_then(|r| r.cropping_margins.as_ref()
-                                            .map(|c| c.margin(current_page)))
+                                            .map(|c| c.margin(current_page as usize)))
                              .cloned().unwrap_or_default();
-            let (pixmap, scale) = build_pixmap(&rect, doc.as_ref(), current_page, &margin);
+            let ((pixmap, location), scale) = build_pixmap(&rect, doc.as_mut(), current_page, &margin);
             let frame = rect![(margin.left * pixmap.width as f32).ceil() as i32,
                               (margin.top * pixmap.height as f32).ceil() as i32,
                               ((1.0 - margin.right) * pixmap.width as f32).floor() as i32,
                               ((1.0 - margin.bottom) * pixmap.height as f32).floor() as i32];
             let pixmap = Rc::new(pixmap);
+            current_page = location;
 
             hub.send(Event::Render(rect, UpdateMode::Partial)).unwrap();
 
-            Reader {
+            Some(Reader {
                 rect,
                 children: vec![],
                 info,
@@ -141,6 +166,7 @@ impl Reader {
                 pixmap,
                 current_page,
                 pages_count,
+                synthetic,
                 page_turns: 0,
                 finished: false,
                 ephemeral: false,
@@ -151,11 +177,11 @@ impl Reader {
                 focus: None,
                 search: None,
                 history: VecDeque::new(),
-            }
+            })
         })
     }
 
-    pub fn from_toc(rect: Rectangle, toc: &[TocEntry], mut current_page: usize, hub: &Hub, context: &mut Context) -> Reader {
+    pub fn from_toc(rect: Rectangle, toc: &[TocEntry], mut current_page: f32, hub: &Hub, context: &mut Context) -> Reader {
         let html = toc_as_html(toc, current_page);
 
         let info = Info {
@@ -170,19 +196,25 @@ impl Reader {
 
         let mut opener = PdfOpener::new().unwrap();
         opener.set_user_css("css/toc.css").unwrap();
-        let doc = opener.open_memory("html", html.as_bytes()).unwrap();
+        let mut doc = opener.open_memory("html", html.as_bytes()).unwrap();
         let pages_count = doc.pages_count();
 
         current_page = chapter_at(toc, current_page).and_then(|chap| {
-            let link_uri = format!("@{}", chap.page);
-            (0..pages_count).find(|index| doc.links(*index).as_ref()
-                                             .and_then(|links| links.iter()
-                                                                    .find(|link| link.uri == link_uri))
-                                             .is_some())}).unwrap_or(0);
+            let link_uri = format!("@{}", chap.location);
+            let mut loc = Location::Exact(0.0);
+            while let Some((links, l)) = doc.links(loc) {
+                if links.iter().any(|link| link.text == link_uri) {
+                    return Some(l)
+                }
+                loc = Location::Next(l);
+            }
+            None
+        }).unwrap_or(0.0);
 
-        let (pixmap, scale) = build_pixmap(&rect, &doc, current_page, &Margin::default());
+        let ((pixmap, location), scale) = build_pixmap(&rect, &mut doc, current_page, &Margin::default());
+        current_page = location;
         let pixmap = Rc::new(pixmap);
-        let frame = rect![0, 0, pixmap.width, pixmap.height];
+        let frame = pixmap.rect();
 
         hub.send(Event::Render(rect, UpdateMode::Partial)).unwrap();
 
@@ -194,6 +226,7 @@ impl Reader {
             pixmap,
             current_page,
             pages_count,
+            synthetic: false,
             page_turns: 0,
             finished: false,
             ephemeral: true,
@@ -207,126 +240,157 @@ impl Reader {
         }
     }
 
-    fn go_to_page(&mut self, index: usize, record: bool, hub: &Hub) {
-        if index >= self.pages_count {
-            return;
-        }
+    fn go_to_page(&mut self, location: f32, record: bool, hub: &Hub) {
+        let loc = {
+            let mut doc = self.doc.lock().unwrap();
+            doc.resolve_location(Location::Exact(location))
+        };
 
-        if record {
-            self.history.push_back(self.current_page);
-            if self.history.len() > HISTORY_SIZE {
-                self.history.pop_front();
+        if let Some(location) = loc {
+            if record {
+                self.history.push_back(self.current_page);
+                if self.history.len() > HISTORY_SIZE {
+                    self.history.pop_front();
+                }
             }
-        }
 
-        if let Some(ref mut s) = self.search {
-            s.current_page = s.highlights.range(..index+1).count().saturating_sub(1);
-        }
+            if let Some(ref mut s) = self.search {
+                let search_page = s.highlights
+                                   .binary_search_by(|a| a.location.partial_cmp(&location)
+                                                          .unwrap_or(Ordering::Equal));
+                s.current_page = if search_page.is_ok() {
+                    search_page.unwrap()
+                } else {
+                    search_page.unwrap_err()
+                               .min(s.highlights.len().saturating_sub(1))
+                };
+            }
 
-        self.current_page = index;
-        self.update(hub);
-        self.update_bottom_bar(hub);
+            self.current_page = location;
+            self.update(hub);
+            self.update_bottom_bar(hub);
 
-        if self.search.is_some() {
-            self.update_results_bar(hub);
+            if self.search.is_some() {
+                self.update_results_bar(hub);
+            }
         }
     }
 
     fn go_to_chapter(&mut self, dir: CycleDir, hub: &Hub) {
         let current_page = self.current_page;
         let chap = {
-            let doc = self.doc.lock().unwrap();
-            doc.toc().and_then(|t| chapter_relative(&t, current_page, dir))
+            let mut doc = self.doc.lock().unwrap();
+            doc.toc().and_then(|toc| chapter_relative(&toc, current_page, dir))
         };
-        if let Some(index) = chap {
-            self.go_to_page(index, true, hub);
+        if let Some(location) = chap {
+            self.go_to_page(location, true, hub);
         }
     }
 
     fn go_to_bookmark(&mut self, dir: CycleDir, hub: &Hub) {
-        let mut index = None;
+        let mut loc = None;
         if let Some(ref r) = self.info.reader {
             match dir {
                 CycleDir::Next => {
-                    index = r.bookmarks.range(self.current_page+1 ..)
-                                       .next().cloned();
+                    loc = r.bookmarks.iter().find(|&loc| *loc > self.current_page).cloned();
                 },
                 CycleDir::Previous => {
-                    index = r.bookmarks.range(.. self.current_page)
-                                       .next_back().cloned();
+                    loc = r.bookmarks.iter().filter(|&loc| *loc < self.current_page)
+                                     .next_back().cloned();
                 },
             }
         }
-        if let Some(index) = index {
-            self.go_to_page(index, true, hub);
+        if let Some(location) = loc {
+            self.go_to_page(location, true, hub);
         }
     }
 
     fn go_to_last_page(&mut self, hub: &Hub) {
-        if let Some(index) = self.history.pop_back() {
-            self.go_to_page(index, false, hub);
+        if let Some(location) = self.history.pop_back() {
+            self.go_to_page(location, false, hub);
         }
     }
 
-    fn set_current_page(&mut self, dir: CycleDir, hub: &Hub, context: &mut Context) {
+    fn go_to_neighbor(&mut self, dir: CycleDir, hub: &Hub, context: &mut Context) {
         let current_page = self.current_page;
-        match dir {
-            CycleDir::Next if current_page < self.pages_count - 1 => {
-                self.go_to_page(current_page + 1, false, hub);
-            },
-            CycleDir::Previous if current_page > 0 => {
-                self.go_to_page(current_page - 1, false, hub);
-            },
-            CycleDir::Next if current_page == self.pages_count - 1 => {
-                self.finished = true;
-                match context.settings.reader.finished {
-                    FinishedAction::Notify => {
-                        let notif = Notification::new(ViewId::FinishedNotif,
-                                                      "No next page.".to_string(),
-                                                      &mut context.notification_index,
-                                                      &mut context.fonts,
-                                                      hub);
-                        self.children.push(Box::new(notif) as Box<View>);
-                    },
-                    FinishedAction::Close => {
-                        hub.send(Event::Back).unwrap();
-                    },
-                }
-            },
-            _ => (),
+        let loc = {
+            let neighloc = if dir == CycleDir::Previous {
+                Location::Previous(current_page)
+            } else {
+                Location::Next(current_page)
+            };
+            let mut doc = self.doc.lock().unwrap();
+            doc.resolve_location(neighloc)
+        };
+        if let Some(location) = loc {
+            self.go_to_page(location, false, hub);
+        } else {
+            match dir {
+                CycleDir::Next => {
+                    self.finished = true;
+                    match context.settings.reader.finished {
+                        FinishedAction::Notify => {
+                            let notif = Notification::new(ViewId::BoundaryNotif,
+                                                          "No next page.".to_string(),
+                                                          &mut context.notification_index,
+                                                          &mut context.fonts,
+                                                          hub);
+                            self.children.push(Box::new(notif) as Box<View>);
+                        },
+                        FinishedAction::Close => {
+                            hub.send(Event::Back).unwrap();
+                        },
+                    }
+                },
+                CycleDir::Previous => {
+                    let notif = Notification::new(ViewId::BoundaryNotif,
+                                                  "No previous page.".to_string(),
+                                                  &mut context.notification_index,
+                                                  &mut context.fonts,
+                                                  hub);
+                    self.children.push(Box::new(notif) as Box<View>);
+                },
+            }
         }
     }
 
     fn go_to_results_page(&mut self, index: usize, hub: &Hub) {
-        let mut doc_index = None;
+        let mut loc = None;
         if let Some(ref mut s) = self.search {
             if index < s.highlights.len() {
                 s.current_page = index;
-                doc_index = Some(*s.highlights.keys().nth(index).unwrap());
+                loc = Some(s.highlights[index].location);
             }
         }
-        if let Some(doc_index) = doc_index {
-            self.current_page = doc_index;
+        if let Some(location) = loc {
+            self.current_page = location;
             self.update_results_bar(hub);
             self.update_bottom_bar(hub);
             self.update(hub);
         }
     }
 
-    fn set_current_results_page(&mut self, dir: CycleDir, hub: &Hub) {
-        let index = self.search.as_ref().and_then(|s| {
+    fn go_to_results_neighbor(&mut self, dir: CycleDir, hub: &Hub) {
+        let loc = self.search.as_ref().and_then(|s| {
             match dir {
-                CycleDir::Next => s.highlights.range(self.current_page+1..)
-                                              .next().map(|e| *e.0),
-                CycleDir::Previous => s.highlights.range(..self.current_page)
-                                                  .next_back().map(|e| *e.0),
+                CycleDir::Next => s.highlights.iter().find(|h| h.location > self.current_page)
+                                              .map(|e| e.location),
+                CycleDir::Previous => s.highlights.iter().filter(|h| h.location < self.current_page)
+                                                  .next_back().map(|e| e.location),
             }
         });
-        if let Some(index) = index {
-            for s in &mut self.search {
-                s.current_page = s.highlights.range(..index+1).count().saturating_sub(1);
+        if let Some(location) = loc {
+            if let Some(ref mut s) = self.search {
+                let search_page = s.highlights
+                                   .binary_search_by(|a| a.location.partial_cmp(&location)
+                                                          .unwrap_or(Ordering::Equal));
+                s.current_page = if search_page.is_ok() {
+                    search_page.unwrap()
+                } else {
+                    search_page.unwrap_err()
+                };
             }
-            self.current_page = index;
+            self.current_page = location;
             self.update_results_bar(hub);
             self.update_bottom_bar(hub);
             self.update(hub);
@@ -337,13 +401,40 @@ impl Reader {
         if let Some(index) = locate::<BottomBar>(self) {
             let current_page = self.current_page;
             let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
+            let mut doc = self.doc.lock().unwrap();
+            let neighbors = Neighbors {
+                previous_page: doc.resolve_location(Location::Previous(current_page)),
+                next_page: doc.resolve_location(Location::Next(current_page)),
+            };
             bottom_bar.update_page_label(self.current_page, self.pages_count, hub);
-            bottom_bar.update_icons(self.current_page, self.pages_count, hub);
-            let doc = self.doc.lock().unwrap();
+            bottom_bar.update_icons(&neighbors, hub);
             let chapter = doc.toc().as_ref().and_then(|t| chapter_at(t, current_page))
                                    .map(|c| c.title.clone())
                                    .unwrap_or_default();
             bottom_bar.update_chapter(chapter, hub);
+        }
+    }
+
+    fn update_tool_bar(&mut self, hub: &Hub, context: &mut Context) {
+        if let Some(index) = locate::<ToolBar>(self) {
+            let settings = &context.settings;
+            let tool_bar = self.children[index].as_mut().downcast_mut::<ToolBar>().unwrap();
+            let font_family = self.info.reader.as_ref()
+                                  .and_then(|r| r.font_family.clone())
+                                  .unwrap_or_else(|| settings.reader.font_family.clone());
+            tool_bar.update_font_family(font_family, hub);
+            let font_size = self.info.reader.as_ref()
+                                .and_then(|r| r.font_size)
+                                .unwrap_or(settings.reader.font_size);
+            tool_bar.update_slider(font_size, hub);
+            let margin_width = self.info.reader.as_ref()
+                                   .and_then(|r| r.margin_width)
+                                   .unwrap_or(settings.reader.margin_width);
+            tool_bar.update_margin_width(margin_width, hub);
+            let line_height = self.info.reader.as_ref()
+                                  .and_then(|r| r.line_height)
+                                  .unwrap_or(settings.reader.line_height);
+            tool_bar.update_line_height(line_height, hub);
         }
     }
 
@@ -376,10 +467,11 @@ impl Reader {
         };
         let margin = self.info.reader.as_ref()
                          .and_then(|r| r.cropping_margins.as_ref()
-                                        .map(|c| c.margin(self.current_page)))
+                                        .map(|c| c.margin(self.current_page as usize)))
                          .cloned().unwrap_or_default();
-        let doc = self.doc.lock().unwrap();
-        let (pixmap, scale) = build_pixmap(&self.rect, doc.as_ref(), self.current_page, &margin);
+        let mut doc = self.doc.lock().unwrap();
+        let ((pixmap, location), scale) = build_pixmap(&self.rect, doc.as_mut(), self.current_page, &margin);
+        self.current_page = location;
         self.pixmap = Rc::new(pixmap);
         let frame = rect![(margin.left * self.pixmap.width as f32).ceil() as i32,
                           (margin.top * self.pixmap.height as f32).ceil() as i32,
@@ -400,46 +492,46 @@ impl Reader {
         let doc2 = Arc::clone(&self.doc);
         let running = Arc::clone(&s.running);
         let current_page = self.current_page;
-        let pages_count = self.pages_count;
         let search_direction = self.search_direction;
 
         thread::spawn(move || {
-            let mut index = current_page;
+            let mut loc = Location::Exact(current_page);
+            let mut started = false;
+
             loop {
-                if !running.load(Ordering::Relaxed) {
+                if !running.load(AtomicOrdering::Relaxed) {
                     break;
                 }
 
-                let doc = doc2.lock().unwrap();
+                let mut doc = doc2.lock().unwrap();
 
-                if let Some(ref words) = doc.words(index) {
+                if let Some((ref words, location)) = doc.words(loc) {
+                    if (location - current_page).abs() < LOCATION_EPSILON && started {
+                        break;
+                    }
                     for word in words {
                         if query.is_match(&word.text) {
-                            if !running.load(Ordering::Relaxed) {
+                            if !running.load(AtomicOrdering::Relaxed) {
                                 break;
                             }
-                            hub2.send(Event::SearchResult(index, word.rect)).unwrap();
+                            hub2.send(Event::SearchResult(location, word.rect)).unwrap();
                         }
                     }
+                    loc = match search_direction {
+                        LinearDir::Forward => Location::Next(location),
+                        LinearDir::Backward => Location::Previous(location),
+                    };
+                } else {
+                    loc = match search_direction {
+                        LinearDir::Forward => Location::Exact(0.0),
+                        LinearDir::Backward => Location::Exact(doc.pages_count()),
+                    };
                 }
 
-                index = match search_direction {
-                    LinearDir::Forward => (index + 1) % pages_count,
-                    LinearDir::Backward => {
-                        if index == 0 {
-                            pages_count - 1
-                        } else {
-                            index - 1
-                        }
-                    },
-                };
-
-                if index == current_page {
-                    break;
-                }
+                started = true;
             }
 
-            running.store(false, Ordering::Relaxed);
+            running.store(false, AtomicOrdering::Relaxed);
             hub2.send(Event::EndOfSearch).unwrap();
         });
 
@@ -472,7 +564,7 @@ impl Reader {
                 let delta_y = rect.height() as i32;
 
                 for i in 2..index-1 {
-                    shift(self.child_mut(i), &pt!(0, delta_y));
+                    shift(self.child_mut(i), pt!(0, delta_y));
                 }
             }
         } else {
@@ -525,14 +617,14 @@ impl Reader {
                 let delta_y = kb_rect.height() as i32 + thickness;
 
                 for i in 2..index {
-                    shift(self.child_mut(i), &pt!(0, -delta_y));
+                    shift(self.child_mut(i), pt!(0, -delta_y));
                     hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).unwrap();
                 }
             }
         }
     }
 
-    fn toggle_tool_bar(&mut self, enable: bool, hub: &Hub) {
+    fn toggle_tool_bar(&mut self, enable: bool, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate::<ToolBar>(self) {
             if enable {
                 return;
@@ -551,17 +643,18 @@ impl Reader {
             let (_, height) = CURRENT_DEVICE.dims;
             let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
-
-            let s_rect = *self.child(2).rect() - pt!(0, big_height as i32 + thickness);
-
             let doc = self.doc.lock().unwrap();
-            let font_size = self.info.reader.as_ref().and_then(|r| r.font_size);
+            let tb_height = if doc.is_reflowable() { 2 * big_height } else { big_height };
+
+            let s_rect = *self.child(2).rect() - pt!(0, tb_height as i32 + thickness);
+
             let tool_bar = ToolBar::new(rect![self.rect.min.x,
                                               s_rect.max.y,
                                               self.rect.max.x,
-                                              s_rect.max.y + big_height as i32],
+                                              s_rect.max.y + tb_height as i32],
                                         doc.is_reflowable(),
-                                        font_size.unwrap_or(DEFAULT_FONT_SIZE));
+                                        self.info.reader.as_ref(),
+                                        &context.settings.reader);
             self.children.insert(2, Box::new(tool_bar) as Box<View>);
 
             let separator = Filler::new(s_rect, BLACK);
@@ -597,7 +690,7 @@ impl Reader {
             if let Some(ref s) = self.search {
                 let results_bar = ResultsBar::new(rect, s.current_page,
                                                   s.highlights.len(), s.results_count,
-                                                  !s.running.load(Ordering::Relaxed));
+                                                  !s.running.load(AtomicOrdering::Relaxed));
                 self.children.insert(2, Box::new(results_bar) as Box<View>);
                 let separator = Filler::new(s_rect, BLACK);
                 self.children.insert(2, Box::new(separator) as Box<View>);
@@ -630,7 +723,7 @@ impl Reader {
             let (small_thickness, big_thickness) = halves(thickness);
             let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
 
-            let doc = self.doc.lock().unwrap();
+            let mut doc = self.doc.lock().unwrap();
             let mut index = 0;
 
             let top_bar = TopBar::new(rect![self.rect.min.x, self.rect.min.y,
@@ -663,7 +756,7 @@ impl Reader {
                                                         self.rect.max.x,
                                                         self.rect.max.y - 2 * small_height as i32 - small_thickness],
                                                   s.current_page, s.highlights.len(),
-                                                  s.results_count, !s.running.load(Ordering::Relaxed));
+                                                  s.results_count, !s.running.load(AtomicOrdering::Relaxed));
                 self.children.insert(index, Box::new(results_bar) as Box<View>);
                 index += 1;
 
@@ -683,21 +776,22 @@ impl Reader {
                 self.children.insert(index, Box::new(search_bar) as Box<View>);
                 index += 1;
             } else {
+                let tb_height = if doc.is_reflowable() { 2 * big_height } else { big_height };
                 let separator = Filler::new(rect![self.rect.min.x,
-                                                  self.rect.max.y - (small_height + big_height) as i32 - small_thickness,
+                                                  self.rect.max.y - (small_height + tb_height) as i32 - small_thickness,
                                                   self.rect.max.x,
-                                                  self.rect.max.y - (small_height + big_height) as i32 + big_thickness],
+                                                  self.rect.max.y - (small_height + tb_height) as i32 + big_thickness],
                                             BLACK);
                 self.children.insert(index, Box::new(separator) as Box<View>);
                 index += 1;
 
-                let font_size = self.info.reader.as_ref().and_then(|r| r.font_size);
                 let tool_bar = ToolBar::new(rect![self.rect.min.x,
-                                                  self.rect.max.y - (small_height + big_height) as i32 + big_thickness,
+                                                  self.rect.max.y - (small_height + tb_height) as i32 + big_thickness,
                                                   self.rect.max.x,
                                                   self.rect.max.y - small_height as i32 - small_thickness],
                                             doc.is_reflowable(),
-                                            font_size.unwrap_or(DEFAULT_FONT_SIZE));
+                                            self.info.reader.as_ref(),
+                                            &context.settings.reader);
                 self.children.insert(index, Box::new(tool_bar) as Box<View>);
                 index += 1;
             }
@@ -710,13 +804,20 @@ impl Reader {
             self.children.insert(index, Box::new(separator) as Box<View>);
             index += 1;
 
+            let neighbors = Neighbors {
+                previous_page: doc.resolve_location(Location::Previous(self.current_page)),
+                next_page: doc.resolve_location(Location::Next(self.current_page)),
+            };
+
             let bottom_bar = BottomBar::new(rect![self.rect.min.x,
                                                   self.rect.max.y - small_height as i32 + big_thickness,
                                                   self.rect.max.x,
                                                   self.rect.max.y],
-                                            doc.as_ref(),
+                                            doc.as_mut(),
                                             self.current_page,
-                                            self.pages_count);
+                                            self.pages_count,
+                                            &neighbors,
+                                            self.synthetic);
             self.children.insert(index, Box::new(bottom_bar) as Box<View>);
 
             hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
@@ -756,6 +857,111 @@ impl Reader {
         }
     }
 
+    fn toggle_font_family_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+        if let Some(index) = locate_by_id(self, ViewId::FontFamilyMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let fonts = &mut context.fonts;
+            let mut families = family_names(&context.settings.reader.font_path).unwrap_or_default();
+            let current_family = self.info.reader.as_ref()
+                                     .and_then(|r| r.font_family.clone())
+                                     .unwrap_or_else(|| DEFAULT_FONT_FAMILY.to_string());
+            families.insert(DEFAULT_FONT_FAMILY.to_string());
+            let entries = families.iter().map(|f| EntryKind::RadioButton(f.clone(),
+                                                                         EntryId::SetFontFamily(f.clone()),
+                                                                         *f == current_family)).collect();
+            let font_family_menu = Menu::new(rect, ViewId::FontFamilyMenu, MenuKind::DropDown, entries, fonts);
+            hub.send(Event::Render(*font_family_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(font_family_menu) as Box<View>);
+        }
+    }
+
+    fn toggle_font_size_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+        if let Some(index) = locate_by_id(self, ViewId::FontSizeMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let font_size = self.info.reader.as_ref().and_then(|r| r.font_size)
+                                .unwrap_or(DEFAULT_FONT_SIZE);
+            let entries = (0..=20).map(|v| {
+                let fs = 10.0 + v as f32 / 10.0;
+                EntryKind::RadioButton(format!("{:.1}", fs),
+                                       EntryId::SetFontSize(v),
+                                       (fs - font_size).abs() < 0.05)
+            }).collect();
+            let font_size_menu = Menu::new(rect, ViewId::FontSizeMenu, MenuKind::Contextual, entries, fonts);
+            hub.send(Event::Render(*font_size_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(font_size_menu) as Box<View>);
+        }
+    }
+
+    fn toggle_line_height_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+        if let Some(index) = locate_by_id(self, ViewId::LineHeightMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let line_height = self.info.reader.as_ref()
+                                  .and_then(|r| r.line_height).unwrap_or(DEFAULT_LINE_HEIGHT);
+            let entries = (0..=10).map(|x| {
+                let lh = 1.0 + x as f32 / 10.0;
+                EntryKind::RadioButton(format!("{:.1}", lh),
+                                       EntryId::SetLineHeight(x),
+                                       (lh - line_height).abs() < 0.05)
+            }).collect();
+            let line_height_menu = Menu::new(rect, ViewId::LineHeightMenu, MenuKind::DropDown, entries, fonts);
+            hub.send(Event::Render(*line_height_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(line_height_menu) as Box<View>);
+        }
+    }
+
+    fn toggle_margin_width_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+        if let Some(index) = locate_by_id(self, ViewId::MarginWidthMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let margin_width = self.info.reader.as_ref().and_then(|r| r.margin_width).unwrap_or(DEFAULT_MARGIN_WIDTH);
+            let entries = (0..=10).map(|mw| EntryKind::RadioButton(format!("{}", mw),
+                                                                  EntryId::SetMarginWidth(mw),
+                                                                  mw == margin_width)).collect();
+            let margin_width_menu = Menu::new(rect, ViewId::MarginWidthMenu, MenuKind::DropDown, entries, fonts);
+            hub.send(Event::Render(*margin_width_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(margin_width_menu) as Box<View>);
+        }
+    }
+
     fn toggle_page_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
         if let Some(index) = locate_by_id(self, ViewId::PageMenu) {
             if let Some(true) = enable {
@@ -771,9 +977,10 @@ impl Reader {
 
             let first_page = self.info.reader.as_ref()
                                  .and_then(|r| r.first_page).unwrap_or(0);
+            let current_page = self.current_page as usize;
             let entries = vec![EntryKind::CheckBox("First Page".to_string(),
                                                    EntryId::ToggleFirstPage,
-                                                   self.current_page == first_page)];
+                                                   current_page == first_page)];
             let page_menu = Menu::new(rect, ViewId::PageMenu, MenuKind::DropDown, entries, fonts);
             hub.send(Event::Render(*page_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(page_menu) as Box<View>);
@@ -793,7 +1000,7 @@ impl Reader {
                 return;
             }
 
-            let current_page = self.current_page;
+            let current_page = self.current_page as usize;
             let is_split = self.info.reader.as_ref()
                                .and_then(|r| r.cropping_margins
                                               .as_ref().map(|c| c.is_split()));
@@ -859,7 +1066,7 @@ impl Reader {
             self.toggle_bars(Some(false), hub, context);
 
             if let Some(ref mut s) = self.search {
-                s.running.store(false, Ordering::Relaxed);
+                s.running.store(false, AtomicOrdering::Relaxed);
             }
 
             self.search = None;
@@ -868,7 +1075,7 @@ impl Reader {
                 return;
             }
 
-            self.toggle_tool_bar(false, hub);
+            self.toggle_tool_bar(false, hub, context);
 
             let dpi = CURRENT_DEVICE.dpi;
             let (_, height) = CURRENT_DEVICE.dims;
@@ -917,22 +1124,23 @@ impl Reader {
 
             let margin = self.info.reader.as_ref()
                              .and_then(|r| r.cropping_margins.as_ref()
-                                            .map(|c| c.margin(self.current_page)))
+                                            .map(|c| c.margin(self.current_page as usize)))
                              .cloned().unwrap_or_default();
 
-            let doc = self.doc.lock().unwrap();
-            let (pixmap, _) = build_pixmap(&pixmap_rect,
-                                           doc.as_ref(),
-                                           self.current_page,
-                                           &Margin::default());
+            let mut doc = self.doc.lock().unwrap();
+            let ((pixmap, location), _) = build_pixmap(&pixmap_rect,
+                                                       doc.as_mut(),
+                                                       self.current_page,
+                                                       &Margin::default());
 
+            self.current_page = location;
             let margin_cropper = MarginCropper::new(self.rect, pixmap, &margin);
             hub.send(Event::Render(*margin_cropper.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(margin_cropper) as Box<View>);
         }
     }
 
-    fn set_font_size(&mut self, font_size: f32, hub: &Hub) {
+    fn set_font_size(&mut self, font_size: f32, hub: &Hub, context: &mut Context) {
         if Arc::strong_count(&self.doc) > 1 {
             return;
         }
@@ -945,48 +1153,122 @@ impl Reader {
         {
             let mut doc = self.doc.lock().unwrap();
 
-            doc.layout(width as f32, height as f32,
-                      pt_to_px(font_size,
-                               CURRENT_DEVICE.dpi));
-            let ratio = doc.pages_count() as f32 / self.pages_count as f32;
-            self.current_page = (self.current_page as f32 * ratio) as usize;
+            doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
 
-            if let Some(ref mut r) = self.info.reader {
-                for page in &mut r.first_page {
-                    *page = (*page as f32 * ratio) as usize;
-                }
-                let mut next_bookmarks = BTreeSet::new();
-                for page in &r.bookmarks {
-                    next_bookmarks.insert((*page as f32 * ratio) as usize);
-                }
-                r.bookmarks = next_bookmarks;
+            if !self.synthetic {
+                let ratio = doc.pages_count() / self.pages_count;
+                self.pages_count = doc.pages_count();
+                self.current_page = (ratio * self.current_page).min(self.pages_count - 1.0);
             }
-
-            self.pages_count = doc.pages_count();
         }
 
         self.update(hub);
+        self.update_tool_bar(hub, context);
+        self.update_bottom_bar(hub);
+    }
+
+    fn set_font_family(&mut self, font_family: &str, hub: &Hub, context: &mut Context) {
+        if Arc::strong_count(&self.doc) > 1 {
+            return;
+        }
+
+        if let Some(ref mut r) = self.info.reader {
+            r.font_family = Some(font_family.to_string());
+        }
+
+        {
+            let mut doc = self.doc.lock().unwrap();
+            let font_path = if font_family == DEFAULT_FONT_FAMILY {
+                "fonts"
+            } else {
+                &context.settings.reader.font_path
+            };
+
+            doc.set_font_family(font_family, font_path);
+
+            if !self.synthetic {
+                self.pages_count = doc.pages_count();
+                self.current_page = self.current_page.min(self.pages_count - 1.0);
+            }
+        }
+
+        self.update(hub);
+        self.update_tool_bar(hub, context);
+        self.update_bottom_bar(hub);
+    }
+
+    fn set_line_height(&mut self, line_height: f32, hub: &Hub, context: &mut Context) {
+        if Arc::strong_count(&self.doc) > 1 {
+            return;
+        }
+
+        if let Some(ref mut r) = self.info.reader {
+            r.line_height = Some(line_height);
+        }
+
+        {
+            let mut doc = self.doc.lock().unwrap();
+            doc.set_line_height(line_height);
+
+            if !self.synthetic {
+                self.pages_count = doc.pages_count();
+                self.current_page = self.current_page.min(self.pages_count - 1.0);
+            }
+        }
+
+        self.update(hub);
+        self.update_tool_bar(hub, context);
+        self.update_bottom_bar(hub);
+    }
+
+    fn set_margin_width(&mut self, width: i32, hub: &Hub, context: &mut Context) {
+        if Arc::strong_count(&self.doc) > 1 {
+            return;
+        }
+
+        if let Some(ref mut r) = self.info.reader {
+            r.margin_width = Some(width);
+        }
+
+        {
+            let mut doc = self.doc.lock().unwrap();
+            doc.set_margin_width(width);
+
+            if !self.synthetic {
+                self.pages_count = doc.pages_count();
+                self.current_page = self.current_page.min(self.pages_count - 1.0);
+            }
+        }
+
+        self.update(hub);
+        self.update_tool_bar(hub, context);
         self.update_bottom_bar(hub);
     }
 
     fn add_remove_bookmark(&mut self, hub: &Hub) {
+        let current_page = self.current_page;
         if let Some(ref mut r) = self.info.reader {
-            if !r.bookmarks.insert(self.current_page) {
-                r.bookmarks.remove(&self.current_page);
+            if let Ok(index) = r.bookmarks.binary_search_by(|a| a.partial_cmp(&current_page)
+                                                                 .unwrap_or(Ordering::Equal)) {
+                r.bookmarks.remove(index);
+            } else {
+                r.bookmarks.push(self.current_page);
+                r.bookmarks.sort_unstable_by(|a, b| a.partial_cmp(b)
+                                                     .unwrap_or(Ordering::Equal));
             }
         }
         self.update(hub);
     }
 
     fn crop_margins(&mut self, index: usize, margin: &Margin, hub: &Hub) {
-        self.info.reader.as_mut().map(|r| {
+        if let Some(r) = self.info.reader.as_mut() {
             if r.cropping_margins.is_none() {
                 r.cropping_margins = Some(CroppingMargins::Any(Margin::default()));
             }
             for c in r.cropping_margins.iter_mut() {
                 *c.margin_mut(index) = margin.clone();
             }
-        });
+        }
         self.update(hub);
     }
 
@@ -1003,7 +1285,7 @@ impl Reader {
 
     fn quit(&mut self, context: &mut Context) {
         if let Some(ref mut s) = self.search {
-            s.running.store(false, Ordering::Relaxed);
+            s.running.store(false, AtomicOrdering::Relaxed);
         }
 
         if self.ephemeral {
@@ -1028,15 +1310,15 @@ impl Reader {
 impl View for Reader {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Swipe { dir, ref start, .. }) if self.rect.includes(start) => {
+            Event::Gesture(GestureEvent::Swipe { dir, ref start, .. }) if self.rect.includes(*start) => {
                 match dir {
-                    Dir::West => self.set_current_page(CycleDir::Next, hub, context),
-                    Dir::East => self.set_current_page(CycleDir::Previous, hub, context),
+                    Dir::West => self.go_to_neighbor(CycleDir::Next, hub, context),
+                    Dir::East => self.go_to_neighbor(CycleDir::Previous, hub, context),
                     _ => (),
                 };
                 true
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
                 if self.focus.is_some() {
                     return true;
                 }
@@ -1044,9 +1326,9 @@ impl View for Reader {
                 let dx = (self.rect.width() - self.frame.width()) as i32 / 2;
                 let dy = (self.rect.height() - self.frame.height()) as i32 / 2;
 
-                let links = &self.doc.lock().ok()
-                                 .and_then(|d| d.links(self.current_page))
-                                 .unwrap_or_default();
+                let (links, _) = self.doc.lock().ok()
+                                     .and_then(|mut doc| doc.links(Location::Exact(self.current_page)))
+                                     .unwrap_or((Vec::new(), 0.0));
 
                 for link in links {
                     let r = link.rect;
@@ -1059,19 +1341,20 @@ impl View for Reader {
                                      x_max as i32 - self.frame.min.x + dx,
                                      y_max as i32 - self.frame.min.y + dy];
 
-                    if rect.includes(center) {
-                        let re = Regex::new(r"^([#@])(\d+)(?:,\d+,\d+)?$").unwrap();
-                        if let Some(caps) = re.captures(&link.uri) {
-                            if let Ok(index) = caps[2].parse::<usize>() {
-                                if &caps[1] == "@" {
-                                    hub.send(Event::Back).unwrap();
-                                    hub.send(Event::GoTo(index)).unwrap();
-                                } else {
-                                    self.go_to_page(index.saturating_sub(1), true, hub);
-                                }
+                    if rect.includes(*center) {
+                        let pdf_page = Regex::new(r"^#(\d+)(?:,\d+,\d+)?$").unwrap();
+                        let toc_page = Regex::new(r"^@(.*)$").unwrap();
+                        if let Some(caps) = toc_page.captures(&link.text) {
+                            if let Ok(location) = caps[1].parse::<f32>() {
+                                hub.send(Event::Back).unwrap();
+                                hub.send(Event::GoTo(location)).unwrap();
+                            }
+                        } else if let Some(caps) = pdf_page.captures(&link.text) {
+                            if let Ok(index) = caps[1].parse::<usize>() {
+                                self.go_to_page(index.saturating_sub(1) as f32, true, hub);
                             }
                         } else {
-                            println!("Unrecognized URI: {}.", link.uri);
+                            println!("Unrecognized URI: {}.", link.text);
                         }
                         return true;
                     }
@@ -1095,14 +1378,14 @@ impl View for Reader {
                                 hub.send(Event::Show(ViewId::TableOfContents)).unwrap();
                             }
                         } else {
-                            self.set_current_page(CycleDir::Previous, hub, context);
+                            self.go_to_neighbor(CycleDir::Previous, hub, context);
                         }
                     // Left ear.
                     } else {
                         if self.search.is_none() {
-                            self.set_current_page(CycleDir::Previous, hub, context);
+                            self.go_to_neighbor(CycleDir::Previous, hub, context);
                         } else {
-                            self.set_current_results_page(CycleDir::Previous, hub);
+                            self.go_to_results_neighbor(CycleDir::Previous, hub);
                         }
                     }
                 } else if center.x > x2 {
@@ -1115,14 +1398,14 @@ impl View for Reader {
                         if self.search.is_none() {
                             hub.send(Event::Toggle(ViewId::GoToPage)).unwrap();
                         } else {
-                            self.set_current_page(CycleDir::Next, hub, context);
+                            self.go_to_neighbor(CycleDir::Next, hub, context);
                         }
                     // Right ear.
                     } else {
                         if self.search.is_none() {
-                            self.set_current_page(CycleDir::Next, hub, context);
+                            self.go_to_neighbor(CycleDir::Next, hub, context);
                         } else {
-                            self.set_current_results_page(CycleDir::Next, hub);
+                            self.go_to_results_neighbor(CycleDir::Next, hub);
                         }
                     }
                 // Middle band.
@@ -1132,7 +1415,7 @@ impl View for Reader {
 
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => {
                 if self.focus.is_some() {
                     return true;
                 }
@@ -1196,16 +1479,17 @@ impl View for Reader {
                 true
             },
             Event::Submit(ViewId::GoToPageInput, ref text) => {
-                let re = Regex::new(r#"^(")?(\d+)$"#).unwrap();
+                let re = Regex::new(r#"^(")?(.+)$"#).unwrap();
                 if let Some(caps) = re.captures(text) {
-                    if let Ok(mut index) = caps[2].parse::<usize>() {
-                        index = index.saturating_sub(1);
-                        if caps.get(1).is_some() {
-                            index = index.saturating_add(self.info.reader.as_ref()
-                                                             .and_then(|r| r.first_page).unwrap_or(0))
-                                         .min(self.pages_count - 1);
+                    if let Ok(mut location) = caps[2].parse::<f32>() {
+                        if !self.synthetic {
+                            location = (location - 1.0).max(0.0);
+                            if caps.get(1).is_some() {
+                                location += self.info.reader.as_ref()
+                                                .and_then(|r| r.first_page).unwrap_or(0) as f32;
+                            }
                         }
-                        self.go_to_page(index, true, hub);
+                        self.go_to_page(location, true, hub);
                     }
                 }
                 true
@@ -1235,11 +1519,11 @@ impl View for Reader {
                 true
             },
             Event::Page(dir) => {
-                self.set_current_page(dir, hub, context);
+                self.go_to_neighbor(dir, hub, context);
                 true
             },
-            Event::GoTo(index) => {
-                self.go_to_page(index, true, hub);
+            Event::GoTo(location) => {
+                self.go_to_page(location, true, hub);
                 true
             },
             Event::Chapter(dir) => {
@@ -1247,11 +1531,11 @@ impl View for Reader {
                 true
             },
             Event::ResultsPage(dir) => {
-                self.set_current_results_page(dir, hub);
+                self.go_to_results_neighbor(dir, hub);
                 true
             },
             Event::CropMargins(ref margin) => {
-                let current_page = self.current_page;
+                let current_page = self.current_page as usize;
                 self.crop_margins(current_page, margin.as_ref(), hub);
                 true
             },
@@ -1268,7 +1552,7 @@ impl View for Reader {
                 true
             },
             Event::Slider(SliderId::FontSize, font_size, FingerStatus::Up) => {
-                self.set_font_size(font_size, hub);
+                self.set_font_size(font_size, hub, context);
                 true
             },
             Event::ToggleNear(ViewId::MainMenu, rect) => {
@@ -1281,6 +1565,22 @@ impl View for Reader {
             },
             Event::ToggleNear(ViewId::SearchMenu, rect) => {
                 self.toggle_search_menu(rect, None, hub, &mut context.fonts);
+                true
+            },
+            Event::ToggleNear(ViewId::FontFamilyMenu, rect) => {
+                self.toggle_font_family_menu(rect, None, hub, context);
+                true
+            },
+            Event::ToggleNear(ViewId::FontSizeMenu, rect) => {
+                self.toggle_font_size_menu(rect, None, hub, &mut context.fonts);
+                true
+            },
+            Event::ToggleNear(ViewId::MarginWidthMenu, rect) => {
+                self.toggle_margin_width_menu(rect, None, hub, &mut context.fonts);
+                true
+            },
+            Event::ToggleNear(ViewId::LineHeightMenu, rect) => {
+                self.toggle_line_height_menu(rect, None, hub, &mut context.fonts);
                 true
             },
             Event::ToggleNear(ViewId::PageMenu, rect) => {
@@ -1307,7 +1607,7 @@ impl View for Reader {
                 {
                     self.toggle_bars(Some(false), hub, context);
                 }
-                let doc = self.doc.lock().unwrap();
+                let mut doc = self.doc.lock().unwrap();
                 if doc.has_toc() {
                     hub.send(Event::OpenToc(doc.toc().unwrap(), self.current_page)).unwrap();
                 }
@@ -1325,27 +1625,42 @@ impl View for Reader {
                 self.toggle_margin_cropper(false, hub, context);
                 true
             },
-            Event::SearchResult(index, rect) => {
+            Event::SearchResult(location, rect) => {
                 if self.search.is_none() {
                     return true;
                 }
+
                 let mut results_count = 0;
+
                 if let Some(ref mut s) = self.search {
                     let pages_count = s.highlights.len();
-                    s.highlights.entry(index).or_insert_with(|| Vec::new()).push(rect);
+                    let search_page = s.highlights
+                                       .binary_search_by(|a| a.location.partial_cmp(&location)
+                                                              .unwrap_or(Ordering::Equal));
+                    if let Ok(index) = search_page {
+                        s.highlights[index].rects.push(rect);
+                    } else {
+                        s.highlights.push(Highlight { location, rects: vec![rect] });
+                        s.highlights.sort_unstable_by(|a, b| a.location.partial_cmp(&b.location)
+                                                              .unwrap_or(Ordering::Equal));
+                    }
+
                     s.results_count += 1;
                     results_count = s.results_count;
-                    if results_count > 1 && index <= self.current_page && s.highlights.len() > pages_count {
+                    if results_count > 1 && location <= self.current_page && s.highlights.len() > pages_count {
                         s.current_page += 1;
                     }
                 }
+
                 self.update_results_bar(hub);
+
                 if results_count == 1 {
-                    self.go_to_page(index, true, hub);
+                    self.go_to_page(location, true, hub);
                     self.toggle_bars(Some(false), hub, context);
-                } else if index == self.current_page {
+                } else if (location - self.current_page).abs() < LOCATION_EPSILON {
                     self.update(hub);
                 }
+
                 true
             },
             Event::EndOfSearch => {
@@ -1373,7 +1688,9 @@ impl View for Reader {
                 true
             },
             Event::Select(EntryId::RemoveCroppings) => {
-                self.info.reader.as_mut().map(|r| r.cropping_margins = None);
+                if let Some(r) = self.info.reader.as_mut() {
+                    r.cropping_margins = None;
+                }
                 self.update(hub);
                 true
             },
@@ -1381,8 +1698,26 @@ impl View for Reader {
                 self.search_direction = dir;
                 true
             },
+            Event::Select(EntryId::SetFontFamily(ref font_family)) => {
+                self.set_font_family(font_family, hub, context);
+                true
+            },
+            Event::Select(EntryId::SetFontSize(v)) => {
+                let font_size = 10.0 + v as f32 / 10.0;
+                self.set_font_size(font_size, hub, context);
+                true
+            },
+            Event::Select(EntryId::SetMarginWidth(width)) => {
+                self.set_margin_width(width, hub, context);
+                true
+            },
+            Event::Select(EntryId::SetLineHeight(v)) => {
+                let line_height = 1.0 + v as f32 / 10.0;
+                self.set_line_height(line_height, hub, context);
+                true
+            },
             Event::Select(EntryId::ToggleFirstPage) => {
-                let current_page = self.current_page;
+                let current_page = self.current_page as usize;
                 if let Some(ref mut r) = self.info.reader {
                     if r.first_page.unwrap_or(0) == current_page {
                         r.first_page = None;
@@ -1404,15 +1739,12 @@ impl View for Reader {
                 false
             },
             Event::Focus(v) => {
-                match v {
-                    Some(ViewId::SearchInput) => {
-                        self.toggle_results_bar(false, hub);
-                        if let Some(ref mut s) = self.search {
-                            s.running.store(false, Ordering::Relaxed);
-                        }
-                        self.search = None;
+                if let Some(ViewId::SearchInput) = v {
+                    self.toggle_results_bar(false, hub);
+                    if let Some(ref mut s) = self.search {
+                        s.running.store(false, AtomicOrdering::Relaxed);
                     }
-                    _ => ()
+                    self.search = None;
                 }
                 self.focus = v;
                 if v.is_some() {
@@ -1431,7 +1763,9 @@ impl View for Reader {
         fb.draw_rectangle(&self.rect, WHITE);
         fb.draw_framed_pixmap(&self.pixmap, &self.frame, &pt!(dx, dy));
 
-        if let Some(rects) = self.search.as_ref().and_then(|s| s.highlights.get(&self.current_page)) {
+        if let Some(rects) = self.search.as_ref()
+                                 .and_then(|s| s.highlights.binary_search_by(|a| a.location.partial_cmp(&self.current_page).unwrap_or(Ordering::Equal)).ok()
+                                 .map(|index| &s.highlights[index].rects)) {
             let dx = (self.rect.width() - self.frame.width()) as i32 / 2;
             let dy = (self.rect.height() - self.frame.height()) as i32 / 2;
 
@@ -1454,10 +1788,10 @@ impl View for Reader {
         if self.info.reader.as_ref().map_or(false, |r| r.bookmarks.contains(&self.current_page)) {
             let dpi = CURRENT_DEVICE.dpi;
             let thickness = scale_by_dpi(3.0, dpi) as u16;
-            let radius = (mm_to_in(0.4) * dpi as f32) as i32 + thickness as i32;
+            let radius = mm_to_px(0.4, dpi) as i32 + thickness as i32;
             let center = pt!(self.rect.max.x - 5 * radius,
                              self.rect.min.y + 5 * radius);
-            fb.draw_rounded_rectangle_with_border(&Rectangle::from_disk(&center, radius),
+            fb.draw_rounded_rectangle_with_border(&Rectangle::from_disk(center, radius),
                                                   &CornerSpec::Uniform(radius),
                                                   &BorderSpec { thickness, color: WHITE },
                                                   &BLACK);
@@ -1485,12 +1819,12 @@ impl View for Reader {
     }
 }
 
-fn build_pixmap(rect: &Rectangle, doc: &Document, index: usize, margin: &Margin) -> (Pixmap, f32) {
-    let (width, height) = doc.dims(index).unwrap();
+fn build_pixmap(rect: &Rectangle, doc: &mut Document, location: f32, margin: &Margin) -> ((Pixmap, f32), f32) {
+    let (width, height) = doc.dims(location as usize).unwrap();
     let p_width = (1.0 - (margin.left + margin.right)) * width;
     let p_height = (1.0 - (margin.top + margin.bottom)) * height;
     let w_ratio = rect.width() as f32 / p_width;
     let h_ratio = rect.height() as f32 / p_height;
     let scale = w_ratio.min(h_ratio);
-    (doc.pixmap(index, scale).unwrap(), scale)
+    (doc.pixmap(Location::Exact(location), scale).unwrap(), scale)
 }

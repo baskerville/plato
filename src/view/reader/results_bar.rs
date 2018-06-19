@@ -2,8 +2,8 @@ use framebuffer::{Framebuffer, UpdateMode};
 use view::{View, Event, Hub, Bus, ViewId};
 use view::icon::Icon;
 use view::filler::Filler;
-use view::reader::results_label::ResultsLabel;
 use view::page_label::PageLabel;
+use super::results_label::ResultsLabel;
 use gesture::GestureEvent;
 use input::DeviceEvent;
 use geom::{Rectangle, CycleDir, halves};
@@ -47,8 +47,9 @@ impl ResultsBar {
 
         let page_label = PageLabel::new(rect![pt!(rect.max.x - side - big_half_width, rect.min.y),
                                               pt!(rect.max.x - side, rect.max.y)],
-                                        current_page,
-                                        pages_count);
+                                        current_page as f32,
+                                        pages_count as f32,
+                                        false);
         children.push(Box::new(page_label) as Box<View>);
 
         let next_rect = rect![rect.max - side, rect.max];
@@ -78,7 +79,7 @@ impl ResultsBar {
 
     pub fn update_page_label(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
         let page_label = self.children[2].as_mut().downcast_mut::<PageLabel>().unwrap();
-        page_label.update(current_page, pages_count, hub);
+        page_label.update(current_page as f32, pages_count as f32, hub);
     }
 
     pub fn update_icons(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
@@ -129,9 +130,9 @@ impl View for ResultsBar {
             },
             Event::ToggleNear(ViewId::PageMenu, _) => true,
             Event::Gesture(GestureEvent::Tap(ref center)) |
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => true,
-            Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(start) => true,
-            Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(position) => true,
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => true,
+            Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(*start) => true,
+            Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(*position) => true,
             _ => false,
         }
     }

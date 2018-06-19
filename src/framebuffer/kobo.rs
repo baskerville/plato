@@ -12,8 +12,8 @@ use std::ops::Drop;
 use libc::ioctl;
 use png::HasParameters;
 use geom::Rectangle;
-use framebuffer::{UpdateMode, Framebuffer};
-use framebuffer::mxcfb_sys::*;
+use super::{UpdateMode, Framebuffer};
+use super::mxcfb_sys::*;
 use failure::{Error, ResultExt};
 
 impl Into<MxcfbRect> for Rectangle {
@@ -51,26 +51,26 @@ impl Framebuffer for KoboFramebuffer {
     }
 
     fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32) {
-        if alpha == 1.0 {
+        if alpha >= 1.0 {
             self.set_pixel(x, y, color);
             return;
         }
         let rgb = (self.get_pixel_rgb)(self, x, y);
         let color_alpha = color as f32 * alpha;
-        let r = color_alpha + (1.0 - alpha) * rgb[0] as f32;
-        let g = color_alpha + (1.0 - alpha) * rgb[1] as f32;
-        let b = color_alpha + (1.0 - alpha) * rgb[2] as f32;
-        (self.set_pixel_rgb)(self, x, y, [r as u8, g as u8, b as u8]);
+        let red = color_alpha + (1.0 - alpha) * rgb[0] as f32;
+        let green = color_alpha + (1.0 - alpha) * rgb[1] as f32;
+        let blue = color_alpha + (1.0 - alpha) * rgb[2] as f32;
+        (self.set_pixel_rgb)(self, x, y, [red as u8, green as u8, blue as u8]);
     }
 
     fn invert_region(&mut self, rect: &Rectangle) {
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
                 let rgb = (self.get_pixel_rgb)(self, x as u32, y as u32);
-                let r = 255 - rgb[0];
-                let g = 255 - rgb[1];
-                let b = 255 - rgb[2];
-                (self.set_pixel_rgb)(self, x as u32, y as u32, [r, g, b]);
+                let red = 255 - rgb[0];
+                let green = 255 - rgb[1];
+                let blue = 255 - rgb[2];
+                (self.set_pixel_rgb)(self, x as u32, y as u32, [red, green, blue]);
             }
         }
     }
@@ -194,7 +194,7 @@ impl KoboFramebuffer {
         };
 
         if frame == libc::MAP_FAILED {
-            return Err(Error::from(io::Error::last_os_error()).context("Can't map memory.").into());
+            Err(Error::from(io::Error::last_os_error()).context("Can't map memory.").into())
         } else {
             let (set_pixel_rgb, get_pixel_rgb, as_rgb): (SetPixelRgb, GetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
                 (set_pixel_rgb_32, get_pixel_rgb_32, as_rgb_32)

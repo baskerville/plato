@@ -8,9 +8,13 @@ extern crate toml;
 #[macro_use] extern crate bitflags;
 #[macro_use] extern crate downcast_rs;
 extern crate unicode_normalization;
+extern crate paragraph_breaker;
+extern crate hyphenation;
+extern crate entities;
 extern crate libc;
 extern crate regex;
 extern crate chrono;
+extern crate zip;
 extern crate glob;
 extern crate sdl2;
 extern crate fnv;
@@ -413,7 +417,7 @@ pub fn run() -> Result<(), Error> {
 
 fn main() {
     if let Err(e) = run() {
-        for e in e.causes() {
+        for e in e.iter_chain() {
             eprintln!("plato-emulator: {}", e);
         }
         process::exit(1);

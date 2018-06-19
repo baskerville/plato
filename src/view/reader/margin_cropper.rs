@@ -24,14 +24,14 @@ impl MarginCropper {
     pub fn new(rect: Rectangle, pixmap: Pixmap, margin: &Margin) -> MarginCropper {
         let mut children = Vec::new();
 
-        let pt = pt!((rect.width() as i32 - pixmap.width) / 2,
-                     (rect.height() as i32 - pixmap.height) / 2);
+        let pt = pt!((rect.width() as i32 - pixmap.width as i32) / 2,
+                     (rect.height() as i32 - pixmap.height as i32) / 2);
         let x_min = pt.x +
                     (margin.left * pixmap.width as f32).round() as i32;
         let y_min = pt.y +
                     (margin.top * pixmap.height as f32).round() as i32;
-        let x_max = pt.x + pixmap.width - (margin.right * pixmap.width as f32).round() as i32;
-        let y_max = pt.y + pixmap.height - (margin.bottom * pixmap.height as f32).round() as i32;
+        let x_max = pt.x + pixmap.width as i32 - (margin.right * pixmap.width as f32).round() as i32;
+        let y_max = pt.y + pixmap.height as i32 - (margin.bottom * pixmap.height as f32).round() as i32;
         let frame = rect![x_min, y_min, x_max, y_max];
 
         let dpi = CURRENT_DEVICE.dpi;
@@ -64,7 +64,7 @@ impl MarginCropper {
         }
     }
 
-    fn update(&mut self, start: &Point, end: &Point) {
+    fn update(&mut self, start: Point, end: Point) {
         let mut nearest = None;
         let mut dmin = u32::max_value();
 
@@ -86,14 +86,14 @@ impl MarginCropper {
 
         if let Some((i, j)) = nearest {
             match (i, j) {
-                (0, 0) => self.frame.min = *end,
+                (0, 0) => self.frame.min = end,
                 (1, 0) => self.frame.min.y = end.y,
                 (1, 2) => self.frame.max.y = end.y,
                 (0, 1) => self.frame.min.x = end.x,
                 (2, 1) => self.frame.max.x = end.x,
                 (0, 2) => { self.frame.min.x = end.x; self.frame.max.y = end.y },
                 (2, 0) => { self.frame.max.x = end.x; self.frame.min.y = end.y },
-                (2, 2) => self.frame.max = *end,
+                (2, 2) => self.frame.max = end,
                 _ => (),
             }
         }
@@ -108,10 +108,10 @@ impl MarginCropper {
     }
 
     fn margin(&self) -> Margin {
-        let x_min = (self.rect.width() as i32 - self.pixmap.width) / 2;
-        let y_min = (self.rect.height() as i32 - self.pixmap.height) / 2;
-        let x_max = x_min + self.pixmap.width;
-        let y_max = y_min + self.pixmap.height;
+        let x_min = (self.rect.width() as i32 - self.pixmap.width as i32) / 2;
+        let y_min = (self.rect.height() as i32 - self.pixmap.height as i32) / 2;
+        let x_max = x_min + self.pixmap.width as i32;
+        let y_max = y_min + self.pixmap.height as i32;
 
         let top = (self.frame.min.y - y_min).max(0) as f32 / self.pixmap.height as f32;
         let right = (x_max - self.frame.max.x).max(0) as f32 / self.pixmap.width as f32;
@@ -125,17 +125,17 @@ impl MarginCropper {
 impl View for MarginCropper {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
-                self.update(center, center);
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
+                self.update(*center, *center);
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 true
             },
-            Event::Gesture(GestureEvent::Swipe { ref start, ref end, .. }) if self.rect.includes(start) => {
-                self.update(start, end);
+            Event::Gesture(GestureEvent::Swipe { ref start, ref end, .. }) if self.rect.includes(*start) => {
+                self.update(*start, *end);
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => true,
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => true,
             Event::Validate => {
                 bus.push_back(Event::CropMargins(Box::new(self.margin())));
                 bus.push_back(Event::Close(ViewId::MarginCropper));
@@ -151,8 +151,8 @@ impl View for MarginCropper {
 
     fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
-        let dx = (self.rect.width() as i32 - self.pixmap.width) / 2;
-        let dy = (self.rect.height() as i32 - self.pixmap.height) / 2;
+        let dx = (self.rect.width() as i32 - self.pixmap.width as i32) / 2;
+        let dy = (self.rect.height() as i32 - self.pixmap.height as i32) / 2;
 
         fb.draw_rectangle(&self.rect, WHITE);
         fb.draw_pixmap(&self.pixmap, &pt!(dx, dy));

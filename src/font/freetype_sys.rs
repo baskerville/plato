@@ -2,6 +2,8 @@
 
 extern crate libc;
 
+use std::mem;
+
 pub const FT_ERR_OK: FtError = 0;
 
 pub const FT_LOAD_DEFAULT: i32 = 0;
@@ -9,6 +11,9 @@ pub const FT_LOAD_NO_SCALE: i32 = 0x1 << 0;
 pub const FT_LOAD_NO_HINTING: i32 = 0x1 << 1;
 pub const FT_LOAD_RENDER: i32 = 0x1 << 2;
 
+pub const TT_PLATFORM_MICROSOFT: libc::c_ushort = 3;
+pub const TT_MS_ID_UNICODE_CS: libc::c_ushort = 1;
+pub const TT_MS_LANGID_ENGLISH_UNITED_STATES: libc::c_ushort = 0x0409;
 
 pub const FT_GLYPH_BBOX_UNSCALED: GlyphBBoxMode = 0;
 pub const FT_GLYPH_BBOX_PIXELS: GlyphBBoxMode = 3;
@@ -31,7 +36,6 @@ pub enum FtListNode {}
 pub enum FtDriver {}
 pub enum FtMemory {}
 pub enum FtStream {}
-pub enum FtNamedStyle {}
 
 #[link(name="freetype")]
 extern {
@@ -47,6 +51,8 @@ extern {
     pub fn FT_Get_MM_Var(face: *const FtFace, varia: *mut *mut FtMmVar) -> FtError;
     pub fn FT_Done_MM_Var(lib: *mut FtLibrary, varia: *mut FtMmVar) -> FtError;
     pub fn FT_Set_Var_Design_Coordinates(face: *mut FtFace, num_coords: libc::c_uint, coords: *const FtFixed) -> FtError;
+    pub fn FT_Get_Sfnt_Name_Count(face: *const FtFace) -> libc::c_uint;
+    pub fn FT_Get_Sfnt_Name(face: *const FtFace, idx: libc::c_uint, name: *mut FtSfntName) -> FtError;
 }
 
 #[repr(C)]
@@ -54,9 +60,9 @@ extern {
 pub struct FtMmVar {
     pub num_axis: libc::c_uint,
     num_designs: libc::c_uint,
-    num_namedstyles: libc::c_uint,
+    pub num_namedstyles: libc::c_uint,
     pub axis: *mut FtVarAxis,
-    namedstyle: *mut FtNamedStyle,
+    pub namedstyle: *mut FtNamedStyle,
 }
 
 #[repr(C)]
@@ -68,6 +74,32 @@ pub struct FtVarAxis {
     pub maximum: FtFixed,
     pub tag: libc::c_ulong,
     strid: libc::c_uint,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct FtNamedStyle {
+    pub coords: *mut FtFixed,
+    pub strid: libc::c_uint,
+    psid: libc::c_uint,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct FtSfntName {
+    pub platform_id: libc::c_ushort,
+    pub encoding_id: libc::c_ushort,
+    pub language_id: libc::c_ushort,
+    pub name_id: libc::c_ushort,
+
+    pub text: *const FtByte,
+    pub len: libc::c_uint,
+}
+
+impl Default for FtSfntName {
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -223,8 +255,8 @@ pub struct FtFace {
 
     num_glyphs: libc::c_long,
 
-    family_name: *mut libc::c_char,
-    style_name: *mut libc::c_char,
+    pub family_name: *mut libc::c_char,
+    pub style_name: *mut libc::c_char,
 
     num_fixed_sizes: libc::c_int,
     available_sizes: *mut FtBitmapSize,

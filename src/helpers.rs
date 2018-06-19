@@ -1,7 +1,7 @@
 extern crate serde_json;
 extern crate toml;
 
-use std::path::Path;
+use std::path::{Path, PathBuf, Component};
 use std::fs::{self, File};
 use std::cmp::Ordering;
 use serde::{Serialize, Deserialize};
@@ -33,6 +33,26 @@ where F1: FnMut(&T, &T) -> Ordering + 'a,
     Box::new(move |x, y| {
         f1(x, y).then_with(|| f2(x, y))
     })
+}
+
+pub trait Normalize: ToOwned {
+    fn normalize(&self) -> Self::Owned;
+}
+
+impl Normalize for Path {
+    fn normalize(&self) -> PathBuf {
+        let mut result = PathBuf::from("");
+
+        for c in self.components() {
+            match c {
+                Component::ParentDir => { result.pop(); },
+                Component::CurDir => (),
+                _ => result.push(c),
+            }
+        }
+
+        result
+    }
 }
 
 pub mod simple_date_format {

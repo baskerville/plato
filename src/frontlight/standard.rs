@@ -3,8 +3,8 @@ extern crate libc;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::os::unix::io::AsRawFd;
-use frontlight::{Frontlight, LightLevels};
 use failure::Error;
+use super::{Frontlight, LightLevels};
 
 const CM_FRONT_LIGHT_SET: libc::c_ulong = 241;
 const FRONTLIGHT_INTERFACE: &str = "/dev/ntx_io";

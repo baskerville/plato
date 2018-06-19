@@ -3,7 +3,7 @@
 extern crate libc;
 
 use std::mem;
-use font::freetype_sys::FtFace;
+use super::freetype_sys::FtFace;
 
 pub const HB_DIRECTION_LTR: libc::c_uint = 4;
 

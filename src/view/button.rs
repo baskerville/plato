@@ -1,8 +1,8 @@
 use device::CURRENT_DEVICE;
 use geom::{Rectangle, CornerSpec, BorderSpec};
 use font::{Fonts, font_from_style, NORMAL_STYLE};
-use view::{View, Event, Hub, Bus};
-use view::{THICKNESS_MEDIUM, BORDER_RADIUS_LARGE};
+use super::{View, Event, Hub, Bus};
+use super::{THICKNESS_MEDIUM, BORDER_RADIUS_LARGE};
 use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
 use gesture::GestureEvent;
@@ -42,7 +42,7 @@ impl View for Button {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, ref position, .. }) if !self.disabled => {
                 match status {
-                    FingerStatus::Down if self.rect.includes(position) => {
+                    FingerStatus::Down if self.rect.includes(*position) => {
                         self.active = true;
                         hub.send(Event::Render(self.rect, UpdateMode::Fast)).unwrap();
                         true
@@ -55,7 +55,7 @@ impl View for Button {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
                 if !self.disabled {
                     bus.push_back(self.event.clone());
                 }
@@ -95,7 +95,7 @@ impl View for Button {
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 
         let foreground = if self.disabled { scheme[2] } else { scheme[1] };
-        font.render(fb, foreground, &plan, &pt);
+        font.render(fb, foreground, &plan, pt);
     }
 
     fn rect(&self) -> &Rectangle {

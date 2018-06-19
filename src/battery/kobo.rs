@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, SeekFrom};
 use std::fs::File;
 use std::path::Path;
-use battery::{Battery, Status};
+use super::{Battery, Status};
 use failure::Error;
 
 const BATTERY_INTERFACE: &str = "/sys/class/power_supply/mc13892_bat";

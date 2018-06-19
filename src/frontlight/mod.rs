@@ -21,7 +21,7 @@ impl Default for LightLevels {
 }
 
 impl LightLevels {
-    pub fn interpolate(&self, other: &Self, t: f32) -> Self {
+    pub fn interpolate(self, other: Self, t: f32) -> Self {
         LightLevels {
             intensity: lerp(self.intensity, other.intensity, t),
             warmth: lerp(self.warmth, other.warmth, t),

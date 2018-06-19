@@ -1,7 +1,7 @@
 use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, UpdateMode};
-use view::{View, Event, Hub, Bus, KeyboardEvent, ViewId, TextKind};
-use view::THICKNESS_MEDIUM;
+use super::{View, Event, Hub, Bus, KeyboardEvent, ViewId, TextKind};
+use super::THICKNESS_MEDIUM;
 use gesture::GestureEvent;
 use font::{Fonts, font_from_style, NORMAL_STYLE, FONT_SIZES};
 use geom::{Rectangle, LinearDir, BorderSpec, halves};
@@ -168,7 +168,7 @@ impl InputField {
 impl View for InputField {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
                 self.focused = true;
                 bus.push_back(Event::Focus(Some(self.id)));
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
@@ -240,7 +240,7 @@ impl View for InputField {
             (font.plan(&self.placeholder, Some(max_width as u32), None),
              TEXT_NORMAL[2])
         } else {
-            (font.plan(&self.text, None, Some("-liga")),
+            (font.plan(&self.text, None, Some(&["-liga".to_string()])),
             TEXT_NORMAL[1])
         };
 
@@ -250,7 +250,7 @@ impl View for InputField {
         let mut index = char_position(&self.text, self.cursor).unwrap_or_else(|| self.text.chars().count());
         let lower_index = font.crop_around(&mut plan, index, max_width as u32);
 
-        font.render(fb, foreground, &plan, &pt);
+        font.render(fb, foreground, &plan, pt);
 
         if !self.focused {
             return;
@@ -260,7 +260,7 @@ impl View for InputField {
             index += 1;
         }
 
-        let mut dx = plan.advance_at(index - lower_index);
+        let mut dx = plan.total_advance(index - lower_index);
 
         let (small_dy, big_dy) = halves(self.rect.height() as i32 - cursor_height);
 
@@ -280,7 +280,7 @@ impl View for InputField {
             let plan = font.plan(&self.partial, None, None);
             let pt = pt!(self.rect.min.x + padding + dx + 3 * thickness,
                          self.rect.max.y - big_dy + x_height);
-            font.render(fb, TEXT_NORMAL[1], &plan, &pt);
+            font.render(fb, TEXT_NORMAL[1], &plan, pt);
         }
     }
 

@@ -1,6 +1,7 @@
 use device::CURRENT_DEVICE;
 use font::{Fonts, font_from_style, NORMAL_STYLE};
-use view::{View, Event, Hub, Bus, Align};
+use super::{View, Event, Hub, Bus, Align};
+use gesture::GestureEvent;
 use framebuffer::{Framebuffer, UpdateMode};
 use geom::Rectangle;
 use color::TEXT_NORMAL;
@@ -11,6 +12,7 @@ pub struct Label {
     children: Vec<Box<View>>,
     text: String,
     align: Align,
+    event: Option<Event>,
 }
 
 impl Label {
@@ -20,18 +22,35 @@ impl Label {
             children: vec![],
             text,
             align,
+            event: None,
         }
     }
 
+    pub fn event(mut self, event: Option<Event>) -> Label {
+        self.event = event;
+        self
+    }
+
     pub fn update(&mut self, text: String, hub: &Hub) {
-        self.text = text;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        if self.text != text {
+            self.text = text;
+            hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        }
     }
 }
 
 impl View for Label {
-    fn handle_event(&mut self, _evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
-        false
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+        if self.event.is_none() {
+            return false;
+        }
+        match *evt {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
+                bus.push_back(self.event.clone().unwrap());
+                true
+            },
+            _ => false,
+        }
     }
 
     fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
@@ -50,7 +69,7 @@ impl View for Label {
         let dy = (self.rect.height() as i32 - x_height) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 
-        font.render(fb, TEXT_NORMAL[1], &plan, &pt);
+        font.render(fb, TEXT_NORMAL[1], &plan, pt);
     }
 
     fn rect(&self) -> &Rectangle {

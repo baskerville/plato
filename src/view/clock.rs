@@ -1,7 +1,7 @@
 use chrono::{Local, DateTime};
 use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, UpdateMode};
-use view::{View, Event, Hub, Bus};
+use super::{View, Event, Hub, Bus};
 use font::{Fonts, font_from_style, NORMAL_STYLE};
 use color::{BLACK, WHITE};
 use geom::{Rectangle};
@@ -47,7 +47,7 @@ impl View for Clock {
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 
         fb.draw_rectangle(&self.rect, WHITE);
-        font.render(fb, BLACK, &plan, &pt);
+        font.render(fb, BLACK, &plan, pt);
     }
 
     fn rect(&self) -> &Rectangle {

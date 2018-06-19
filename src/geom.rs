@@ -43,6 +43,78 @@ pub struct Point {
 }
 
 #[derive(Debug, Copy, Clone)]
+pub struct Edge {
+    pub top: i32,
+    pub right: i32,
+    pub bottom: i32,
+    pub left: i32,
+}
+
+impl Edge {
+    pub fn uniform(value: i32) -> Edge {
+        Edge {
+            top: value,
+            right: value,
+            bottom: value,
+            left: value,
+        }
+    }
+}
+
+impl Default for Edge {
+    fn default() -> Self {
+        Edge {
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+        }
+    }
+}
+
+impl Add for Edge {
+    type Output = Edge;
+    fn add(self, rhs: Edge) -> Edge {
+        Edge {
+            top: self.top + rhs.top,
+            right: self.right + rhs.right,
+            bottom: self.bottom + rhs.bottom,
+            left: self.left + rhs.left,
+        }
+    }
+}
+
+impl AddAssign for Edge {
+    fn add_assign(&mut self, rhs: Edge) {
+        self.top += rhs.top;
+        self.right += rhs.right;
+        self.bottom += rhs.bottom;
+        self.left += rhs.left;
+    }
+}
+
+impl Sub for Edge {
+    type Output = Edge;
+    fn sub(self, rhs: Edge) -> Edge {
+        Edge {
+            top: self.top - rhs.top,
+            right: self.right - rhs.right,
+            bottom: self.bottom - rhs.bottom,
+            left: self.left - rhs.left,
+        }
+    }
+}
+
+impl SubAssign for Edge {
+    fn sub_assign(&mut self, rhs: Edge) {
+        self.top -= rhs.top;
+        self.right -= rhs.right;
+        self.bottom -= rhs.bottom;
+        self.left -= rhs.left;
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
 pub enum CornerSpec {
     Uniform(i32),
     North(i32),
@@ -142,16 +214,16 @@ pub fn big_half(n: i32) -> i32 {
 }
 
 pub fn divide(n: i32, p: i32) -> Vec<i32> {
-    let k = n.checked_div(p).unwrap_or(0);
-    let mut r = n - p * k;
-    let e = p.checked_div(r).unwrap_or(0);
+    let size = n.checked_div(p).unwrap_or(0);
+    let mut rem = n - p * size;
+    let tick = p.checked_div(rem).unwrap_or(0);
     let mut vec = Vec::with_capacity(p as usize);
     for i in 0..p {
-        if r > 0 && (i+1) % e == 0 {
-            vec.push(k + 1);
-            r -= 1;
+        if rem > 0 && (i+1) % tick == 0 {
+            vec.push(size + 1);
+            rem -= 1;
         } else {
-            vec.push(k);
+            vec.push(size);
         }
     }
     vec
@@ -166,7 +238,7 @@ pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
 #[inline]
 pub fn circular_distances(a: u16, mut b: u16, p: u16) -> (u16, u16) {
     if b < a {
-        b = p + b;
+        b += p;
     }
     let d0 = b - a;
     let d1 = p - d0;
@@ -174,16 +246,16 @@ pub fn circular_distances(a: u16, mut b: u16, p: u16) -> (u16, u16) {
 }
 
 impl Dir {
-    pub fn opposite(&self) -> Dir {
-        match *self {
+    pub fn opposite(self) -> Dir {
+        match self {
             Dir::North => Dir::South,
             Dir::South => Dir::North,
             Dir::East => Dir::West,
             Dir::West => Dir::East,
         }
     }
-    pub fn axis(&self) -> Axis {
-        match *self {
+    pub fn axis(self) -> Axis {
+        match self {
             Dir::North | Dir::South => Axis::Vertical,
             Dir::East | Dir::West => Axis::Horizontal,
         }
@@ -195,19 +267,19 @@ impl Point {
         Point { x, y }
     }
 
-    pub fn dist2(&self, pt: &Point) -> u32 {
+    pub fn dist2(self, pt: Point) -> u32 {
         ((pt.x - self.x).pow(2) + (pt.y - self.y).pow(2)) as u32
     }
 
-    pub fn length(&self) -> f32 {
+    pub fn length(self) -> f32 {
         ((self.x.pow(2) + self.y.pow(2)) as f32).sqrt()
     }
 
-    pub fn angle(&self) -> f32 {
+    pub fn angle(self) -> f32 {
         (-self.y as f32).atan2(self.x as f32)
     }
 
-    pub fn dir(&self) -> Dir {
+    pub fn dir(self) -> Dir {
         if self.x.abs() > self.y.abs() {
             if self.x.is_positive() {
                 Dir::East
@@ -223,7 +295,7 @@ impl Point {
         }
     }
 
-    pub fn diag_dir(&self) -> DiagDir {
+    pub fn diag_dir(self) -> DiagDir {
         if self.x.is_positive() {
             if self.y.is_positive() {
                 DiagDir::SouthEast
@@ -281,19 +353,19 @@ impl Vec2 {
         Vec2 { x, y }
     }
 
-    pub fn dot(&self, other: Vec2) -> f32 {
+    pub fn dot(self, other: Vec2) -> f32 {
         self.x * other.x + self.y * other.y
     }
 
-    pub fn cross(&self, other: Vec2) -> f32 {
+    pub fn cross(self, other: Vec2) -> f32 {
         self.x * other.y - self.y * other.x
     }
 
-    pub fn length(&self) -> f32 {
+    pub fn length(self) -> f32 {
         self.x.hypot(self.y)
     }
 
-    pub fn angle(&self) -> f32 {
+    pub fn angle(self) -> f32 {
         (-self.y).atan2(self.x)
     }
 }
@@ -313,21 +385,21 @@ impl Rectangle {
         }
     }
 
-    pub fn from_point(pt: &Point) -> Rectangle {
+    pub fn from_point(pt: Point) -> Rectangle {
         Rectangle {
-            min: *pt,
-            max: *pt + 1,
+            min: pt,
+            max: pt + 1,
         }
     }
 
-    pub fn from_disk(center: &Point, radius: i32) -> Rectangle {
+    pub fn from_disk(center: Point, radius: i32) -> Rectangle {
         Rectangle {
-            min: *center - radius,
-            max: *center + radius,
+            min: center - radius,
+            max: center + radius,
         }
     }
 
-    pub fn includes(&self, pt: &Point) -> bool {
+    pub fn includes(&self, pt: Point) -> bool {
         self.min.x <= pt.x && pt.x < self.max.x &&
         self.min.y <= pt.y && pt.y < self.max.y
     }
@@ -342,7 +414,7 @@ impl Rectangle {
         self.min.y < rect.max.y && rect.min.y < self.max.y
     }
 
-    pub fn merge(&mut self, pt: &Point) {
+    pub fn merge(&mut self, pt: Point) {
         if pt.x < self.min.x {
             self.min.x = pt.x;
         }
@@ -410,6 +482,20 @@ impl Rectangle {
     #[inline]
     pub fn center(&self) -> Point {
         (self.min + self.max) / 2
+    }
+
+    pub fn grow(&mut self, edges: &Edge) {
+        self.min.x -= edges.left;
+        self.min.y -= edges.top;
+        self.max.x += edges.right;
+        self.max.y += edges.bottom;
+    }
+
+    pub fn shrink(&mut self, edges: &Edge) {
+        self.min.x += edges.left;
+        self.min.y += edges.top;
+        self.max.x -= edges.right;
+        self.max.y -= edges.bottom;
     }
 }
 

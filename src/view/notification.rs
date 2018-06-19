@@ -5,8 +5,8 @@ use framebuffer::{Framebuffer, UpdateMode};
 use geom::{Rectangle, CornerSpec, BorderSpec};
 use font::{Fonts, font_from_style, NORMAL_STYLE};
 use color::{BLACK, WHITE, TEXT_NORMAL};
-use view::{View, Event, Hub, Bus, ViewId};
-use view::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
+use super::{View, Event, Hub, Bus, ViewId};
+use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use gesture::GestureEvent;
 use input::DeviceEvent;
 use unit::scale_by_dpi;
@@ -71,9 +71,9 @@ impl Notification {
 impl View for Notification {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => true,
-            Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(start) => true,
-            Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(position) => true,
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => true,
+            Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(*start) => true,
+            Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(*position) => true,
             _ => false,
         }
     }
@@ -98,7 +98,7 @@ impl View for Notification {
         let dy = (self.rect.height() as i32 - x_height) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 
-        font.render(fb, TEXT_NORMAL[1], &plan, &pt);
+        font.render(fb, TEXT_NORMAL[1], &plan, pt);
     }
 
     fn rect(&self) -> &Rectangle {

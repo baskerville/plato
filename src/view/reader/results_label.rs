@@ -71,7 +71,7 @@ impl View for ResultsLabel {
         } else {
             TEXT_NORMAL[2]
         };
-        font.render(fb, color, &plan, &pt);
+        font.render(fb, color, &plan, pt);
     }
 
     fn rect(&self) -> &Rectangle {

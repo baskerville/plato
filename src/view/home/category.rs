@@ -42,11 +42,11 @@ impl Category {
 impl View for Category {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
                 bus.push_back(Event::ToggleSelectCategory(self.text.clone()));
                 true
             },
-            Event::Gesture(GestureEvent::Swipe { dir: Dir::North, ref start, .. }) if self.rect.includes(start) => {
+            Event::Gesture(GestureEvent::Swipe { dir: Dir::North, ref start, .. }) if self.rect.includes(*start) => {
                 bus.push_back(Event::ToggleNegateCategory(self.text.clone()));
                 true
             },
@@ -85,7 +85,7 @@ impl View for Category {
 
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
         let color_index = if self.status == Status::Negated { 2 } else { 1 };
-        font.render(fb, TEXT_BUMP_SMALL[color_index], &plan, &pt);
+        font.render(fb, TEXT_BUMP_SMALL[color_index], &plan, pt);
     }
 
     fn rect(&self) -> &Rectangle {

@@ -9,11 +9,15 @@ extern crate toml;
 #[macro_use] extern crate bitflags;
 #[macro_use] extern crate downcast_rs;
 extern crate unicode_normalization;
+extern crate paragraph_breaker;
+extern crate hyphenation;
+extern crate entities;
 extern crate libc;
 extern crate regex;
 extern crate chrono;
 extern crate glob;
 extern crate fnv;
+extern crate zip;
 extern crate png;
 extern crate isbn;
 extern crate titlecase;
@@ -43,7 +47,7 @@ use app::run;
 
 fn main() {
     if let Err(e) = run() {
-        for e in e.causes() {
+        for e in e.iter_chain() {
             eprintln!("plato: {}", e);
         }
         process::exit(1);

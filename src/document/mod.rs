@@ -1,5 +1,6 @@
 pub mod djvu;
 pub mod pdf;
+pub mod epub;
 
 mod djvulibre_sys;
 mod mupdf_sys;
@@ -12,31 +13,42 @@ use isbn::Isbn;
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::{is_combining_mark};
 use geom::{Rectangle, CycleDir};
-use document::djvu::{DjvuOpener};
-use document::pdf::{PdfOpener};
+use document::djvu::DjvuOpener;
+use document::pdf::PdfOpener;
+use document::epub::EpubDocument;
+use settings::EpubEngine;
 use framebuffer::Pixmap;
 
-#[derive(Debug, Clone)]
-pub struct BoundedText {
-    pub rect: Rectangle,
-    pub text: String,
+#[derive(Debug, Copy, Clone)]
+pub enum Location<'a> {
+    Exact(f32),
+    Previous(f32),
+    Next(f32),
+    Uri(f32, &'a str),
 }
 
 #[derive(Debug, Clone)]
-pub struct Link {
-    pub uri: String,
+pub struct BoundedText {
+    pub text: String,
     pub rect: Rectangle,
 }
 
 #[derive(Debug, Clone)]
 pub struct TocEntry {
     pub title: String,
-    pub page: usize,
+    pub location: f32,
     pub children: Vec<TocEntry>,
 }
 
-pub fn toc_as_html(toc: &[TocEntry], index: usize) -> String {
-    let chap = chapter_at(toc, index);
+#[derive(Debug, Clone)]
+pub struct Neighbors {
+    pub previous_page: Option<f32>,
+    pub next_page: Option<f32>,
+}
+
+
+pub fn toc_as_html(toc: &[TocEntry], location: f32) -> String {
+    let chap = chapter_at(toc, location);
     let mut buf = r#"<html>
                          <head>
                              <title>Table of Contents</title>
@@ -51,7 +63,7 @@ pub fn toc_as_html(toc: &[TocEntry], index: usize) -> String {
 pub fn toc_as_html_aux(toc: &[TocEntry], buf: &mut String, chap: Option<&TocEntry>) {
     buf.push_str("<ul>");
     for entry in toc {
-        buf.push_str(&format!(r#"<li><a href="@{}">"#, entry.page));
+        buf.push_str(&format!(r#"<li><a href="@{}">"#, entry.location));
         let title = entry.title.replace('<', "&lt;").replace('>', "&gt;");
         if chap.is_some() && ptr::eq(entry, chap.unwrap()) {
             buf.push_str(&format!("<strong>{}</strong>", title));
@@ -66,96 +78,108 @@ pub fn toc_as_html_aux(toc: &[TocEntry], buf: &mut String, chap: Option<&TocEntr
     buf.push_str("</ul>");
 }
 
-pub fn chapter_at(toc: &[TocEntry], index: usize) -> Option<&TocEntry> {
+pub fn chapter_at(toc: &[TocEntry], location: f32) -> Option<&TocEntry> {
     let mut chap = None;
-    chapter_at_aux(toc, index, &mut chap);
+    chapter_at_aux(toc, location, &mut chap);
     chap
 }
 
-fn chapter_at_aux<'a>(toc: &'a [TocEntry], index: usize, chap: &mut Option<&'a TocEntry>) {
+fn chapter_at_aux<'a>(toc: &'a [TocEntry], location: f32, chap: &mut Option<&'a TocEntry>) {
     for entry in toc {
-        if entry.page <= index && (chap.is_none() || entry.page > chap.map(|c| c.page).unwrap()) {
+        if entry.location <= location && (chap.is_none() || entry.location > chap.unwrap().location) {
             *chap = Some(entry);
         }
-        chapter_at_aux(&entry.children, index, chap);
+        chapter_at_aux(&entry.children, location, chap);
     }
 }
 
-pub fn chapter_relative(toc: &[TocEntry], index: usize, dir: CycleDir) -> Option<usize> {
+pub fn chapter_relative(toc: &[TocEntry], location: f32, dir: CycleDir) -> Option<f32> {
     let mut page = None;
+    let chap = chapter_at(toc, location);
     if dir == CycleDir::Next {
-        chapter_relative_next(toc, index, &mut page);
+        chapter_relative_next(toc, location, &mut page, chap);
     } else {
-        chapter_relative_prev(toc, index, &mut page);
+        chapter_relative_prev(toc, location, &mut page, chap);
     }
     page
 }
 
-fn chapter_relative_next<'a>(toc: &'a [TocEntry], index: usize, page: &mut Option<usize>) {
+fn chapter_relative_next<'a>(toc: &'a [TocEntry], location: f32, page: &mut Option<f32>, chap: Option<&TocEntry>) {
     for entry in toc {
-        if entry.page > index && (page.is_none() || entry.page < page.unwrap()) {
-            *page = Some(entry.page);
+        if entry.location > location && (page.is_none() || entry.location < page.unwrap()) && (chap.is_none() || !ptr::eq(chap.unwrap(), entry)) {
+            *page = Some(entry.location);
         }
 
-        chapter_relative_next(&entry.children, index, page);
+        chapter_relative_next(&entry.children, location, page, chap);
     }
 }
 
-fn chapter_relative_prev<'a>(toc: &'a [TocEntry], index: usize, page: &mut Option<usize>) {
+fn chapter_relative_prev<'a>(toc: &'a [TocEntry], location: f32, page: &mut Option<f32>, chap: Option<&TocEntry>) {
     for entry in toc.iter().rev() {
-        chapter_relative_prev(&entry.children, index, page);
+        chapter_relative_prev(&entry.children, location, page, chap);
 
-        if entry.page < index && (page.is_none() || entry.page > page.unwrap()) {
-            *page = Some(entry.page);
+        if entry.location < location && (page.is_none() || entry.location > page.unwrap()) && (chap.is_none() || !ptr::eq(chap.unwrap(), entry)) {
+            *page = Some(entry.location);
         }
     }
 }
 
 pub trait Document: Send+Sync {
-    fn pages_count(&self) -> usize;
-    fn pixmap(&self, index: usize, scale: f32) -> Option<Pixmap>;
     fn dims(&self, index: usize) -> Option<(f32, f32)>;
+    fn pages_count(&self) -> f32;
 
-    fn toc(&self) -> Option<Vec<TocEntry>>;
-    fn words(&self, index: usize) -> Option<Vec<BoundedText>>;
-    fn links(&self, index: usize) -> Option<Vec<Link>>;
+    fn toc(&mut self) -> Option<Vec<TocEntry>>;
+    fn resolve_location(&mut self, loc: Location) -> Option<f32>;
+    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f32)>;
+    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f32)>;
+
+    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, f32)>;
+    fn layout(&mut self, width: u32, height: u32, font_size: f32, dpi: u16);
+    fn set_font_family(&mut self, family_name: &str, search_path: &str);
+    fn set_margin_width(&mut self, width: i32);
+    fn set_line_height(&mut self, line_height: f32);
 
     fn title(&self) -> Option<String>;
     fn author(&self) -> Option<String>;
+    fn metadata(&self, key: &str) -> Option<String>;
 
     fn is_reflowable(&self) -> bool;
-    fn layout(&mut self, width: f32, height: f32, em: f32);
 
-    fn has_text(&self) -> bool {
-        (0..self.pages_count()).any(|i| self.words(i).map_or(false, |w| !w.is_empty()))
+    fn has_synthetic_page_numbers(&self) -> bool {
+        false
     }
 
-    fn has_toc(&self) -> bool {
-        self.toc().map_or(false, |v| !v.is_empty())
+    fn has_toc(&mut self) -> bool {
+        self.toc().map_or(false, |entries| !entries.is_empty())
     }
 
-    fn isbn(&self) -> Option<String> {
+    fn isbn(&mut self) -> Option<String> {
         let mut found = false;
         let mut result = None;
-        'pursuit: for index in 0..10 {
-            if let Some(ref words) = self.words(index) {
-                for word in words.iter().map(|w| &*w.text) {
-                    if word.contains("ISBN") {
-                        found = true;
-                        continue;
-                    }
-                    if found && word.len() >= 10 {
-                        let digits: String = word.chars()
-                                                 .filter(|&c| c.is_digit(10) ||
-                                                              c == 'X')
-                                                 .collect();
-                        if let Ok(isbn) = Isbn::from_str(&digits) {
-                            result = Some(isbn.to_string());
-                            break 'pursuit;
-                        }
+        let mut loc = Location::Exact(0.0);
+        let mut pages_count = 0;
+        while let Some((ref words, l)) = self.words(loc) {
+            for word in words.iter().map(|w| &*w.text) {
+                if word.contains("ISBN") {
+                    found = true;
+                    continue;
+                }
+                if found && word.len() >= 10 {
+                    let digits: String = word.chars()
+                                             .filter(|&c| c.is_digit(10) ||
+                                                          c == 'X')
+                                             .collect();
+                    if let Ok(isbn) = Isbn::from_str(&digits) {
+                        result = Some(isbn.to_string());
+                        break;
                     }
                 }
             }
+            pages_count += 1;
+            if pages_count > 10 || result.is_some() {
+                break;
+            }
+            loc = Location::Next(l);
         }
         result
     }
@@ -192,27 +216,52 @@ pub fn asciify(name: &str) -> String {
         .replace('’', "'")
 }
 
-pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<Document>> {
-    file_kind(path.as_ref()).and_then(|k| {
-        match k.as_ref() {
-            "djvu" | "djv" => {
-                DjvuOpener::new()
-                    .and_then(|o| o.open(path)
-                                   .map(|d| Box::new(d) as Box<Document>))
-            },
-            _ => {
-                PdfOpener::new()
-                    .and_then(|mut o| {
-                        let css_path = Path::new("user.css");
-                        if css_path.exists() && o.set_user_css(css_path).is_err() {
-                            return None;
-                        }
+pub struct DocumentOpener {
+    epub_engine: EpubEngine,
+}
+
+impl DocumentOpener {
+    pub fn new(epub_engine: EpubEngine) -> DocumentOpener {
+        DocumentOpener { epub_engine }
+    }
+
+    pub fn open<P: AsRef<Path>>(&self, path: P) -> Option<Box<Document>> {
+        file_kind(path.as_ref()).and_then(|k| {
+            match k.as_ref() {
+                "epub" => {
+                    match self.epub_engine {
+                        EpubEngine::BuiltIn => {
+                            EpubDocument::new(path)
+                                         .map(|d| Box::new(d) as Box<Document>).ok()
+                        },
+                        EpubEngine::Mupdf => {
+                            PdfOpener::new()
+                                .and_then(|mut o| {
+                                    let css_path = Path::new("user.css");
+                                    if css_path.exists() {
+                                        o.set_user_css(css_path).ok();
+                                    }
+                                    o.open(path)
+                                     .map(|d| Box::new(d) as Box<Document>)
+                                })
+                        },
+                    }
+                },
+                "djvu" | "djv" => {
+                    DjvuOpener::new().and_then(|o| {
                         o.open(path)
                          .map(|d| Box::new(d) as Box<Document>)
                     })
-            },
-        }
-    })
+                },
+                _ => {
+                    PdfOpener::new().and_then(|o| {
+                        o.open(path)
+                         .map(|d| Box::new(d) as Box<Document>)
+                    })
+                },
+            }
+        })
+    }
 }
 
 // cd mupdf/source && awk '/_extensions\[/,/}/' */*.c

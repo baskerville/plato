@@ -2,10 +2,10 @@ use std::thread;
 use device::CURRENT_DEVICE;
 use geom::{Rectangle, CornerSpec, BorderSpec};
 use font::{Fonts, font_from_style, NORMAL_STYLE};
-use view::{View, Event, Hub, Bus, ViewId, Align};
-use view::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM, CLOSE_IGNITION_DELAY};
-use view::button::Button;
-use view::label::Label;
+use super::{View, Event, Hub, Bus, ViewId, Align};
+use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM, CLOSE_IGNITION_DELAY};
+use super::button::Button;
+use super::label::Label;
 use framebuffer::Framebuffer;
 use gesture::GestureEvent;
 use color::{BLACK, WHITE};
@@ -108,7 +108,7 @@ impl View for Confirmation {
                 self.will_close = true;
                 true
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if !self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if !self.rect.includes(*center) => {
                 hub.send(Event::Close(self.id)).unwrap();
                 true
             },

@@ -2,9 +2,9 @@ use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
 use gesture::GestureEvent;
-use view::{View, Event, KeyboardEvent, Hub, Bus, TextKind};
-use view::BORDER_RADIUS_LARGE;
-use view::icon::ICONS_PIXMAPS;
+use super::{View, Event, KeyboardEvent, Hub, Bus, TextKind};
+use super::BORDER_RADIUS_LARGE;
+use super::icon::ICONS_PIXMAPS;
 use color::{TEXT_NORMAL, TEXT_INVERTED_HARD, KEYBOARD_BG};
 use font::{Fonts, font_from_style, KBD_CHAR, KBD_LABEL};
 use geom::{Rectangle, LinearDir, CornerSpec, halves};
@@ -30,8 +30,8 @@ pub enum KeyLabel {
 }
 
 impl KeyKind {
-    pub fn label(&self) -> KeyLabel {
-        match *self {
+    pub fn label(self) -> KeyLabel {
+        match self {
             KeyKind::Output(ch) => KeyLabel::Char(ch),
             KeyKind::Delete(dir) => {
                 match dir {
@@ -94,7 +94,7 @@ impl View for Key {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
                 match status {
-                    FingerStatus::Down if self.rect.includes(position) => {
+                    FingerStatus::Down if self.rect.includes(*position) => {
                         self.active = true;
                         hub.send(Event::RenderNoWait(self.rect, UpdateMode::Fast)).unwrap();
                         true
@@ -107,7 +107,7 @@ impl View for Key {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
                 match self.kind {
                     KeyKind::Shift |
                     KeyKind::Alternate |
@@ -124,7 +124,7 @@ impl View for Key {
                 bus.push_back(Event::Key(self.kind));
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => {
                 match self.kind {
                     KeyKind::Delete(dir) => hub.send(Event::Keyboard(KeyboardEvent::Delete { target: TextKind::Word, dir })).unwrap(),
                     KeyKind::Move(dir) => hub.send(Event::Keyboard(KeyboardEvent::Move { target: TextKind::Word, dir })).unwrap(),
@@ -155,7 +155,7 @@ impl View for Key {
                 let dx = (key_rect.width() - plan.width) as i32 / 2;
                 let dy = (key_rect.height() - font.x_heights.0) as i32 / 2;
                 let pt = pt!(key_rect.min.x + dx, key_rect.max.y - dy);
-                font.render(fb, scheme[1], &plan, &pt);
+                font.render(fb, scheme[1], &plan, pt);
             },
             KeyLabel::Text(label) => {
                 let font = font_from_style(fonts, &KBD_LABEL, dpi);
@@ -165,12 +165,12 @@ impl View for Key {
                 let dx = (key_rect.width() - plan.width) as i32 / 2;
                 let dy = (key_rect.height() - font.x_heights.1) as i32 / 2;
                 let pt = pt!(key_rect.min.x + dx, key_rect.max.y - dy);
-                font.render(fb, scheme[1], &plan, &pt);
+                font.render(fb, scheme[1], &plan, pt);
             },
             KeyLabel::Icon(name) => {
                 let pixmap = ICONS_PIXMAPS.get(name).unwrap();
-                let dx = (key_rect.width() as i32 - pixmap.width) / 2;
-                let dy = (key_rect.height() as i32 - pixmap.height) / 2;
+                let dx = (key_rect.width() as i32 - pixmap.width as i32) / 2;
+                let dy = (key_rect.height() as i32 - pixmap.height as i32) / 2;
                 let pt = key_rect.min + pt!(dx, dy);
                 fb.draw_blended_pixmap(pixmap, &pt, scheme[1]);
             }

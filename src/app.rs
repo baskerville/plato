@@ -81,7 +81,7 @@ fn build_context() -> Result<Context, Error> {
     let metadata = load_json::<Metadata, _>(path)
                              .map_err(|e| eprintln!("Can't load metadata: {}", e))
                              .or_else(|_| import(&settings.library_path,
-                                                 &vec![],
+                                                 &Vec::new(),
                                                  &settings.import.allowed_kinds))
                              .unwrap_or_default();
     let fonts = Fonts::load().context("Can't load fonts.")?;

@@ -1,9 +1,9 @@
 use device::CURRENT_DEVICE;
-use view::{View, Event, Hub, Bus};
 use geom::{Rectangle, Dir, CycleDir};
 use font::{Fonts, font_from_style, NORMAL_STYLE};
 use framebuffer::{Framebuffer, UpdateMode};
-use view::preset::{Preset, PresetKind};
+use super::{View, Event, Hub, Bus};
+use super::preset::{Preset, PresetKind};
 use gesture::GestureEvent;
 use settings::LightPreset;
 use color::WHITE;
@@ -91,7 +91,7 @@ impl PresetsList {
 impl View for PresetsList {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Swipe { dir, ref start, .. }) if self.rect.includes(start) => {
+            Event::Gesture(GestureEvent::Swipe { dir, ref start, .. }) if self.rect.includes(*start) => {
                 match dir {
                     Dir::West => {
                         self.set_current_page(CycleDir::Next);

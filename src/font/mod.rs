@@ -6,17 +6,19 @@ mod freetype_sys;
 use font::harfbuzz_sys::*;
 use font::freetype_sys::*;
 
+use std::str;
 use std::ptr;
-use std::ffi::CString;
+use std::slice;
+use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
+use std::collections::BTreeSet;
 use std::rc::Rc;
+use fnv::FnvHashMap;
 use failure::Error;
+use glob::glob;
 use geom::Point;
 use framebuffer::Framebuffer;
-
-// Default font size in points
-pub const DEFAULT_FONT_SIZE: f32 = 11.0;
 
 // Font sizes in 1/64th of a point
 pub const FONT_SIZES: [u32; 3] = [349, 524, 699];
@@ -86,10 +88,71 @@ pub fn category_font_size(depth: usize) -> u32 {
 }
 
 pub struct FontFamily {
-    regular: Font,
-    italic: Font,
-    bold: Font,
-    bold_italic: Font,
+    pub regular: Font,
+    pub italic: Font,
+    pub bold: Font,
+    pub bold_italic: Font,
+}
+
+pub fn family_names<P: AsRef<Path>>(search_path: P) -> Result<BTreeSet<String>, Error> {
+    let opener = FontOpener::new()?;
+    let end_path = Path::new("**").join("*.[ot]tf");
+    let pattern_path = search_path.as_ref().join(&end_path);
+    let pattern = pattern_path.to_str().unwrap_or_default();
+
+    let mut families = BTreeSet::new();
+
+    for path in glob(pattern)?.filter_map(Result::ok) {
+        let font = opener.open(&path)?;
+        if let Some(family_name) = font.family_name() {
+            families.insert(family_name.to_string());
+        }
+    }
+
+    Ok(families)
+}
+
+impl FontFamily {
+    pub fn from_name<P: AsRef<Path>>(family_name: &str, search_path: P) -> Result<FontFamily, Error> {
+        let opener = FontOpener::new()?;
+        let end_path = Path::new("**").join("*.[ot]tf");
+        let pattern_path = search_path.as_ref().join(&end_path);
+        let pattern = pattern_path.to_str().unwrap_or_default();
+
+        let mut styles = FnvHashMap::default();
+
+        for path in glob(pattern)?.filter_map(Result::ok) {
+            let font = opener.open(&path)?;
+            if font.family_name() == Some(family_name) {
+                styles.insert(font.style_name().map(String::from)
+                                  .unwrap_or_else(|| "Regular".to_string()),
+                              path.clone());
+            }
+        }
+
+        let regular_path = styles.get("Regular")
+                                 .or_else(|| styles.get("Roman"))
+                                 .or_else(|| styles.get("Book"))
+                                 .ok_or_else(|| format_err!("Can't find regular style."))?;
+        let italic_path = styles.get("Italic")
+                                .or_else(|| styles.get("Book Italic"))
+                                .unwrap_or(regular_path);
+        let bold_path = styles.get("Bold")
+                              .or_else(|| styles.get("Semibold"))
+                              .or_else(|| styles.get("SemiBold"))
+                              .or_else(|| styles.get("Medium"))
+                              .unwrap_or(regular_path);
+        let bold_italic_path = styles.get("Bold Italic")
+                                     .or_else(|| styles.get("SemiBold Italic"))
+                                     .or_else(|| styles.get("Medium Italic"))
+                                     .unwrap_or(italic_path);
+        Ok(FontFamily {
+            regular: opener.open(regular_path)?,
+            italic: opener.open(italic_path)?,
+            bold: opener.open(bold_path)?,
+            bold_italic: opener.open(bold_italic_path)?,
+        })
+    }
 }
 
 pub struct Fonts {
@@ -101,22 +164,22 @@ pub struct Fonts {
 
 impl Fonts {
     pub fn load() -> Result<Fonts, Error> {
-        let fo = FontOpener::new()?;
+        let opener = FontOpener::new()?;
         Ok(Fonts {
             sans_serif: FontFamily {
-                regular: fo.open("fonts/NotoSans-Regular.ttf")?,
-                italic: fo.open("fonts/NotoSans-Italic.ttf")?,
-                bold: fo.open("fonts/NotoSans-Bold.ttf")?,
-                bold_italic: fo.open("fonts/NotoSans-BoldItalic.ttf")?,
+                regular: opener.open("fonts/NotoSans-Regular.ttf")?,
+                italic: opener.open("fonts/NotoSans-Italic.ttf")?,
+                bold: opener.open("fonts/NotoSans-Bold.ttf")?,
+                bold_italic: opener.open("fonts/NotoSans-BoldItalic.ttf")?,
             },
             serif: FontFamily {
-                regular: fo.open("fonts/NotoSerif-Regular.ttf")?,
-                italic: fo.open("fonts/NotoSerif-Italic.ttf")?,
-                bold: fo.open("fonts/NotoSerif-Bold.ttf")?,
-                bold_italic: fo.open("fonts/NotoSerif-BoldItalic.ttf")?,
+                regular: opener.open("fonts/NotoSerif-Regular.ttf")?,
+                italic: opener.open("fonts/NotoSerif-Italic.ttf")?,
+                bold: opener.open("fonts/NotoSerif-Bold.ttf")?,
+                bold_italic: opener.open("fonts/NotoSerif-BoldItalic.ttf")?,
             },
-            keyboard: fo.open("fonts/VarelaRound-Regular.ttf")?,
-            display: fo.open("fonts/Cormorant-Regular.ttf")?,
+            keyboard: opener.open("fonts/VarelaRound-Regular.ttf")?,
+            display: opener.open("fonts/Cormorant-Regular.ttf")?,
         })
     }
 }
@@ -191,6 +254,10 @@ pub struct Font {
 
 impl RenderPlan {
     pub fn space_out(&mut self, letter_spacing: u32) {
+        if letter_spacing == 0 {
+            return;
+        }
+
         if let Some((_, start)) = self.glyphs.split_last_mut() {
             let len = start.len() as u32;
             for glyph in start {
@@ -249,6 +316,26 @@ impl FontOpener {
 }
 
 impl Font {
+    pub fn family_name(&self) -> Option<&str> {
+        unsafe {
+            let ptr = (*self.face).family_name;
+            if ptr.is_null() {
+                return None;
+            }
+            CStr::from_ptr(ptr).to_str().ok()
+        }
+    }
+
+    pub fn style_name(&self) -> Option<&str> {
+        unsafe {
+            let ptr = (*self.face).style_name;
+            if ptr.is_null() {
+                return None;
+            }
+            CStr::from_ptr(ptr).to_str().ok()
+        }
+    }
+
     pub fn set_size(&mut self, size: u32, dpi: u16) {
         if !self.font.is_null() && self.size == size && self.dpi == dpi {
             return;
@@ -276,10 +363,6 @@ impl Font {
     }
 
     pub fn set_variations(&mut self, specs: &[&str]) {
-        if self.font.is_null() {
-            return;
-        }
-
         unsafe {
             let mut varia = ptr::null_mut();
             let ret = FT_Get_MM_Var(self.face, &mut varia);
@@ -315,7 +398,7 @@ impl Font {
 
             let ret = FT_Set_Var_Design_Coordinates(self.face, coords.len() as libc::c_uint, coords.as_ptr());
 
-            if ret == FT_ERR_OK {
+            if ret == FT_ERR_OK && !self.font.is_null() {
                 hb_ft_font_changed(self.font);
             }
 
@@ -323,7 +406,63 @@ impl Font {
         }
     }
 
-    pub fn plan(&mut self, txt: &str, max_width: Option<u32>, features: Option<&str>) -> RenderPlan {
+    pub fn set_variations_from_name(&mut self, name: &str) -> bool {
+        let mut found = false;
+
+        unsafe {
+            let mut varia = ptr::null_mut();
+            let ret = FT_Get_MM_Var(self.face, &mut varia);
+
+            if ret != FT_ERR_OK {
+                return found;
+            }
+
+            let styles_count = (*varia).num_namedstyles as isize;
+            let names_count = FT_Get_Sfnt_Name_Count(self.face);
+            let mut sfnt_name = FtSfntName::default();
+
+            'outer: for i in 0..styles_count {
+                let style = ((*varia).namedstyle).offset(i);
+                let strid = (*style).strid as libc::c_ushort;
+                for j in 0..names_count {
+                    let ret = FT_Get_Sfnt_Name(self.face, j, &mut sfnt_name);
+
+                    if ret != FT_ERR_OK || sfnt_name.name_id != strid {
+                        continue;
+                    }
+
+                    if sfnt_name.platform_id != TT_PLATFORM_MICROSOFT ||
+                       sfnt_name.encoding_id != TT_MS_ID_UNICODE_CS ||
+                       sfnt_name.language_id != TT_MS_LANGID_ENGLISH_UNITED_STATES {
+                        continue;
+                    }
+
+                    let slice = slice::from_raw_parts(sfnt_name.text, sfnt_name.len as usize);
+                    // We're assuming ASCII encoded as UTF_16BE
+                    let vec_ascii: Vec<u8> = slice.iter().enumerate().filter_map(|x| {
+                        if x.0 % 2 == 0 { None } else { Some(*x.1) }
+                    }).collect();
+
+                    if let Ok(name_str) = str::from_utf8(&vec_ascii[..]) {
+                        if name.eq_ignore_ascii_case(name_str) {
+                            found = true;
+                            let ret = FT_Set_Var_Design_Coordinates(self.face, (*varia).num_axis, (*style).coords);
+                            if ret == FT_ERR_OK && !self.font.is_null() {
+                                hb_ft_font_changed(self.font);
+                            }
+                            break 'outer;
+                        }
+                    }
+                }
+            }
+
+            FT_Done_MM_Var(self.lib.0, varia);
+        }
+
+        found
+    }
+
+    pub fn plan(&mut self, txt: &str, max_width: Option<u32>, features: Option<&[String]>) -> RenderPlan {
         unsafe {
             let buf = hb_buffer_create();
             hb_buffer_add_utf8(buf,
@@ -334,22 +473,19 @@ impl Font {
             hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
             hb_buffer_guess_segment_properties(buf);
 
-            let features_vec = if let Some(features_txt) = features {
-                features_txt.split(' ')
-                    .filter_map(|f| {
-                        let mut feature = HbFeature::default();
-                        let ret = hb_feature_from_string(f.as_ptr() as *const libc::c_char,
-                                                         f.len() as libc::c_int,
-                                                         &mut feature);
-                        if ret == 1 {
-                            Some(feature)
-                        } else {
-                            None
-                        }
-                    }).collect()
-            } else {
-                vec![]
-            };
+            let features_vec: Vec<HbFeature> = features.map(|ftr|
+                ftr.iter().filter_map(|f| {
+                    let mut feature = HbFeature::default();
+                    let ret = hb_feature_from_string(f.as_ptr() as *const libc::c_char,
+                                                     f.len() as libc::c_int,
+                                                     &mut feature);
+                    if ret == 1 {
+                        Some(feature)
+                    } else {
+                        None
+                    }
+                }).collect()
+            ).unwrap_or_default();
 
             hb_shape(self.font, buf, features_vec.as_ptr(), features_vec.len() as libc::c_uint);
  
@@ -487,12 +623,11 @@ impl Font {
         (i, width)
     }
 
-    pub fn render(&mut self, fb: &mut Framebuffer, color: u8, render_plan: &RenderPlan, origin: &Point) {
+    pub fn render(&mut self, fb: &mut Framebuffer, color: u8, render_plan: &RenderPlan, origin: Point) {
         unsafe {
-            let mut pos = *origin;
+            let mut pos = origin;
             for glyph in &render_plan.glyphs {
                 FT_Load_Glyph(self.face, glyph.codepoint, FT_LOAD_RENDER | FT_LOAD_NO_HINTING);
-                // FT_Load_Glyph(self.face, glyph.codepoint, FT_LOAD_RENDER);
                 let glyph_slot = (*self.face).glyph;
                 let top_left = pos + glyph.offset + pt!((*glyph_slot).bitmap_left, -(*glyph_slot).bitmap_top);
                 let bitmap = &(*glyph_slot).bitmap;
@@ -525,19 +660,19 @@ impl Font {
 
     pub fn ascender(&self) -> i32 {
         unsafe {
-            (*(*self.face).size).metrics.ascender as i32
+            (*(*self.face).size).metrics.ascender as i32 / 64
         }
     }
 
     pub fn descender(&self) -> i32 {
         unsafe {
-            (*(*self.face).size).metrics.descender as i32
+            (*(*self.face).size).metrics.descender as i32 / 64
         }
     }
 
     pub fn line_height(&self) -> i32 {
         unsafe {
-            (*(*self.face).size).metrics.height as i32
+            (*(*self.face).size).metrics.height as i32 / 64
         }
     }
 }
@@ -566,8 +701,12 @@ impl RenderPlan {
         }
     }
 
-    pub fn advance_at(&self, index: usize) -> i32 {
+    pub fn total_advance(&self, index: usize) -> i32 {
         self.glyphs.iter().take(index).map(|g| g.advance.x).sum()
+    }
+
+    pub fn glyph_advance(&self, index: usize) -> i32 {
+        self.glyphs[index].advance.x
     }
 }
 

@@ -57,7 +57,7 @@ extern {
     pub fn fz_device_rgb(ctx: *mut FzContext) -> *mut FzColorspace;
     pub fn fz_device_gray(ctx: *mut FzContext) -> *mut FzColorspace;
     pub fn fz_scale(mat: *mut FzMatrix, sx: libc::c_float, sy: libc::c_float);
-    pub fn fz_new_pixmap_from_page_number(ctx: *mut FzContext, doc: *mut FzDocument, page_idx: libc::c_int, mat: *const FzMatrix, cs: *mut FzColorspace, alpha: libc::c_int) -> *mut FzPixmap;
+    pub fn fz_new_pixmap_from_page(ctx: *mut FzContext, page: *mut FzPage, mat: *const FzMatrix, cs: *mut FzColorspace, alpha: libc::c_int) -> *mut FzPixmap;
     pub fn fz_set_pixmap_resolution(ctx: *mut FzContext, pix: *mut FzPixmap, xres: libc::c_int, yres: libc::c_int);
     pub fn fz_drop_pixmap(ctx: *mut FzContext, pixmap: *mut FzPixmap);
     pub fn mp_load_page(ctx: *mut FzContext, doc: *mut FzDocument, page_idx: libc::c_int) -> *mut FzPage;
@@ -69,13 +69,9 @@ extern {
     pub fn mp_new_stext_page_from_page(ctx: *mut FzContext, page: *mut FzPage, options: *const FzTextOptions) -> *mut FzTextPage;
     pub fn fz_drop_stext_page(ctx: *mut FzContext, tp: *mut FzTextPage);
     pub fn fz_new_bbox_device(ctx: *mut FzContext, rect: *mut FzRect) -> *mut FzDevice;
-    pub fn fz_new_draw_device(ctx: *mut FzContext, mat: *const FzMatrix, pixmap: *mut FzPixmap) -> *mut FzDevice;
-    pub fn fz_new_draw_device_with_bbox(ctx: *mut FzContext, mat: *const FzMatrix, pixmap: *mut FzPixmap, clip: *const FzRect) -> *mut FzDevice;
     pub fn fz_close_device(ctx: *mut FzContext, dev: *mut FzDevice);
     pub fn fz_drop_device(ctx: *mut FzContext, dev: *mut FzDevice);
     pub fn fz_new_pixmap(ctx: *mut FzContext, cs: *mut FzColorspace, width: libc::c_int, height: libc::c_int, alpha: libc::c_int) -> *mut FzPixmap;
-    pub fn fz_new_pixmap_from_page(ctx: *mut FzContext, page: *mut FzPage, mat: *const FzMatrix, cs: *mut FzColorspace, alpha: libc::c_int) -> *mut FzPixmap;
-    pub fn fz_clear_pixmap(ctx: *mut FzContext, pixmap: *mut FzPixmap);
     pub fn fz_union_rect(a: *mut FzRect, b: *const FzRect);
     pub fn fz_runetochar(buf: *mut u8, rune: libc::c_int) -> libc::c_int;
     pub static fz_identity: FzMatrix;

@@ -2,9 +2,9 @@ use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, UpdateMode};
 use geom::{Rectangle, BorderSpec, CornerSpec};
 use color::{BLACK, WHITE, BATTERY_FILL};
-use view::{View, Event, Hub, Bus};
-use view::THICKNESS_LARGE;
-use view::icon::ICONS_PIXMAPS;
+use super::{View, Event, Hub, Bus};
+use super::THICKNESS_LARGE;
+use super::icon::ICONS_PIXMAPS;
 use battery::Status;
 use unit::scale_by_dpi;
 use font::Fonts;
@@ -106,8 +106,8 @@ impl View for Battery {
         if self.status != Status::Discharging {
             let name = if self.status == Status::Charging { "plug" } else { "check_mark-small" };
             let pixmap = ICONS_PIXMAPS.get(name).unwrap();
-            let pt = pt + pt!((max_fill_width - pixmap.width) / 2,
-                              (fill_height - pixmap.height) / 2);
+            let pt = pt + pt!((max_fill_width - pixmap.width as i32) / 2,
+                              (fill_height - pixmap.height as i32) / 2);
             fb.draw_blended_pixmap(pixmap, &pt, BLACK);
         }
     }

@@ -2,8 +2,8 @@ use std::mem;
 use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, UpdateMode};
 use geom::{Rectangle, CornerSpec};
-use view::{View, Event, Hub, Bus, EntryKind};
-use view::icon::ICONS_PIXMAPS;
+use super::{View, Event, Hub, Bus, EntryKind};
+use super::icon::ICONS_PIXMAPS;
 use input::{DeviceEvent, FingerStatus};
 use gesture::GestureEvent;
 use font::{Fonts, font_from_style, NORMAL_STYLE};
@@ -46,7 +46,7 @@ impl View for MenuEntry {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
                 match status {
-                    FingerStatus::Down if self.rect.includes(position) => {
+                    FingerStatus::Down if self.rect.includes(*position) => {
                         self.active = true;
                         hub.send(Event::Render(self.rect, UpdateMode::Fast)).unwrap();
                         true
@@ -60,7 +60,7 @@ impl View for MenuEntry {
                 }
             },
             Event::Gesture(GestureEvent::Tap(ref center)) |
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => {
                 match self.kind {
                     EntryKind::CheckBox(_, _, ref mut value) => {
                         *value = !*value;
@@ -130,7 +130,7 @@ impl View for MenuEntry {
         let pt = pt!(self.rect.min.x + padding / 2,
                      self.rect.max.y - dy);
 
-        font.render(fb, scheme[1], &plan, &pt); 
+        font.render(fb, scheme[1], &plan, pt); 
 
         let (icon_name, x_offset) = match self.kind {
             EntryKind::CheckBox(_, _, value) if value => ("check_mark", 0),
@@ -141,8 +141,8 @@ impl View for MenuEntry {
         };
 
         if let Some(pixmap) = ICONS_PIXMAPS.get(icon_name) {
-            let dx = x_offset + (padding / 2 - pixmap.width) / 2;
-            let dy = (self.rect.height() as i32 - pixmap.height) / 2;
+            let dx = x_offset + (padding / 2 - pixmap.width as i32) / 2;
+            let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
             let pt = self.rect.min + pt!(dx, dy);
 
             fb.draw_blended_pixmap(pixmap, &pt, scheme[1]);

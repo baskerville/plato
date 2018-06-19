@@ -1,8 +1,8 @@
 use device::CURRENT_DEVICE;
 use geom::{Rectangle, CornerSpec, CycleDir};
 use font::{Fonts, font_from_style, NORMAL_STYLE};
-use view::{View, Event, Hub, Bus};
-use view::BORDER_RADIUS_MEDIUM;
+use super::{View, Event, Hub, Bus};
+use super::BORDER_RADIUS_MEDIUM;
 use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
 use gesture::GestureEvent;
@@ -38,7 +38,7 @@ impl View for Preset {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
                 match status {
-                    FingerStatus::Down if self.rect.includes(position) => {
+                    FingerStatus::Down if self.rect.includes(*position) => {
                         self.active = true;
                         hub.send(Event::Render(self.rect, UpdateMode::Fast)).unwrap();
                         true
@@ -51,14 +51,14 @@ impl View for Preset {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
                 match self.kind {
                     PresetKind::Normal(_, index) => bus.push_back(Event::LoadPreset(index)),
                     PresetKind::Page(dir) => bus.push_back(Event::Page(dir)),
                 }
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => {
                 if let PresetKind::Normal(_, index) = self.kind {
                     bus.push_back(Event::TogglePresetMenu(self.rect, index)); 
                 }
@@ -95,7 +95,7 @@ impl View for Preset {
         let dy = (self.rect.height() as i32 - x_height) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 
-        font.render(fb, scheme[1], &plan, &pt);
+        font.render(fb, scheme[1], &plan, pt);
     }
 
     fn rect(&self) -> &Rectangle {

@@ -3,9 +3,9 @@ use device::{CURRENT_DEVICE, BAR_SIZES};
 use framebuffer::Framebuffer;
 use gesture::GestureEvent;
 use input::DeviceEvent;
-use view::{View, Event, Hub, Bus, KeyboardEvent, TextKind};
-use view::filler::Filler;
-use view::key::{Key, KeyKind};
+use super::{View, Event, Hub, Bus, KeyboardEvent, TextKind};
+use super::filler::Filler;
+use super::key::{Key, KeyKind};
 use color::KEYBOARD_BG;
 use font::Fonts;
 use app::Context;
@@ -320,9 +320,9 @@ impl View for Keyboard {
                 true
             },
             Event::Gesture(GestureEvent::Tap(ref center)) |
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => true,
-            Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(start) => true,
-            Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(position) => true,
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => true,
+            Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(*start) => true,
+            Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(*position) => true,
             _ => false,
         }
     }

@@ -1,11 +1,10 @@
-- ePUB renderer.
 - Fit to width.
+- Landscape mode.
+- Dictionary.
+- Metadata view.
 - Pocket articles.
 - Complex/fuzzy search queries?
 - Rename categories.
-- Metadata view.
 - Preload next/previous page.
-- Landscape mode.
-- Dictionary.
 - Input field completions bar.
 - Applications: Sketch, Calculator, Browser.

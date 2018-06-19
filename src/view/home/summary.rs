@@ -4,8 +4,8 @@ use std::collections::BTreeSet;
 use framebuffer::{Framebuffer, UpdateMode};
 use view::{View, Event, Hub, Bus, Align};
 use view::icon::{Icon, ICONS_PIXMAPS};
-use view::home::category::{Category, Status};
 use view::filler::Filler;
+use super::category::{Category, Status};
 use gesture::GestureEvent;
 use color::TEXT_BUMP_SMALL;
 use app::Context;
@@ -155,9 +155,9 @@ impl Summary {
 
         if start_index > 0 {
             let pixmap = ICONS_PIXMAPS.get("angle-left-small").unwrap();
-            line.width += pixmap.width + padding;
+            line.width += pixmap.width as i32 + padding;
             line.items.push(Item::Icon { name: "angle-left-small",
-                                         width: pixmap.width });
+                                         width: pixmap.width as i32 });
         }
 
         for categ in visible_categories.iter().skip(start_index) {
@@ -222,7 +222,7 @@ impl Summary {
 
             if let Some(mut line) = page.lines.pop() {
                 let pixmap = ICONS_PIXMAPS.get("angle-right-small").unwrap();
-                line.width += pixmap.width + padding;
+                line.width += pixmap.width as i32 + padding;
 
                 if line.labels_count > 1 {
                     while line.width > max_line_width {
@@ -245,7 +245,7 @@ impl Summary {
                 }
 
                 line.items.push(Item::Icon { name: "angle-right-small",
-                                             width: pixmap.width });
+                                             width: pixmap.width as i32 });
                 page.lines.push(line);
             }
         }
@@ -373,7 +373,7 @@ impl Summary {
 impl View for Summary {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Swipe { dir, ref start, ref end, .. }) if self.rect.includes(start) => {
+            Event::Gesture(GestureEvent::Swipe { dir, ref start, ref end, .. }) if self.rect.includes(*start) => {
                 match dir {
                     Dir::West => {
                         self.set_current_page(CycleDir::Next);
@@ -385,7 +385,7 @@ impl View for Summary {
                         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                         true
                     },
-                    Dir::South if !self.rect.includes(end) => {
+                    Dir::South if !self.rect.includes(*end) => {
                         bus.push_back(Event::ResizeSummary(end.y - self.rect.max.y));
                         true
                     },

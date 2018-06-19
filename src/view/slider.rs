@@ -1,8 +1,9 @@
+use std::f32;
 use device::CURRENT_DEVICE;
 use unit::scale_by_dpi;
 use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
-use view::{View, Event, Hub, Bus, SliderId, THICKNESS_SMALL};
+use super::{View, Event, Hub, Bus, SliderId, THICKNESS_SMALL};
 use color::{BLACK, WHITE, PROGRESS_VALUE, PROGRESS_FULL, PROGRESS_EMPTY};
 use font::{Fonts, font_from_style, SLIDER_VALUE};
 use geom::{Rectangle, BorderSpec, CornerSpec, halves};
@@ -15,7 +16,7 @@ pub struct Slider {
     rect: Rectangle,
     children: Vec<Box<View>>,
     id: SliderId,
-    pub value: f32,
+    value: f32,
     min_value: f32,
     max_value: f32,
     active: bool,
@@ -47,6 +48,13 @@ impl Slider {
                        .min(1.0).max(0.0);
         self.value = self.min_value + progress * (self.max_value - self.min_value);
     }
+
+    pub fn update(&mut self, value: f32, hub: &Hub) {
+        if (self.value - value).abs() >= f32::EPSILON {
+            self.value = value;
+            hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        }
+    }
 }
 
 impl View for Slider {
@@ -54,7 +62,7 @@ impl View for Slider {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
                 match status {
-                    FingerStatus::Down if self.rect.includes(position) => {
+                    FingerStatus::Down if self.rect.includes(*position) => {
                         self.active = true;
                         self.update_value(position.x);
                         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
@@ -133,7 +141,7 @@ impl View for Slider {
         };
 
         let pt = pt!(x_offset + x_drift, self.rect.min.y + x_height.max(small_padding));
-        font.render(fb, PROGRESS_VALUE, &plan, &pt);
+        font.render(fb, PROGRESS_VALUE, &plan, pt);
     }
 
     fn rect(&self) -> &Rectangle {

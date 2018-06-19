@@ -1,4 +1,4 @@
-use battery::{Battery, Status};
+use super::{Battery, Status};
 use failure::Error;
 
 pub struct FakeBattery {

@@ -14,7 +14,7 @@ And put the generated library in `libs`.
 
 The following tools will be used in the examples: [jq](https://stedolan.github.io/jq/), [rsync](https://rsync.samba.org/) and [stest](https://git.suckless.org/dmenu/tree/stest.c).
 
-First install the importer with `cargo install --bin plato-import --features importer`.
+First install the importer with `cargo install --path . --bin plato-import --features importer`.
 
 Then, create an empty database with `plato-import -Z LIBRARY_PATH`.
 

@@ -7,7 +7,7 @@ use geom::{Point, Rectangle, surface_area, nearest_segment_point, lerp};
 use geom::{CornerSpec, BorderSpec, ColorSource, Vec2};
 
 pub use self::kobo::KoboFramebuffer;
-pub use self::image::ImageFramebuffer;
+pub use self::image::Pixmap;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum UpdateMode {
@@ -18,14 +18,8 @@ pub enum UpdateMode {
     FastMono,
 }
 
-#[derive(Debug, Clone)]
-pub struct Pixmap {
-    pub width: i32,
-    pub height: i32,
-    pub buf: Vec<u8>,
-}
-
 pub trait Framebuffer {
+    // TODO: i32 instead of u32
     fn set_pixel(&mut self, x: u32, y: u32, color: u8);
     fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32);
     fn invert_region(&mut self, rect: &Rectangle);
@@ -98,11 +92,11 @@ pub trait Framebuffer {
     fn draw_pixmap(&mut self, pixmap: &Pixmap, pt: &Point) {
         for y in 0..pixmap.height {
             for x in 0..pixmap.width {
-                let px = x + pt.x;
-                let py = y + pt.y;
+                let px = x + pt.x as u32;
+                let py = y + pt.y as u32;
                 let addr = (y * pixmap.width + x) as usize;
-                let color = pixmap.buf[addr];
-                self.set_pixel(px as u32, py as u32, color);
+                let color = pixmap.data[addr];
+                self.set_pixel(px, py, color);
             }
         }
     }
@@ -112,8 +106,8 @@ pub trait Framebuffer {
             for x in rect.min.x..rect.max.x {
                 let px = x - rect.min.x + pt.x;
                 let py = y - rect.min.y + pt.y;
-                let addr = (y * pixmap.width + x) as usize;
-                let color = pixmap.buf[addr];
+                let addr = (y * pixmap.width as i32 + x) as usize;
+                let color = pixmap.data[addr];
                 self.set_pixel(px as u32, py as u32, color);
             }
         }
@@ -122,10 +116,10 @@ pub trait Framebuffer {
     fn draw_blended_pixmap(&mut self, pixmap: &Pixmap, pt: &Point, color: u8) {
         for y in 0..pixmap.height {
             for x in 0..pixmap.width {
-                let px = x + pt.x;
-                let py = y + pt.y;
+                let px = x + pt.x as u32;
+                let py = y + pt.y as u32;
                 let addr = (y * pixmap.width + x) as usize;
-                let alpha = (255.0 - pixmap.buf[addr] as f32) / 255.0;
+                let alpha = (255.0 - pixmap.data[addr] as f32) / 255.0;
                 self.set_blended_pixel(px as u32, py as u32, color, alpha);
             }
         }
@@ -225,13 +219,11 @@ pub trait Framebuffer {
                         color = border_color;
                         alpha = surface_area(delta_dist, angle);
                     }
-                } else {
-                    if x < rect.min.x + border_thickness as i32 ||
-                       x >= rect.max.x - border_thickness as i32 ||
-                       y < rect.min.y + border_thickness as i32 ||
-                       y >= rect.max.y - border_thickness as i32 {
-                        color = border_color;
-                    }
+                } else if x < rect.min.x + border_thickness as i32 ||
+                          x >= rect.max.x - border_thickness as i32 ||
+                          y < rect.min.y + border_thickness as i32 ||
+                          y >= rect.max.y - border_thickness as i32 {
+                    color = border_color;
                 }
                 self.set_blended_pixel(x as u32, y as u32, color, alpha);
             }
@@ -307,7 +299,7 @@ pub trait Framebuffer {
     }
 
     fn draw_disk(&mut self, center: &Point, radius: i32, color: u8) {
-        let rect = Rectangle::from_disk(center, radius);
+        let rect = Rectangle::from_disk(*center, radius);
 
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {

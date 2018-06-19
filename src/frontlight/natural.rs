@@ -4,9 +4,9 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 use fnv::FnvHashMap;
-use device::{CURRENT_DEVICE, Model};
-use frontlight::{Frontlight, LightLevels};
 use failure::Error;
+use device::{CURRENT_DEVICE, Model};
+use super::{Frontlight, LightLevels};
 
 const FRONTLIGHT_INTERFACE: &str = "/sys/class/backlight";
 

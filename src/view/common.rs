@@ -1,12 +1,12 @@
 use std::env;
-use view::{View, Event, Hub, ViewId, EntryId, EntryKind};
 use framebuffer::UpdateMode;
 use geom::{Point, Rectangle};
-use view::menu::{Menu, MenuKind};
+use super::{View, Event, Hub, ViewId, EntryId, EntryKind};
+use super::menu::{Menu, MenuKind};
 use app::Context;
 
-pub fn shift(view: &mut View, delta: &Point) {
-    *view.rect_mut() += *delta;
+pub fn shift(view: &mut View, delta: Point) {
+    *view.rect_mut() += delta;
     for child in view.children_mut().iter_mut() {
         shift(child.as_mut(), delta);
     }

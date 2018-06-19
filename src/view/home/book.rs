@@ -34,15 +34,15 @@ impl Book {
 impl View for Book {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
                 self.active = true;
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 hub.send(Event::Open(Box::new(self.info.clone()))).unwrap();
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => {
                 let pt = pt!(center.x, self.rect.center().y);
-                bus.push_back(Event::ToggleBookMenu(Rectangle::from_point(&pt), self.index));
+                bus.push_back(Event::ToggleBookMenu(Rectangle::from_point(pt), self.index));
                 true
             },
             Event::Invalid(ref info) => {
@@ -90,7 +90,7 @@ impl View for Book {
             let font = font_from_style(fonts, &MD_AUTHOR, dpi);
             let plan = font.plan(author, Some(width as u32), None);
             let pt = pt!(self.rect.min.x + padding, self.rect.max.y - baseline);
-            font.render(fb, scheme[1], &plan, &pt);
+            font.render(fb, scheme[1], &plan, pt);
             plan.width as i32
         };
 
@@ -109,7 +109,7 @@ impl View for Book {
                         font.crop_right(&mut plan2, max_width as u32);
                         let pt = pt!(self.rect.min.x + first_width - small_half_padding - plan2.width as i32,
                                      self.rect.max.y - baseline);
-                        font.render(fb, scheme[1], &plan2, &pt);
+                        font.render(fb, scheme[1], &plan2, pt);
                     } else {
                         font.crop_right(&mut plan, width as u32);
                     }
@@ -118,7 +118,7 @@ impl View for Book {
                 }
             }
             let pt = self.rect.min + pt!(padding, baseline + x_height);
-            font.render(fb, scheme[1], &plan, &pt);
+            font.render(fb, scheme[1], &plan, pt);
         }
 
         // Year
@@ -129,7 +129,7 @@ impl View for Book {
             let dy = (self.rect.height() as i32 - font.x_heights.1 as i32) / 2;
             let pt = pt!(self.rect.min.x + first_width + big_half_padding + dx,
                          self.rect.max.y - dy);
-            font.render(fb, scheme[1], &plan, &pt);
+            font.render(fb, scheme[1], &plan, pt);
         }
 
         // File kind
@@ -141,7 +141,7 @@ impl View for Book {
             plan.space_out(letter_spacing);
             let pt = pt!(self.rect.max.x - padding - plan.width as i32,
                          self.rect.min.y + baseline + x_height);
-            font.render(fb, scheme[1], &plan, &pt);
+            font.render(fb, scheme[1], &plan, pt);
         }
 
         // File size
@@ -151,7 +151,7 @@ impl View for Book {
             let plan = font.plan(&size, None, None);
             let pt = pt!(self.rect.max.x - padding - plan.width as i32,
                          self.rect.max.y - baseline);
-            font.render(fb, scheme[1], &plan, &pt);
+            font.render(fb, scheme[1], &plan, pt);
         }
     }
 

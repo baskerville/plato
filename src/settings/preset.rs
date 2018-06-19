@@ -90,5 +90,5 @@ pub fn guess_frontlight(lightsensor_level: Option<u16>, light_presets: &[LightPr
     let fl1 = light_presets[index[1]].frontlight_levels;
     let t = dmin[0] as f32 / (dmin[0] + dmin[1]) as f32;
 
-    Some(fl0.interpolate(&fl1, t))
+    Some(fl0.interpolate(fl1, t))
 }

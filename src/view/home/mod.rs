@@ -94,7 +94,7 @@ impl Home {
         let negated_categories = BTreeSet::default();
 
         let max_lines = ((height - 3 * small_height) / big_height) as usize;
-        let summary_size = context.settings.summary_size.max(1).min(max_lines as u8);
+        let summary_size = context.settings.home.summary_size.max(1).min(max_lines as u8);
         let max_lines = max_lines - summary_size as usize + 1;
         let count = visible_books.len();
         let pages_count = (visible_books.len() as f32 / max_lines as f32).ceil() as usize;
@@ -413,7 +413,7 @@ impl Home {
                     separator.rect += pt!(0, delta_y);
                 }
                 {
-                    shift(self.child_mut(6), &pt!(0, delta_y));
+                    shift(self.child_mut(6), pt!(0, delta_y));
                 }
             }
         } else {
@@ -456,7 +456,7 @@ impl Home {
                     separator.rect -= pt!(0, delta_y);
                 }
                 {
-                    shift(self.child_mut(6), &pt!(0, -delta_y));
+                    shift(self.child_mut(6), pt!(0, -delta_y));
                 }
             }
         }
@@ -940,8 +940,9 @@ impl Home {
         let (tx, _rx) = mpsc::channel();
         self.refresh_visibles(true, reset_page, &tx, context);
         self.sort(false, &mut context.metadata, &tx);
-        self.child_mut(0).downcast_mut::<TopBar>()
-            .map(|top_bar| top_bar.update_frontlight_icon(&tx, context));
+        if let Some(top_bar) = self.child_mut(0).downcast_mut::<TopBar>() {
+            top_bar.update_frontlight_icon(&tx, context);
+        }
         hub.send(Event::ClockTick).unwrap();
         hub.send(Event::BatteryTick).unwrap();
         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
@@ -1149,8 +1150,8 @@ impl View for Home {
                 self.refresh_visibles(true, true, hub, context);
                 true
             },
-            Event::GoTo(index) => {
-                self.go_to_page(index, hub);
+            Event::GoTo(location) => {
+                self.go_to_page(location as usize, hub);
                 true
             },
             Event::Chapter(dir) => {

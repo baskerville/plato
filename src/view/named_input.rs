@@ -1,10 +1,10 @@
 use framebuffer::Framebuffer;
 use font::{Fonts, font_from_style, NORMAL_STYLE};
 use geom::{Rectangle, CornerSpec, BorderSpec, halves, big_half};
-use view::{View, Event, Hub, Bus, ViewId, Align};
-use view::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
-use view::label::Label;
-use view::input_field::InputField;
+use super::{View, Event, Hub, Bus, ViewId, Align};
+use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
+use super::label::Label;
+use super::input_field::InputField;
 use unit::scale_by_dpi;
 use color::{BLACK, WHITE};
 use device::CURRENT_DEVICE;
