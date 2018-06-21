@@ -1,12 +1,11 @@
-- Document the build process.
-- Fit to width.
 - ePUB renderer.
+- Fit to width.
 - Pocket articles.
+- Complex/fuzzy search queries?
 - Rename categories.
+- Metadata view.
 - Preload next/previous page.
 - Landscape mode.
 - Dictionary.
 - Input field completions bar.
-- Metadata view.
-- Complex/fuzzy search queries?
 - Applications: Sketch, Calculator, Browser.
