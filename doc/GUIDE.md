@@ -29,9 +29,9 @@ Follow the instruction given on the *fmon* page on how to handle it.
 
 ## Configure
 
-The default library path is `/mnt/onboard`. If your library lives somewhere else, you'll need to create a file named `settings.json` in the same directory as the program's binary with the following content:
-```json
-{ "libraryPath": "LIBRARY_PATH" }
+The default library path is `/mnt/onboard`. If your library lives somewhere else, you'll need to create a file named `Settings.toml` in the same directory as the program's binary with the following content:
+```toml
+library-path = "LIBRARY_PATH"
 ```
 
 If there's a `user.css` in same directory as the program's binary, it will be used for all the reflowable formats.

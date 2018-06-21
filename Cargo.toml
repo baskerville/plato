@@ -35,6 +35,7 @@ unicode-normalization = "0.1.5"
 glob = "0.2.11"
 rand = "0.4.2"
 crockford = "1.0.1"
+toml = "0.4.6"
 
 [dependencies.html-entities]
 version = "0.1.0"

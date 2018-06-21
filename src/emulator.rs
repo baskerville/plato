@@ -7,6 +7,7 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+extern crate toml;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
@@ -58,7 +59,7 @@ mod errors {
 }
 
 use std::thread;
-use std::fs::File;
+use std::fs::{self, File};
 use std::sync::mpsc;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
@@ -83,12 +84,12 @@ use view::frontlight::FrontlightWindow;
 use view::keyboard::Keyboard;
 use view::menu::{Menu, MenuKind};
 use view::common::{locate, locate_by_id, overlapping_rectangle};
+use helpers::{load_json, save_json, load_toml, save_toml};
+use metadata::{Metadata, METADATA_FILENAME};
+use settings::{Settings, SETTINGS_PATH};
 use geom::Rectangle;
 use gesture::gesture_events;
 use device::CURRENT_DEVICE;
-use helpers::{load_json, save_json};
-use metadata::{Metadata, METADATA_FILENAME};
-use settings::{Settings, SETTINGS_PATH};
 use battery::{Battery, FakeBattery};
 use frontlight::{Frontlight, LightLevels};
 use lightsensor::LightSensor;
@@ -101,7 +102,7 @@ pub const APP_NAME: &str = "Plato";
 const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
 pub fn build_context() -> Result<Context> {
-    let settings = load_json::<Settings, _>(SETTINGS_PATH)?;
+    let settings = load_toml::<Settings, _>(SETTINGS_PATH)?;
     let path = settings.library_path.join(METADATA_FILENAME);
     let metadata = load_json::<Metadata, _>(path)?;
     let battery = Box::new(FakeBattery::new()) as Box<Battery>;
@@ -248,7 +249,7 @@ pub fn run() -> Result<()> {
     println!("{} is running on a Kobo {}.", APP_NAME,
                                             CURRENT_DEVICE.model);
     println!("The framebuffer resolution is {} by {}.", fb_rect.width(),
-                                                     fb_rect.height());
+                                                        fb_rect.height());
 
     let mut bus = VecDeque::with_capacity(4);
 
@@ -424,7 +425,7 @@ pub fn run() -> Result<()> {
     save_json(&context.metadata, path).chain_err(|| "Can't save metadata.")?;
 
     let path = Path::new(SETTINGS_PATH);
-    save_json(&context.settings, path).chain_err(|| "Can't save settings.")?;
+    save_toml(&context.settings, path).chain_err(|| "Can't save settings.")?;
 
     Ok(())
 }

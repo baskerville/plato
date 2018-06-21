@@ -4,7 +4,7 @@
 /archives
 /resources
 /libs
-/settings.json
+/Settings.toml
 /user.css
 /src/wrapper/*.so
 /src/wrapper/*.dylib

@@ -16,7 +16,7 @@ use view::menu::{Menu, MenuKind};
 use input::{DeviceEvent, ButtonCode, ButtonStatus};
 use input::{raw_events, device_events, usb_events};
 use gesture::{GestureEvent, gesture_events, BUTTON_HOLD_DELAY};
-use helpers::{load_json, save_json};
+use helpers::{load_json, save_json, load_toml, save_toml};
 use metadata::{Metadata, METADATA_FILENAME, import};
 use settings::{Settings, SETTINGS_PATH};
 use frontlight::{Frontlight, NaturalFrontlight, StandardFrontlight};
@@ -65,10 +65,9 @@ impl Context {
     }
 }
 
-pub fn run() -> Result<()> {
+fn build_context() -> Result<Context> {
     let path = Path::new(SETTINGS_PATH);
-
-    let settings = load_json::<Settings, _>(path);
+    let settings = load_toml::<Settings, _>(path);
 
     if let Err(ref e) = settings {
         if path.exists() {
@@ -85,8 +84,33 @@ pub fn run() -> Result<()> {
                                                  &vec![],
                                                  &settings.import.allowed_kinds))
                              .unwrap_or_default();
+    let fonts = Fonts::load().chain_err(|| "Can't load fonts.")?;
 
+    let battery = Box::new(KoboBattery::new().chain_err(|| "Can't create battery.")?) as Box<Battery>;
+
+    let lightsensor = if CURRENT_DEVICE.has_lightsensor() {
+        Box::new(KoboLightSensor::new().chain_err(|| "Can't create light sensor.")?) as Box<LightSensor>
+    } else {
+        Box::new(0u16) as Box<LightSensor>
+    };
+
+    let levels = settings.frontlight_levels;
+    let frontlight = if CURRENT_DEVICE.has_natural_light() {
+        Box::new(NaturalFrontlight::new(levels.intensity, levels.warmth)
+                                   .chain_err(|| "Can't create natural frontlight.")?) as Box<Frontlight>
+    } else {
+        Box::new(StandardFrontlight::new(levels.intensity)
+                                    .chain_err(|| "Can't create standard frontlight.")?) as Box<Frontlight>
+    };
+
+    Ok(Context::new(settings, metadata, PathBuf::from(METADATA_FILENAME),
+                    fonts, battery, frontlight, lightsensor))
+}
+
+pub fn run() -> Result<()> {
+    let mut context = build_context().chain_err(|| "Can't build context.")?;
     let mut fb = KoboFramebuffer::new("/dev/fb0").chain_err(|| "Can't create framebuffer.")?;
+
     let paths = vec!["/dev/input/event0".to_string(),
                      "/dev/input/event1".to_string()];
     let touch_screen = gesture_events(device_events(raw_events(paths), fb.dims()));
@@ -126,41 +150,21 @@ pub fn run() -> Result<()> {
 
     let fb_rect = fb.rect();
 
-    let fonts = Fonts::load().chain_err(|| "Can't load fonts.")?;
-
-    if settings.wifi {
+    if context.settings.wifi {
         Command::new("scripts/wifi-enable.sh").spawn().ok();
     } else {
         Command::new("scripts/wifi-disable.sh").spawn().ok();
     }
 
-    let levels = settings.frontlight_levels;
-    let mut frontlight = if CURRENT_DEVICE.has_natural_light() {
-        Box::new(NaturalFrontlight::new(levels.intensity, levels.warmth)
-                                   .chain_err(|| "Can't create natural frontlight.")?) as Box<Frontlight>
+    if context.settings.frontlight {
+        let levels = context.settings.frontlight_levels;
+        context.frontlight.set_intensity(levels.intensity);
+        context.frontlight.set_warmth(levels.warmth);
     } else {
-        Box::new(StandardFrontlight::new(levels.intensity)
-                                    .chain_err(|| "Can't create standard frontlight.")?) as Box<Frontlight>
-    };
-
-    if settings.frontlight {
-        frontlight.set_intensity(levels.intensity);
-        frontlight.set_warmth(levels.warmth);
-    } else {
-        frontlight.set_warmth(0.0);
-        frontlight.set_intensity(0.0);
+        context.frontlight.set_warmth(0.0);
+        context.frontlight.set_intensity(0.0);
     }
 
-    let battery = Box::new(KoboBattery::new().chain_err(|| "Can't create battery.")?) as Box<Battery>;
-
-    let lightsensor = if CURRENT_DEVICE.has_lightsensor() {
-        Box::new(KoboLightSensor::new().chain_err(|| "Can't create light sensor.")?) as Box<LightSensor>
-    } else {
-        Box::new(0u16) as Box<LightSensor>
-    };
-
-    let mut context = Context::new(settings, metadata, PathBuf::from(METADATA_FILENAME),
-                                   fonts, battery, frontlight, lightsensor);
     let mut history: Vec<Box<View>> = Vec::new();
     let mut view: Box<View> = Box::new(Home::new(fb_rect, &tx, &mut context)?);
 
@@ -169,7 +173,7 @@ pub fn run() -> Result<()> {
     println!("{} is running on a Kobo {}.", APP_NAME,
                                             CURRENT_DEVICE.model);
     println!("The framebuffer resolution is {} by {}.", fb_rect.width(),
-                                                     fb_rect.height());
+                                                        fb_rect.height());
 
     let mut bus = VecDeque::with_capacity(4);
 
@@ -225,6 +229,11 @@ pub fn run() -> Result<()> {
                         if context.mounted {
                             Command::new("scripts/usb-disable.sh").status().ok();
                             context.mounted = false;
+                            let path = Path::new(SETTINGS_PATH);
+                            if let Ok(settings) = load_toml::<Settings, _>(path)
+                                                            .map_err(|e| eprintln!("Can't load settings: {}", e)) {
+                                context.settings = settings;
+                            }
                             if context.settings.wifi {
                                 Command::new("scripts/wifi-enable.sh")
                                         .spawn()
@@ -273,7 +282,7 @@ pub fn run() -> Result<()> {
                 context.suspended = true;
                 updating.retain(|tok, _| fb.wait(*tok).is_err());
                 let path = Path::new(SETTINGS_PATH);
-                save_json(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {}", e)).ok();
+                save_toml(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {}", e)).ok();
                 let path = context.settings.library_path.join(&context.filename);
                 save_json(&context.metadata, path).map_err(|e| eprintln!("Can't save metadata: {}", e)).ok();
                 if context.settings.frontlight {
@@ -504,7 +513,7 @@ pub fn run() -> Result<()> {
     save_json(&context.metadata, path).chain_err(|| "Can't save metadata.")?;
 
     let path = Path::new(SETTINGS_PATH);
-    save_json(&context.settings, path).chain_err(|| "Can't save settings.")?;
+    save_toml(&context.settings, path).chain_err(|| "Can't save settings.")?;
 
     Ok(())
 }
