@@ -10,7 +10,7 @@ use helpers::simple_date_format;
 use regex::Regex;
 use document::file_kind;
 use symbolic_path;
-use errors::*;
+use failure::{Error, ResultExt};
 
 pub const METADATA_FILENAME: &str = ".metadata.json";
 pub const IMPORTED_MD_FILENAME: &str = ".metadata-imported.json";
@@ -443,7 +443,7 @@ lazy_static! {
     };
 }
 
-pub fn import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String>) -> Result<Metadata> {
+pub fn import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String>) -> Result<Metadata, Error> {
     let files = find_files(dir, dir)?;
     let known: FnvHashSet<PathBuf> = metadata.iter()
                                              .map(|info| info.file.path.clone())
@@ -470,11 +470,11 @@ pub fn import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String
     Ok(metadata)
 }
 
-fn find_files(root: &Path, dir: &Path) -> Result<Vec<FileInfo>> {
+fn find_files(root: &Path, dir: &Path) -> Result<Vec<FileInfo>, Error> {
     let mut result = Vec::new();
 
-    for entry in fs::read_dir(dir).chain_err(|| "Can't read directory.")? {
-        let entry = entry.chain_err(|| "Can't read directory entry.")?;
+    for entry in fs::read_dir(dir).context("Can't read directory.")? {
+        let entry = entry.context("Can't read directory entry.")?;
         let path = entry.path();
 
         if entry.file_name().to_string_lossy().starts_with('.') {

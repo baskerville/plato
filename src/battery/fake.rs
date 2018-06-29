@@ -1,5 +1,5 @@
 use battery::{Battery, Status};
-use errors::*;
+use failure::Error;
 
 pub struct FakeBattery {
     capacity: f32,
@@ -13,11 +13,11 @@ impl FakeBattery {
 }
 
 impl Battery for FakeBattery {
-    fn capacity(&mut self) -> Result<f32> {
+    fn capacity(&mut self) -> Result<f32, Error> {
         Ok(self.capacity)
     }
 
-    fn status(&mut self) -> Result<Status> {
+    fn status(&mut self) -> Result<Status, Error> {
         Ok(self.status)
     }
 }

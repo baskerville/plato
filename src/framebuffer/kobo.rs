@@ -14,7 +14,7 @@ use png::HasParameters;
 use geom::Rectangle;
 use framebuffer::{UpdateMode, Framebuffer};
 use framebuffer::mxcfb_sys::*;
-use errors::*;
+use failure::{Error, ResultExt};
 
 impl Into<MxcfbRect> for Rectangle {
     fn into(self) -> MxcfbRect {
@@ -78,7 +78,7 @@ impl Framebuffer for KoboFramebuffer {
     // Tell the driver that the screen needs to be redrawn.
     // The `rect` parameter is ignored for the `Full` mode.
     // The `Fast` mode maps everything to BLACK and WHITE.
-    fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32> {
+    fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32, Error> {
         let (update_mode, waveform_mode) = match mode {
             UpdateMode::Gui |
             UpdateMode::Partial  => (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO),
@@ -116,7 +116,7 @@ impl Framebuffer for KoboFramebuffer {
             libc::ioctl(self.device.as_raw_fd(), MXCFB_SEND_UPDATE, &update_data)
         };
         match result {
-            -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't update framebuffer.")),
+            -1 => Err(Error::from(io::Error::last_os_error()).context("Can't update framebuffer.").into()),
             _ => {
                 self.token = self.token.wrapping_add(1);
                 Ok(update_marker)
@@ -125,25 +125,25 @@ impl Framebuffer for KoboFramebuffer {
     }
 
     // Wait for a specific update to complete
-    fn wait(&self, token: u32) -> Result<i32> {
+    fn wait(&self, token: u32) -> Result<i32, Error> {
         let result = unsafe {
             libc::ioctl(self.device.as_raw_fd(), MXCFB_WAIT_FOR_UPDATE_COMPLETE, &token)
         };
         match result {
-            -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't wait for framebuffer update.")),
+            -1 => Err(Error::from(io::Error::last_os_error()).context("Can't wait for framebuffer update.").into()),
             _ => {
                 Ok(result as i32)
             }
         }
     }
 
-    fn save(&self, path: &str) -> Result<()> {
+    fn save(&self, path: &str) -> Result<(), Error> {
         let (width, height) = self.dims();
-        let file = File::create(path).chain_err(|| "Can't create output file.")?;
+        let file = File::create(path).context("Can't create output file.")?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set(png::ColorType::RGB).set(png::BitDepth::Eight);
-        let mut writer = encoder.write_header().chain_err(|| "Can't write header.")?;
-        writer.write_image_data(&(self.as_rgb)(self)).chain_err(|| "Can't write data to file.")?;
+        let mut writer = encoder.write_header().context("Can't write header.")?;
+        writer.write_image_data(&(self.as_rgb)(self)).context("Can't write data to file.")?;
         Ok(())
     }
 
@@ -165,11 +165,11 @@ impl Framebuffer for KoboFramebuffer {
 }
 
 impl KoboFramebuffer {
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<KoboFramebuffer> {
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<KoboFramebuffer, Error> {
         let device = OpenOptions::new().read(true)
                                        .write(true)
                                        .open(path)
-                                       .chain_err(|| "Can't open framebuffer device.")?;
+                                       .context("Can't open framebuffer device.")?;
 
         let var_info = var_screen_info(&device)?;
         let fix_info = fix_screen_info(&device)?;
@@ -194,7 +194,7 @@ impl KoboFramebuffer {
         };
 
         if frame == libc::MAP_FAILED {
-            bail!(Error::with_chain(io::Error::last_os_error(), "Can't map memory."));
+            return Err(Error::from(io::Error::last_os_error()).context("Can't map memory.").into());
         } else {
             let (set_pixel_rgb, get_pixel_rgb, as_rgb): (SetPixelRgb, GetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
                 (set_pixel_rgb_32, get_pixel_rgb_32, as_rgb_32)
@@ -312,20 +312,20 @@ fn as_rgb_32(fb: &KoboFramebuffer) -> Vec<u8> {
     rgb888
 }
 
-pub fn fix_screen_info(device: &File) -> Result<FixScreenInfo> {
+pub fn fix_screen_info(device: &File) -> Result<FixScreenInfo, Error> {
     let mut info: FixScreenInfo = Default::default();
     let result = unsafe { ioctl(device.as_raw_fd(), FBIOGET_FSCREENINFO, &mut info) };
     match result {
-        -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't get fixed screen info.")),
+        -1 => Err(Error::from(io::Error::last_os_error()).context("Can't get fixed screen info.").into()),
         _ => Ok(info),
     }
 }
 
-pub fn var_screen_info(device: &File) -> Result<VarScreenInfo> {
+pub fn var_screen_info(device: &File) -> Result<VarScreenInfo, Error> {
     let mut info: VarScreenInfo = Default::default();
     let result = unsafe { ioctl(device.as_raw_fd(), FBIOGET_VSCREENINFO, &mut info) };
     match result {
-        -1 => Err(Error::with_chain(io::Error::last_os_error(), "Can't get variable screen info.")),
+        -1 => Err(Error::from(io::Error::last_os_error()).context("Can't get variable screen info.").into()),
         _ => Ok(info),
     }
 }

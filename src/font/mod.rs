@@ -11,6 +11,7 @@ use std::ffi::CString;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::rc::Rc;
+use failure::Error;
 use geom::Point;
 use framebuffer::Framebuffer;
 
@@ -99,7 +100,7 @@ pub struct Fonts {
 }
 
 impl Fonts {
-    pub fn load() -> Result<Fonts> {
+    pub fn load() -> Result<Fonts, Error> {
         let fo = FontOpener::new()?;
         Ok(Fonts {
             sans_serif: FontFamily {
@@ -201,25 +202,25 @@ impl RenderPlan {
 }
 
 impl FontOpener {
-    pub fn new() -> Result<FontOpener> {
+    pub fn new() -> Result<FontOpener, Error> {
         unsafe {
             let mut lib = ptr::null_mut();
             let ret = FT_Init_FreeType(&mut lib);
             if ret != FT_ERR_OK {
-                Err(ret.as_error_kind().into())
+                Err(Error::from(FreetypeError::from(ret)))
             } else {
                 Ok(FontOpener(Rc::new(FontLibrary(lib))))
             }
         }
     }
 
-    pub fn open<P: AsRef<Path>>(&self, path: P) -> Result<Font> {
+    pub fn open<P: AsRef<Path>>(&self, path: P) -> Result<Font, Error> {
         unsafe {
             let mut face = ptr::null_mut();
             let c_path = CString::new(path.as_ref().as_os_str().as_bytes()).unwrap();
             let ret = FT_New_Face((self.0).0, c_path.as_ptr(), 0, &mut face);
             if ret != FT_ERR_OK {
-               return Err(ret.as_error_kind().into());
+               return Err(Error::from(FreetypeError::from(ret)));
             }
             let font = ptr::null_mut();
             let ellipsis = RenderPlan::default();
@@ -230,12 +231,12 @@ impl FontOpener {
         }
     }
 
-    pub fn open_memory(&self, buf: &[u8]) -> Result<Font> {
+    pub fn open_memory(&self, buf: &[u8]) -> Result<Font, Error> {
         unsafe {
             let mut face = ptr::null_mut();
             let ret = FT_New_Memory_Face((self.0).0, buf.as_ptr() as *const FtByte, buf.len() as libc::c_long, 0, &mut face);
             if ret != FT_ERR_OK {
-               return Err(ret.as_error_kind().into());
+               return Err(Error::from(FreetypeError::from(ret)));
             }
             let ellipsis = RenderPlan::default();
             let font = ptr::null_mut();
@@ -600,485 +601,384 @@ fn tag(c1: u8, c2: u8, c3: u8, c4: u8) -> u32 {
     ((c1 as u32) << 24) | ((c2 as u32) << 16) | ((c3 as u32) << 8) | c4 as u32
 }
 
-error_chain! {
-    errors {
-        UnknownError(code: FtError) {
-            description("unknown error")
-            display("unknown error with code {}", code)
-        }
-
-        CannotOpenResource {
-            description("cannot open resource")
-        }
-
-        UnknownFileFormat {
-            description("unknown file format")
-        }
-
-        InvalidFileFormat {
-            description("broken file")
-        }
-
-        InvalidVersion {
-            description("invalid FreeType version")
-        }
-
-        LowerModuleVersion {
-            description("module version is too low")
-        }
-
-        InvalidArgument {
-            description("invalid argument")
-        }
-
-        UnimplementedFeature {
-            description("unimplemented feature")
-        }
-
-        InvalidTable {
-            description("broken table")
-        }
-
-        InvalidOffset {
-            description("broken offset within table")
-        }
-
-        ArrayTooLarge {
-            description("array allocation size too large")
-        }
-
-        MissingModule {
-            description("missing module")
-        }
-
-        MissingProperty {
-            description("missing property")
-        }
-
-        InvalidGlyphIndex {
-            description("invalid glyph index")
-        }
-
-        InvalidCharacterCode {
-            description("invalid character code")
-        }
-
-        InvalidGlyphFormat {
-            description("unsupported glyph image format")
-        }
-
-        CannotRenderGlyph {
-            description("cannot render this glyph format")
-        }
-
-        InvalidOutline {
-            description("invalid outline")
-        }
-
-        InvalidComposite {
-            description("invalid composite glyph")
-        }
-
-        TooManyHints {
-            description("too many hints")
-        }
-
-        InvalidPixelSize {
-            description("invalid pixel size")
-        }
-
-        InvalidHandle {
-            description("invalid object handle")
-        }
-
-        InvalidLibraryHandle {
-            description("invalid library handle")
-        }
-
-        InvalidDriverHandle {
-            description("invalid module handle")
-        }
-
-        InvalidFaceHandle {
-            description("invalid face handle")
-        }
-
-        InvalidSizeHandle {
-            description("invalid size handle")
-        }
-
-        InvalidSlotHandle {
-            description("invalid glyph slot handle")
-        }
-
-        InvalidCharMapHandle {
-            description("invalid charmap handle")
-        }
-
-        InvalidCacheHandle {
-            description("invalid cache manager handle")
-        }
-
-        InvalidStreamHandle {
-            description("invalid stream handle")
-        }
-
-        TooManyDrivers {
-            description("too many modules")
-        }
-
-        TooManyExtensions {
-            description("too many extensions")
-        }
-
-        OutOfMemory {
-            description("out of memory")
-        }
-
-        UnlistedObject {
-            description("unlisted object")
-        }
-
-        CannotOpenStream {
-            description("cannot open stream")
-        }
-
-        InvalidStreamSeek {
-            description("invalid stream seek")
-        }
-
-        InvalidStreamSkip {
-            description("invalid stream skip")
-        }
-
-        InvalidStreamRead {
-            description("invalid stream read")
-        }
-
-        InvalidStreamOperation {
-            description("invalid stream operation")
-        }
-
-        InvalidFrameOperation {
-            description("invalid frame operation")
-        }
-
-        NestedFrameAccess {
-            description("nested frame access")
-        }
-
-        InvalidFrameRead {
-            description("invalid frame read")
-        }
-
-        RasterUninitialized {
-            description("raster uninitialized")
-        }
-
-        RasterCorrupted {
-            description("raster corrupted")
-        }
-
-        RasterOverflow {
-            description("raster overflow")
-        }
-
-        RasterNegativeHeight {
-            description("negative height while rastering")
-        }
-
-        TooManyCaches {
-            description("too many registered caches")
-        }
-
-        InvalidOpcode {
-            description("invalid opcode")
-        }
-
-        TooFewArguments {
-            description("too few arguments")
-        }
-
-        StackOverflow {
-            description("stack overflow")
-        }
-
-        CodeOverflow {
-            description("code overflow")
-        }
-
-        BadArgument {
-            description("bad argument")
-        }
-
-        DivideByZero {
-            description("division by zero")
-        }
-
-        InvalidReference {
-            description("invalid reference")
-        }
-
-        DebugOpCode {
-            description("found debug opcode")
-        }
-
-        ENDFInExecStream {
-            description("found ENDF opcode in execution stream")
-        }
-
-        NestedDEFS {
-            description("nested DEFS")
-        }
-
-        InvalidCodeRange {
-            description("invalid code range")
-        }
-
-        ExecutionTooLong {
-            description("execution context too long")
-        }
-
-        TooManyFunctionDefs {
-            description("too many function definitions")
-        }
-
-        TooManyInstructionDefs {
-            description("too many instruction definitions")
-        }
-
-        TableMissing {
-            description("SFNT font table missing")
-        }
-
-        HorizHeaderMissing {
-            description("horizontal header (hhea) table missing")
-        }
-
-        LocationsMissing {
-            description("locations (loca) table missing")
-        }
-
-        NameTableMissing {
-            description("name table missing")
-        }
-
-        CMapTableMissing {
-            description("character map (cmap) table missing")
-        }
-
-        HmtxTableMissing {
-            description("horizontal metrics (hmtx) table missing")
-        }
-
-        PostTableMissing {
-            description("PostScript (post) table missing")
-        }
-
-        InvalidHorizMetrics {
-            description("invalid horizontal metrics")
-        }
-
-        InvalidCharMapFormat {
-            description("invalid character map (cmap) format")
-        }
-
-        InvalidPPem {
-            description("invalid ppem value")
-        }
-
-        InvalidVertMetrics {
-            description("invalid vertical metrics")
-        }
-
-        CouldNotFindContext {
-            description("could not find context")
-        }
-
-        InvalidPostTableFormat {
-            description("invalid PostScript (post) table format")
-        }
-
-        InvalidPostTable {
-            description("invalid PostScript (post) table")
-        }
-
-        DEFInGlyfBytecode {
-            description("found FDEF or IDEF opcode in glyf bytecode")
-        }
-
-        MissingBitmap {
-            description("missing bitmap in strike")
-        }
-
-        SyntaxError {
-            description("opcode syntax error")
-        }
-
-        StackUnderflow {
-            description("argument stack underflow")
-        }
-
-        Ignore {
-            description("ignore")
-        }
-
-        NoUnicodeGlyphName {
-            description("no Unicode glyph name found")
-        }
-
-        GlyphTooBig {
-            description("glyph too big for hinting")
-        }
-
-        MissingStartfontField {
-            description("`STARTFONT' field missing")
-        }
-
-        MissingFontField {
-            description("`FONT' field missing")
-        }
-
-        MissingSizeField {
-            description("`SIZE' field missing")
-        }
-
-        MissingFontboundingboxField {
-            description("`FONTBOUNDINGBOX' field missing")
-        }
-
-        MissingCharsField {
-            description("`CHARS' field missing")
-        }
-
-        MissingStartcharField {
-            description("`STARTCHAR' field missing")
-        }
-
-        MissingEncodingField {
-            description("`ENCODING' field missing")
-        }
-
-        MissingBbxField {
-            description("`BBX' field missing")
-        }
-
-        BbxTooBig {
-            description("`BBX' too big")
-        }
-
-        CorruptedFontHeader {
-            description("Font header corrupted or missing fields")
-        }
-
-        CorruptedFontGlyphs {
-            description("Font glyphs corrupted or missing fields")
-        }
-    }
+#[derive(Fail, Debug)]
+enum FreetypeError {
+    #[fail(display = "Unknown error with code {}.", _0)]
+    UnknownError(FtError),
+
+    #[fail(display = "Cannot open resource.")]
+    CannotOpenResource,
+
+    #[fail(display = "Unknown file format.")]
+    UnknownFileFormat,
+
+    #[fail(display = "Broken file.")]
+    InvalidFileFormat,
+
+    #[fail(display = "Invalid FreeType version.")]
+    InvalidVersion,
+
+    #[fail(display = "Module version is too low.")]
+    LowerModuleVersion,
+
+    #[fail(display = "Invalid argument.")]
+    InvalidArgument,
+
+    #[fail(display = "Unimplemented feature.")]
+    UnimplementedFeature,
+
+    #[fail(display = "Broken table.")]
+    InvalidTable,
+
+    #[fail(display = "Broken offset within table.")]
+    InvalidOffset,
+
+    #[fail(display = "Array allocation size too large.")]
+    ArrayTooLarge,
+
+    #[fail(display = "Missing module.")]
+    MissingModule,
+
+    #[fail(display = "Missing property.")]
+    MissingProperty,
+
+    #[fail(display = "Invalid glyph index.")]
+    InvalidGlyphIndex,
+
+    #[fail(display = "Invalid character code.")]
+    InvalidCharacterCode,
+
+    #[fail(display = "Unsupported glyph image format.")]
+    InvalidGlyphFormat,
+
+    #[fail(display = "Cannot render this glyph format.")]
+    CannotRenderGlyph,
+
+    #[fail(display = "Invalid outline.")]
+    InvalidOutline,
+
+    #[fail(display = "Invalid composite glyph.")]
+    InvalidComposite,
+
+    #[fail(display = "Too many hints.")]
+    TooManyHints,
+
+    #[fail(display = "Invalid pixel size.")]
+    InvalidPixelSize,
+
+    #[fail(display = "Invalid object handle.")]
+    InvalidHandle,
+
+    #[fail(display = "Invalid library handle.")]
+    InvalidLibraryHandle,
+
+    #[fail(display = "Invalid module handle.")]
+    InvalidDriverHandle,
+
+    #[fail(display = "Invalid face handle.")]
+    InvalidFaceHandle,
+
+    #[fail(display = "Invalid size handle.")]
+    InvalidSizeHandle,
+
+    #[fail(display = "Invalid glyph slot handle.")]
+    InvalidSlotHandle,
+
+    #[fail(display = "Invalid charmap handle.")]
+    InvalidCharMapHandle,
+
+    #[fail(display = "Invalid cache manager handle.")]
+    InvalidCacheHandle,
+
+    #[fail(display = "Invalid stream handle.")]
+    InvalidStreamHandle,
+
+    #[fail(display = "Too many modules.")]
+    TooManyDrivers,
+
+    #[fail(display = "Too many extensions.")]
+    TooManyExtensions,
+
+    #[fail(display = "Out of memory.")]
+    OutOfMemory,
+
+    #[fail(display = "Unlisted object.")]
+    UnlistedObject,
+
+    #[fail(display = "Cannot open stream.")]
+    CannotOpenStream,
+
+    #[fail(display = "Invalid stream seek.")]
+    InvalidStreamSeek,
+
+    #[fail(display = "Invalid stream skip.")]
+    InvalidStreamSkip,
+
+    #[fail(display = "Invalid stream read.")]
+    InvalidStreamRead,
+
+    #[fail(display = "Invalid stream operation.")]
+    InvalidStreamOperation,
+
+    #[fail(display = "Invalid frame operation.")]
+    InvalidFrameOperation,
+
+    #[fail(display = "Nested frame access.")]
+    NestedFrameAccess,
+
+    #[fail(display = "Invalid frame read.")]
+    InvalidFrameRead,
+
+    #[fail(display = "Raster uninitialized.")]
+    RasterUninitialized,
+
+    #[fail(display = "Raster corrupted.")]
+    RasterCorrupted,
+
+    #[fail(display = "Raster overflow.")]
+    RasterOverflow,
+
+    #[fail(display = "Negative height while rastering.")]
+    RasterNegativeHeight,
+
+    #[fail(display = "Too many registered caches.")]
+    TooManyCaches,
+
+    #[fail(display = "Invalid opcode.")]
+    InvalidOpcode,
+
+    #[fail(display = "Too few arguments.")]
+    TooFewArguments,
+
+    #[fail(display = "Stack overflow.")]
+    StackOverflow,
+
+    #[fail(display = "Code overflow.")]
+    CodeOverflow,
+
+    #[fail(display = "Bad argument.")]
+    BadArgument,
+
+    #[fail(display = "Division by zero.")]
+    DivideByZero,
+
+    #[fail(display = "Invalid reference.")]
+    InvalidReference,
+
+    #[fail(display = "Found debug opcode.")]
+    DebugOpCode,
+
+    #[fail(display = "Found ENDF opcode in execution stream.")]
+    ENDFInExecStream,
+
+    #[fail(display = "Nested DEFS.")]
+    NestedDEFS,
+
+    #[fail(display = "Invalid code range.")]
+    InvalidCodeRange,
+
+    #[fail(display = "Execution context too long.")]
+    ExecutionTooLong,
+
+    #[fail(display = "Too many function definitions.")]
+    TooManyFunctionDefs,
+
+    #[fail(display = "Too many instruction definitions.")]
+    TooManyInstructionDefs,
+
+    #[fail(display = "SFNT font table missing.")]
+    TableMissing,
+
+    #[fail(display = "Horizontal header (hhea) table missing.")]
+    HorizHeaderMissing,
+
+    #[fail(display = "Locations (loca) table missing.")]
+    LocationsMissing,
+
+    #[fail(display = "Name table missing.")]
+    NameTableMissing,
+
+    #[fail(display = "Character map (cmap) table missing.")]
+    CMapTableMissing,
+
+    #[fail(display = "Horizontal metrics (hmtx) table missing.")]
+    HmtxTableMissing,
+
+    #[fail(display = "PostScript (post) table missing.")]
+    PostTableMissing,
+
+    #[fail(display = "Invalid horizontal metrics.")]
+    InvalidHorizMetrics,
+
+    #[fail(display = "Invalid character map (cmap) format.")]
+    InvalidCharMapFormat,
+
+    #[fail(display = "Invalid ppem value.")]
+    InvalidPPem,
+
+    #[fail(display = "Invalid vertical metrics.")]
+    InvalidVertMetrics,
+
+    #[fail(display = "Could not find context.")]
+    CouldNotFindContext,
+
+    #[fail(display = "Invalid PostScript (post) table format.")]
+    InvalidPostTableFormat,
+
+    #[fail(display = "Invalid PostScript (post) table.")]
+    InvalidPostTable,
+
+    #[fail(display = "Found FDEF or IDEF opcode in glyf bytecode.")]
+    DEFInGlyfBytecode,
+
+    #[fail(display = "Missing bitmap in strike.")]
+    MissingBitmap,
+
+    #[fail(display = "Opcode syntax error.")]
+    SyntaxError,
+
+    #[fail(display = "Argument stack underflow.")]
+    StackUnderflow,
+
+    #[fail(display = "Ignore.")]
+    Ignore,
+
+    #[fail(display = "No Unicode glyph name found.")]
+    NoUnicodeGlyphName,
+
+    #[fail(display = "Glyph too big for hinting.")]
+    GlyphTooBig,
+
+    #[fail(display = "`STARTFONT' field missing.")]
+    MissingStartfontField,
+
+    #[fail(display = "`FONT' field missing.")]
+    MissingFontField,
+
+    #[fail(display = "`SIZE' field missing.")]
+    MissingSizeField,
+
+    #[fail(display = "`FONTBOUNDINGBOX' field missing.")]
+    MissingFontboundingboxField,
+
+    #[fail(display = "`CHARS' field missing.")]
+    MissingCharsField,
+
+    #[fail(display = "`STARTCHAR' field missing.")]
+    MissingStartcharField,
+
+    #[fail(display = "`ENCODING' field missing.")]
+    MissingEncodingField,
+
+    #[fail(display = "`BBX' field missing.")]
+    MissingBbxField,
+
+    #[fail(display = "`BBX' too big.")]
+    BbxTooBig,
+
+    #[fail(display = "Font header corrupted or missing fields.")]
+    CorruptedFontHeader,
+
+    #[fail(display = "Font glyphs corrupted or missing fields.")]
+    CorruptedFontGlyphs,
 }
 
-
-
-trait AsErrorKind {
-    fn as_error_kind(&self) -> ErrorKind;
-}
-
-impl AsErrorKind for FtError {
-    fn as_error_kind(&self) -> ErrorKind {
-        match *self {
-            0x01 => ErrorKind::CannotOpenResource,
-            0x02 => ErrorKind::UnknownFileFormat,
-            0x03 => ErrorKind::InvalidFileFormat,
-            0x04 => ErrorKind::InvalidVersion,
-            0x05 => ErrorKind::LowerModuleVersion,
-            0x06 => ErrorKind::InvalidArgument,
-            0x07 => ErrorKind::UnimplementedFeature,
-            0x08 => ErrorKind::InvalidTable,
-            0x09 => ErrorKind::InvalidOffset,
-            0x0A => ErrorKind::ArrayTooLarge,
-            0x0B => ErrorKind::MissingModule,
-            0x0C => ErrorKind::MissingProperty,
-            0x10 => ErrorKind::InvalidGlyphIndex,
-            0x11 => ErrorKind::InvalidCharacterCode,
-            0x12 => ErrorKind::InvalidGlyphFormat,
-            0x13 => ErrorKind::CannotRenderGlyph,
-            0x14 => ErrorKind::InvalidOutline,
-            0x15 => ErrorKind::InvalidComposite,
-            0x16 => ErrorKind::TooManyHints,
-            0x17 => ErrorKind::InvalidPixelSize,
-            0x20 => ErrorKind::InvalidHandle,
-            0x21 => ErrorKind::InvalidLibraryHandle,
-            0x22 => ErrorKind::InvalidDriverHandle,
-            0x23 => ErrorKind::InvalidFaceHandle,
-            0x24 => ErrorKind::InvalidSizeHandle,
-            0x25 => ErrorKind::InvalidSlotHandle,
-            0x26 => ErrorKind::InvalidCharMapHandle,
-            0x27 => ErrorKind::InvalidCacheHandle,
-            0x28 => ErrorKind::InvalidStreamHandle,
-            0x30 => ErrorKind::TooManyDrivers,
-            0x31 => ErrorKind::TooManyExtensions,
-            0x40 => ErrorKind::OutOfMemory,
-            0x41 => ErrorKind::UnlistedObject,
-            0x51 => ErrorKind::CannotOpenStream,
-            0x52 => ErrorKind::InvalidStreamSeek,
-            0x53 => ErrorKind::InvalidStreamSkip,
-            0x54 => ErrorKind::InvalidStreamRead,
-            0x55 => ErrorKind::InvalidStreamOperation,
-            0x56 => ErrorKind::InvalidFrameOperation,
-            0x57 => ErrorKind::NestedFrameAccess,
-            0x58 => ErrorKind::InvalidFrameRead,
-            0x60 => ErrorKind::RasterUninitialized,
-            0x61 => ErrorKind::RasterCorrupted,
-            0x62 => ErrorKind::RasterOverflow,
-            0x63 => ErrorKind::RasterNegativeHeight,
-            0x70 => ErrorKind::TooManyCaches,
-            0x80 => ErrorKind::InvalidOpcode,
-            0x81 => ErrorKind::TooFewArguments,
-            0x82 => ErrorKind::StackOverflow,
-            0x83 => ErrorKind::CodeOverflow,
-            0x84 => ErrorKind::BadArgument,
-            0x85 => ErrorKind::DivideByZero,
-            0x86 => ErrorKind::InvalidReference,
-            0x87 => ErrorKind::DebugOpCode,
-            0x88 => ErrorKind::ENDFInExecStream,
-            0x89 => ErrorKind::NestedDEFS,
-            0x8A => ErrorKind::InvalidCodeRange,
-            0x8B => ErrorKind::ExecutionTooLong,
-            0x8C => ErrorKind::TooManyFunctionDefs,
-            0x8D => ErrorKind::TooManyInstructionDefs,
-            0x8E => ErrorKind::TableMissing,
-            0x8F => ErrorKind::HorizHeaderMissing,
-            0x90 => ErrorKind::LocationsMissing,
-            0x91 => ErrorKind::NameTableMissing,
-            0x92 => ErrorKind::CMapTableMissing,
-            0x93 => ErrorKind::HmtxTableMissing,
-            0x94 => ErrorKind::PostTableMissing,
-            0x95 => ErrorKind::InvalidHorizMetrics,
-            0x96 => ErrorKind::InvalidCharMapFormat,
-            0x97 => ErrorKind::InvalidPPem,
-            0x98 => ErrorKind::InvalidVertMetrics,
-            0x99 => ErrorKind::CouldNotFindContext,
-            0x9A => ErrorKind::InvalidPostTableFormat,
-            0x9B => ErrorKind::InvalidPostTable,
-            0x9C => ErrorKind::DEFInGlyfBytecode,
-            0x9D => ErrorKind::MissingBitmap,
-            0xA0 => ErrorKind::SyntaxError,
-            0xA1 => ErrorKind::StackUnderflow,
-            0xA2 => ErrorKind::Ignore,
-            0xA3 => ErrorKind::NoUnicodeGlyphName,
-            0xA4 => ErrorKind::GlyphTooBig,
-            0xB0 => ErrorKind::MissingStartfontField,
-            0xB1 => ErrorKind::MissingFontField,
-            0xB2 => ErrorKind::MissingSizeField,
-            0xB3 => ErrorKind::MissingFontboundingboxField,
-            0xB4 => ErrorKind::MissingCharsField,
-            0xB5 => ErrorKind::MissingStartcharField,
-            0xB6 => ErrorKind::MissingEncodingField,
-            0xB7 => ErrorKind::MissingBbxField,
-            0xB8 => ErrorKind::BbxTooBig,
-            0xB9 => ErrorKind::CorruptedFontHeader,
-            0xBA => ErrorKind::CorruptedFontGlyphs,
-            code => ErrorKind::UnknownError(code),
+impl From<FtError> for FreetypeError {
+    fn from(code: FtError) -> FreetypeError {
+        match code {
+            0x01 => FreetypeError::CannotOpenResource,
+            0x02 => FreetypeError::UnknownFileFormat,
+            0x03 => FreetypeError::InvalidFileFormat,
+            0x04 => FreetypeError::InvalidVersion,
+            0x05 => FreetypeError::LowerModuleVersion,
+            0x06 => FreetypeError::InvalidArgument,
+            0x07 => FreetypeError::UnimplementedFeature,
+            0x08 => FreetypeError::InvalidTable,
+            0x09 => FreetypeError::InvalidOffset,
+            0x0A => FreetypeError::ArrayTooLarge,
+            0x0B => FreetypeError::MissingModule,
+            0x0C => FreetypeError::MissingProperty,
+            0x10 => FreetypeError::InvalidGlyphIndex,
+            0x11 => FreetypeError::InvalidCharacterCode,
+            0x12 => FreetypeError::InvalidGlyphFormat,
+            0x13 => FreetypeError::CannotRenderGlyph,
+            0x14 => FreetypeError::InvalidOutline,
+            0x15 => FreetypeError::InvalidComposite,
+            0x16 => FreetypeError::TooManyHints,
+            0x17 => FreetypeError::InvalidPixelSize,
+            0x20 => FreetypeError::InvalidHandle,
+            0x21 => FreetypeError::InvalidLibraryHandle,
+            0x22 => FreetypeError::InvalidDriverHandle,
+            0x23 => FreetypeError::InvalidFaceHandle,
+            0x24 => FreetypeError::InvalidSizeHandle,
+            0x25 => FreetypeError::InvalidSlotHandle,
+            0x26 => FreetypeError::InvalidCharMapHandle,
+            0x27 => FreetypeError::InvalidCacheHandle,
+            0x28 => FreetypeError::InvalidStreamHandle,
+            0x30 => FreetypeError::TooManyDrivers,
+            0x31 => FreetypeError::TooManyExtensions,
+            0x40 => FreetypeError::OutOfMemory,
+            0x41 => FreetypeError::UnlistedObject,
+            0x51 => FreetypeError::CannotOpenStream,
+            0x52 => FreetypeError::InvalidStreamSeek,
+            0x53 => FreetypeError::InvalidStreamSkip,
+            0x54 => FreetypeError::InvalidStreamRead,
+            0x55 => FreetypeError::InvalidStreamOperation,
+            0x56 => FreetypeError::InvalidFrameOperation,
+            0x57 => FreetypeError::NestedFrameAccess,
+            0x58 => FreetypeError::InvalidFrameRead,
+            0x60 => FreetypeError::RasterUninitialized,
+            0x61 => FreetypeError::RasterCorrupted,
+            0x62 => FreetypeError::RasterOverflow,
+            0x63 => FreetypeError::RasterNegativeHeight,
+            0x70 => FreetypeError::TooManyCaches,
+            0x80 => FreetypeError::InvalidOpcode,
+            0x81 => FreetypeError::TooFewArguments,
+            0x82 => FreetypeError::StackOverflow,
+            0x83 => FreetypeError::CodeOverflow,
+            0x84 => FreetypeError::BadArgument,
+            0x85 => FreetypeError::DivideByZero,
+            0x86 => FreetypeError::InvalidReference,
+            0x87 => FreetypeError::DebugOpCode,
+            0x88 => FreetypeError::ENDFInExecStream,
+            0x89 => FreetypeError::NestedDEFS,
+            0x8A => FreetypeError::InvalidCodeRange,
+            0x8B => FreetypeError::ExecutionTooLong,
+            0x8C => FreetypeError::TooManyFunctionDefs,
+            0x8D => FreetypeError::TooManyInstructionDefs,
+            0x8E => FreetypeError::TableMissing,
+            0x8F => FreetypeError::HorizHeaderMissing,
+            0x90 => FreetypeError::LocationsMissing,
+            0x91 => FreetypeError::NameTableMissing,
+            0x92 => FreetypeError::CMapTableMissing,
+            0x93 => FreetypeError::HmtxTableMissing,
+            0x94 => FreetypeError::PostTableMissing,
+            0x95 => FreetypeError::InvalidHorizMetrics,
+            0x96 => FreetypeError::InvalidCharMapFormat,
+            0x97 => FreetypeError::InvalidPPem,
+            0x98 => FreetypeError::InvalidVertMetrics,
+            0x99 => FreetypeError::CouldNotFindContext,
+            0x9A => FreetypeError::InvalidPostTableFormat,
+            0x9B => FreetypeError::InvalidPostTable,
+            0x9C => FreetypeError::DEFInGlyfBytecode,
+            0x9D => FreetypeError::MissingBitmap,
+            0xA0 => FreetypeError::SyntaxError,
+            0xA1 => FreetypeError::StackUnderflow,
+            0xA2 => FreetypeError::Ignore,
+            0xA3 => FreetypeError::NoUnicodeGlyphName,
+            0xA4 => FreetypeError::GlyphTooBig,
+            0xB0 => FreetypeError::MissingStartfontField,
+            0xB1 => FreetypeError::MissingFontField,
+            0xB2 => FreetypeError::MissingSizeField,
+            0xB3 => FreetypeError::MissingFontboundingboxField,
+            0xB4 => FreetypeError::MissingCharsField,
+            0xB5 => FreetypeError::MissingStartcharField,
+            0xB6 => FreetypeError::MissingEncodingField,
+            0xB7 => FreetypeError::MissingBbxField,
+            0xB8 => FreetypeError::BbxTooBig,
+            0xB9 => FreetypeError::CorruptedFontHeader,
+            0xBA => FreetypeError::CorruptedFontGlyphs,
+            _ => FreetypeError::UnknownError(code),
         }
     }
 }

@@ -1,13 +1,8 @@
-#![recursion_limit = "1024"]
-
-#[macro_use]
-extern crate error_chain;
+#[macro_use] extern crate failure;
 extern crate serde;
-#[macro_use]
-extern crate serde_derive;
+#[macro_use] extern crate serde_derive;
 extern crate serde_json;
-#[macro_use]
-extern crate lazy_static;
+#[macro_use] extern crate lazy_static;
 extern crate unicode_normalization;
 extern crate libc;
 extern crate regex;
@@ -20,8 +15,7 @@ extern crate reqwest;
 extern crate getopts;
 extern crate html_entities;
 
-#[macro_use]
-mod geom;
+#[macro_use] mod geom;
 mod color;
 mod device;
 mod input;
@@ -35,19 +29,12 @@ mod frontlight;
 mod lightsensor;
 mod symbolic_path;
 
-mod errors {
-    error_chain!{
-        foreign_links {
-            Io(::std::io::Error);
-            ParseInt(::std::num::ParseIntError);
-        }
-    }
-}
-
 use std::env;
 use std::fs;
+use std::process;
 use std::io::Read;
 use std::path::Path;
+use failure::{Error, ResultExt};
 use regex::Regex;
 use getopts::Options;
 use html_entities::decode_html_entities;
@@ -57,11 +44,8 @@ use settings::ImportSettings;
 use metadata::{Info, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
 use metadata::{import};
 use document::{open, asciify};
-use errors::*;
 
-quick_main!(run);
-
-pub fn run() -> Result<()> {
+pub fn run() -> Result<(), Error> {
     let args: Vec<String> = env::args().skip(1).collect();
 
     let mut opts = Options::new();
@@ -80,9 +64,7 @@ pub fn run() -> Result<()> {
     opts.optopt("i", "input", "Input file name.", "INPUT_NAME");
     opts.optopt("o", "output", "Output file name.", "OUTPUT_NAME");
 
-    let matches = opts.parse(&args).chain_err(
-        || "Failed to parse the command line arguments.",
-    )?;
+    let matches = opts.parse(&args).context("Failed to parse the command line arguments.")?;
 
     if matches.opt_present("h") {
         println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-C|-N|-Z|-Y [-a ALLOWED_KINDS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
@@ -90,7 +72,7 @@ pub fn run() -> Result<()> {
     }
 
     if matches.free.is_empty() {
-        return Err(Error::from("Missing required argument: library path."));
+        return Err(format_err!("Missing required argument: library path."));
     }
 
     let library_path = Path::new(&matches.free[0]);
@@ -103,7 +85,7 @@ pub fn run() -> Result<()> {
 
     if matches.opt_present("Z") {
         if input_path.exists() {
-            return Err(Error::from(format!("File already exists: {}.", input_path.display())));
+            return Err(format_err!("File already exists: {}.", input_path.display()));
         } else {
             save_json::<Metadata, _>(&vec![], input_path)?;
         }
@@ -138,7 +120,7 @@ pub fn run() -> Result<()> {
 
         if matches.opt_present("Y") {
             if matches.free.len() < 2 {
-                return Err(Error::from("Missing required argument: destination library path."));
+                return Err(format_err!("Missing required argument: destination library path."));
             }
 
             let dest_library_path = Path::new(&matches.free[1]);
@@ -150,6 +132,15 @@ pub fn run() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn main() {
+    if let Err(e) = run() {
+        for e in e.causes() {
+            eprintln!("plato-import: {}", e);
+        }
+        process::exit(1);
+    }
 }
 
 pub fn extract_isbn(dir: &Path, metadata: &mut Metadata) {

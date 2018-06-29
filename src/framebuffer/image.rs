@@ -5,7 +5,7 @@ use png::HasParameters;
 use framebuffer::{Framebuffer, UpdateMode};
 use color::WHITE;
 use geom::{Rectangle, lerp};
-use errors::*;
+use failure::{Error, ResultExt};
 
 pub struct ImageFramebuffer {
     width: u32,
@@ -68,22 +68,22 @@ impl Framebuffer for ImageFramebuffer {
         }
     }
 
-    fn update(&mut self, _rect: &Rectangle, _mode: UpdateMode) -> Result<u32> {
+    fn update(&mut self, _rect: &Rectangle, _mode: UpdateMode) -> Result<u32, Error> {
         Ok(1)
     }
 
-    fn wait(&self, _: u32) -> Result<i32> {
+    fn wait(&self, _: u32) -> Result<i32, Error> {
         Ok(1)
     }
 
-    fn save(&self, path: &str) -> Result<()> {
+    fn save(&self, path: &str) -> Result<(), Error> {
         let (width, height) = self.dims();
-        let file = File::create(path).chain_err(|| "Can't create output file.")?;
+        let file = File::create(path).context("Can't create output file.")?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set(png::ColorType::Grayscale).set(png::BitDepth::Eight);
-        let mut writer = encoder.write_header().chain_err(|| "Can't write header.")?;
+        let mut writer = encoder.write_header().context("Can't write header.")?;
         let data: Vec<u8> = self.data.iter().map(|c| transform_color(*c, self.inverted, self.monochrome)).collect();
-        writer.write_image_data(&data).chain_err(|| "Can't write data to file.")?;
+        writer.write_image_data(&data).context("Can't write data to file.")?;
         Ok(())
     }
 

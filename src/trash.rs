@@ -3,11 +3,11 @@ extern crate crockford;
 use std::fs;
 use std::path::PathBuf;
 use std::collections::VecDeque;
+use failure::Error;
 use rand::{Rng, thread_rng};
 use fnv::FnvHashSet;
 use helpers::{load_json, save_json};
 use app::Context;
-use errors::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -34,15 +34,15 @@ const CONTENTS_NAME: &str = "contents.json";
 const SIZE_LIMIT: u64 = 32 * 1024 * 1024;
 const MIN_PACKETS: usize = 8;
 
-pub fn trash(paths: &FnvHashSet<PathBuf>, context: &mut Context) -> Result<()> {
+pub fn trash(paths: &FnvHashSet<PathBuf>, context: &mut Context) -> Result<(), Error> {
     let library_path = &context.settings.library_path;
     let trash_path = library_path.join(TRASH_NAME);
     let contents_path = trash_path.join(CONTENTS_NAME);
 
     if trash_path.exists() {
         if trash_path.metadata().map(|m| !m.is_dir()).unwrap_or(false) {
-            return Err(Error::from(format!("{} exists and isn't a directory.",
-                                           trash_path.display())));
+            return Err(format_err!("{} exists and isn't a directory.",
+                                   trash_path.display()));
         }
     } else {
         fs::create_dir(&trash_path)?;
@@ -112,7 +112,7 @@ pub fn trash(paths: &FnvHashSet<PathBuf>, context: &mut Context) -> Result<()> {
     Ok(())
 }
 
-pub fn untrash(context: &mut Context) -> Result<()> {
+pub fn untrash(context: &mut Context) -> Result<(), Error> {
     let library_path = &context.settings.library_path;
     let trash_path = library_path.join(TRASH_NAME);
     let contents_path = trash_path.join(CONTENTS_NAME);

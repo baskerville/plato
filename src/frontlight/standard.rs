@@ -4,7 +4,7 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::os::unix::io::AsRawFd;
 use frontlight::{Frontlight, LightLevels};
-use errors::*;
+use failure::Error;
 
 const CM_FRONT_LIGHT_SET: libc::c_ulong = 241;
 const FRONTLIGHT_INTERFACE: &str = "/dev/ntx_io";
@@ -15,7 +15,7 @@ pub struct StandardFrontlight {
 }
 
 impl StandardFrontlight {
-    pub fn new(value: f32) -> Result<StandardFrontlight> {
+    pub fn new(value: f32) -> Result<StandardFrontlight, Error> {
         let interface = OpenOptions::new().write(true)
                                     .open(FRONTLIGHT_INTERFACE)?;
         Ok(StandardFrontlight { value, interface })

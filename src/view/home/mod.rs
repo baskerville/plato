@@ -16,6 +16,7 @@ use std::collections::{BTreeSet, VecDeque};
 use glob::glob;
 use regex::Regex;
 use fnv::FnvHashSet;
+use failure::Error;
 use metadata::{Metadata, SortMethod, sort, make_query};
 use framebuffer::{Framebuffer, UpdateMode};
 use view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
@@ -40,7 +41,6 @@ use app::Context;
 use color::BLACK;
 use geom::{Rectangle, CycleDir, halves, small_half};
 use font::Fonts;
-use errors::*;
 
 const HISTORY_SIZE: usize = 8;
 
@@ -70,7 +70,7 @@ struct HistoryEntry {
 }
 
 impl Home {
-    pub fn new(rect: Rectangle, hub: &Hub, context: &mut Context) -> Result<Home> {
+    pub fn new(rect: Rectangle, hub: &Hub, context: &mut Context) -> Result<Home, Error> {
         let dpi = CURRENT_DEVICE.dpi;
         let mut children = Vec::new();
 

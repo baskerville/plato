@@ -11,16 +11,10 @@ use std::io::Read;
 use std::fs::File;
 use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
+use failure::Error;
 use document::{Document, BoundedText, TocEntry, Link};
 use framebuffer::Pixmap;
 use geom::Rectangle;
-
-error_chain!{
-    foreign_links {
-        Io(::std::io::Error);
-        NulError(::std::ffi::NulError);
-    }
-}
 
 impl Into<FzRect> for Rectangle {
     fn into(self) -> FzRect {
@@ -112,7 +106,7 @@ impl PdfOpener {
         }
     }
 
-    pub fn set_user_css<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
+    pub fn set_user_css<P: AsRef<Path>>(&mut self, path: P) -> Result<(), Error> {
         let mut file = File::open(path)?;
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)?;

@@ -1,19 +1,12 @@
-#![recursion_limit = "1024"]
-
 extern crate rand;
-#[macro_use]
-extern crate error_chain;
+#[macro_use] extern crate failure;
 extern crate serde;
-#[macro_use]
-extern crate serde_derive;
+#[macro_use] extern crate serde_derive;
 extern crate serde_json;
 extern crate toml;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate bitflags;
-#[macro_use]
-extern crate downcast_rs;
+#[macro_use] extern crate lazy_static;
+#[macro_use] extern crate bitflags;
+#[macro_use] extern crate downcast_rs;
 extern crate unicode_normalization;
 extern crate libc;
 extern crate regex;
@@ -25,8 +18,7 @@ extern crate png;
 extern crate isbn;
 extern crate titlecase;
 
-#[macro_use]
-mod geom;
+#[macro_use] mod geom;
 mod unit;
 mod color;
 mod framebuffer;
@@ -46,24 +38,14 @@ mod symbolic_path;
 mod trash;
 mod app;
 
-mod errors {
-    error_chain!{
-        foreign_links {
-            Io(::std::io::Error);
-            ParseInt(::std::num::ParseIntError);
-        }
-        links {
-            Font(::font::Error, ::font::ErrorKind);
-        }
-    }
-}
-
+use std::process;
 use std::thread;
-use std::fs::{self, File};
+use std::fs::File;
 use std::sync::mpsc;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use failure::{Error, ResultExt};
 use fnv::FnvHashMap;
 use chrono::Local;
 use png::HasParameters;
@@ -95,13 +77,12 @@ use frontlight::{Frontlight, LightLevels};
 use lightsensor::LightSensor;
 use font::Fonts;
 use app::Context;
-use errors::*;
 
 pub const APP_NAME: &str = "Plato";
 
 const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
-pub fn build_context() -> Result<Context> {
+pub fn build_context() -> Result<Context, Error> {
     let settings = load_toml::<Settings, _>(SETTINGS_PATH)?;
     let path = settings.library_path.join(METADATA_FILENAME);
     let metadata = load_json::<Metadata, _>(path)?;
@@ -168,23 +149,23 @@ impl Framebuffer for WindowCanvas {
         }
     }
 
-    fn update(&mut self, _rect: &Rectangle, _mode: UpdateMode) -> Result<u32> {
+    fn update(&mut self, _rect: &Rectangle, _mode: UpdateMode) -> Result<u32, Error> {
         self.present();
         Ok(1)
     }
 
-    fn wait(&self, _: u32) -> Result<i32> {
+    fn wait(&self, _: u32) -> Result<i32, Error> {
         Ok(1)
     }
 
-    fn save(&self, path: &str) -> Result<()> {
+    fn save(&self, path: &str) -> Result<(), Error> {
         let (width, height) = self.dims();
-        let file = File::create(path).chain_err(|| "Can't create output file.")?;
+        let file = File::create(path).context("Can't create output file.")?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set(png::ColorType::RGB).set(png::BitDepth::Eight);
-        let mut writer = encoder.write_header().chain_err(|| "Can't write header.")?;
+        let mut writer = encoder.write_header().context("Can't write header.")?;
         let data = self.read_pixels(self.viewport(), PixelFormatEnum::RGB24).unwrap_or_default();
-        writer.write_image_data(&data).chain_err(|| "Can't write data to file.")?;
+        writer.write_image_data(&data).context("Can't write data to file.")?;
         Ok(())
     }
 
@@ -197,7 +178,7 @@ impl Framebuffer for WindowCanvas {
     }
 }
 
-pub fn run() -> Result<()> {
+pub fn run() -> Result<(), Error> {
     let mut context = build_context()?;
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -422,12 +403,19 @@ pub fn run() -> Result<()> {
     }
 
     let path = context.settings.library_path.join(&context.filename);
-    save_json(&context.metadata, path).chain_err(|| "Can't save metadata.")?;
+    save_json(&context.metadata, path).context("Can't save metadata.")?;
 
     let path = Path::new(SETTINGS_PATH);
-    save_toml(&context.settings, path).chain_err(|| "Can't save settings.")?;
+    save_toml(&context.settings, path).context("Can't save settings.")?;
 
     Ok(())
 }
 
-quick_main!(run);
+fn main() {
+    if let Err(e) = run() {
+        for e in e.causes() {
+            eprintln!("plato-emulator: {}", e);
+        }
+        process::exit(1);
+    }
+}

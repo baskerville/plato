@@ -5,6 +5,7 @@ use std::sync::mpsc;
 use std::process::Command;
 use std::collections::VecDeque;
 use std::time::{Instant, Duration};
+use failure::{Error, ResultExt};
 use fnv::FnvHashMap;
 use chrono::Local;
 use framebuffer::{Framebuffer, KoboFramebuffer, UpdateMode};
@@ -29,7 +30,6 @@ use view::intermission::Intermission;
 use view::notification::Notification;
 use device::CURRENT_DEVICE;
 use font::Fonts;
-use errors::*;
 
 pub const APP_NAME: &str = "Plato";
 
@@ -65,7 +65,7 @@ impl Context {
     }
 }
 
-fn build_context() -> Result<Context> {
+fn build_context() -> Result<Context, Error> {
     let path = Path::new(SETTINGS_PATH);
     let settings = load_toml::<Settings, _>(path);
 
@@ -84,12 +84,12 @@ fn build_context() -> Result<Context> {
                                                  &vec![],
                                                  &settings.import.allowed_kinds))
                              .unwrap_or_default();
-    let fonts = Fonts::load().chain_err(|| "Can't load fonts.")?;
+    let fonts = Fonts::load().context("Can't load fonts.")?;
 
-    let battery = Box::new(KoboBattery::new().chain_err(|| "Can't create battery.")?) as Box<Battery>;
+    let battery = Box::new(KoboBattery::new().context("Can't create battery.")?) as Box<Battery>;
 
     let lightsensor = if CURRENT_DEVICE.has_lightsensor() {
-        Box::new(KoboLightSensor::new().chain_err(|| "Can't create light sensor.")?) as Box<LightSensor>
+        Box::new(KoboLightSensor::new().context("Can't create light sensor.")?) as Box<LightSensor>
     } else {
         Box::new(0u16) as Box<LightSensor>
     };
@@ -97,19 +97,19 @@ fn build_context() -> Result<Context> {
     let levels = settings.frontlight_levels;
     let frontlight = if CURRENT_DEVICE.has_natural_light() {
         Box::new(NaturalFrontlight::new(levels.intensity, levels.warmth)
-                                   .chain_err(|| "Can't create natural frontlight.")?) as Box<Frontlight>
+                                   .context("Can't create natural frontlight.")?) as Box<Frontlight>
     } else {
         Box::new(StandardFrontlight::new(levels.intensity)
-                                    .chain_err(|| "Can't create standard frontlight.")?) as Box<Frontlight>
+                                    .context("Can't create standard frontlight.")?) as Box<Frontlight>
     };
 
     Ok(Context::new(settings, metadata, PathBuf::from(METADATA_FILENAME),
                     fonts, battery, frontlight, lightsensor))
 }
 
-pub fn run() -> Result<()> {
-    let mut context = build_context().chain_err(|| "Can't build context.")?;
-    let mut fb = KoboFramebuffer::new("/dev/fb0").chain_err(|| "Can't create framebuffer.")?;
+pub fn run() -> Result<(), Error> {
+    let mut context = build_context().context("Can't build context.")?;
+    let mut fb = KoboFramebuffer::new("/dev/fb0").context("Can't create framebuffer.")?;
 
     let paths = vec!["/dev/input/event0".to_string(),
                      "/dev/input/event1".to_string()];
@@ -510,10 +510,10 @@ pub fn run() -> Result<()> {
     }
 
     let path = context.settings.library_path.join(&context.filename);
-    save_json(&context.metadata, path).chain_err(|| "Can't save metadata.")?;
+    save_json(&context.metadata, path).context("Can't save metadata.")?;
 
     let path = Path::new(SETTINGS_PATH);
-    save_toml(&context.settings, path).chain_err(|| "Can't save settings.")?;
+    save_toml(&context.settings, path).context("Can't save settings.")?;
 
     Ok(())
 }

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use fnv::FnvHashMap;
 use device::{CURRENT_DEVICE, Model};
 use frontlight::{Frontlight, LightLevels};
-use errors::*;
+use failure::Error;
 
 const FRONTLIGHT_INTERFACE: &str = "/sys/class/backlight";
 
@@ -55,7 +55,7 @@ pub struct NaturalFrontlight {
 }
 
 impl NaturalFrontlight {
-    pub fn new(intensity: f32, warmth: f32) -> Result<NaturalFrontlight> {
+    pub fn new(intensity: f32, warmth: f32) -> Result<NaturalFrontlight, Error> {
         let mut maxima = FnvHashMap::default();
         let mut values = FnvHashMap::default();
         let mut powers = FnvHashMap::default();
