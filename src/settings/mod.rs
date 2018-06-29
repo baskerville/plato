@@ -32,7 +32,7 @@ pub struct ImportSettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct ReaderSettings {
-    pub refresh_every: Option<u8>,
+    pub refresh_every: u8,
     pub finished: FinishedAction,
 }
 
@@ -46,7 +46,7 @@ pub enum FinishedAction {
 impl Default for ReaderSettings {
     fn default() -> Self {
         ReaderSettings {
-            refresh_every: Some(24),
+            refresh_every: 0,
             finished: FinishedAction::Notify,
         }
     }

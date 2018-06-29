@@ -55,7 +55,7 @@ pub struct Reader {
     page_turns: usize,
     finished: bool,
     ephemeral: bool,
-    refresh_every: Option<u8>,
+    refresh_every: u8,
     search_direction: LinearDir,
     frame: Rectangle,
     scale: f32,
@@ -365,8 +365,8 @@ impl Reader {
 
     fn update(&mut self, hub: &Hub) {
         self.page_turns += 1;
-        let update_mode = if let Some(n) = self.refresh_every {
-            if self.page_turns % (n as usize) == 0 {
+        let update_mode = if self.refresh_every > 0 {
+            if self.page_turns % (self.refresh_every as usize) == 0 {
                 UpdateMode::Full
             } else {
                 UpdateMode::Partial
