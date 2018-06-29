@@ -269,6 +269,7 @@ impl Info {
             query.is_match(&self.title) ||
             query.is_match(&self.subtitle) ||
             query.is_match(&self.author) ||
+            query.is_match(&self.series) ||
             self.categories.iter().any(|c| query.is_match(c)) ||
             self.file.path.to_str().map(|s| query.is_match(s)).unwrap_or(false)
         } else {
