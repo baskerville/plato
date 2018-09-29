@@ -967,6 +967,8 @@ impl Home {
                 context.filename = filename.clone();
                 context.metadata = metadata;
                 self.history.clear();
+                self.selected_categories.clear();
+                self.negated_categories.clear();
                 self.reseed(true, hub, context);
             }
         }
