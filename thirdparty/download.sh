@@ -3,7 +3,7 @@
 declare -A urls=(
 	# Compression
 	["zlib"]="https://zlib.net/zlib-1.2.11.tar.gz"
-	["bzip2"]="http://www.bzip.org/1.0.6/bzip2-1.0.6.tar.gz"
+	["bzip2"]="https://ftp.osuosl.org/pub/clfs/conglomeration/bzip2/bzip2-1.0.6.tar.gz"
 	# Images
 	["libpng"]="https://download.sourceforge.net/libpng/libpng-1.6.34.tar.gz"
 	["libjpeg"]="http://www.ijg.org/files/jpegsrc.v9c.tar.gz"
