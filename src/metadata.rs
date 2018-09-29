@@ -6,6 +6,8 @@ use std::collections::BTreeSet;
 use std::cmp::Ordering;
 use fnv::{FnvHashMap, FnvHashSet};
 use chrono::{Local, DateTime};
+use document::DocumentOpener;
+use settings::EpubEngine;
 use helpers::simple_date_format;
 use regex::Regex;
 use document::file_kind;
@@ -457,6 +459,12 @@ lazy_static! {
     };
 }
 
+pub fn auto_import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String>) -> Result<Metadata, Error> {
+    let mut imported_metadata = import(dir, metadata, allowed_kinds)?;
+    extract_metadata(dir, &mut imported_metadata);
+    Ok(imported_metadata)
+}
+
 pub fn import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String>) -> Result<Metadata, Error> {
     let files = find_files(dir, dir)?;
     let known: FnvHashSet<PathBuf> = metadata.iter()
@@ -482,6 +490,23 @@ pub fn import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String
     }
 
     Ok(metadata)
+}
+
+pub fn extract_metadata(dir: &Path, metadata: &mut Metadata) {
+    for info in metadata {
+        if !info.title.is_empty() || info.file.kind != "epub" {
+            continue;
+        }
+
+        let path = dir.join(&info.file.path);
+
+        if let Some(doc) = DocumentOpener::new(EpubEngine::BuiltIn)
+                                          .open(&path) {
+            info.title = doc.title().unwrap_or_default();
+            info.author = doc.author().unwrap_or_default();
+            println!("{}", info.label());
+        }
+    }
 }
 
 fn find_files(root: &Path, dir: &Path) -> Result<Vec<FileInfo>, Error> {

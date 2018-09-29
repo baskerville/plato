@@ -18,7 +18,7 @@ use input::{DeviceEvent, ButtonCode, ButtonStatus};
 use input::{raw_events, device_events, usb_events};
 use gesture::{GestureEvent, gesture_events, BUTTON_HOLD_DELAY};
 use helpers::{load_json, save_json, load_toml, save_toml};
-use metadata::{Metadata, METADATA_FILENAME, import};
+use metadata::{Metadata, METADATA_FILENAME, auto_import};
 use settings::{Settings, SETTINGS_PATH};
 use frontlight::{Frontlight, NaturalFrontlight, StandardFrontlight};
 use lightsensor::{LightSensor, KoboLightSensor};
@@ -80,9 +80,9 @@ fn build_context() -> Result<Context, Error> {
     let path = settings.library_path.join(METADATA_FILENAME);
     let metadata = load_json::<Metadata, _>(path)
                              .map_err(|e| eprintln!("Can't load metadata: {}", e))
-                             .or_else(|_| import(&settings.library_path,
-                                                 &Vec::new(),
-                                                 &settings.import.allowed_kinds))
+                             .or_else(|_| auto_import(&settings.library_path,
+                                                      &Vec::new(),
+                                                      &settings.import.allowed_kinds))
                              .unwrap_or_default();
     let fonts = Fonts::load().context("Can't load fonts.")?;
 
@@ -260,9 +260,9 @@ pub fn run() -> Result<(), Error> {
                                 context.metadata = metadata;
                             }
                             if context.settings.import.unmount_trigger {
-                                let metadata = import(&context.settings.library_path,
-                                                      &context.metadata,
-                                                      &context.settings.import.allowed_kinds);
+                                let metadata = auto_import(&context.settings.library_path,
+                                                           &context.metadata,
+                                                           &context.settings.import.allowed_kinds);
                                 if metadata.is_ok() {
                                     context.metadata.append(&mut metadata.unwrap());
                                 }

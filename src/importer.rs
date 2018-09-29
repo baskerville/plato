@@ -47,7 +47,7 @@ use titlecase::titlecase;
 use helpers::{load_json, save_json};
 use settings::{ImportSettings, EpubEngine};
 use metadata::{Info, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
-use metadata::{import};
+use metadata::{import, extract_metadata};
 use document::epub::xml::decode_entities;
 use document::{DocumentOpener, asciify};
 
@@ -159,24 +159,8 @@ pub fn extract_isbn(dir: &Path, metadata: &mut Metadata) {
 
         if let Some(isbn) = DocumentOpener::new(EpubEngine::BuiltIn)
                                            .open(&path).and_then(|mut doc| doc.isbn()) {
-            println!("{}", isbn);
+            println!("ISBN {}", isbn);
             info.isbn = isbn;
-        }
-    }
-}
-
-pub fn extract_metadata(dir: &Path, metadata: &mut Metadata) {
-    for info in metadata {
-        if !info.title.is_empty() {
-            continue;
-        }
-
-        let path = dir.join(&info.file.path);
-
-        if let Some(doc) = DocumentOpener::new(EpubEngine::BuiltIn)
-                                          .open(&path) {
-            info.title = doc.title().unwrap_or_default();
-            info.author = doc.author().unwrap_or_default();
         }
     }
 }
