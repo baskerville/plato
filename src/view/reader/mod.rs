@@ -35,7 +35,6 @@ use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use view::menu::{Menu, MenuKind};
 use view::notification::Notification;
 use settings::{guess_frontlight, FinishedAction, DEFAULT_FONT_FAMILY};
-use settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_LINE_HEIGHT};
 use frontlight::LightLevels;
 use gesture::GestureEvent;
 use document::{Document, DocumentOpener, Location, Neighbors};
@@ -126,7 +125,9 @@ impl Reader {
                 if let Some(ref font_family) = r.font_family {
                     doc.set_font_family(font_family, &settings.reader.font_path);
                 }
-                doc.set_margin_width(r.margin_width.unwrap_or(settings.reader.margin_width));
+                if let Some(margin_width) = r.margin_width {
+                    doc.set_margin_width(margin_width);
+                }
                 if let Some(line_height) = r.line_height {
                     doc.set_line_height(line_height);
                 }
@@ -138,6 +139,11 @@ impl Reader {
                     pages_count,
                     .. Default::default()
                 });
+                if settings.reader.font_family != DEFAULT_FONT_FAMILY {
+                    doc.set_font_family(&settings.reader.font_family, &settings.reader.font_path);
+                }
+                doc.set_margin_width(settings.reader.margin_width);
+                doc.set_line_height(settings.reader.line_height);
             }
 
             let synthetic = doc.has_synthetic_page_numbers();
@@ -870,22 +876,21 @@ impl Reader {
                 return;
             }
 
-            let fonts = &mut context.fonts;
             let mut families = family_names(&context.settings.reader.font_path).unwrap_or_default();
             let current_family = self.info.reader.as_ref()
                                      .and_then(|r| r.font_family.clone())
-                                     .unwrap_or_else(|| DEFAULT_FONT_FAMILY.to_string());
+                                     .unwrap_or_else(|| context.settings.reader.font_family.clone());
             families.insert(DEFAULT_FONT_FAMILY.to_string());
             let entries = families.iter().map(|f| EntryKind::RadioButton(f.clone(),
                                                                          EntryId::SetFontFamily(f.clone()),
                                                                          *f == current_family)).collect();
-            let font_family_menu = Menu::new(rect, ViewId::FontFamilyMenu, MenuKind::DropDown, entries, fonts);
+            let font_family_menu = Menu::new(rect, ViewId::FontFamilyMenu, MenuKind::DropDown, entries, &mut context.fonts);
             hub.send(Event::Render(*font_family_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(font_family_menu) as Box<View>);
         }
     }
 
-    fn toggle_font_size_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_font_size_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::FontSizeMenu) {
             if let Some(true) = enable {
                 return;
@@ -898,8 +903,9 @@ impl Reader {
                 return;
             }
 
+            let fonts = &mut context.fonts;
             let font_size = self.info.reader.as_ref().and_then(|r| r.font_size)
-                                .unwrap_or(DEFAULT_FONT_SIZE);
+                                .unwrap_or(context.settings.reader.font_size);
             let entries = (0..=20).map(|v| {
                 let fs = 10.0 + v as f32 / 10.0;
                 EntryKind::RadioButton(format!("{:.1}", fs),
@@ -912,7 +918,7 @@ impl Reader {
         }
     }
 
-    fn toggle_line_height_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_line_height_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::LineHeightMenu) {
             if let Some(true) = enable {
                 return;
@@ -925,8 +931,9 @@ impl Reader {
                 return;
             }
 
+            let fonts = &mut context.fonts;
             let line_height = self.info.reader.as_ref()
-                                  .and_then(|r| r.line_height).unwrap_or(DEFAULT_LINE_HEIGHT);
+                                  .and_then(|r| r.line_height).unwrap_or(context.settings.reader.line_height);
             let entries = (0..=10).map(|x| {
                 let lh = 1.0 + x as f32 / 10.0;
                 EntryKind::RadioButton(format!("{:.1}", lh),
@@ -939,7 +946,7 @@ impl Reader {
         }
     }
 
-    fn toggle_margin_width_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_margin_width_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::MarginWidthMenu) {
             if let Some(true) = enable {
                 return;
@@ -952,7 +959,9 @@ impl Reader {
                 return;
             }
 
-            let margin_width = self.info.reader.as_ref().and_then(|r| r.margin_width).unwrap_or(DEFAULT_MARGIN_WIDTH);
+            let fonts = &mut context.fonts;
+            let margin_width = self.info.reader.as_ref().and_then(|r| r.margin_width)
+                                   .unwrap_or(context.settings.reader.margin_width);
             let entries = (0..=10).map(|mw| EntryKind::RadioButton(format!("{}", mw),
                                                                   EntryId::SetMarginWidth(mw),
                                                                   mw == margin_width)).collect();
@@ -1572,15 +1581,15 @@ impl View for Reader {
                 true
             },
             Event::ToggleNear(ViewId::FontSizeMenu, rect) => {
-                self.toggle_font_size_menu(rect, None, hub, &mut context.fonts);
+                self.toggle_font_size_menu(rect, None, hub, context);
                 true
             },
             Event::ToggleNear(ViewId::MarginWidthMenu, rect) => {
-                self.toggle_margin_width_menu(rect, None, hub, &mut context.fonts);
+                self.toggle_margin_width_menu(rect, None, hub, context);
                 true
             },
             Event::ToggleNear(ViewId::LineHeightMenu, rect) => {
-                self.toggle_line_height_menu(rect, None, hub, &mut context.fonts);
+                self.toggle_line_height_menu(rect, None, hub, context);
                 true
             },
             Event::ToggleNear(ViewId::PageMenu, rect) => {
