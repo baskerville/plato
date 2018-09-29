@@ -8,6 +8,7 @@ use input::TouchProto;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
+    ClaraHD,
     AuraH2OEdition2,
     AuraEdition2,
     AuraONE,
@@ -24,6 +25,7 @@ pub enum Model {
 impl fmt::Display for Model {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Model::ClaraHD         => write!(f, "Clara HD"),
             Model::AuraH2OEdition2 => write!(f, "Aura H₂O Edition 2"),
             Model::AuraEdition2    => write!(f, "Aura Edition 2"),
             Model::AuraONE         => write!(f, "Aura ONE"),
@@ -63,7 +65,9 @@ impl Default for Device {
 impl Device {
     pub fn has_natural_light(&self) -> bool {
         match self.model {
-            Model::AuraONE | Model::AuraH2OEdition2 => true,
+            Model::AuraONE |
+            Model::AuraH2OEdition2 |
+            Model::ClaraHD => true,
             _ => false,
         }
     }
@@ -151,6 +155,13 @@ lazy_static! {
                 mirrored_x: model_number == "378",
                 dims: (1080, 1440),
                 dpi: 265,
+            },
+            "nova" => Device {
+                model: Model::ClaraHD,
+                proto: TouchProto::MultiB,
+                mirrored_x: true,
+                dims: (1072, 1448),
+                dpi: 300,
             },
             _ => Device::default(),
         }
