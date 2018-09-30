@@ -5,6 +5,7 @@ use super::book::Book;
 use framebuffer::{Framebuffer, UpdateMode};
 use font::Fonts;
 use metadata::Info;
+use settings::SecondColumn;
 use geom::{Rectangle, Dir, CycleDir};
 use color::{WHITE, SEPARATOR_NORMAL};
 use gesture::GestureEvent;
@@ -15,14 +16,16 @@ pub struct Shelf {
     pub rect: Rectangle,
     children: Vec<Box<View>>,
     pub max_lines: usize,
+    second_column: SecondColumn,
 }
 
 impl Shelf {
-    pub fn new(rect: Rectangle) -> Shelf {
+    pub fn new(rect: Rectangle, second_column: SecondColumn) -> Shelf {
         Shelf {
             rect,
             children: vec![],
             max_lines: 0,
+            second_column,
         }
     }
 
@@ -40,7 +43,8 @@ impl Shelf {
             let book = Book::new(rect![self.rect.min.x, y_min,
                                        self.rect.max.x, y_max],
                                  info.clone(),
-                                 index);
+                                 index,
+                                 self.second_column);
             self.children.push(Box::new(book) as Box<View>);
             if index < max_lines - 1 {
                 let separator = Filler::new(rect![self.rect.min.x, y_max,

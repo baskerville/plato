@@ -1,31 +1,37 @@
 use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, UpdateMode};
-use view::{View, Event, Hub, Bus};
+use view::{View, Event, Hub, Bus, THICKNESS_SMALL};
 use font::{MD_TITLE, MD_AUTHOR, MD_YEAR, MD_KIND, MD_SIZE};
+use color::{BLACK, WHITE, READING_PROGRESS};
 use color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use gesture::GestureEvent;
-use metadata::Info;
+use metadata::{Info, Status};
+use settings::SecondColumn;
 use unit::scale_by_dpi;
 use document::HumanSize;
 use font::{Fonts, font_from_style};
-use geom::{Rectangle, halves};
+use geom::{Rectangle, CornerSpec, BorderSpec, halves};
 use app::Context;
+
+const PROGRESS_HEIGHT: f32 = 13.0;
 
 pub struct Book {
     rect: Rectangle,
     children: Vec<Box<View>>,
     info: Info,
     index: usize,
+    second_column: SecondColumn,
     active: bool,
 }
 
 impl Book {
-    pub fn new(rect: Rectangle, info: Info, index: usize) -> Book {
+    pub fn new(rect: Rectangle, info: Info, index: usize, second_column: SecondColumn) -> Book {
         Book {
             rect,
             children: vec![],
             info,
             index,
+            second_column,
             active: false,
         }
     }
@@ -121,15 +127,45 @@ impl View for Book {
             font.render(fb, scheme[1], &plan, pt);
         }
 
-        // Year
-        {
-            let font = font_from_style(fonts, &MD_YEAR, dpi);
-            let plan = font.plan(year, None, None);
-            let dx = (second_width - padding - plan.width as i32) / 2;
-            let dy = (self.rect.height() as i32 - font.x_heights.1 as i32) / 2;
-            let pt = pt!(self.rect.min.x + first_width + big_half_padding + dx,
-                         self.rect.max.y - dy);
-            font.render(fb, scheme[1], &plan, pt);
+        // Year or Progress
+        match self.second_column {
+            SecondColumn::Year => {
+                let font = font_from_style(fonts, &MD_YEAR, dpi);
+                let plan = font.plan(year, None, None);
+                let dx = (second_width - padding - plan.width as i32) / 2;
+                let dy = (self.rect.height() as i32 - font.x_heights.1 as i32) / 2;
+                let pt = pt!(self.rect.min.x + first_width + big_half_padding + dx,
+                             self.rect.max.y - dy);
+                font.render(fb, scheme[1], &plan, pt);
+            },
+            SecondColumn::Progress => {
+                let progress_height = scale_by_dpi(PROGRESS_HEIGHT, dpi) as i32;
+                let thickness = scale_by_dpi(THICKNESS_SMALL, dpi) as u16;
+                let (small_radius, big_radius) = halves(progress_height);
+                let center = pt!(self.rect.min.x + first_width + big_half_padding + second_width / 2,
+                                 self.rect.min.y + self.rect.height() as i32 / 2);
+                match self.info.status() {
+                    Status::New | Status::Finished => {
+                        let color = if self.info.reader.is_none() { WHITE } else { READING_PROGRESS };
+                        fb.draw_rounded_rectangle_with_border(&rect![center - pt!(small_radius, small_radius),
+                                                                     center + pt!(big_radius, big_radius)],
+                                                              &CornerSpec::Uniform(small_radius),
+                                                              &BorderSpec { thickness, color: BLACK },
+                                                              &color);
+                    },
+                    Status::Reading(progress) => {
+                        let progress_width = second_width / 2;
+                        let (small_progress_width, big_progress_width) = halves(progress_width);
+                        let x_offset = center.x - progress_width / 2 +
+                                       (progress_width as f32 * progress.min(1.0)) as i32;
+                        fb.draw_rounded_rectangle_with_border(&rect![center - pt!(small_progress_width, small_radius),
+                                                                     center + pt!(big_progress_width, big_radius)],
+                                                              &CornerSpec::Uniform(small_radius),
+                                                              &BorderSpec { thickness, color: BLACK },
+                                                              &|x, _| if x < x_offset { READING_PROGRESS } else { WHITE });
+                    }
+                }
+            },
         }
 
         // File kind

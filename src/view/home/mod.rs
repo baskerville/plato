@@ -132,7 +132,8 @@ impl Home {
         children.push(Box::new(separator) as Box<View>);
 
         let mut shelf = Shelf::new(rect![rect.min.x, s_max_y + thickness,
-                                         rect.max.x, rect.max.y - small_height as i32 - small_thickness]);
+                                         rect.max.x, rect.max.y - small_height as i32 - small_thickness],
+                                   context.settings.home.second_column);
 
         let index_lower = current_page * max_lines;
         let index_upper = (index_lower + max_lines).min(visible_books.len());

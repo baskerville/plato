@@ -39,10 +39,18 @@ pub struct ImportSettings {
     pub allowed_kinds: FnvHashSet<String>,
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SecondColumn {
+    Progress,
+    Year,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct HomeSettings {
     pub summary_size: u8,
+    pub second_column: SecondColumn,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +84,7 @@ impl Default for HomeSettings {
     fn default() -> Self {
         HomeSettings {
             summary_size: 1,
+            second_column: SecondColumn::Progress,
         }
     }
 }

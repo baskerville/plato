@@ -32,6 +32,7 @@ pub const SEPARATOR_STRONG: u8 = GRAY07;
 
 pub const KEYBOARD_BG: u8 = GRAY12;
 pub const BATTERY_FILL: u8 = GRAY12;
+pub const READING_PROGRESS: u8 = GRAY07;
 
 pub const PROGRESS_FULL: u8 = GRAY05;
 pub const PROGRESS_EMPTY: u8 = GRAY13;
