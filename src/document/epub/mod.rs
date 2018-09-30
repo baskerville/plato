@@ -742,7 +742,7 @@ impl EpubDocument {
                 }
 
                 match name.as_ref() {
-                    "img" | "image" => {
+                    "img" | "image" | "svg:image" => {
                         let attr = if name == "img" { "src" } else { "xlink:href" };
 
                         let path = attributes.get(attr).and_then(|src| {

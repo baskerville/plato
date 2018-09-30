@@ -91,7 +91,7 @@ impl Node {
                     "span" | "em" | "strong" | "i" | "b" | "img" |
                     "a" | "br" | "code" | "sub" | "sup" | "dfn" |
                     "big" | "small" | "abbr" | "cite" | "var" |
-                    "samp" | "kbd" | "q" | "image" => true,
+                    "samp" | "kbd" | "q" | "image" | "svg:image" => true,
                     _ => false,
                 }
             },
