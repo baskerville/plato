@@ -1317,7 +1317,7 @@ impl EpubDocument {
                                             left_edge = (ratio * remaining_space as f32).round() as i32;
                                         }
                                         position.x = style.start_x + left_edge;
-                                        if last_x_position < position.x {
+                                        if last_x_position < position.x && position.y > root_data.rect.min.y {
                                             position.y -= style.line_height;
                                         }
                                     } else if width < element.width {
