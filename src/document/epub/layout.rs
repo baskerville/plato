@@ -475,3 +475,43 @@ pub static ref WORD_SPACE_RATIOS: FnvHashMap<char, f32> = [
 }
 
 pub const FONT_SPACES: &str = " \u{2007}\u{2008}";
+
+pub const SPECIAL_CHARS: &str = "-–—/@";
+
+pub struct SpecialSplitter<'a> {
+    text: &'a str,
+    current: usize,
+    next: usize,
+}
+
+impl<'a> SpecialSplitter<'a> {
+    pub fn new(text: &'a str) -> SpecialSplitter<'a> {
+        SpecialSplitter {
+            text,
+            current: 0,
+            next:  text.find(|c| SPECIAL_CHARS.contains(c))
+                       .and_then(|i| text[i..].find(|c| !SPECIAL_CHARS.contains(c))
+                                              .map(|j| i + j))
+                       .unwrap_or(text.len()),
+        }
+    }
+}
+
+impl<'a> Iterator for SpecialSplitter<'a> {
+    type Item = &'a str;
+    fn next(&mut self) -> Option<&'a str> {
+        if self.current == self.text.len() {
+            None
+        } else {
+            let current = self.current;
+            let next = self.next;
+            self.current = self.next;
+            self.next = self.text[self.current..]
+                            .find(|c| SPECIAL_CHARS.contains(c))
+                            .and_then(|i| self.text[self.current+i..].find(|c| !SPECIAL_CHARS.contains(c))
+                                              .map(|j| self.current + i + j))
+                            .unwrap_or(self.text.len());
+            Some(&self.text[current..next])
+        }
+    }
+}

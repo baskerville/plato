@@ -41,6 +41,7 @@ zip = {version = "0.4.2", features = ["deflate-zlib"], default-features = false 
 hyphenation = { version = "0.7.1", features = ["embed_all"] }
 entities = "1.0.1"
 paragraph-breaker = "0.3.8"
+either = "1.5.0"
 
 [dependencies.getopts]
 version = "0.2.17"

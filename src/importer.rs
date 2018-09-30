@@ -10,6 +10,7 @@ extern crate hyphenation;
 extern crate entities;
 extern crate libc;
 extern crate regex;
+extern crate either;
 extern crate isbn;
 extern crate titlecase;
 extern crate fnv;

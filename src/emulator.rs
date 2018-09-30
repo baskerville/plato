@@ -13,6 +13,7 @@ extern crate hyphenation;
 extern crate entities;
 extern crate libc;
 extern crate regex;
+extern crate either;
 extern crate chrono;
 extern crate zip;
 extern crate glob;
