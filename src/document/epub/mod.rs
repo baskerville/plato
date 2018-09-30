@@ -470,12 +470,6 @@ impl EpubDocument {
             style.retain_whitespace = true;
         }
 
-        let text_align = if node.tag_name() == Some("svg") {
-            TextAlign::Center
-        } else {
-            parent_style.text_align
-        };
-
         let props = specified_values(node, loop_context.parent, loop_context.sibling, stylesheet);
 
         style.language = props.get("lang").cloned()
@@ -520,7 +514,7 @@ impl EpubDocument {
 
         style.text_align = props.get("text-align")
                                 .and_then(|value| parse_text_align(value))
-                                .unwrap_or(text_align);
+                                .unwrap_or(parent_style.text_align);
 
         style.font_features = props.get("font-feature-settings")
                                    .map(|value| parse_font_features(value))

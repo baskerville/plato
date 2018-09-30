@@ -54,6 +54,6 @@ li > ul, li > ol {
 	margin-bottom: 0;
 }
 
-/* script, style { */
-/* 	display: none; */
-/* } */
+svg {
+	text-align: center;
+}
