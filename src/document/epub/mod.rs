@@ -527,25 +527,27 @@ impl EpubDocument {
             }
         }
 
-        style.margin = parse_edge(props.get("margin-top").map(String::as_str),
-                                  props.get("margin-right").map(String::as_str),
-                                  props.get("margin-bottom").map(String::as_str),
-                                  props.get("margin-left").map(String::as_str),
-                                  style.font_size, self.font_size, parent_style.width, self.dpi);
+        if node.tag_name() != Some("body") {
+            style.margin = parse_edge(props.get("margin-top").map(String::as_str),
+                                      props.get("margin-right").map(String::as_str),
+                                      props.get("margin-bottom").map(String::as_str),
+                                      props.get("margin-left").map(String::as_str),
+                                      style.font_size, self.font_size, parent_style.width, self.dpi);
 
-        // Collapse the bottom margin of the previous sibling with the current top margin
-        style.margin.top = collapse_margins(loop_context.sibling_style.margin_bottom, style.margin.top);
+            // Collapse the bottom margin of the previous sibling with the current top margin
+            style.margin.top = collapse_margins(loop_context.sibling_style.margin_bottom, style.margin.top);
 
-        // Collapse the top margin of the first child and its parent.
-        if loop_context.is_first {
-            style.margin.top = collapse_margins(parent_style.margin.top, style.margin.top);
+            // Collapse the top margin of the first child and its parent.
+            if loop_context.is_first {
+                style.margin.top = collapse_margins(parent_style.margin.top, style.margin.top);
+            }
+
+            style.padding = parse_edge(props.get("padding-top").map(String::as_str),
+                                       props.get("padding-right").map(String::as_str),
+                                       props.get("padding-bottom").map(String::as_str),
+                                       props.get("padding-left").map(String::as_str),
+                                       style.font_size, self.font_size, parent_style.width, self.dpi);
         }
-
-        style.padding = parse_edge(props.get("padding-top").map(String::as_str),
-                                   props.get("padding-right").map(String::as_str),
-                                   props.get("padding-bottom").map(String::as_str),
-                                   props.get("padding-left").map(String::as_str),
-                                   style.font_size, self.font_size, parent_style.width, self.dpi);
 
         style.height = props.get("height")
                             .and_then(|value| parse_height(value, style.font_size, self.font_size, parent_style.width, self.dpi))
