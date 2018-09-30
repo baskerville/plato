@@ -93,18 +93,6 @@ fn location_from_offset(o: usize) -> f32 {
 unsafe impl Send for EpubDocument {}
 unsafe impl Sync for EpubDocument {}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn hello_epub() {
-        let mut doc = EpubDocument::new("/Users/ice/books/Novels/American Psycho - Bret Easton Ellis.epub").unwrap();
-        println!("location max {}", doc.pages_count());
-        println!("last location {:?}", doc.resolve_location(Location::Exact(9999.9)));
-    }
-}
-
 impl EpubDocument {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<EpubDocument, Error> {
         let file = File::open(path)?;
