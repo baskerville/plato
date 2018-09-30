@@ -109,6 +109,8 @@ impl Reader {
             let first_location = doc.resolve_location(Location::Exact(0.0))?;
 
             doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
+            doc.set_margin_width(info.reader.as_ref().and_then(|r| r.margin_width)
+                                     .unwrap_or(settings.reader.margin_width));
 
             let pages_count;
             let mut current_page;
@@ -125,9 +127,6 @@ impl Reader {
                 if let Some(ref font_family) = r.font_family {
                     doc.set_font_family(font_family, &settings.reader.font_path);
                 }
-                if let Some(margin_width) = r.margin_width {
-                    doc.set_margin_width(margin_width);
-                }
                 if let Some(line_height) = r.line_height {
                     doc.set_line_height(line_height);
                 }
@@ -142,7 +141,6 @@ impl Reader {
                 if settings.reader.font_family != DEFAULT_FONT_FAMILY {
                     doc.set_font_family(&settings.reader.font_family, &settings.reader.font_path);
                 }
-                doc.set_margin_width(settings.reader.margin_width);
                 doc.set_line_height(settings.reader.line_height);
             }
 
