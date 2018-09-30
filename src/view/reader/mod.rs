@@ -201,6 +201,9 @@ impl Reader {
         let mut opener = PdfOpener::new().unwrap();
         opener.set_user_css("css/toc.css").unwrap();
         let mut doc = opener.open_memory("html", html.as_bytes()).unwrap();
+        let (width, height) = CURRENT_DEVICE.dims;
+        let font_size = context.settings.reader.font_size;
+        doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
         let pages_count = doc.pages_count();
 
         current_page = chapter_at(toc, current_page).and_then(|chap| {
