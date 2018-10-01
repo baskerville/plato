@@ -4,7 +4,7 @@
 
 It was tested on the following devices:
 
-- *Aura ONE* (FW 4.7.10413).
+- *Aura ONE* (FW 4.10.11655).
 - *Glo HD* (FW 4.7.10413 and 3.19.5761).
 - *Aura H₂O Edition 2*.
 - *Aura Edition 2*.
@@ -13,7 +13,8 @@ It was tested on the following devices:
 
 ## Supported formats
 
-- PDF, ePUB and CBZ via *mupdf*.
+- PDF and CBZ via *mupdf*.
+- ePUB through a built-in renderer or *mupdf*.
 - DJVU via *djvulibre*.
 
 ## Features
