@@ -304,9 +304,9 @@ pub fn run() -> Result<(), Error> {
                         updating.insert(tok, rect);
                     }
                 },
-                Event::Expose(mut rect) => {
+                Event::Expose(mut rect, mode) => {
                     fill_crack(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
-                    if let Ok(tok) = fb.update(&rect, UpdateMode::Gui) {
+                    if let Ok(tok) = fb.update(&rect, mode) {
                         updating.insert(tok, rect);
                     }
                 },
@@ -334,7 +334,7 @@ pub fn run() -> Result<(), Error> {
                     if let Some(index) = locate_by_id(view.as_ref(), ViewId::PresetMenu) {
                         let rect = *view.child(index).rect();
                         view.children_mut().remove(index);
-                        tx.send(Event::Expose(rect)).unwrap();
+                        tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
                     } else {
                         let preset_menu = Menu::new(rect, ViewId::PresetMenu, MenuKind::Contextual,
                                                     vec![EntryKind::Command("Remove".to_string(),
@@ -356,13 +356,13 @@ pub fn run() -> Result<(), Error> {
                     if let Some(index) = locate::<FrontlightWindow>(view.as_ref()) {
                         let rect = *view.child(index).rect();
                         view.children_mut().remove(index);
-                        tx.send(Event::Expose(rect)).unwrap();
+                        tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
                     }
                 },
                 Event::Close(id) => {
                     if let Some(index) = locate_by_id(view.as_ref(), id) {
                         let rect = overlapping_rectangle(view.child(index));
-                        tx.send(Event::Expose(rect)).unwrap();
+                        tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
                         view.children_mut().remove(index);
                     }
                 },
