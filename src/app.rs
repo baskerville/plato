@@ -140,7 +140,7 @@ fn resume(id: TaskId, tasks: &mut Vec<Task>, view: &mut View, hub: &Sender<Event
         }
         if context.settings.wifi {
             Command::new("scripts/wifi-enable.sh")
-                    .spawn()
+                    .status()
                     .ok();
         }
     }
@@ -200,9 +200,9 @@ pub fn run() -> Result<(), Error> {
     let fb_rect = fb.rect();
 
     if context.settings.wifi {
-        Command::new("scripts/wifi-enable.sh").spawn().ok();
+        Command::new("scripts/wifi-enable.sh").status().ok();
     } else {
-        Command::new("scripts/wifi-disable.sh").spawn().ok();
+        Command::new("scripts/wifi-disable.sh").status().ok();
     }
 
     if context.settings.frontlight {
@@ -329,7 +329,7 @@ pub fn run() -> Result<(), Error> {
                             }
                             if context.settings.wifi {
                                 Command::new("scripts/wifi-enable.sh")
-                                        .spawn()
+                                        .status()
                                         .ok();
                             }
                             if context.settings.frontlight {
@@ -545,11 +545,11 @@ pub fn run() -> Result<(), Error> {
                 context.settings.wifi = !context.settings.wifi;
                 if context.settings.wifi {
                     Command::new("scripts/wifi-enable.sh")
-                            .spawn()
+                            .status()
                             .ok();
                 } else {
                     Command::new("scripts/wifi-disable.sh")
-                            .spawn()
+                            .status()
                             .ok();
                 }
             },
