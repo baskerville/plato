@@ -585,7 +585,7 @@ impl Home {
             if let Some(true) = enable {
                 return;
             }
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
             if let Some(ViewId::GoToPageInput) = self.focus {
                 self.toggle_keyboard(false, true, Some(ViewId::GoToPageInput), hub, fonts);
@@ -608,7 +608,7 @@ impl Home {
             if let Some(true) = enable {
                 return;
             }
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -652,7 +652,7 @@ impl Home {
             if let Some(true) = enable {
                 return;
             }
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -691,7 +691,7 @@ impl Home {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {

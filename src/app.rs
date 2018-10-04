@@ -1,10 +1,10 @@
 use std::thread;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::process::Command;
 use std::collections::VecDeque;
-use std::time::{Instant, Duration};
+use std::time::Duration;
 use failure::{Error, ResultExt};
 use fnv::FnvHashMap;
 use chrono::Local;
@@ -16,7 +16,7 @@ use view::frontlight::FrontlightWindow;
 use view::menu::{Menu, MenuKind};
 use input::{DeviceEvent, ButtonCode, ButtonStatus};
 use input::{raw_events, device_events, usb_events};
-use gesture::{GestureEvent, gesture_events, BUTTON_HOLD_DELAY};
+use gesture::{GestureEvent, gesture_events};
 use helpers::{load_json, save_json, load_toml, save_toml};
 use metadata::{Metadata, METADATA_FILENAME, auto_import};
 use settings::{Settings, SETTINGS_PATH};
@@ -35,6 +35,8 @@ pub const APP_NAME: &str = "Plato";
 
 const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 const BATTERY_REFRESH_INTERVAL: Duration = Duration::from_secs(299);
+const SUSPEND_WAIT_DELAY: Duration = Duration::from_secs(15);
+const PREPARE_SUSPEND_WAIT_DELAY: Duration = Duration::from_secs(3);
 
 pub struct Context {
     pub settings: Settings,
@@ -45,11 +47,10 @@ pub struct Context {
     pub battery: Box<Battery>,
     pub lightsensor: Box<LightSensor>,
     pub notification_index: u8,
-    pub resumed_at: Instant,
     pub inverted: bool,
     pub monochrome: bool,
-    pub suspended: bool,
     pub plugged: bool,
+    pub covered: bool,
     pub mounted: bool,
 }
 
@@ -59,10 +60,20 @@ impl Context {
                frontlight: Box<Frontlight>, lightsensor: Box<LightSensor>) -> Context {
         Context { settings, metadata, filename, fonts, battery,
                   frontlight, lightsensor, notification_index: 0,
-                  resumed_at: Instant::now(), inverted: false,
-                  monochrome: false, suspended: false,
-                  plugged: false, mounted: false }
+                  inverted: false, monochrome: false, plugged: false,
+                  covered: false, mounted: false }
     }
+}
+
+struct Task {
+    id: TaskId,
+    chan: Receiver<()>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum TaskId {
+    PrepareSuspend,
+    Suspend,
 }
 
 fn build_context() -> Result<Context, Error> {
@@ -105,6 +116,44 @@ fn build_context() -> Result<Context, Error> {
 
     Ok(Context::new(settings, metadata, PathBuf::from(METADATA_FILENAME),
                     fonts, battery, frontlight, lightsensor))
+}
+
+fn schedule_task(id: TaskId, event: Event, delay: Duration, hub: &Sender<Event>, tasks: &mut Vec<Task>) {
+    let (ty, ry) = mpsc::channel();
+    let hub2 = hub.clone();
+    tasks.push(Task { id, chan: ry });
+    thread::spawn(move || {
+        thread::sleep(delay);
+        if ty.send(()).is_ok() {
+            hub2.send(event).unwrap();
+        }
+    });
+}
+
+fn resume(id: TaskId, tasks: &mut Vec<Task>, view: &mut View, hub: &Sender<Event>, context: &mut Context) {
+    if id == TaskId::Suspend {
+        tasks.retain(|task| task.id != TaskId::Suspend);
+        if context.settings.frontlight {
+            let levels = context.settings.frontlight_levels;
+            context.frontlight.set_intensity(levels.intensity);
+            context.frontlight.set_warmth(levels.warmth);
+        }
+        if context.settings.wifi {
+            Command::new("scripts/wifi-enable.sh")
+                    .spawn()
+                    .ok();
+        }
+    }
+    if id == TaskId::Suspend || id == TaskId::PrepareSuspend {
+        tasks.retain(|task| task.id != TaskId::PrepareSuspend);
+        if let Some(index) = locate::<Intermission>(view) {
+            let rect = *view.child(index).rect();
+            view.children_mut().remove(index);
+            hub.send(Event::Expose(rect, UpdateMode::Full)).unwrap();
+        }
+        hub.send(Event::ClockTick).unwrap();
+        hub.send(Event::BatteryTick).unwrap();
+    }
 }
 
 pub fn run() -> Result<(), Error> {
@@ -165,6 +214,7 @@ pub fn run() -> Result<(), Error> {
         context.frontlight.set_intensity(0.0);
     }
 
+    let mut tasks: Vec<Task> = Vec::new();
     let mut history: Vec<Box<View>> = Vec::new();
     let mut view: Box<View> = Box::new(Home::new(fb_rect, &tx, &mut context)?);
 
@@ -181,17 +231,49 @@ pub fn run() -> Result<(), Error> {
         match evt {
             Event::Device(de) => {
                 match de {
-                    DeviceEvent::Button { code: ButtonCode::Power, status: ButtonStatus::Released, .. } |
+                    DeviceEvent::Button { code: ButtonCode::Power, status: ButtonStatus::Released, .. } => {
+                        if context.mounted || context.covered {
+                            continue;
+                        }
+
+                        if tasks.iter().any(|task| task.id == TaskId::PrepareSuspend) {
+                            resume(TaskId::PrepareSuspend, &mut tasks, view.as_mut(), &tx, &mut context);
+                        } else if tasks.iter().any(|task| task.id == TaskId::Suspend) {
+                            resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut context);
+                        } else {
+                            let interm = Intermission::new(fb_rect, "Sleeping".to_string(), false);
+                            tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
+                            schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
+                                          PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
+                            view.children_mut().push(Box::new(interm) as Box<View>);
+                        }
+                    },
                     DeviceEvent::CoverOn => {
-                        if context.mounted || context.suspended ||
-                           context.resumed_at.elapsed() <= BUTTON_HOLD_DELAY {
+                        context.covered = true;
+
+                        if context.mounted || tasks.iter().any(|task| task.id == TaskId::PrepareSuspend ||
+                                                                      task.id == TaskId::Suspend) {
                             continue;
                         }
 
                         let interm = Intermission::new(fb_rect, "Sleeping".to_string(), false);
-                        tx.send(Event::Render(*interm.rect(), UpdateMode::Gui)).unwrap();
-                        tx.send(Event::Suspend).unwrap();
+                        tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
+                        schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
+                                      PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
                         view.children_mut().push(Box::new(interm) as Box<View>);
+                    },
+                    DeviceEvent::CoverOff => {
+                        context.covered = false;
+
+                        if context.mounted {
+                            continue;
+                        }
+
+                        if tasks.iter().any(|task| task.id == TaskId::PrepareSuspend) {
+                            resume(TaskId::PrepareSuspend, &mut tasks, view.as_mut(), &tx, &mut context);
+                        } else if tasks.iter().any(|task| task.id == TaskId::Suspend) {
+                            resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut context);
+                        }
                     },
                     DeviceEvent::NetUp => {
                         let ip = Command::new("scripts/ip.sh").output()
@@ -213,6 +295,17 @@ pub fn run() -> Result<(), Error> {
                         }
 
                         context.plugged = true;
+
+                        if context.covered {
+                            continue;
+                        }
+
+                        if tasks.iter().any(|task| task.id == TaskId::PrepareSuspend) {
+                            resume(TaskId::PrepareSuspend, &mut tasks, view.as_mut(), &tx, &mut context);
+                        } else if tasks.iter().any(|task| task.id == TaskId::Suspend) {
+                            resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut context);
+                        }
+
                         let confirm = Confirmation::new(ViewId::ConfirmMount,
                                                         Event::Mount,
                                                         "Mount onboard and external cards?".to_string(),
@@ -227,8 +320,8 @@ pub fn run() -> Result<(), Error> {
                         }
 
                         if context.mounted {
-                            Command::new("scripts/usb-disable.sh").status().ok();
                             context.mounted = false;
+                            Command::new("scripts/usb-disable.sh").status().ok();
                             let path = Path::new(SETTINGS_PATH);
                             if let Ok(settings) = load_toml::<Settings, _>(path)
                                                             .map_err(|e| eprintln!("Can't load settings: {}", e)) {
@@ -247,7 +340,7 @@ pub fn run() -> Result<(), Error> {
                             if let Some(index) = locate::<Intermission>(view.as_ref()) {
                                 let rect = *view.child(index).rect();
                                 view.children_mut().remove(index);
-                                tx.send(Event::Expose(rect)).unwrap();
+                                tx.send(Event::Expose(rect, UpdateMode::Full)).unwrap();
                             }
                             if Path::new("/mnt/onboard/.kobo/KoboRoot.tgz").exists() {
                                 tx.send(Event::Select(EntryId::Reboot)).unwrap();
@@ -278,8 +371,8 @@ pub fn run() -> Result<(), Error> {
                     }
                 }
             },
-            Event::Suspend => {
-                context.suspended = true;
+            Event::PrepareSuspend => {
+                tasks.retain(|task| task.id != TaskId::PrepareSuspend);
                 updating.retain(|tok, _| fb.wait(*tok).is_err());
                 let path = Path::new(SETTINGS_PATH);
                 save_toml(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {}", e)).ok();
@@ -295,36 +388,23 @@ pub fn run() -> Result<(), Error> {
                             .status()
                             .ok();
                 }
+                // https://github.com/koreader/koreader/commit/71afe36
+                schedule_task(TaskId::Suspend, Event::Suspend,
+                              SUSPEND_WAIT_DELAY, &tx, &mut tasks);
+            },
+            Event::Suspend => {
                 println!("{}", Local::now().format("Went to sleep on %B %d, %Y at %H:%M."));
                 Command::new("scripts/suspend.sh")
                         .status()
                         .ok();
                 println!("{}", Local::now().format("Woke up on %B %d, %Y at %H:%M."));
-                context.resumed_at = Instant::now();
-                if let Some(index) = locate::<Intermission>(view.as_ref()) {
-                    let rect = *view.child(index).rect();
-                    view.children_mut().remove(index);
-                    tx.send(Event::Expose(rect)).unwrap();
-                }
-                context.suspended = false;
                 Command::new("scripts/resume.sh")
                         .status()
                         .ok();
-                if context.settings.wifi {
-                    Command::new("scripts/wifi-enable.sh")
-                            .spawn()
-                            .ok();
-                }
-                if context.settings.frontlight {
-                    let levels = context.settings.frontlight_levels;
-                    context.frontlight.set_intensity(levels.intensity);
-                    context.frontlight.set_warmth(levels.warmth);
-                }
-                tx.send(Event::ClockTick).unwrap();
-                tx.send(Event::BatteryTick).unwrap();
             },
             Event::Mount => {
                 if !context.mounted {
+                    tasks.clear();
                     while let Some(v) = history.pop() {
                         view.handle_event(&Event::Back, &tx, &mut bus, &mut context);
                         view = v;
@@ -389,9 +469,9 @@ pub fn run() -> Result<(), Error> {
                     updating.insert(tok, rect);
                 }
             },
-            Event::Expose(mut rect) => {
+            Event::Expose(mut rect, mode) => {
                 fill_crack(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
-                if let Ok(tok) = fb.update(&rect, UpdateMode::Gui) {
+                if let Ok(tok) = fb.update(&rect, mode) {
                     updating.insert(tok, rect);
                 }
             },
@@ -419,7 +499,7 @@ pub fn run() -> Result<(), Error> {
                 if let Some(index) = locate_by_id(view.as_ref(), ViewId::PresetMenu) {
                     let rect = *view.child(index).rect();
                     view.children_mut().remove(index);
-                    tx.send(Event::Expose(rect)).unwrap();
+                    tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
                 } else {
                     let preset_menu = Menu::new(rect, ViewId::PresetMenu, MenuKind::Contextual,
                                                 vec![EntryKind::Command("Remove".to_string(),
@@ -441,13 +521,13 @@ pub fn run() -> Result<(), Error> {
                 if let Some(index) = locate::<FrontlightWindow>(view.as_ref()) {
                     let rect = *view.child(index).rect();
                     view.children_mut().remove(index);
-                    tx.send(Event::Expose(rect)).unwrap();
+                    tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
                 }
             },
             Event::Close(id) => {
                 if let Some(index) = locate_by_id(view.as_ref(), id) {
                     let rect = overlapping_rectangle(view.child(index));
-                    tx.send(Event::Expose(rect)).unwrap();
+                    tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
                     view.children_mut().remove(index);
                 }
             },

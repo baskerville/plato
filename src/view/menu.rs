@@ -272,7 +272,7 @@ impl View for Menu {
             },
             Event::CloseSub(id) => {
                 if let Some(index) = locate_by_id(self, id) {
-                    hub.send(Event::Expose(*self.children[index].rect())).unwrap();
+                    hub.send(Event::Expose(*self.children[index].rect(), UpdateMode::Gui)).unwrap();
                     self.children.remove(index);
                 }
                 true

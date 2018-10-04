@@ -40,7 +40,7 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
         if let Some(true) = enable {
             return;
         }
-        hub.send(Event::Expose(*view.child(index).rect())).unwrap();
+        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).unwrap();
         view.children_mut().remove(index);
     } else {
         if let Some(false) = enable {

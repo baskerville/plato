@@ -557,7 +557,7 @@ impl Reader {
                 rect.absorb(self.child(index+1).rect());
             }
 
-            hub.send(Event::Expose(rect)).unwrap();
+            hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
 
             if index == 1 {
                 self.children.drain(index - 1 .. index + 2);
@@ -640,7 +640,7 @@ impl Reader {
             let mut rect = *self.child(index).rect();
             rect.absorb(self.child(index - 1).rect());
             self.children.drain(index - 1 .. index + 1);
-            hub.send(Event::Expose(rect)).unwrap();
+            hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
         } else {
             if !enable {
                 return;
@@ -678,7 +678,7 @@ impl Reader {
             let mut rect = *self.child(index).rect();
             rect.absorb(self.child(index - 1).rect());
             self.children.drain(index - 1 .. index + 1);
-            hub.send(Event::Expose(rect)).unwrap();
+            hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
         } else {
             if !enable {
                 return;
@@ -717,7 +717,7 @@ impl Reader {
                 self.children.drain(top_index..bottom_index+1);
                 self.focus = None;
                 hub.send(Event::Focus(None)).unwrap();
-                hub.send(Event::Expose(self.rect)).unwrap();
+                hub.send(Event::Expose(self.rect, UpdateMode::Gui)).unwrap();
             }
         } else {
             if let Some(false) = enable {
@@ -843,7 +843,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
 
             if self.focus.map(|focus_id| focus_id == input_id).unwrap_or(false) {
@@ -870,7 +870,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -897,7 +897,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -925,7 +925,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -953,7 +953,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -978,7 +978,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1003,7 +1003,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1042,7 +1042,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1118,7 +1118,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect())).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
         } else {
             if !enable {

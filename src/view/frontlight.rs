@@ -195,7 +195,7 @@ impl FrontlightWindow {
             hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
         } else {
             self.children.pop();
-            hub.send(Event::Expose(self.rect)).unwrap();
+            hub.send(Event::Expose(self.rect, UpdateMode::Gui)).unwrap();
             shift(self, pt!(0, small_height as i32 / 2));
             self.rect.max.y -= small_height as i32;
         }

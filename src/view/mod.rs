@@ -190,7 +190,7 @@ pub fn fill_crack(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts
 pub enum Event {
     Render(Rectangle, UpdateMode),
     RenderNoWait(Rectangle, UpdateMode),
-    Expose(Rectangle),
+    Expose(Rectangle, UpdateMode),
     Device(DeviceEvent),
     Gesture(GestureEvent),
     Keyboard(KeyboardEvent),
@@ -233,6 +233,7 @@ pub enum Event {
     LoadPreset(usize),
     Save,
     Guess,
+    PrepareSuspend,
     Suspend,
     Mount,
     Validate,
