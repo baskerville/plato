@@ -55,7 +55,7 @@ Gestures by region:
 	- Hold: guess the frontlight if there's more than two frontlight presets defined, toggle the frontlight otherwise.
 - *BR* (Bottom Right Corner):
 	- Tap: go to page in normal mode, next page in search mode.
-	- Hold: invert colors.
+	- Hold: toggle the bitonal mode.
 
 Swipe west/east to go to the next/previous page.
 

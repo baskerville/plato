@@ -1472,7 +1472,7 @@ impl View for Reader {
                         self.go_to_bookmark(CycleDir::Next, hub);
                     // Bottom right corner.
                     } else if center.y > self.rect.max.y - dx {
-                        hub.send(Event::Select(EntryId::ToggleInverted)).unwrap();
+                        hub.send(Event::Select(EntryId::ToggleMonochrome)).unwrap();
                     // Right ear.
                     } else {
                         if self.search.is_none() {
