@@ -142,7 +142,7 @@ impl View for Book {
                 let progress_height = scale_by_dpi(PROGRESS_HEIGHT, dpi) as i32;
                 let thickness = scale_by_dpi(THICKNESS_SMALL, dpi) as u16;
                 let (small_radius, big_radius) = halves(progress_height);
-                let center = pt!(self.rect.min.x + first_width + big_half_padding + second_width / 2,
+                let center = pt!(self.rect.min.x + first_width + second_width / 2,
                                  self.rect.min.y + self.rect.height() as i32 / 2);
                 match self.info.status() {
                     Status::New | Status::Finished => {
@@ -154,7 +154,7 @@ impl View for Book {
                                                               &color);
                     },
                     Status::Reading(progress) => {
-                        let progress_width = second_width / 2;
+                        let progress_width = 2 * (second_width - padding) / 3;
                         let (small_progress_width, big_progress_width) = halves(progress_width);
                         let x_offset = center.x - progress_width / 2 +
                                        (progress_width as f32 * progress.min(1.0)) as i32;
