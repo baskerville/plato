@@ -39,7 +39,7 @@ pub struct ImportSettings {
     pub allowed_kinds: FnvHashSet<String>,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SecondColumn {
     Progress,

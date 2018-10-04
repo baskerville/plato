@@ -45,6 +45,7 @@ use fnv::FnvHashMap;
 use downcast_rs::Downcast;
 use font::Fonts;
 use document::TocEntry;
+use settings::SecondColumn;
 use metadata::{Info, SortMethod, PageScheme, Margin};
 use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
@@ -345,7 +346,6 @@ pub enum EntryKind {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EntryId {
-    Column(Column),
     Sort(SortMethod),
     ApplyCroppings(usize, PageScheme),
     SetFontFamily(String),
@@ -361,6 +361,7 @@ pub enum EntryId {
     RemovePreset(usize),
     AddMatchesCategories,
     RemoveMatchesCategory(String),
+    SecondColumn(SecondColumn),
     Load(PathBuf),
     ExportMatches,
     ToggleFirstPage,
@@ -373,25 +374,6 @@ pub enum EntryId {
     Reboot,
     Quit,
     Undo,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Column {
-    First(FirstColumn),
-    Second(SecondColumn),
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum FirstColumn {
-    TitleAndAuthor,
-    Title,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum SecondColumn {
-    Year,
-    Progress,
-    Nothing,
 }
 
 impl EntryKind {

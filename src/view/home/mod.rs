@@ -18,6 +18,7 @@ use regex::Regex;
 use fnv::FnvHashSet;
 use failure::Error;
 use metadata::{Metadata, SortMethod, sort, make_query};
+use settings::SecondColumn;
 use framebuffer::{Framebuffer, UpdateMode};
 use view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
 use view::filler::Filler;
@@ -324,6 +325,12 @@ impl Home {
         let summary = self.children[2].as_mut().downcast_mut::<Summary>().unwrap();
         summary.update(&self.visible_categories, &self.selected_categories, &self.negated_categories,
                        was_resized, hub, fonts);
+    }
+
+    fn update_second_column(&mut self, hub: &Hub, context: &mut Context) {
+        self.children[4].as_mut().downcast_mut::<Shelf>().unwrap()
+           .set_second_column(context.settings.home.second_column);
+        self.update_shelf(false, hub);
     }
 
     fn update_shelf(&mut self, was_resized: bool, hub: &Hub) {
@@ -713,6 +720,11 @@ impl Home {
                                                                                                  EntryId::Load(e))).collect()));
             }
 
+            let second_column = context.settings.home.second_column;
+            entries.push(EntryKind::SubMenu("Second Column".to_string(),
+                vec![EntryKind::RadioButton("Progress".to_string(), EntryId::SecondColumn(SecondColumn::Progress), second_column == SecondColumn::Progress),
+                     EntryKind::RadioButton("Year".to_string(), EntryId::SecondColumn(SecondColumn::Year), second_column == SecondColumn::Year)]));
+
             if !self.visible_books.is_empty() {
                 entries.push(EntryKind::Separator);
                 entries.push(EntryKind::Command("Add categories".to_string(), EntryId::AddMatchesCategories));
@@ -723,7 +735,6 @@ impl Home {
                     entries.push(EntryKind::SubMenu("Remove Category".to_string(), categories));
                 }
             }
-
 
             entries.push(EntryKind::Separator);
             entries.push(EntryKind::Command("Remove".to_string(), EntryId::RemoveMatches));
@@ -1093,6 +1104,11 @@ impl View for Home {
             },
             Event::Select(EntryId::Undo) => {
                 self.undo(hub, context);
+                true
+            },
+            Event::Select(EntryId::SecondColumn(second_column)) => {
+                context.settings.home.second_column = second_column;
+                self.update_second_column(hub, context);
                 true
             },
             Event::Submit(ViewId::ExportAsInput, ref text) => {

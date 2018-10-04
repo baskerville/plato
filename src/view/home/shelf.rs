@@ -29,6 +29,10 @@ impl Shelf {
         }
     }
 
+    pub fn set_second_column(&mut self, second_column: SecondColumn) {
+        self.second_column = second_column;
+    }
+
     pub fn update(&mut self, metadata: &[Info], hub: &Hub) {
         self.children.clear();
         let dpi = CURRENT_DEVICE.dpi;
