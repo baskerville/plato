@@ -92,7 +92,7 @@ impl Default for HomeSettings {
 impl Default for ReaderSettings {
     fn default() -> Self {
         ReaderSettings {
-            refresh_every: 0,
+            refresh_every: 8,
             finished: FinishedAction::Notify,
             epub_engine: EpubEngine::BuiltIn,
             font_path: DEFAULT_FONT_PATH.to_string(),
