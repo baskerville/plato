@@ -9,9 +9,9 @@ const MINUTES_PER_DAY: u16 = 24 * 60;
 #[serde(default, rename_all = "camelCase")]
 pub struct LightPreset {
     pub timestamp: u16,
-    pub frontlight_levels: LightLevels,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lightsensor_level: Option<u16>,
+    pub frontlight_levels: LightLevels,
 }
 
 impl Default for LightPreset {
