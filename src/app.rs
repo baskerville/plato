@@ -424,7 +424,7 @@ pub fn run() -> Result<(), Error> {
                     let interm = Intermission::new(fb_rect, "Mounted".to_string(), false);
                     tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
                     view.children_mut().push(Box::new(interm) as Box<View>);
-                    Command::new("scripts/usb-enable.sh").spawn().ok();
+                    Command::new("scripts/usb-enable.sh").status().ok();
                     context.mounted = true;
                 }
             },
