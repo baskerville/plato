@@ -1489,14 +1489,19 @@ impl View for Reader {
                 true
             },
             Event::Submit(ViewId::GoToPageInput, ref text) => {
-                let re = Regex::new(r#"^(")?(.+)$"#).unwrap();
+                let re = Regex::new(r#"^([-+"])?(.+)$"#).unwrap();
                 if let Some(caps) = re.captures(text) {
                     if let Ok(mut location) = caps[2].parse::<f32>() {
                         if !self.synthetic {
-                            location = (location - 1.0).max(0.0);
-                            if caps.get(1).is_some() {
-                                location += self.info.reader.as_ref()
-                                                .and_then(|r| r.first_page).unwrap_or(0) as f32;
+                            match caps.get(1).map(|m| m.as_str()) {
+                                Some("\"") => {
+                                    location -= 1.0;
+                                    location += self.info.reader.as_ref()
+                                                    .and_then(|r| r.first_page).unwrap_or(0) as f32;
+                                },
+                                Some("-") => location = self.current_page - location,
+                                Some("+") => location += self.current_page,
+                                _ => location -= 1.0,
                             }
                         }
                         self.go_to_page(location, true, hub);
