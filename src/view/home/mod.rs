@@ -720,11 +720,6 @@ impl Home {
                                                                                                  EntryId::Load(e))).collect()));
             }
 
-            let second_column = context.settings.home.second_column;
-            entries.push(EntryKind::SubMenu("Second Column".to_string(),
-                vec![EntryKind::RadioButton("Progress".to_string(), EntryId::SecondColumn(SecondColumn::Progress), second_column == SecondColumn::Progress),
-                     EntryKind::RadioButton("Year".to_string(), EntryId::SecondColumn(SecondColumn::Year), second_column == SecondColumn::Year)]));
-
             if !self.visible_books.is_empty() {
                 entries.push(EntryKind::Separator);
                 entries.push(EntryKind::Command("Add categories".to_string(), EntryId::AddMatchesCategories));
@@ -735,6 +730,12 @@ impl Home {
                     entries.push(EntryKind::SubMenu("Remove Category".to_string(), categories));
                 }
             }
+
+            entries.push(EntryKind::Separator);
+            let second_column = context.settings.home.second_column;
+            entries.push(EntryKind::SubMenu("Second Column".to_string(),
+                vec![EntryKind::RadioButton("Progress".to_string(), EntryId::SecondColumn(SecondColumn::Progress), second_column == SecondColumn::Progress),
+                     EntryKind::RadioButton("Year".to_string(), EntryId::SecondColumn(SecondColumn::Year), second_column == SecondColumn::Year)]));
 
             entries.push(EntryKind::Separator);
             entries.push(EntryKind::Command("Remove".to_string(), EntryId::RemoveMatches));
