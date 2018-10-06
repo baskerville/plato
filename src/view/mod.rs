@@ -237,6 +237,7 @@ pub enum Event {
     PrepareSuspend,
     Suspend,
     Mount,
+    PrepareMount,
     Validate,
     Cancel,
     Reseed,

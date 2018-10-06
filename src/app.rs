@@ -307,7 +307,7 @@ pub fn run() -> Result<(), Error> {
                         }
 
                         let confirm = Confirmation::new(ViewId::ConfirmMount,
-                                                        Event::Mount,
+                                                        Event::PrepareMount,
                                                         "Mount onboard and external cards?".to_string(),
                                                         &mut context.fonts);
                         tx.send(Event::Render(*confirm.rect(), UpdateMode::Gui)).unwrap();
@@ -402,31 +402,40 @@ pub fn run() -> Result<(), Error> {
                         .status()
                         .ok();
             },
-            Event::Mount => {
-                if !context.mounted {
-                    tasks.clear();
-                    while let Some(v) = history.pop() {
-                        view.handle_event(&Event::Back, &tx, &mut bus, &mut context);
-                        view = v;
-                    }
-                    let path = context.settings.library_path.join(&context.filename);
-                    save_json(&context.metadata, path).map_err(|e| eprintln!("Can't save metadata: {}", e)).ok();
-                    if context.settings.frontlight {
-                        context.settings.frontlight_levels = context.frontlight.levels();
-                        context.frontlight.set_warmth(0.0);
-                        context.frontlight.set_intensity(0.0);
-                    }
-                    if context.settings.wifi {
-                        Command::new("scripts/wifi-disable.sh")
-                                .status()
-                                .ok();
-                    }
-                    let interm = Intermission::new(fb_rect, "Mounted".to_string(), false);
-                    tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
-                    view.children_mut().push(Box::new(interm) as Box<View>);
-                    Command::new("scripts/usb-enable.sh").status().ok();
-                    context.mounted = true;
+            Event::PrepareMount => {
+                if context.mounted {
+                    continue;
                 }
+
+                tasks.clear();
+                while let Some(v) = history.pop() {
+                    view.handle_event(&Event::Back, &tx, &mut bus, &mut context);
+                    view = v;
+                }
+                let path = context.settings.library_path.join(&context.filename);
+                save_json(&context.metadata, path).map_err(|e| eprintln!("Can't save metadata: {}", e)).ok();
+                if context.settings.frontlight {
+                    context.settings.frontlight_levels = context.frontlight.levels();
+                    context.frontlight.set_warmth(0.0);
+                    context.frontlight.set_intensity(0.0);
+                }
+                if context.settings.wifi {
+                    Command::new("scripts/wifi-disable.sh")
+                            .status()
+                            .ok();
+                }
+                let interm = Intermission::new(fb_rect, "Mounted".to_string(), false);
+                tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
+                view.children_mut().push(Box::new(interm) as Box<View>);
+                tx.send(Event::Mount).unwrap();
+            },
+            Event::Mount => {
+                if context.mounted {
+                    continue;
+                }
+
+                context.mounted = true;
+                Command::new("scripts/usb-enable.sh").status().ok();
             },
             Event::Gesture(ge) => {
                 match ge {
