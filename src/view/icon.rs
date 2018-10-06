@@ -80,9 +80,9 @@ impl Icon {
 impl View for Icon {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
-            Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
+            Event::Device(DeviceEvent::Finger { status, position, .. }) => {
                 match status {
-                    FingerStatus::Down if self.rect.includes(*position) => {
+                    FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
                         hub.send(Event::Render(self.rect, UpdateMode::Fast)).unwrap();
                         true
@@ -95,11 +95,11 @@ impl View for Icon {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 bus.push_back(self.event.clone());
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
                 match self.event {
                     Event::Page(dir) => bus.push_back(Event::Chapter(dir)),
                     Event::Show(ViewId::Frontlight) => {

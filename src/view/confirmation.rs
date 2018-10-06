@@ -108,7 +108,7 @@ impl View for Confirmation {
                 self.will_close = true;
                 true
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if !self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::Tap(center)) if !self.rect.includes(center) => {
                 hub.send(Event::Close(self.id)).unwrap();
                 true
             },

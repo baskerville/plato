@@ -1320,7 +1320,7 @@ impl Reader {
 impl View for Reader {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Swipe { dir, ref start, .. }) if self.rect.includes(*start) => {
+            Event::Gesture(GestureEvent::Swipe { dir, start, .. }) if self.rect.includes(start) => {
                 match dir {
                     Dir::West => self.go_to_neighbor(CycleDir::Next, hub, context),
                     Dir::East => self.go_to_neighbor(CycleDir::Previous, hub, context),
@@ -1328,7 +1328,7 @@ impl View for Reader {
                 };
                 true
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 if self.focus.is_some() {
                     return true;
                 }
@@ -1351,7 +1351,7 @@ impl View for Reader {
                                      x_max as i32 - self.frame.min.x + dx,
                                      y_max as i32 - self.frame.min.y + dy];
 
-                    if rect.includes(*center) {
+                    if rect.includes(center) {
                         let pdf_page = Regex::new(r"^#(\d+)(?:,\d+,\d+)?$").unwrap();
                         let toc_page = Regex::new(r"^@(.*)$").unwrap();
                         if let Some(caps) = toc_page.captures(&link.text) {
@@ -1425,7 +1425,7 @@ impl View for Reader {
 
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
                 if self.focus.is_some() {
                     return true;
                 }

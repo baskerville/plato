@@ -44,9 +44,9 @@ impl MenuEntry {
 impl View for MenuEntry {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
+            Event::Device(DeviceEvent::Finger { status, position, .. }) => {
                 match status {
-                    FingerStatus::Down if self.rect.includes(*position) => {
+                    FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
                         hub.send(Event::Render(self.rect, UpdateMode::Fast)).unwrap();
                         true
@@ -59,8 +59,8 @@ impl View for MenuEntry {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) |
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::Tap(center)) |
+            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
                 match self.kind {
                     EntryKind::CheckBox(_, _, ref mut value) => {
                         *value = !*value;

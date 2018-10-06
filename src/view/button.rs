@@ -40,9 +40,9 @@ impl Button {
 impl View for Button {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Device(DeviceEvent::Finger { status, ref position, .. }) if !self.disabled => {
+            Event::Device(DeviceEvent::Finger { status, position, .. }) if !self.disabled => {
                 match status {
-                    FingerStatus::Down if self.rect.includes(*position) => {
+                    FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
                         hub.send(Event::Render(self.rect, UpdateMode::Fast)).unwrap();
                         true
@@ -55,7 +55,7 @@ impl View for Button {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 if !self.disabled {
                     bus.push_back(self.event.clone());
                 }

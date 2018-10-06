@@ -74,7 +74,7 @@ impl Shelf {
 impl View for Shelf {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Swipe { dir, ref start, ref end, .. }) if self.rect.includes(*start) => {
+            Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) if self.rect.includes(start) => {
                 match dir {
                     Dir::West => {
                         bus.push_back(Event::Page(CycleDir::Next));
@@ -84,7 +84,7 @@ impl View for Shelf {
                         bus.push_back(Event::Page(CycleDir::Previous));
                         true
                     },
-                    Dir::North if !self.rect.includes(*end) => {
+                    Dir::North if !self.rect.includes(end) => {
                         bus.push_back(Event::ResizeSummary(end.y - self.rect.min.y));
                         true
                     },

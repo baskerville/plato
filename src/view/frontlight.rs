@@ -236,7 +236,7 @@ impl View for FrontlightWindow {
                 context.frontlight.set_warmth(value);
                 true
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if !self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::Tap(center)) if !self.rect.includes(center) => {
                 hub.send(Event::Close(ViewId::Frontlight)).unwrap();
                 true
             },

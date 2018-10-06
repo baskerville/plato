@@ -71,10 +71,10 @@ impl SearchBar {
 impl View for SearchBar {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap(ref center)) |
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => true,
-            Event::Gesture(GestureEvent::Swipe { ref start, .. }) if self.rect.includes(*start) => true,
-            Event::Device(DeviceEvent::Finger { ref position, .. }) if self.rect.includes(*position) => true,
+            Event::Gesture(GestureEvent::Tap(center)) |
+            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => true,
+            Event::Gesture(GestureEvent::Swipe { start, .. }) if self.rect.includes(start) => true,
+            Event::Device(DeviceEvent::Finger { position, .. }) if self.rect.includes(position) => true,
             _ => false,
         }
     }

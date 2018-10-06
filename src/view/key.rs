@@ -92,9 +92,9 @@ impl Key {
 impl View for Key {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
+            Event::Device(DeviceEvent::Finger { status, position, .. }) => {
                 match status {
-                    FingerStatus::Down if self.rect.includes(*position) => {
+                    FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
                         hub.send(Event::RenderNoWait(self.rect, UpdateMode::Fast)).unwrap();
                         true
@@ -107,7 +107,7 @@ impl View for Key {
                     _ => false,
                 }
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 match self.kind {
                     KeyKind::Shift |
                     KeyKind::Alternate |
@@ -124,7 +124,7 @@ impl View for Key {
                 bus.push_back(Event::Key(self.kind));
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
                 match self.kind {
                     KeyKind::Delete(dir) => hub.send(Event::Keyboard(KeyboardEvent::Delete { target: TextKind::Word, dir })).unwrap(),
                     KeyKind::Move(dir) => hub.send(Event::Keyboard(KeyboardEvent::Move { target: TextKind::Word, dir })).unwrap(),

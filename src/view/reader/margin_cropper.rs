@@ -125,17 +125,17 @@ impl MarginCropper {
 impl View for MarginCropper {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
-                self.update(*center, *center);
+            Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
+                self.update(center, center);
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 true
             },
-            Event::Gesture(GestureEvent::Swipe { ref start, ref end, .. }) if self.rect.includes(*start) => {
-                self.update(*start, *end);
+            Event::Gesture(GestureEvent::Swipe { start, end, .. }) if self.rect.includes(start) => {
+                self.update(start, end);
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => true,
+            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => true,
             Event::Validate => {
                 bus.push_back(Event::CropMargins(Box::new(self.margin())));
                 bus.push_back(Event::Close(ViewId::MarginCropper));

@@ -253,7 +253,7 @@ impl View for Menu {
                 });
                 true
             },
-            Event::Gesture(GestureEvent::Tap(ref center)) if !self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::Tap(center)) if !self.rect.includes(center) => {
                 if self.root {
                     hub.send(Event::Close(self.id)).unwrap();
                 } else {
@@ -261,7 +261,7 @@ impl View for Menu {
                 }
                 self.root
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if !self.rect.includes(*center) => self.root,
+            Event::Gesture(GestureEvent::HoldFinger(center)) if !self.rect.includes(center) => self.root,
             Event::SubMenu(rect, ref entries) => {
                 let menu = Menu::new(rect, ViewId::SubMenu(self.sub_id),
                                      MenuKind::SubMenu, entries.clone(), &mut context.fonts).root(false);

@@ -40,13 +40,13 @@ impl Book {
 impl View for Book {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 self.active = true;
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 hub.send(Event::Open(Box::new(self.info.clone()))).unwrap();
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(ref center)) if self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
                 let pt = pt!(center.x, self.rect.center().y);
                 bus.push_back(Event::ToggleBookMenu(Rectangle::from_point(pt), self.index));
                 true

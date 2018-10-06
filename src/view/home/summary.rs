@@ -373,7 +373,7 @@ impl Summary {
 impl View for Summary {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Swipe { dir, ref start, ref end, .. }) if self.rect.includes(*start) => {
+            Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) if self.rect.includes(start) => {
                 match dir {
                     Dir::West => {
                         self.set_current_page(CycleDir::Next);
@@ -385,7 +385,7 @@ impl View for Summary {
                         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                         true
                     },
-                    Dir::South if !self.rect.includes(*end) => {
+                    Dir::South if !self.rect.includes(end) => {
                         bus.push_back(Event::ResizeSummary(end.y - self.rect.max.y));
                         true
                     },

@@ -168,7 +168,7 @@ impl InputField {
 impl View for InputField {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap(ref center)) if self.rect.includes(*center) => {
+            Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 self.focused = true;
                 bus.push_back(Event::Focus(Some(self.id)));
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();

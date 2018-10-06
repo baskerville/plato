@@ -60,9 +60,9 @@ impl Slider {
 impl View for Slider {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Device(DeviceEvent::Finger { status, ref position, .. }) => {
+            Event::Device(DeviceEvent::Finger { status, position, .. }) => {
                 match status {
-                    FingerStatus::Down if self.rect.includes(*position) => {
+                    FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
                         self.update_value(position.x);
                         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
