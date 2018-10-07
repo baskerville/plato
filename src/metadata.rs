@@ -146,8 +146,8 @@ impl CroppingMargins {
 pub struct ReaderInfo {
     #[serde(with = "simple_date_format")]
     pub opened: DateTime<Local>,
-    pub current_page: f32,
-    pub pages_count: f32,
+    pub current_page: f64,
+    pub pages_count: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cropping_margins: Option<CroppingMargins>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -161,14 +161,13 @@ pub struct ReaderInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub first_page: Option<usize>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub bookmarks: Vec<f32>,
+    pub bookmarks: Vec<f64>,
     pub finished: bool,
 }
 
 impl ReaderInfo {
-    // TODO: Find a way to return 1.0 when current_page is the last page?
     pub fn progress(&self) -> f32 {
-        self.current_page / self.pages_count
+        (self.current_page / self.pages_count) as f32
     }
 }
 
@@ -225,7 +224,7 @@ impl Info {
             if r.finished {
                 Status::Finished
             } else {
-                Status::Reading(r.current_page / r.pages_count)
+                Status::Reading((r.current_page / r.pages_count) as f32)
             }
         } else {
             Status::New

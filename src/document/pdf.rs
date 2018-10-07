@@ -149,7 +149,7 @@ impl PdfDocument {
             while !cur.is_null() {
                 let title = CStr::from_ptr((*cur).title).to_string_lossy().into_owned();
                 // TODO: handle page == -1
-                let location = (*cur).page as f32;
+                let location = (*cur).page as f64;
                 let children = if !(*cur).down.is_null() {
                     Self::walk_toc((*cur).down)
                 } else {
@@ -172,13 +172,13 @@ impl Document for PdfDocument {
         self.page(index).map(|page| page.dims())
     }
 
-    fn pages_count(&self) -> f32 {
-        unsafe { mp_count_pages(self.ctx.0, self.doc) as f32 }
+    fn pages_count(&self) -> f64 {
+        unsafe { mp_count_pages(self.ctx.0, self.doc) as f64 }
     }
 
-    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, f32)> {
+    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, f64)> {
         let index = self.resolve_location(loc)? as usize;
-        self.page(index).and_then(|page| page.pixmap(scale)).map(|pixmap| (pixmap, index as f32))
+        self.page(index).and_then(|page| page.pixmap(scale)).map(|pixmap| (pixmap, index as f64))
     }
 
     fn toc(&mut self) -> Option<Vec<TocEntry>> {
@@ -207,7 +207,7 @@ impl Document for PdfDocument {
         }
     }
 
-    fn resolve_location(&mut self, loc: Location) -> Option<f32> {
+    fn resolve_location(&mut self, loc: Location) -> Option<f64> {
         if self.pages_count() < 1.0 {
             return None;
         }
@@ -233,14 +233,14 @@ impl Document for PdfDocument {
         }
     }
 
-    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f32)> {
+    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)> {
         let index = self.resolve_location(loc)? as usize;
-        self.page(index).and_then(|page| page.words()).map(|words| (words, index as f32))
+        self.page(index).and_then(|page| page.words()).map(|words| (words, index as f64))
     }
 
-    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f32)> {
+    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)> {
         let index = self.resolve_location(loc)? as usize;
-        self.page(index).and_then(|page| page.links()).map(|links| (links, index as f32))
+        self.page(index).and_then(|page| page.links()).map(|links| (links, index as f64))
     }
 
     fn title(&self) -> Option<String> {

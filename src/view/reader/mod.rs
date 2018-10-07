@@ -54,8 +54,8 @@ pub struct Reader {
     info: Info,
     doc: Arc<Mutex<Box<Document>>>,
     pixmap: Rc<Pixmap>,
-    current_page: f32,
-    pages_count: f32,
+    current_page: f64,
+    pages_count: f64,
     synthetic: bool,
     page_turns: usize,
     finished: bool,
@@ -66,7 +66,7 @@ pub struct Reader {
     scale: f32,
     focus: Option<ViewId>,
     search: Option<Search>,
-    history: VecDeque<f32>,
+    history: VecDeque<f64>,
 }
 
 #[derive(Debug)]
@@ -80,7 +80,7 @@ struct Search {
 
 #[derive(Debug)]
 struct Highlight {
-    location: f32,
+    location: f64,
     rects: Vec<Rectangle>,
 }
 
@@ -185,7 +185,7 @@ impl Reader {
         })
     }
 
-    pub fn from_toc(rect: Rectangle, toc: &[TocEntry], mut current_page: f32, hub: &Hub, context: &mut Context) -> Reader {
+    pub fn from_toc(rect: Rectangle, toc: &[TocEntry], mut current_page: f64, hub: &Hub, context: &mut Context) -> Reader {
         let html = toc_as_html(toc, current_page);
 
         let info = Info {
@@ -247,7 +247,7 @@ impl Reader {
         }
     }
 
-    fn go_to_page(&mut self, location: f32, record: bool, hub: &Hub) {
+    fn go_to_page(&mut self, location: f64, record: bool, hub: &Hub) {
         let loc = {
             let mut doc = self.doc.lock().unwrap();
             doc.resolve_location(Location::Exact(location))
@@ -1355,13 +1355,13 @@ impl View for Reader {
                         let pdf_page = Regex::new(r"^#(\d+)(?:,\d+,\d+)?$").unwrap();
                         let toc_page = Regex::new(r"^@(.*)$").unwrap();
                         if let Some(caps) = toc_page.captures(&link.text) {
-                            if let Ok(location) = caps[1].parse::<f32>() {
+                            if let Ok(location) = caps[1].parse::<f64>() {
                                 hub.send(Event::Back).unwrap();
                                 hub.send(Event::GoTo(location)).unwrap();
                             }
                         } else if let Some(caps) = pdf_page.captures(&link.text) {
                             if let Ok(index) = caps[1].parse::<usize>() {
-                                self.go_to_page(index.saturating_sub(1) as f32, true, hub);
+                                self.go_to_page(index.saturating_sub(1) as f64, true, hub);
                             }
                         } else {
                             println!("Unrecognized URI: {}.", link.text);
@@ -1491,13 +1491,13 @@ impl View for Reader {
             Event::Submit(ViewId::GoToPageInput, ref text) => {
                 let re = Regex::new(r#"^([-+"])?(.+)$"#).unwrap();
                 if let Some(caps) = re.captures(text) {
-                    if let Ok(mut location) = caps[2].parse::<f32>() {
+                    if let Ok(mut location) = caps[2].parse::<f64>() {
                         if !self.synthetic {
                             match caps.get(1).map(|m| m.as_str()) {
                                 Some("\"") => {
                                     location -= 1.0;
                                     location += self.info.reader.as_ref()
-                                                    .and_then(|r| r.first_page).unwrap_or(0) as f32;
+                                                    .and_then(|r| r.first_page).unwrap_or(0) as f64;
                                 },
                                 Some("-") => location = self.current_page - location,
                                 Some("+") => location += self.current_page,
@@ -1834,7 +1834,7 @@ impl View for Reader {
     }
 }
 
-fn build_pixmap(rect: &Rectangle, doc: &mut Document, location: f32, margin: &Margin) -> ((Pixmap, f32), f32) {
+fn build_pixmap(rect: &Rectangle, doc: &mut Document, location: f64, margin: &Margin) -> ((Pixmap, f64), f32) {
     let (width, height) = doc.dims(location as usize).unwrap();
     let p_width = (1.0 - (margin.left + margin.right)) * width;
     let p_height = (1.0 - (margin.top + margin.bottom)) * height;

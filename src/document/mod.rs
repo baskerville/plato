@@ -21,10 +21,10 @@ use framebuffer::Pixmap;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Location<'a> {
-    Exact(f32),
-    Previous(f32),
-    Next(f32),
-    Uri(f32, &'a str),
+    Exact(f64),
+    Previous(f64),
+    Next(f64),
+    Uri(f64, &'a str),
 }
 
 #[derive(Debug, Clone)]
@@ -36,18 +36,18 @@ pub struct BoundedText {
 #[derive(Debug, Clone)]
 pub struct TocEntry {
     pub title: String,
-    pub location: f32,
+    pub location: f64,
     pub children: Vec<TocEntry>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Neighbors {
-    pub previous_page: Option<f32>,
-    pub next_page: Option<f32>,
+    pub previous_page: Option<f64>,
+    pub next_page: Option<f64>,
 }
 
 
-pub fn toc_as_html(toc: &[TocEntry], location: f32) -> String {
+pub fn toc_as_html(toc: &[TocEntry], location: f64) -> String {
     let chap = chapter_at(toc, location);
     let mut buf = r#"<html>
                          <head>
@@ -78,13 +78,13 @@ pub fn toc_as_html_aux(toc: &[TocEntry], buf: &mut String, chap: Option<&TocEntr
     buf.push_str("</ul>");
 }
 
-pub fn chapter_at(toc: &[TocEntry], location: f32) -> Option<&TocEntry> {
+pub fn chapter_at(toc: &[TocEntry], location: f64) -> Option<&TocEntry> {
     let mut chap = None;
     chapter_at_aux(toc, location, &mut chap);
     chap
 }
 
-fn chapter_at_aux<'a>(toc: &'a [TocEntry], location: f32, chap: &mut Option<&'a TocEntry>) {
+fn chapter_at_aux<'a>(toc: &'a [TocEntry], location: f64, chap: &mut Option<&'a TocEntry>) {
     for entry in toc {
         if entry.location <= location && (chap.is_none() || entry.location > chap.unwrap().location) {
             *chap = Some(entry);
@@ -93,7 +93,7 @@ fn chapter_at_aux<'a>(toc: &'a [TocEntry], location: f32, chap: &mut Option<&'a 
     }
 }
 
-pub fn chapter_relative(toc: &[TocEntry], location: f32, dir: CycleDir) -> Option<f32> {
+pub fn chapter_relative(toc: &[TocEntry], location: f64, dir: CycleDir) -> Option<f64> {
     let mut page = None;
     let chap = chapter_at(toc, location);
     if dir == CycleDir::Next {
@@ -104,7 +104,7 @@ pub fn chapter_relative(toc: &[TocEntry], location: f32, dir: CycleDir) -> Optio
     page
 }
 
-fn chapter_relative_next<'a>(toc: &'a [TocEntry], location: f32, page: &mut Option<f32>, chap: Option<&TocEntry>) {
+fn chapter_relative_next<'a>(toc: &'a [TocEntry], location: f64, page: &mut Option<f64>, chap: Option<&TocEntry>) {
     for entry in toc {
         if entry.location > location && (page.is_none() || entry.location < page.unwrap()) && (chap.is_none() || !ptr::eq(chap.unwrap(), entry)) {
             *page = Some(entry.location);
@@ -114,7 +114,7 @@ fn chapter_relative_next<'a>(toc: &'a [TocEntry], location: f32, page: &mut Opti
     }
 }
 
-fn chapter_relative_prev<'a>(toc: &'a [TocEntry], location: f32, page: &mut Option<f32>, chap: Option<&TocEntry>) {
+fn chapter_relative_prev<'a>(toc: &'a [TocEntry], location: f64, page: &mut Option<f64>, chap: Option<&TocEntry>) {
     for entry in toc.iter().rev() {
         chapter_relative_prev(&entry.children, location, page, chap);
 
@@ -126,14 +126,14 @@ fn chapter_relative_prev<'a>(toc: &'a [TocEntry], location: f32, page: &mut Opti
 
 pub trait Document: Send+Sync {
     fn dims(&self, index: usize) -> Option<(f32, f32)>;
-    fn pages_count(&self) -> f32;
+    fn pages_count(&self) -> f64;
 
     fn toc(&mut self) -> Option<Vec<TocEntry>>;
-    fn resolve_location(&mut self, loc: Location) -> Option<f32>;
-    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f32)>;
-    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f32)>;
+    fn resolve_location(&mut self, loc: Location) -> Option<f64>;
+    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)>;
+    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)>;
 
-    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, f32)>;
+    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, f64)>;
     fn layout(&mut self, width: u32, height: u32, font_size: f32, dpi: u16);
     fn set_font_family(&mut self, family_name: &str, search_path: &str);
     fn set_margin_width(&mut self, width: i32);

@@ -107,13 +107,13 @@ impl Document for DjvuDocument {
         })
     }
 
-    fn pages_count(&self) -> f32 {
-        unsafe { ddjvu_document_get_pagenum(self.doc) as f32 }
+    fn pages_count(&self) -> f64 {
+        unsafe { ddjvu_document_get_pagenum(self.doc) as f64 }
     }
 
-    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, f32)> {
+    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, f64)> {
         let index = self.resolve_location(loc)? as usize;
-        self.page(index).and_then(|page| page.pixmap(scale)).map(|pixmap| (pixmap, index as f32))
+        self.page(index).and_then(|page| page.pixmap(scale)).map(|pixmap| (pixmap, index as f64))
     }
 
     fn toc(&mut self) -> Option<Vec<TocEntry>> {
@@ -133,7 +133,7 @@ impl Document for DjvuDocument {
         }
     }
 
-    fn resolve_location(&mut self, loc: Location) -> Option<f32> {
+    fn resolve_location(&mut self, loc: Location) -> Option<f64> {
         if self.pages_count() < 1.0 {
             return None;
         }
@@ -159,7 +159,7 @@ impl Document for DjvuDocument {
         }
     }
 
-    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f32)> {
+    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)> {
         unsafe {
             let index = self.resolve_location(loc)? as usize;
             let page = self.page(index)?;
@@ -176,12 +176,12 @@ impl Document for DjvuDocument {
                 let mut words = Vec::new();
                 Self::walk_words(exp, height, &mut words);
                 ddjvu_miniexp_release(self.doc, exp);
-                Some((words, index as f32))
+                Some((words, index as f64))
             }
         }
     }
 
-    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f32)> {
+    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)> {
         unsafe {
             let index = self.resolve_location(loc)? as usize;
             let mut exp = ddjvu_document_get_pageanno(self.doc, index as libc::c_int);
@@ -220,7 +220,7 @@ impl Document for DjvuDocument {
                 }
                 libc::free(links as *mut libc::c_void);
                 ddjvu_miniexp_release(self.doc, exp);
-                Some((result, index as f32))
+                Some((result, index as f64))
             }
         }
     }
@@ -338,7 +338,7 @@ impl DjvuDocument {
                 let digits = bytes.iter().map(|v| *v as u8 as char)
                                          .filter(|c| c.is_digit(10))
                                          .collect::<String>();
-                let location = digits.parse::<usize>().unwrap_or(1).saturating_sub(1) as f32;
+                let location = digits.parse::<usize>().unwrap_or(1).saturating_sub(1) as f64;
                 let children = if miniexp_length(itm) > 2 {
                     Self::walk_toc(itm)
                 } else {

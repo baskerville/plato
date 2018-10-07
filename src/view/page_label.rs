@@ -10,13 +10,13 @@ use app::Context;
 pub struct PageLabel {
     rect: Rectangle,
     children: Vec<Box<View>>,
-    current_page: f32,
-    pages_count: f32,
+    current_page: f64,
+    pages_count: f64,
     synthetic: bool,
 }
 
 impl PageLabel {
-    pub fn new(rect: Rectangle, current_page: f32, pages_count: f32, synthetic: bool)  -> PageLabel {
+    pub fn new(rect: Rectangle, current_page: f64, pages_count: f64, synthetic: bool)  -> PageLabel {
         PageLabel {
             rect,
             children: vec![],
@@ -26,7 +26,7 @@ impl PageLabel {
         }
     }
 
-    pub fn update(&mut self, current_page: f32, pages_count: f32, hub: &Hub) {
+    pub fn update(&mut self, current_page: f64, pages_count: f64, hub: &Hub) {
         self.current_page = current_page;
         self.pages_count = pages_count;
         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();

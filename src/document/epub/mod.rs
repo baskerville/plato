@@ -41,8 +41,8 @@ use self::style::{Stylesheet, specified_values};
 use self::css::{CssParser, RuleKind};
 use self::xml::{XmlParser, decode_entities};
 
-const BYTES_PER_PAGE: f32 = 2048.0;
-pub const LOCATION_EPSILON: f32 = 1.0 / BYTES_PER_PAGE;
+const BYTES_PER_PAGE: f64 = 2048.0;
+pub const LOCATION_EPSILON: f64 = 1.0 / BYTES_PER_PAGE;
 const DEFAULT_DPI: u16 = 300;
 const DEFAULT_WIDTH: u32 = 1404;
 const DEFAULT_HEIGHT: u32 = 1872;
@@ -52,7 +52,7 @@ const VIEWER_STYLESHEET: &str = "css/epub.css";
 const USER_STYLESHEET: &str = "user.css";
 
 type Page = Vec<DrawCommand>;
-type UriCache = FnvHashMap<String, f32>;
+type UriCache = FnvHashMap<String, f64>;
 
 // TODO: Add min_font_size.
 pub struct EpubDocument {
@@ -81,13 +81,13 @@ struct Chunk {
 }
 
 #[inline]
-fn offset_from_location(l: f32) -> usize {
+fn offset_from_location(l: f64) -> usize {
     (l * BYTES_PER_PAGE).round() as usize
 }
 
 #[inline]
-fn location_from_offset(o: usize) -> f32 {
-    o as f32 / BYTES_PER_PAGE
+fn location_from_offset(o: usize) -> f64 {
+    o as f64 / BYTES_PER_PAGE
 }
 
 unsafe impl Send for EpubDocument {}
@@ -299,7 +299,7 @@ impl EpubDocument {
         })
     }
 
-    fn resolve_link(&mut self, uri: &str, cache: &mut UriCache) -> Option<f32> {
+    fn resolve_link(&mut self, uri: &str, cache: &mut UriCache) -> Option<f64> {
         let frag_index_opt = uri.find('#');
         let name = &uri[..frag_index_opt.unwrap_or_else(|| uri.len())];
 
@@ -315,7 +315,7 @@ impl EpubDocument {
             self.cache_uris(&root, name, start_offset, cache);
             cache.get(uri).cloned()
         } else {
-            let location = start_offset as f32 / BYTES_PER_PAGE;
+            let location = start_offset as f64 / BYTES_PER_PAGE;
             // let page_index = self.page_index(offset, index, start_offset)?;
             cache.insert(uri.to_string(), location);
             Some(location)
@@ -324,7 +324,7 @@ impl EpubDocument {
 
     fn cache_uris(&mut self, node: &Node, name: &str, start_offset: usize, cache: &mut UriCache) {
         if let Some(id) = node.attr("id") {
-            let location = (start_offset + node.offset()) as f32 / BYTES_PER_PAGE;
+            let location = (start_offset + node.offset()) as f64 / BYTES_PER_PAGE;
             cache.insert(format!("{}#{}", name, id), location);
         }
         if let Some(children) = node.children() {
@@ -334,7 +334,7 @@ impl EpubDocument {
         }
     }
 
-    fn images(&mut self, loc: Location) -> Option<(Vec<Rectangle>, f32)> {
+    fn images(&mut self, loc: Location) -> Option<(Vec<Rectangle>, f64)> {
         if self.spine.is_empty() {
             return None;
         }
@@ -1628,9 +1628,9 @@ impl Document for EpubDocument {
         Some((self.dims.0 as f32, self.dims.1 as f32))
     }
 
-    fn pages_count(&self) -> f32 {
+    fn pages_count(&self) -> f64 {
         let total_size: usize = self.spine.iter().map(|c| c.size).sum();
-        total_size as f32 / BYTES_PER_PAGE
+        total_size as f64 / BYTES_PER_PAGE
     }
 
     fn toc(&mut self) -> Option<Vec<TocEntry>> {
@@ -1661,7 +1661,7 @@ impl Document for EpubDocument {
         })
     }
 
-    fn resolve_location(&mut self, loc: Location) -> Option<f32> {
+    fn resolve_location(&mut self, loc: Location) -> Option<f64> {
         if self.fonts.is_none() {
             self.fonts = default_fonts().ok();
         }
@@ -1731,7 +1731,7 @@ impl Document for EpubDocument {
         }
     }
 
-    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f32)> {
+    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)> {
         if self.spine.is_empty() {
             return None;
         }
@@ -1756,7 +1756,7 @@ impl Document for EpubDocument {
         })
     }
 
-    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f32)> {
+    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)> {
         if self.spine.is_empty() {
             return None;
         }
@@ -1782,7 +1782,7 @@ impl Document for EpubDocument {
         })
     }
 
-    fn pixmap(&mut self, loc: Location, _scale: f32) -> Option<(Pixmap, f32)> {
+    fn pixmap(&mut self, loc: Location, _scale: f32) -> Option<(Pixmap, f64)> {
         if self.spine.is_empty() {
             return None;
         }
