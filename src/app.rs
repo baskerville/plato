@@ -70,6 +70,12 @@ struct Task {
     chan: Receiver<()>,
 }
 
+impl Task {
+    fn has_occurred(&self) -> bool {
+        self.chan.try_recv() == Ok(())
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum TaskId {
     PrepareSuspend,
@@ -363,7 +369,17 @@ pub fn run() -> Result<(), Error> {
                             view.handle_event(&Event::Reseed, &tx, &mut bus, &mut context);
                         } else {
                             context.plugged = false;
-                            tx.send(Event::BatteryTick).unwrap();
+                            if tasks.iter().any(|task| task.id == TaskId::Suspend && task.has_occurred()) {
+                                if context.covered {
+                                    tasks.retain(|task| task.id != TaskId::Suspend);
+                                    schedule_task(TaskId::Suspend, Event::Suspend,
+                                                  SUSPEND_WAIT_DELAY, &tx, &mut tasks);
+                                } else {
+                                    resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut context);
+                                }
+                            } else {
+                                tx.send(Event::BatteryTick).unwrap();
+                            }
                         }
                     },
                     _ => {
