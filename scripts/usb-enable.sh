@@ -34,7 +34,6 @@ case "$PLATFORM" in
 	*)
 		MODULE_PARAMETERS="vendor=${VENDOR_ID} product=${PRODUCT_ID} vendor_id=Kobo product_id=eReader-${FIRMWARE_VERSION} SN=${SERIAL_NUMBER}"
 		if [ -e "$GADGETS"/arcotg_udc.ko ] ; then
-			# shellcheck disable=SC2086
 			insmod "$GADGETS"/arcotg_udc.ko
 			sleep 2
 		fi
