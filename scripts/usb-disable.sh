@@ -3,7 +3,17 @@
 lsmod | grep -q g_file_storage || exit 1
 
 rmmod g_file_storage
-lsmod | grep -q arcotg_udc && rmmod arcotg_udc
+
+case "$PLATFORM" in
+	mx6[su]ll-ntx)
+		rmmod usb_f_mass_storage
+		rmmod libcomposite
+		rmmod configfs
+		;;
+	*)
+		lsmod | grep -q arcotg_udc && rmmod arcotg_udc
+		;;
+esac
 
 sleep 1
 
