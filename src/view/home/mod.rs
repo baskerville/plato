@@ -1186,6 +1186,13 @@ impl View for Home {
                 self.set_current_page(dir, hub);
                 true
             },
+            Event::ToggleFrontlight => {
+                if let Some(index) = locate::<TopBar>(self) {
+                    self.child_mut(index).downcast_mut::<TopBar>().unwrap()
+                        .update_frontlight_icon(hub, context);
+                }
+                true
+            },
             Event::Reseed => {
                 self.reseed(false, hub, context);
                 true

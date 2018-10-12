@@ -32,6 +32,7 @@ pub const SYN_REPORT: u16 = 0;
 
 pub const KEY_POWER: u16 = 116;
 pub const KEY_HOME: u16 = 102;
+pub const KEY_LIGHT: u16 = 90;
 pub const SLEEP_COVER: u16 = 59;
 
 pub const SINGLE_TOUCH_CODES: TouchCodes = TouchCodes {
@@ -91,6 +92,7 @@ pub enum ButtonStatus {
 pub enum ButtonCode {
     Power,
     Home,
+    Light,
     Raw(u16),
 }
 
@@ -100,6 +102,8 @@ impl ButtonCode {
             ButtonCode::Power
         } else if code == KEY_HOME {
             ButtonCode::Home
+        } else if code == KEY_LIGHT {
+            ButtonCode::Light
         } else {
             ButtonCode::Raw(code)
         }

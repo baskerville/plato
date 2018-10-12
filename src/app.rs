@@ -254,6 +254,9 @@ pub fn run() -> Result<(), Error> {
                             view.children_mut().push(Box::new(interm) as Box<View>);
                         }
                     },
+                    DeviceEvent::Button { code: ButtonCode::Light, status: ButtonStatus::Pressed, .. } => {
+                        tx.send(Event::ToggleFrontlight).unwrap();
+                    },
                     DeviceEvent::CoverOn => {
                         context.covered = true;
 
@@ -494,6 +497,7 @@ pub fn run() -> Result<(), Error> {
                     context.frontlight.set_warmth(0.0);
                     context.frontlight.set_intensity(0.0);
                 }
+                view.handle_event(&Event::ToggleFrontlight, &tx, &mut bus, &mut context);
             },
             Event::Render(mut rect, mode) => {
                 render(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);

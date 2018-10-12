@@ -103,12 +103,6 @@ impl View for Icon {
                 match self.event {
                     Event::Page(dir) => bus.push_back(Event::Chapter(dir)),
                     Event::Show(ViewId::Frontlight) => {
-                        self.name = if context.settings.frontlight {
-                            "frontlight-disabled".to_string()
-                        } else {
-                            "frontlight".to_string()
-                        };
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                         hub.send(Event::ToggleFrontlight).unwrap();
                     },
                     Event::Show(ViewId::MarginCropper) => {

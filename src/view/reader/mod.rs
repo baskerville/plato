@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::collections::VecDeque;
 use chrono::Local;
 use regex::Regex;
-use input::FingerStatus;
+use input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use framebuffer::{Framebuffer, UpdateMode, Pixmap};
 use view::{View, Event, Hub, ViewId, EntryKind, EntryId, SliderId, Bus, THICKNESS_MEDIUM};
 use unit::{scale_by_dpi, mm_to_px};
@@ -345,6 +345,7 @@ impl Reader {
                             self.children.push(Box::new(notif) as Box<View>);
                         },
                         FinishedAction::Close => {
+                            self.quit(context);
                             hub.send(Event::Back).unwrap();
                         },
                     }
@@ -1356,6 +1357,7 @@ impl View for Reader {
                         let toc_page = Regex::new(r"^@(.*)$").unwrap();
                         if let Some(caps) = toc_page.captures(&link.text) {
                             if let Ok(location) = caps[1].parse::<f64>() {
+                                self.quit(context);
                                 hub.send(Event::Back).unwrap();
                                 hub.send(Event::GoTo(location)).unwrap();
                             }
@@ -1383,6 +1385,7 @@ impl View for Reader {
                     } else if center.y > self.rect.max.y - dx {
                         if self.search.is_none() {
                             if self.ephemeral {
+                                self.quit(context);
                                 hub.send(Event::Back).unwrap();
                             } else {
                                 hub.send(Event::Show(ViewId::TableOfContents)).unwrap();
@@ -1744,6 +1747,18 @@ impl View for Reader {
             },
             Event::Reseed => {
                 self.reseed(hub, context);
+                true
+            },
+            Event::ToggleFrontlight => {
+                if let Some(index) = locate::<TopBar>(self) {
+                    self.child_mut(index).downcast_mut::<TopBar>().unwrap()
+                        .update_frontlight_icon(hub, context);
+                }
+                true
+            },
+            Event::Device(DeviceEvent::Button { code: ButtonCode::Home, status: ButtonStatus::Pressed, .. }) => {
+                self.quit(context);
+                hub.send(Event::Back).unwrap();
                 true
             },
             Event::Select(EntryId::Quit) |
