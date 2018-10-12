@@ -35,7 +35,7 @@ pub struct Settings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct ImportSettings {
-    pub unmount_trigger: bool,
+    pub unshare_trigger: bool,
     pub allowed_kinds: FnvHashSet<String>,
 }
 
@@ -107,7 +107,7 @@ impl Default for ReaderSettings {
 impl Default for ImportSettings {
     fn default() -> Self {
         ImportSettings {
-            unmount_trigger: true,
+            unshare_trigger: true,
             allowed_kinds: ["pdf", "djvu", "epub",
                             "fb2", "cbz"].iter().map(|k| k.to_string()).collect(),
         }

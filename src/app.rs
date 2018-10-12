@@ -14,7 +14,7 @@ use view::{render, render_no_wait, handle_event, fill_crack};
 use view::common::{locate, locate_by_id, overlapping_rectangle};
 use view::frontlight::FrontlightWindow;
 use view::menu::{Menu, MenuKind};
-use input::{DeviceEvent, ButtonCode, ButtonStatus};
+use input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus};
 use input::{raw_events, device_events, usb_events};
 use gesture::{GestureEvent, gesture_events};
 use helpers::{load_json, save_json, load_toml, save_toml};
@@ -51,7 +51,7 @@ pub struct Context {
     pub monochrome: bool,
     pub plugged: bool,
     pub covered: bool,
-    pub mounted: bool,
+    pub shared: bool,
 }
 
 impl Context {
@@ -61,7 +61,7 @@ impl Context {
         Context { settings, metadata, filename, fonts, battery,
                   frontlight, lightsensor, notification_index: 0,
                   inverted: false, monochrome: false, plugged: false,
-                  covered: false, mounted: false }
+                  covered: false, shared: false }
     }
 }
 
@@ -238,7 +238,7 @@ pub fn run() -> Result<(), Error> {
             Event::Device(de) => {
                 match de {
                     DeviceEvent::Button { code: ButtonCode::Power, status: ButtonStatus::Released, .. } => {
-                        if context.mounted || context.covered {
+                        if context.shared || context.covered {
                             continue;
                         }
 
@@ -257,7 +257,7 @@ pub fn run() -> Result<(), Error> {
                     DeviceEvent::CoverOn => {
                         context.covered = true;
 
-                        if context.mounted || tasks.iter().any(|task| task.id == TaskId::PrepareSuspend ||
+                        if context.shared || tasks.iter().any(|task| task.id == TaskId::PrepareSuspend ||
                                                                       task.id == TaskId::Suspend) {
                             continue;
                         }
@@ -271,7 +271,7 @@ pub fn run() -> Result<(), Error> {
                     DeviceEvent::CoverOff => {
                         context.covered = false;
 
-                        if context.mounted {
+                        if context.shared {
                             continue;
                         }
 
@@ -295,7 +295,7 @@ pub fn run() -> Result<(), Error> {
                                                       &tx);
                         view.children_mut().push(Box::new(notif) as Box<View>);
                     },
-                    DeviceEvent::Plug => {
+                    DeviceEvent::Plug(power_source) => {
                         if context.plugged {
                             continue;
                         }
@@ -306,27 +306,40 @@ pub fn run() -> Result<(), Error> {
                             continue;
                         }
 
-                        if tasks.iter().any(|task| task.id == TaskId::PrepareSuspend) {
-                            resume(TaskId::PrepareSuspend, &mut tasks, view.as_mut(), &tx, &mut context);
-                        } else if tasks.iter().any(|task| task.id == TaskId::Suspend) {
-                            resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut context);
+                        match power_source {
+                            PowerSource::Wall => {
+                                if tasks.iter().any(|task| task.id == TaskId::Suspend && task.has_occurred()) {
+                                    tasks.retain(|task| task.id != TaskId::Suspend);
+                                    schedule_task(TaskId::Suspend, Event::Suspend,
+                                                  SUSPEND_WAIT_DELAY, &tx, &mut tasks);
+                                    continue;
+                                }
+                            },
+                            PowerSource::Host => {
+                                if tasks.iter().any(|task| task.id == TaskId::PrepareSuspend) {
+                                    resume(TaskId::PrepareSuspend, &mut tasks, view.as_mut(), &tx, &mut context);
+                                } else if tasks.iter().any(|task| task.id == TaskId::Suspend) {
+                                    resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut context);
+                                }
+
+                                let confirm = Confirmation::new(ViewId::ConfirmShare,
+                                                                Event::PrepareShare,
+                                                                "Share storage via USB?".to_string(),
+                                                                &mut context.fonts);
+                                tx.send(Event::Render(*confirm.rect(), UpdateMode::Gui)).unwrap();
+                                view.children_mut().push(Box::new(confirm) as Box<View>);
+                            },
                         }
 
-                        let confirm = Confirmation::new(ViewId::ConfirmMount,
-                                                        Event::PrepareMount,
-                                                        "Mount onboard and external cards?".to_string(),
-                                                        &mut context.fonts);
-                        tx.send(Event::Render(*confirm.rect(), UpdateMode::Gui)).unwrap();
                         tx.send(Event::BatteryTick).unwrap();
-                        view.children_mut().push(Box::new(confirm) as Box<View>);
                     },
-                    DeviceEvent::Unplug => {
+                    DeviceEvent::Unplug(..) => {
                         if !context.plugged {
                             continue;
                         }
 
-                        if context.mounted {
-                            context.mounted = false;
+                        if context.shared {
+                            context.shared = false;
                             Command::new("scripts/usb-disable.sh").status().ok();
                             let path = Path::new(SETTINGS_PATH);
                             if let Ok(settings) = load_toml::<Settings, _>(path)
@@ -358,7 +371,7 @@ pub fn run() -> Result<(), Error> {
                             if !metadata.is_empty() {
                                 context.metadata = metadata;
                             }
-                            if context.settings.import.unmount_trigger {
+                            if context.settings.import.unshare_trigger {
                                 let metadata = auto_import(&context.settings.library_path,
                                                            &context.metadata,
                                                            &context.settings.import.allowed_kinds);
@@ -418,8 +431,8 @@ pub fn run() -> Result<(), Error> {
                         .status()
                         .ok();
             },
-            Event::PrepareMount => {
-                if context.mounted {
+            Event::PrepareShare => {
+                if context.shared {
                     continue;
                 }
 
@@ -440,17 +453,17 @@ pub fn run() -> Result<(), Error> {
                             .status()
                             .ok();
                 }
-                let interm = Intermission::new(fb_rect, "Mounted".to_string(), false);
+                let interm = Intermission::new(fb_rect, "Shared".to_string(), false);
                 tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
                 view.children_mut().push(Box::new(interm) as Box<View>);
-                tx.send(Event::Mount).unwrap();
+                tx.send(Event::Share).unwrap();
             },
-            Event::Mount => {
-                if context.mounted {
+            Event::Share => {
+                if context.shared {
                     continue;
                 }
 
-                context.mounted = true;
+                context.shared = true;
                 Command::new("scripts/usb-enable.sh").status().ok();
             },
             Event::Gesture(ge) => {

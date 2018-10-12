@@ -119,11 +119,17 @@ pub enum DeviceEvent {
         code: ButtonCode,
         status: ButtonStatus,
     },
-    Plug,
-    Unplug,
+    Plug(PowerSource),
+    Unplug(PowerSource),
     CoverOn,
     CoverOff,
     NetUp,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PowerSource {
+    Host,
+    Wall,
 }
 
 pub fn seconds(time: libc::timeval) -> f64 {
@@ -209,9 +215,13 @@ fn parse_usb_events(tx: &Sender<DeviceEvent>) {
                 if let Ok(s) = buf.to_str() {
                     for msg in s[..n as usize].lines() {
                         if msg == "usb plug add" {
-                            tx.send(DeviceEvent::Plug).unwrap();
+                            tx.send(DeviceEvent::Plug(PowerSource::Host)).unwrap();
                         } else if msg == "usb plug remove" {
-                            tx.send(DeviceEvent::Unplug).unwrap();
+                            tx.send(DeviceEvent::Unplug(PowerSource::Host)).unwrap();
+                        } else if msg == "usb ac add" {
+                            tx.send(DeviceEvent::Plug(PowerSource::Wall)).unwrap();
+                        } else if msg == "usb ac remove" {
+                            tx.send(DeviceEvent::Unplug(PowerSource::Wall)).unwrap();
                         } else if msg.starts_with("network bound") {
                             tx.send(DeviceEvent::NetUp).unwrap();
                         }
