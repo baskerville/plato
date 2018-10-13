@@ -23,6 +23,7 @@ use settings::{Settings, SETTINGS_PATH};
 use frontlight::{Frontlight, NaturalFrontlight, StandardFrontlight};
 use lightsensor::{LightSensor, KoboLightSensor};
 use battery::{Battery, KoboBattery};
+use geom::Rectangle;
 use view::home::Home;
 use view::reader::Reader;
 use view::confirmation::Confirmation;
@@ -78,6 +79,7 @@ impl Task {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum TaskId {
+    CheckBattery,
     PrepareSuspend,
     Suspend,
 }
@@ -162,6 +164,20 @@ fn resume(id: TaskId, tasks: &mut Vec<Task>, view: &mut View, hub: &Sender<Event
     }
 }
 
+fn power_off(history: &mut Vec<Box<View>>, fb: &mut Framebuffer, updating: &mut FnvHashMap<u32, Rectangle>, context: &mut Context) {
+    let (tx, rx) = mpsc::channel();
+    while let Some(mut view) = history.pop() {
+        view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), context);
+    }
+    let _ = File::create("poweroff").map_err(|e| {
+        eprintln!("Couldn't create the poweroff file: {}", e);
+    }).ok();
+    let interm = Intermission::new(fb.rect(), "Powered off".to_string(), true);
+    updating.retain(|tok, _| fb.wait(*tok).is_err());
+    interm.render(fb, &mut context.fonts);
+    fb.update(interm.rect(), UpdateMode::Full).ok();
+}
+
 pub fn run() -> Result<(), Error> {
     let mut context = build_context().context("Can't build context.")?;
     let mut fb = KoboFramebuffer::new("/dev/fb0").context("Can't create framebuffer.")?;
@@ -232,6 +248,9 @@ pub fn run() -> Result<(), Error> {
                                                         fb_rect.height());
 
     let mut bus = VecDeque::with_capacity(4);
+
+    schedule_task(TaskId::CheckBattery, Event::CheckBattery,
+                  BATTERY_REFRESH_INTERVAL, &tx, &mut tasks);
 
     while let Ok(evt) = rx.recv() {
         match evt {
@@ -304,6 +323,8 @@ pub fn run() -> Result<(), Error> {
                         }
 
                         context.plugged = true;
+
+                        tasks.retain(|task| task.id != TaskId::CheckBattery);
 
                         if context.covered {
                             continue;
@@ -385,6 +406,8 @@ pub fn run() -> Result<(), Error> {
                             view.handle_event(&Event::Reseed, &tx, &mut bus, &mut context);
                         } else {
                             context.plugged = false;
+                            schedule_task(TaskId::CheckBattery, Event::CheckBattery,
+                                          BATTERY_REFRESH_INTERVAL, &tx, &mut tasks);
                             if tasks.iter().any(|task| task.id == TaskId::Suspend && task.has_occurred()) {
                                 if context.covered {
                                     tasks.retain(|task| task.id != TaskId::Suspend);
@@ -402,6 +425,23 @@ pub fn run() -> Result<(), Error> {
                         handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut context);
                     }
                 }
+            },
+            Event::CheckBattery => {
+                if let Ok(v) = context.battery.capacity() {
+                    if v < context.settings.battery.power_off {
+                        power_off(&mut history, &mut fb, &mut updating, &mut context);
+                        break;
+                    } else if v < context.settings.battery.warn {
+                        let notif = Notification::new(ViewId::LowBatteryNotif,
+                                                      "The battery capacity is getting low.".to_string(),
+                                                      &mut context.notification_index,
+                                                      &mut context.fonts,
+                                                      &tx);
+                        view.children_mut().push(Box::new(notif) as Box<View>);
+                    }
+                }
+                schedule_task(TaskId::CheckBattery, Event::CheckBattery,
+                              BATTERY_REFRESH_INTERVAL, &tx, &mut tasks);
             },
             Event::PrepareSuspend => {
                 tasks.retain(|task| task.id != TaskId::PrepareSuspend);
@@ -472,13 +512,7 @@ pub fn run() -> Result<(), Error> {
             Event::Gesture(ge) => {
                 match ge {
                     GestureEvent::HoldButton(ButtonCode::Power) => {
-                        let _ = File::create("poweroff").map_err(|e| {
-                            eprintln!("Couldn't create the poweroff file: {}", e);
-                        }).ok();
-                        let interm = Intermission::new(fb_rect, "Powered off".to_string(), true);
-                        updating.retain(|tok, _| fb.wait(*tok).is_err());
-                        interm.render(&mut fb, &mut context.fonts);
-                        fb.update(interm.rect(), UpdateMode::Full).ok();
+                        power_off(&mut history, &mut fb, &mut updating, &mut context);
                         break;
                     }
                     _ => {

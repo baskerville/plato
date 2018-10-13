@@ -29,6 +29,7 @@ pub struct Settings {
     pub home: HomeSettings,
     pub reader: ReaderSettings,
     pub import: ImportSettings,
+    pub battery: BatterySettings,
     pub frontlight_levels: LightLevels,
 }
 
@@ -64,6 +65,13 @@ pub struct ReaderSettings {
     pub font_size: f32,
     pub margin_width: i32,
     pub line_height: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct BatterySettings {
+    pub warn: f32,
+    pub power_off: f32,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
@@ -114,6 +122,15 @@ impl Default for ImportSettings {
     }
 }
 
+impl Default for BatterySettings {
+    fn default() -> Self {
+        BatterySettings {
+            warn: 10.0,
+            power_off: 3.0,
+        }
+    }
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {
@@ -123,6 +140,7 @@ impl Default for Settings {
             home: HomeSettings::default(),
             reader: ReaderSettings::default(),
             import: ImportSettings::default(),
+            battery: BatterySettings::default(),
             frontlight_levels: LightLevels::default(),
             frontlight_presets: Vec::new(),
         }

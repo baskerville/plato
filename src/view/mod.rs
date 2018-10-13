@@ -234,6 +234,7 @@ pub enum Event {
     LoadPreset(usize),
     Save,
     Guess,
+    CheckBattery,
     PrepareSuspend,
     Suspend,
     Share,
@@ -281,6 +282,7 @@ pub enum ViewId {
     TakeScreenshotNotif,
     NoSearchResultsNotif,
     InvalidSearchQueryNotif,
+    LowBatteryNotif,
     NetUpNotif,
     SubMenu(u8),
 }
