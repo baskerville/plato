@@ -427,6 +427,12 @@ pub fn run() -> Result<(), Error> {
                 }
             },
             Event::CheckBattery => {
+                schedule_task(TaskId::CheckBattery, Event::CheckBattery,
+                              BATTERY_REFRESH_INTERVAL, &tx, &mut tasks);
+                if tasks.iter().any(|task| task.id == TaskId::PrepareSuspend ||
+                                           task.id == TaskId::Suspend) {
+                    continue;
+                }
                 if let Ok(v) = context.battery.capacity() {
                     if v < context.settings.battery.power_off {
                         power_off(&mut history, &mut fb, &mut updating, &mut context);
@@ -440,8 +446,6 @@ pub fn run() -> Result<(), Error> {
                         view.children_mut().push(Box::new(notif) as Box<View>);
                     }
                 }
-                schedule_task(TaskId::CheckBattery, Event::CheckBattery,
-                              BATTERY_REFRESH_INTERVAL, &tx, &mut tasks);
             },
             Event::PrepareSuspend => {
                 tasks.retain(|task| task.id != TaskId::PrepareSuspend);
