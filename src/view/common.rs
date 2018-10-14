@@ -1,4 +1,5 @@
 use std::env;
+use chrono::Local;
 use framebuffer::UpdateMode;
 use geom::{Point, Rectangle};
 use super::{View, Event, Hub, ViewId, EntryId, EntryKind};
@@ -70,5 +71,52 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
         let main_menu = Menu::new(rect, ViewId::MainMenu, MenuKind::DropDown, entries, fonts);
         hub.send(Event::Render(*main_menu.rect(), UpdateMode::Gui)).unwrap();
         view.children_mut().push(Box::new(main_menu) as Box<View>);
+    }
+}
+
+pub fn toggle_battery_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+    let fonts = &mut context.fonts;
+
+    if let Some(index) = locate_by_id(view, ViewId::BatteryMenu) {
+        if let Some(true) = enable {
+            return;
+        }
+        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).unwrap();
+        view.children_mut().remove(index);
+    } else {
+        if let Some(false) = enable {
+            return;
+        }
+        let text = match (context.battery.status(), context.battery.capacity()) {
+            (Ok(status), Ok(capacity)) => format!("{:?} {}%", status, capacity),
+            (Ok(status), Err(..)) => format!("{:?}", status),
+            (Err(..), Ok(capacity)) => format!("{} %", capacity),
+            _ => "Unknown".to_string(),
+        };
+        let entries = vec![EntryKind::Message(text)];
+        let battery_menu = Menu::new(rect, ViewId::BatteryMenu, MenuKind::DropDown, entries, fonts);
+        hub.send(Event::Render(*battery_menu.rect(), UpdateMode::Gui)).unwrap();
+        view.children_mut().push(Box::new(battery_menu) as Box<View>);
+    }
+}
+
+pub fn toggle_clock_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+    let fonts = &mut context.fonts;
+
+    if let Some(index) = locate_by_id(view, ViewId::ClockMenu) {
+        if let Some(true) = enable {
+            return;
+        }
+        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).unwrap();
+        view.children_mut().remove(index);
+    } else {
+        if let Some(false) = enable {
+            return;
+        }
+        let text = Local::now().format("%A, %B %-m, %Y").to_string();
+        let entries = vec![EntryKind::Message(text)];
+        let clock_menu = Menu::new(rect, ViewId::ClockMenu, MenuKind::DropDown, entries, fonts);
+        hub.send(Event::Render(*clock_menu.rect(), UpdateMode::Gui)).unwrap();
+        view.children_mut().push(Box::new(clock_menu) as Box<View>);
     }
 }

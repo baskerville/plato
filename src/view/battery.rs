@@ -2,9 +2,10 @@ use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, UpdateMode};
 use geom::{Rectangle, BorderSpec, CornerSpec};
 use color::{BLACK, WHITE, BATTERY_FILL};
-use super::{View, Event, Hub, Bus};
+use super::{View, ViewId, Event, Hub, Bus};
 use super::THICKNESS_LARGE;
 use super::icon::ICONS_PIXMAPS;
+use gesture::GestureEvent;
 use battery::Status;
 use unit::scale_by_dpi;
 use font::Fonts;
@@ -35,12 +36,16 @@ impl Battery {
 }
 
 impl View for Battery {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
             Event::BatteryTick => {
                 self.capacity = context.battery.capacity().unwrap_or(self.capacity);
                 self.status = context.battery.status().unwrap_or(self.status);
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                true
+            },
+            Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
+                bus.push_back(Event::ToggleNear(ViewId::BatteryMenu, self.rect));
                 true
             },
             _ => false,

@@ -25,7 +25,8 @@ use view::filler::Filler;
 use self::top_bar::TopBar;
 use self::summary::Summary;
 use self::shelf::Shelf;
-use view::common::{shift, locate, locate_by_id, toggle_main_menu};
+use view::common::{shift, locate, locate_by_id};
+use view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
 use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use view::named_input::NamedInput;
 use view::menu::{Menu, MenuKind};
@@ -1022,6 +1023,14 @@ impl View for Home {
             },
             Event::ToggleNear(ViewId::MainMenu, rect) => {
                 toggle_main_menu(self, rect, None, hub, context);
+                true
+            },
+            Event::ToggleNear(ViewId::BatteryMenu, rect) => {
+                toggle_battery_menu(self, rect, None, hub, context);
+                true
+            },
+            Event::ToggleNear(ViewId::ClockMenu, rect) => {
+                toggle_clock_menu(self, rect, None, hub, context);
                 true
             },
             Event::ToggleNear(ViewId::MatchesMenu, rect) => {

@@ -1,5 +1,5 @@
-use super::{Battery, Status};
 use failure::Error;
+use super::{Battery, Status};
 
 pub struct FakeBattery {
     capacity: f32,

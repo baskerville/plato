@@ -1,7 +1,8 @@
 use chrono::{Local, DateTime};
 use device::CURRENT_DEVICE;
 use framebuffer::{Framebuffer, UpdateMode};
-use super::{View, Event, Hub, Bus};
+use super::{View, ViewId, Event, Hub, Bus};
+use gesture::GestureEvent;
 use font::{Fonts, font_from_style, NORMAL_STYLE};
 use color::{BLACK, WHITE};
 use geom::{Rectangle};
@@ -27,11 +28,15 @@ impl Clock {
 }
 
 impl View for Clock {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
             Event::ClockTick => {
                 self.time = Local::now();
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                true
+            },
+            Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
+                bus.push_back(Event::ToggleNear(ViewId::ClockMenu, self.rect));
                 true
             },
             _ => false,

@@ -27,7 +27,8 @@ use self::top_bar::TopBar;
 use self::tool_bar::ToolBar;
 use self::bottom_bar::BottomBar;
 use self::results_bar::ResultsBar;
-use view::common::{locate, locate_by_id, toggle_main_menu, shift};
+use view::common::{locate, locate_by_id, shift};
+use view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
 use view::filler::Filler;
 use view::named_input::NamedInput;
 use view::search_bar::SearchBar;
@@ -1575,6 +1576,14 @@ impl View for Reader {
             },
             Event::ToggleNear(ViewId::MainMenu, rect) => {
                 toggle_main_menu(self, rect, None, hub, context);
+                true
+            },
+            Event::ToggleNear(ViewId::BatteryMenu, rect) => {
+                toggle_battery_menu(self, rect, None, hub, context);
+                true
+            },
+            Event::ToggleNear(ViewId::ClockMenu, rect) => {
+                toggle_clock_menu(self, rect, None, hub, context);
                 true
             },
             Event::ToggleNear(ViewId::MarginCropperMenu, rect) => {

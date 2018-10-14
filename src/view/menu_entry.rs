@@ -84,6 +84,9 @@ impl View for MenuEntry {
                     EntryKind::SubMenu(_, ref entries) => {
                         bus.push_back(Event::SubMenu(self.anchor, entries.clone()));
                     },
+                    EntryKind::Message(_) => {
+                        bus.push_back(Event::Validate);
+                    },
                     _ => (),
                 };
                 true
