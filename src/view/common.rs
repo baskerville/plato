@@ -113,7 +113,7 @@ pub fn toggle_clock_menu(view: &mut View, rect: Rectangle, enable: Option<bool>,
         if let Some(false) = enable {
             return;
         }
-        let text = Local::now().format("%A, %B %-m, %Y").to_string();
+        let text = Local::now().format("%A, %B %-d, %Y").to_string();
         let entries = vec![EntryKind::Message(text)];
         let clock_menu = Menu::new(rect, ViewId::ClockMenu, MenuKind::DropDown, entries, fonts);
         hub.send(Event::Render(*clock_menu.rect(), UpdateMode::Gui)).unwrap();
