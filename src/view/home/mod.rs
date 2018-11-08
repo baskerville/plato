@@ -501,10 +501,7 @@ impl Home {
         let dpi = CURRENT_DEVICE.dpi;
         let (_, height) = CURRENT_DEVICE.dims;
         let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
-
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
-        let small_thickness = small_half(thickness);
-
         let delta_y = (big_height - small_height) as i32;
         let search_visible: bool;
 
@@ -539,7 +536,7 @@ impl Home {
 
             let search_bar = SearchBar::new(rect![self.rect.min.x, sp_rect.max.y,
                                                   self.rect.max.x,
-                                                  sp_rect.max.y + small_height as i32 - small_thickness],
+                                                  sp_rect.max.y + small_height as i32 - thickness],
                                             "Title, author, category",
                                             "");
 
