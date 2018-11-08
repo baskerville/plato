@@ -140,6 +140,22 @@ impl View for ResultsBar {
     fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
     }
 
+    fn resize(&mut self, rect: Rectangle, context: &mut Context) {
+        let side = rect.height() as i32;
+        let (small_half_width, big_half_width) = halves(rect.width() as i32 - 2 * side);
+        let prev_rect = rect![rect.min, rect.min + side];
+        self.children[0].resize(prev_rect, context);
+        self.children[1].resize(rect![pt!(rect.min.x + side, rect.min.y),
+                                      pt!(rect.min.x + side + small_half_width, rect.max.y)],
+                                context);
+        self.children[2].resize(rect![pt!(rect.max.x - side - big_half_width, rect.min.y),
+                                      pt!(rect.max.x - side, rect.max.y)],
+                                context);
+        let next_rect = rect![rect.max - side, rect.max];
+        self.children[3].resize(next_rect, context);
+        self.rect = rect;
+    }
+
     fn rect(&self) -> &Rectangle {
         &self.rect
     }

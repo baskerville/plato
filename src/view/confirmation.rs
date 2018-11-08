@@ -24,12 +24,12 @@ pub struct Confirmation {
 }
 
 impl Confirmation {
-    pub fn new(id: ViewId, event: Event, text: String, fonts: &mut Fonts) -> Confirmation {
+    pub fn new(id: ViewId, event: Event, text: String, context: &mut Context) -> Confirmation {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
-        let (width, height) = CURRENT_DEVICE.dims;
+        let (width, height) = context.display.dims;
 
-        let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
+        let font = font_from_style(&mut context.fonts, &NORMAL_STYLE, dpi);
         let x_height = font.x_heights.0 as i32;
         let padding = font.em() as i32;
 
@@ -128,6 +128,49 @@ impl View for Confirmation {
                                               &BorderSpec { thickness: border_thickness,
                                                             color: BLACK },
                                               &WHITE);
+    }
+
+    fn resize(&mut self, _rect: Rectangle, context: &mut Context) {
+        let dpi = CURRENT_DEVICE.dpi;
+        let (width, height) = context.display.dims;
+        let dialog_width = self.rect.width() as i32;
+        let dialog_height = self.rect.height() as i32;
+        let max_button_width = width as i32 / 4;
+        let (x_height, padding, button_width) = {
+            let font = font_from_style(&mut context.fonts, &NORMAL_STYLE, dpi);
+            let plan_cancel = font.plan(LABEL_CANCEL, Some(max_button_width as u32), None);
+            let plan_validate = font.plan(LABEL_VALIDATE, Some(max_button_width as u32), None);
+            let x_height = font.x_heights.0 as i32;
+            let padding = font.em() as i32;
+            let button_width = plan_validate.width.max(plan_cancel.width) as i32 + padding;
+            (x_height, padding, button_width)
+        };
+        let button_height = 4 * x_height;
+
+        let dx = (width as i32 - dialog_width) / 2;
+        let dy = (height as i32 - dialog_height) / 2;
+        let rect = rect![dx, dy,
+                         dx + dialog_width, dy + dialog_height];
+
+        let label_rect = rect![rect.min.x + padding,
+                               rect.min.y + padding,
+                               rect.max.x - padding,
+                               rect.min.y + padding + button_height];
+
+        let cancel_rect = rect![rect.min.x + padding,
+                                rect.max.y - button_height - padding,
+                                rect.min.x + button_width + 2 * padding,
+                                rect.max.y - padding];
+
+        let validate_rect = rect![rect.max.x - button_width - 2 * padding,
+                                  rect.max.y - button_height - padding,
+                                  rect.max.x - padding,
+                                  rect.max.y - padding];
+
+        self.children[0].resize(label_rect, context);
+        self.children[1].resize(cancel_rect, context);
+        self.children[2].resize(validate_rect, context);
+        self.rect = rect;
     }
 
     fn is_background(&self) -> bool {

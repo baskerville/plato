@@ -37,14 +37,14 @@ impl BottomBar {
         }
 
         let (small_half_width, big_half_width) = halves(rect.width() as i32 - 2 * side);
-        let matches_label = MatchesLabel::new(rect![pt!(rect.min.x + side, rect.min.y),
-                                                    pt!(rect.min.x + side + small_half_width, rect.max.y)],
+        let matches_label = MatchesLabel::new(rect![rect.min.x + side, rect.min.y,
+                                                    rect.min.x + side + small_half_width, rect.max.y],
                                               count,
                                               filter);
         children.push(Box::new(matches_label) as Box<View>);
 
-        let page_label = PageLabel::new(rect![pt!(rect.max.x - side - big_half_width, rect.min.y),
-                                              pt!(rect.max.x - side, rect.max.y)],
+        let page_label = PageLabel::new(rect![rect.max.x - side - big_half_width, rect.min.y,
+                                              rect.max.x - side, rect.max.y],
                                         current_page as f64,
                                         pages_count as f64,
                                         false);
@@ -125,6 +125,23 @@ impl View for BottomBar {
     }
 
     fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    }
+
+    fn resize(&mut self, rect: Rectangle, context: &mut Context) {
+        let side = rect.height() as i32;
+        let prev_rect = rect![rect.min, rect.min + side];
+        self.children[0].resize(prev_rect, context);
+        let (small_half_width, big_half_width) = halves(rect.width() as i32 - 2 * side);
+        let matches_label_rect = rect![rect.min.x + side, rect.min.y,
+                                       rect.min.x + side + small_half_width, rect.max.y];
+        self.children[1].resize(matches_label_rect, context);
+        let page_label_rect = rect![rect.max.x - side - big_half_width, rect.min.y,
+                                    rect.max.x - side, rect.max.y];
+
+        self.children[2].resize(page_label_rect, context);
+        let next_rect = rect![rect.max - side, rect.max];
+        self.children[3].resize(next_rect, context);
+        self.rect = rect;
     }
 
     fn rect(&self) -> &Rectangle {

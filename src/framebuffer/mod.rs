@@ -9,6 +9,12 @@ use geom::{CornerSpec, BorderSpec, ColorSource, Vec2};
 pub use self::kobo::KoboFramebuffer;
 pub use self::image::Pixmap;
 
+#[derive(Debug, Copy, Clone)]
+pub struct Display {
+    pub dims: (u32, u32),
+    pub rotation: i8,
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum UpdateMode {
     Gui,
@@ -19,15 +25,19 @@ pub enum UpdateMode {
 }
 
 pub trait Framebuffer {
-    // TODO: i32 instead of u32
     fn set_pixel(&mut self, x: u32, y: u32, color: u8);
     fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32);
     fn invert_region(&mut self, rect: &Rectangle);
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32, Error>;
     fn wait(&self, token: u32) -> Result<i32, Error>;
     fn save(&self, path: &str) -> Result<(), Error>;
+    fn set_rotation(&mut self, n: i8) -> Result<(u32, u32), Error>;
     fn toggle_inverted(&mut self);
     fn toggle_monochrome(&mut self);
+
+    fn rotation(&self) -> i8 {
+        0
+    }
 
     fn width(&self) -> u32 {
         let (width, _) = self.dims();

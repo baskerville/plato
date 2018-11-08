@@ -75,6 +75,10 @@ impl Framebuffer for Pixmap {
         Ok(())
     }
 
+    fn set_rotation(&mut self, _n: i8) -> Result<(u32, u32), Error> {
+        Err(format_err!("Unsupported."))
+    }
+
     fn toggle_inverted(&mut self) {
     }
 

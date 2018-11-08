@@ -63,6 +63,17 @@ impl View for LabeledIcon {
     fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
     }
 
+    fn resize(&mut self, rect: Rectangle, context: &mut Context) {
+        let side = rect.height() as i32;
+        self.children[0].resize(rect![rect.min.x, rect.min.y,
+                                      rect.min.x + side, rect.max.y],
+                                context);
+        self.children[1].resize(rect![rect.min.x + side, rect.min.y,
+                                     rect.max.x, rect.max.y],
+                                context);
+        self.rect = rect;
+    }
+
     fn rect(&self) -> &Rectangle {
         &self.rect
     }

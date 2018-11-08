@@ -3,6 +3,7 @@ use font::{Fonts, font_from_style, NORMAL_STYLE};
 use geom::{Rectangle, CornerSpec, BorderSpec, halves, big_half};
 use super::{View, Event, Hub, Bus, ViewId, Align};
 use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
+use super::common::shift;
 use super::label::Label;
 use super::input_field::InputField;
 use unit::scale_by_dpi;
@@ -13,17 +14,18 @@ use app::Context;
 pub struct NamedInput {
     rect: Rectangle,
     children: Vec<Box<View>>,
+    input_size: usize,
     id: ViewId,
 }
 
 impl NamedInput {
-    pub fn new(text: String, id: ViewId, input_id: ViewId, input_size: usize, fonts: &mut Fonts) -> NamedInput {
+    pub fn new(text: String, id: ViewId, input_id: ViewId, input_size: usize, context: &mut Context) -> NamedInput {
         let dpi = CURRENT_DEVICE.dpi;
-        let (width, height) = CURRENT_DEVICE.dims;
+        let (width, height) = context.display.dims;
 
         let input_size = input_size.max(3);
         let mut children = Vec::new();
-        let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
+        let font = font_from_style(&mut context.fonts, &NORMAL_STYLE, dpi);
         let x_height = font.x_heights.0 as i32;
         let padding = font.em() as i32;
 
@@ -71,6 +73,7 @@ impl NamedInput {
         NamedInput {
             rect,
             children,
+            input_size,
             id,
         }
     }
@@ -96,6 +99,14 @@ impl View for NamedInput {
                                               &BorderSpec { thickness: border_thickness,
                                                             color: BLACK },
                                               &WHITE);
+    }
+
+    fn resize(&mut self, _rect: Rectangle, context: &mut Context) {
+        let (width, height) = context.display.dims;
+        let dx = (width as i32 - height as i32) / 2;
+        let dy = (height as i32 - width as i32) / 3;
+        let delta = pt!(dx, dy);
+        shift(self, delta);
     }
 
     fn is_background(&self) -> bool {

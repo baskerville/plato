@@ -78,7 +78,7 @@ impl Icon {
 }
 
 impl View for Icon {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, position, .. }) => {
                 match status {
@@ -147,6 +147,13 @@ impl View for Icon {
         }
 
         fb.draw_blended_pixmap(pixmap, &pt, scheme[1]);
+    }
+
+    fn resize(&mut self, rect: Rectangle, _context: &mut Context) {
+        if let Event::ToggleNear(_, ref mut event_rect) = self.event {
+            *event_rect = rect;
+        }
+        self.rect = rect;
     }
 
     fn rect(&self) -> &Rectangle {

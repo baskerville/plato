@@ -87,7 +87,7 @@ pub const APP_NAME: &str = "Plato";
 
 const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
-pub fn build_context() -> Result<Context, Error> {
+pub fn build_context(fb: &Framebuffer) -> Result<Context, Error> {
     let settings = load_toml::<Settings, _>(SETTINGS_PATH)?;
     let path = settings.library_path.join(METADATA_FILENAME);
     let metadata = load_json::<Metadata, _>(path)?;
@@ -95,7 +95,7 @@ pub fn build_context() -> Result<Context, Error> {
     let frontlight = Box::new(LightLevels::default()) as Box<Frontlight>;
     let lightsensor = Box::new(0u16) as Box<LightSensor>;
     let fonts = Fonts::load()?;
-    Ok(Context::new(settings, metadata, PathBuf::from(METADATA_FILENAME),
+    Ok(Context::new(fb, settings, metadata, PathBuf::from(METADATA_FILENAME),
                     fonts, battery, frontlight, lightsensor))
 }
 
@@ -174,6 +174,10 @@ impl Framebuffer for WindowCanvas {
         Ok(())
     }
 
+    fn set_rotation(&mut self, _n: i8) -> Result<(u32, u32), Error> {
+        Err(format_err!("Unsupported."))
+    }
+
     fn toggle_inverted(&mut self) {}
 
     fn toggle_monochrome(&mut self) {}
@@ -184,7 +188,6 @@ impl Framebuffer for WindowCanvas {
 }
 
 pub fn run() -> Result<(), Error> {
-    let mut context = build_context()?;
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let (width, height) = CURRENT_DEVICE.dims;
@@ -196,6 +199,8 @@ pub fn run() -> Result<(), Error> {
 
     let mut fb = window.into_canvas().software().build().unwrap();
     fb.set_blend_mode(BlendMode::Blend);
+
+    let mut context = build_context(&fb)?;
 
     let (tx, rx) = mpsc::channel();
     let (ty, ry) = mpsc::channel();
@@ -339,7 +344,7 @@ pub fn run() -> Result<(), Error> {
                         let preset_menu = Menu::new(rect, ViewId::PresetMenu, MenuKind::Contextual,
                                                     vec![EntryKind::Command("Remove".to_string(),
                                                                             EntryId::RemovePreset(index))],
-                                                    &mut context.fonts);
+                                                    &mut context);
                         tx.send(Event::Render(*preset_menu.rect(), UpdateMode::Gui)).unwrap();
                         view.children_mut().push(Box::new(preset_menu) as Box<View>);
                     }
@@ -383,10 +388,7 @@ pub fn run() -> Result<(), Error> {
                         Ok(_) => format!("Saved {}.", name),
                     };
                     let notif = Notification::new(ViewId::TakeScreenshotNotif,
-                                                  msg,
-                                                  &mut context.notification_index,
-                                                  &mut context.fonts,
-                                                  &tx);
+                                                  msg, &tx, &mut context);
                     view.children_mut().push(Box::new(notif) as Box<View>);
                 },
                 Event::Select(EntryId::Quit) => {
@@ -400,6 +402,14 @@ pub fn run() -> Result<(), Error> {
             while let Some(ce) = bus.pop_front() {
                 tx.send(ce).unwrap();
             }
+        }
+    }
+
+    if !history.is_empty() {
+        let (tx, _rx) = mpsc::channel();
+        view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut context);
+        while let Some(mut view) = history.pop() {
+            view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut context);
         }
     }
 

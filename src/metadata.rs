@@ -160,6 +160,8 @@ pub struct ReaderInfo {
     pub line_height: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub first_page: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<i8>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub bookmarks: Vec<f64>,
     pub finished: bool,
@@ -182,6 +184,7 @@ impl Default for ReaderInfo {
             margin_width: None,
             line_height: None,
             first_page: None,
+            rotation: None,
             cropping_margins: None,
             bookmarks: Vec::new(),
             finished: false,

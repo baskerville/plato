@@ -18,12 +18,14 @@ pub struct Notification {
     rect: Rectangle,
     children: Vec<Box<View>>,
     text: String,
+    index: u8,
     id: ViewId,
 }
 
 impl Notification {
-    pub fn new(id: ViewId, text: String, index: &mut u8, fonts: &mut Fonts, hub: &Hub) -> Notification {
+    pub fn new(id: ViewId, text: String, hub: &Hub, context: &mut Context) -> Notification {
         let hub2 = hub.clone();
+        let index = context.notification_index;
 
         thread::spawn(move || {
             thread::sleep(NOTIFICATION_CLOSE_DELAY);
@@ -31,10 +33,10 @@ impl Notification {
         });
 
         let dpi = CURRENT_DEVICE.dpi;
-        let (width, height) = CURRENT_DEVICE.dims;
+        let (width, height) = context.display.dims;
         let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
 
-        let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
+        let font = font_from_style(&mut context.fonts, &NORMAL_STYLE, dpi);
         let x_height = font.x_heights.0 as i32;
         let padding = font.em() as i32;
 
@@ -44,25 +46,26 @@ impl Notification {
         let dialog_width = plan.width as i32 + 3 * padding;
         let dialog_height = 7 * x_height;
 
-        let side = (*index / 3) % 2;
+        let side = (index / 3) % 2;
         let dx = if side == 0 {
             width as i32 - dialog_width - padding
         } else {
             padding
         };
-        let dy = small_height as i32 + padding + (*index % 3) as i32 * (dialog_height + padding);
+        let dy = small_height as i32 + padding + (index % 3) as i32 * (dialog_height + padding);
 
         let rect = rect![dx, dy,
                          dx + dialog_width, dy + dialog_height];
 
         hub.send(Event::Render(rect, UpdateMode::Gui)).unwrap();
 
-        *index = index.wrapping_add(1);
+        context.notification_index = index.wrapping_add(1);
 
         Notification {
             rect,
             children: vec![],
             text,
+            index,
             id,
         }
     }
@@ -99,6 +102,29 @@ impl View for Notification {
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 
         font.render(fb, TEXT_NORMAL[1], &plan, pt);
+    }
+
+    fn resize(&mut self, _rect: Rectangle, context: &mut Context) {
+        let dpi = CURRENT_DEVICE.dpi;
+        let (width, height) = context.display.dims;
+        let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let side = (self.index / 3) % 2;
+        let padding = if side == 0 {
+            height as i32 - self.rect.max.x
+        } else {
+            self.rect.min.x
+        };
+        let dialog_width = self.rect.width() as i32;
+        let dialog_height = self.rect.height() as i32;
+        let dx = if side == 0 {
+            width as i32 - dialog_width - padding
+        } else {
+            padding
+        };
+        let dy = small_height as i32 + padding + (self.index % 3) as i32 * (dialog_height + padding);
+        let rect = rect![dx, dy,
+                         dx + dialog_width, dy + dialog_height];
+        self.rect = rect;
     }
 
     fn rect(&self) -> &Rectangle {

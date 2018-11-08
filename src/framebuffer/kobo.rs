@@ -6,15 +6,15 @@ use std::path::Path;
 use std::io;
 use std::fs::{OpenOptions, File};
 use std::slice;
-use std::borrow::Cow;
 use std::os::unix::io::AsRawFd;
 use std::ops::Drop;
+use failure::{Error, ResultExt};
 use libc::ioctl;
 use png::HasParameters;
 use geom::Rectangle;
+use device::{Model, CURRENT_DEVICE};
 use super::{UpdateMode, Framebuffer};
 use super::mxcfb_sys::*;
-use failure::{Error, ResultExt};
 
 impl Into<MxcfbRect> for Rectangle {
     fn into(self) -> MxcfbRect {
@@ -32,7 +32,7 @@ type GetPixelRgb = fn(&KoboFramebuffer, u32, u32) -> [u8; 3];
 type AsRgb = fn(&KoboFramebuffer) -> Vec<u8>;
 
 pub struct KoboFramebuffer {
-    device: File,
+    file: File,
     frame: *mut libc::c_void,
     frame_size: libc::size_t, 
     token: u32,
@@ -40,9 +40,59 @@ pub struct KoboFramebuffer {
     set_pixel_rgb: SetPixelRgb,
     get_pixel_rgb: GetPixelRgb,
     as_rgb: AsRgb,
-    pub bytes_per_pixel: u8,
-    pub var_info: VarScreenInfo,
-    pub fix_info: FixScreenInfo,
+    bytes_per_pixel: u8,
+    var_info: VarScreenInfo,
+    fix_info: FixScreenInfo,
+}
+
+impl KoboFramebuffer {
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<KoboFramebuffer, Error> {
+        let file = OpenOptions::new().read(true)
+                                     .write(true)
+                                     .open(path)
+                                     .context("Can't open framebuffer device.")?;
+
+        let var_info = var_screen_info(&file)?;
+        let fix_info = fix_screen_info(&file)?;
+
+        assert_eq!(var_info.bits_per_pixel % 8, 0);
+
+        let bytes_per_pixel = var_info.bits_per_pixel / 8;
+        let frame_size = (var_info.yres * fix_info.line_length) as libc::size_t;
+
+        let frame = unsafe {
+            libc::mmap(ptr::null_mut(), fix_info.smem_len as usize,
+                       libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED,
+                       file.as_raw_fd(), 0)
+        };
+
+        if frame == libc::MAP_FAILED {
+            Err(Error::from(io::Error::last_os_error()).context("Can't map memory.").into())
+        } else {
+            let (set_pixel_rgb, get_pixel_rgb, as_rgb): (SetPixelRgb, GetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
+                (set_pixel_rgb_32, get_pixel_rgb_32, as_rgb_32)
+            } else {
+                (set_pixel_rgb_16, get_pixel_rgb_16, as_rgb_16)
+            };
+            Ok(KoboFramebuffer {
+                   file,
+                   frame,
+                   frame_size,
+                   token: 1,
+                   flags: 0,
+                   set_pixel_rgb,
+                   get_pixel_rgb,
+                   as_rgb,
+                   bytes_per_pixel: bytes_per_pixel as u8,
+                   var_info,
+                   fix_info,
+               })
+        }
+    }
+
+    fn as_bytes(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.frame as *const u8, self.frame_size) }
+    }
 }
 
 impl Framebuffer for KoboFramebuffer {
@@ -113,7 +163,7 @@ impl Framebuffer for KoboFramebuffer {
             alt_buffer_data,
         };
         let result = unsafe {
-            libc::ioctl(self.device.as_raw_fd(), MXCFB_SEND_UPDATE, &update_data)
+            libc::ioctl(self.file.as_raw_fd(), MXCFB_SEND_UPDATE, &update_data)
         };
         match result {
             -1 => Err(Error::from(io::Error::last_os_error()).context("Can't update framebuffer.").into()),
@@ -127,7 +177,7 @@ impl Framebuffer for KoboFramebuffer {
     // Wait for a specific update to complete
     fn wait(&self, token: u32) -> Result<i32, Error> {
         let result = unsafe {
-            libc::ioctl(self.device.as_raw_fd(), MXCFB_WAIT_FOR_UPDATE_COMPLETE, &token)
+            libc::ioctl(self.file.as_raw_fd(), MXCFB_WAIT_FOR_UPDATE_COMPLETE, &token)
         };
         match result {
             -1 => Err(Error::from(io::Error::last_os_error()).context("Can't wait for framebuffer update.").into()),
@@ -147,6 +197,31 @@ impl Framebuffer for KoboFramebuffer {
         Ok(())
     }
 
+    fn rotation(&self) -> i8 {
+        self.var_info.rotate as i8
+    }
+
+    fn set_rotation(&mut self, mut n: i8) -> Result<(u32, u32), Error> {
+        match CURRENT_DEVICE.model {
+            Model::AuraH2O | Model::AuraH2OEdition2 | Model::AuraHD => n ^= 2,
+            _ => (),
+        }
+        self.var_info.rotate = n as u32;
+        let result = unsafe {
+            libc::ioctl(self.file.as_raw_fd(), FBIOPUT_VSCREENINFO, &mut self.var_info)
+        };
+        match result {
+            -1 => Err(Error::from(io::Error::last_os_error())
+                            .context("Can't set variable screen info.").into()),
+            _ => {
+                self.fix_info = fix_screen_info(&self.file)?;
+                self.frame_size = (self.var_info.yres * self.fix_info.line_length) as libc::size_t;
+                Ok((self.var_info.xres, self.var_info.yres))
+            }
+        }
+    }
+
+
     fn toggle_inverted(&mut self) {
         self.flags ^= EPDC_FLAG_ENABLE_INVERSION;
     }
@@ -161,72 +236,6 @@ impl Framebuffer for KoboFramebuffer {
 
     fn height(&self) -> u32 {
         self.var_info.yres
-    }
-}
-
-impl KoboFramebuffer {
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<KoboFramebuffer, Error> {
-        let device = OpenOptions::new().read(true)
-                                       .write(true)
-                                       .open(path)
-                                       .context("Can't open framebuffer device.")?;
-
-        let var_info = var_screen_info(&device)?;
-        let fix_info = fix_screen_info(&device)?;
-
-        assert_eq!(var_info.bits_per_pixel % 8, 0);
-
-        let bytes_per_pixel = var_info.bits_per_pixel / 8;
-
-        let mut frame_size = (var_info.xres_virtual *
-                              var_info.yres_virtual * bytes_per_pixel) as libc::size_t;
-
-        if frame_size > fix_info.smem_len as usize {
-            frame_size = fix_info.smem_len as usize;
-        }
-
-        assert!(frame_size as u32 >= var_info.yres * fix_info.line_length);
-
-        let frame = unsafe {
-            libc::mmap(ptr::null_mut(), frame_size,
-                       libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED,
-                       device.as_raw_fd(), 0)
-        };
-
-        if frame == libc::MAP_FAILED {
-            Err(Error::from(io::Error::last_os_error()).context("Can't map memory.").into())
-        } else {
-            let (set_pixel_rgb, get_pixel_rgb, as_rgb): (SetPixelRgb, GetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
-                (set_pixel_rgb_32, get_pixel_rgb_32, as_rgb_32)
-            } else {
-                (set_pixel_rgb_16, get_pixel_rgb_16, as_rgb_16)
-            };
-            Ok(KoboFramebuffer {
-                   device,
-                   frame,
-                   frame_size,
-                   token: 1,
-                   flags: 0,
-                   set_pixel_rgb,
-                   get_pixel_rgb,
-                   as_rgb,
-                   bytes_per_pixel: bytes_per_pixel as u8,
-                   var_info,
-                   fix_info,
-               })
-        }
-    }
-    
-    fn as_bytes(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.frame as *const u8, self.frame_size) }
-    }
-
-    pub fn id(&self) -> Cow<str> {
-        String::from_utf8_lossy(&self.fix_info.id)
-    }
-
-    pub fn length(&self) -> usize {
-        self.frame_size as usize
     }
 }
 
@@ -312,18 +321,18 @@ fn as_rgb_32(fb: &KoboFramebuffer) -> Vec<u8> {
     rgb888
 }
 
-pub fn fix_screen_info(device: &File) -> Result<FixScreenInfo, Error> {
+pub fn fix_screen_info(file: &File) -> Result<FixScreenInfo, Error> {
     let mut info: FixScreenInfo = Default::default();
-    let result = unsafe { ioctl(device.as_raw_fd(), FBIOGET_FSCREENINFO, &mut info) };
+    let result = unsafe { ioctl(file.as_raw_fd(), FBIOGET_FSCREENINFO, &mut info) };
     match result {
         -1 => Err(Error::from(io::Error::last_os_error()).context("Can't get fixed screen info.").into()),
         _ => Ok(info),
     }
 }
 
-pub fn var_screen_info(device: &File) -> Result<VarScreenInfo, Error> {
+pub fn var_screen_info(file: &File) -> Result<VarScreenInfo, Error> {
     let mut info: VarScreenInfo = Default::default();
-    let result = unsafe { ioctl(device.as_raw_fd(), FBIOGET_VSCREENINFO, &mut info) };
+    let result = unsafe { ioctl(file.as_raw_fd(), FBIOGET_VSCREENINFO, &mut info) };
     match result {
         -1 => Err(Error::from(io::Error::last_os_error()).context("Can't get variable screen info.").into()),
         _ => Ok(info),
@@ -333,7 +342,7 @@ pub fn var_screen_info(device: &File) -> Result<VarScreenInfo, Error> {
 impl Drop for KoboFramebuffer {
     fn drop(&mut self) {
         unsafe {
-            libc::munmap(self.frame, self.frame_size);
+            libc::munmap(self.frame, self.fix_info.smem_len as usize);
         }
     }
 }

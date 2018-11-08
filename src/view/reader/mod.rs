@@ -104,7 +104,7 @@ impl Reader {
         let opener = DocumentOpener::new(settings.reader.epub_engine);
 
         opener.open(&path).and_then(|mut doc| {
-            let (width, height) = CURRENT_DEVICE.dims;
+            let (width, height) = context.display.dims;
             let font_size = info.reader.as_ref().and_then(|r| r.font_size)
                                 .unwrap_or(settings.reader.font_size);
             let first_location = doc.resolve_location(Location::Exact(0.0))?;
@@ -202,7 +202,7 @@ impl Reader {
         let mut opener = PdfOpener::new().unwrap();
         opener.set_user_css("css/toc.css").unwrap();
         let mut doc = opener.open_memory("html", html.as_bytes()).unwrap();
-        let (width, height) = CURRENT_DEVICE.dims;
+        let (width, height) = context.display.dims;
         let font_size = context.settings.reader.font_size;
         doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
         let pages_count = doc.pages_count();
@@ -340,9 +340,8 @@ impl Reader {
                         FinishedAction::Notify => {
                             let notif = Notification::new(ViewId::BoundaryNotif,
                                                           "No next page.".to_string(),
-                                                          &mut context.notification_index,
-                                                          &mut context.fonts,
-                                                          hub);
+                                                          hub,
+                                                          context);
                             self.children.push(Box::new(notif) as Box<View>);
                         },
                         FinishedAction::Close => {
@@ -354,9 +353,8 @@ impl Reader {
                 CycleDir::Previous => {
                     let notif = Notification::new(ViewId::BoundaryNotif,
                                                   "No previous page.".to_string(),
-                                                  &mut context.notification_index,
-                                                  &mut context.fonts,
-                                                  hub);
+                                                  hub,
+                                                  context);
                     self.children.push(Box::new(notif) as Box<View>);
                 },
             }
@@ -547,7 +545,7 @@ impl Reader {
         self.search = Some(s);
     }
 
-    fn toggle_keyboard(&mut self, enable: bool, id: Option<ViewId>, hub: &Hub) {
+    fn toggle_keyboard(&mut self, enable: bool, id: Option<ViewId>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate::<Keyboard>(self) {
             if enable {
                 return;
@@ -582,7 +580,7 @@ impl Reader {
             }
 
             let dpi = CURRENT_DEVICE.dpi;
-            let (_, height) = CURRENT_DEVICE.dims;
+            let (_, height) = context.display.dims;
             let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
             let (small_thickness, big_thickness) = halves(thickness);
@@ -606,7 +604,7 @@ impl Reader {
                 self.children.insert(index, Box::new(separator) as Box<View>);
             }
 
-            let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone(), number);
+            let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone(), number, context);
             self.children.insert(index, Box::new(keyboard) as Box<View>);
 
             let separator = Filler::new(rect![self.rect.min.x, kb_rect.min.y - thickness,
@@ -649,29 +647,29 @@ impl Reader {
             }
 
             let dpi = CURRENT_DEVICE.dpi;
-            let (_, height) = CURRENT_DEVICE.dims;
+            let (_, height) = context.display.dims;
             let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
             let doc = self.doc.lock().unwrap();
             let tb_height = if doc.is_reflowable() { 2 * big_height } else { big_height };
 
-            let s_rect = *self.child(2).rect() - pt!(0, tb_height as i32 + thickness);
+            let sp_rect = *self.child(2).rect() - pt!(0, tb_height as i32);
 
             let tool_bar = ToolBar::new(rect![self.rect.min.x,
-                                              s_rect.max.y,
+                                              sp_rect.max.y,
                                               self.rect.max.x,
-                                              s_rect.max.y + tb_height as i32],
+                                              sp_rect.max.y + tb_height as i32],
                                         doc.is_reflowable(),
                                         self.info.reader.as_ref(),
                                         &context.settings.reader);
             self.children.insert(2, Box::new(tool_bar) as Box<View>);
 
-            let separator = Filler::new(s_rect, BLACK);
+            let separator = Filler::new(sp_rect, BLACK);
             self.children.insert(2, Box::new(separator) as Box<View>);
         }
     }
 
-    fn toggle_results_bar(&mut self, enable: bool, hub: &Hub) {
+    fn toggle_results_bar(&mut self, enable: bool, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate::<ResultsBar>(self) {
             if enable {
                 return;
@@ -687,23 +685,23 @@ impl Reader {
             }
 
             let dpi = CURRENT_DEVICE.dpi;
-            let (_, height) = CURRENT_DEVICE.dims;
+            let (_, height) = context.display.dims;
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
             let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
 
-            let s_rect = *self.child(2).rect() - pt!(0, thickness + small_height as i32);
-            let y_min = s_rect.max.y;
+            let sp_rect = *self.child(2).rect() - pt!(0, small_height as i32);
+            let y_min = sp_rect.max.y;
             let mut rect = rect![self.rect.min.x, y_min,
-                                 self.rect.max.x, y_min + small_height as i32];
+                                 self.rect.max.x, y_min + small_height as i32 - thickness];
 
             if let Some(ref s) = self.search {
                 let results_bar = ResultsBar::new(rect, s.current_page,
                                                   s.highlights.len(), s.results_count,
                                                   !s.running.load(AtomicOrdering::Relaxed));
                 self.children.insert(2, Box::new(results_bar) as Box<View>);
-                let separator = Filler::new(s_rect, BLACK);
+                let separator = Filler::new(sp_rect, BLACK);
                 self.children.insert(2, Box::new(separator) as Box<View>);
-                rect.absorb(&s_rect);
+                rect.absorb(&sp_rect);
                 hub.send(Event::Render(rect, UpdateMode::Gui)).unwrap();
             }
         }
@@ -727,7 +725,7 @@ impl Reader {
             }
 
             let dpi = CURRENT_DEVICE.dpi;
-            let (_, height) = CURRENT_DEVICE.dims;
+            let (_, height) = context.display.dims;
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
             let (small_thickness, big_thickness) = halves(thickness);
             let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
@@ -833,7 +831,7 @@ impl Reader {
         }
     }
 
-    fn toggle_go_to_page(&mut self, enable: Option<bool>, id: ViewId, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_go_to_page(&mut self, enable: Option<bool>, id: ViewId, hub: &Hub, context: &mut Context) {
         let (text, input_id) = if id == ViewId::GoToPage {
             ("Go to page", ViewId::GoToPageInput)
         } else {
@@ -849,7 +847,7 @@ impl Reader {
             self.children.remove(index);
 
             if self.focus.map(|focus_id| focus_id == input_id).unwrap_or(false) {
-                self.toggle_keyboard(false, None, hub);
+                self.toggle_keyboard(false, None, hub, context);
                 hub.send(Event::Focus(None)).unwrap();
             }
         } else {
@@ -857,7 +855,7 @@ impl Reader {
                 return;
             }
 
-            let go_to_page = NamedInput::new(text.to_string(), id, input_id, 4, fonts);
+            let go_to_page = NamedInput::new(text.to_string(), id, input_id, 4, context);
             hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).unwrap();
             hub.send(Event::Focus(Some(input_id))).unwrap();
 
@@ -887,7 +885,7 @@ impl Reader {
             let entries = families.iter().map(|f| EntryKind::RadioButton(f.clone(),
                                                                          EntryId::SetFontFamily(f.clone()),
                                                                          *f == current_family)).collect();
-            let font_family_menu = Menu::new(rect, ViewId::FontFamilyMenu, MenuKind::DropDown, entries, &mut context.fonts);
+            let font_family_menu = Menu::new(rect, ViewId::FontFamilyMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*font_family_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(font_family_menu) as Box<View>);
         }
@@ -906,7 +904,6 @@ impl Reader {
                 return;
             }
 
-            let fonts = &mut context.fonts;
             let font_size = self.info.reader.as_ref().and_then(|r| r.font_size)
                                 .unwrap_or(context.settings.reader.font_size);
             let entries = (0..=20).map(|v| {
@@ -915,7 +912,7 @@ impl Reader {
                                        EntryId::SetFontSize(v),
                                        (fs - font_size).abs() < 0.05)
             }).collect();
-            let font_size_menu = Menu::new(rect, ViewId::FontSizeMenu, MenuKind::Contextual, entries, fonts);
+            let font_size_menu = Menu::new(rect, ViewId::FontSizeMenu, MenuKind::Contextual, entries, context);
             hub.send(Event::Render(*font_size_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(font_size_menu) as Box<View>);
         }
@@ -934,7 +931,6 @@ impl Reader {
                 return;
             }
 
-            let fonts = &mut context.fonts;
             let line_height = self.info.reader.as_ref()
                                   .and_then(|r| r.line_height).unwrap_or(context.settings.reader.line_height);
             let entries = (0..=10).map(|x| {
@@ -943,7 +939,7 @@ impl Reader {
                                        EntryId::SetLineHeight(x),
                                        (lh - line_height).abs() < 0.05)
             }).collect();
-            let line_height_menu = Menu::new(rect, ViewId::LineHeightMenu, MenuKind::DropDown, entries, fonts);
+            let line_height_menu = Menu::new(rect, ViewId::LineHeightMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*line_height_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(line_height_menu) as Box<View>);
         }
@@ -962,19 +958,18 @@ impl Reader {
                 return;
             }
 
-            let fonts = &mut context.fonts;
             let margin_width = self.info.reader.as_ref().and_then(|r| r.margin_width)
                                    .unwrap_or(context.settings.reader.margin_width);
             let entries = (0..=10).map(|mw| EntryKind::RadioButton(format!("{}", mw),
                                                                   EntryId::SetMarginWidth(mw),
                                                                   mw == margin_width)).collect();
-            let margin_width_menu = Menu::new(rect, ViewId::MarginWidthMenu, MenuKind::DropDown, entries, fonts);
+            let margin_width_menu = Menu::new(rect, ViewId::MarginWidthMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*margin_width_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(margin_width_menu) as Box<View>);
         }
     }
 
-    fn toggle_page_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_page_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::PageMenu) {
             if let Some(true) = enable {
                 return;
@@ -993,13 +988,13 @@ impl Reader {
             let entries = vec![EntryKind::CheckBox("First Page".to_string(),
                                                    EntryId::ToggleFirstPage,
                                                    current_page == first_page)];
-            let page_menu = Menu::new(rect, ViewId::PageMenu, MenuKind::DropDown, entries, fonts);
+            let page_menu = Menu::new(rect, ViewId::PageMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*page_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(page_menu) as Box<View>);
         }
     }
 
-    fn toggle_margin_cropper_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_margin_cropper_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::MarginCropperMenu) {
             if let Some(true) = enable {
                 return;
@@ -1032,13 +1027,13 @@ impl Reader {
                                             EntryKind::Command("Remove".to_string(), EntryId::RemoveCroppings)]);
             }
 
-            let margin_cropper_menu = Menu::new(rect, ViewId::MarginCropperMenu, MenuKind::DropDown, entries, fonts);
+            let margin_cropper_menu = Menu::new(rect, ViewId::MarginCropperMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*margin_cropper_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(margin_cropper_menu) as Box<View>);
         }
     }
 
-    fn toggle_search_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_search_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::SearchMenu) {
             if let Some(true) = enable {
                 return;
@@ -1063,7 +1058,7 @@ impl Reader {
             } else {
                 MenuKind::DropDown
             };
-            let search_menu = Menu::new(rect, ViewId::SearchMenu, kind, entries, fonts);
+            let search_menu = Menu::new(rect, ViewId::SearchMenu, kind, entries, context);
             hub.send(Event::Render(*search_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(search_menu) as Box<View>);
         }
@@ -1090,25 +1085,25 @@ impl Reader {
             self.toggle_tool_bar(false, hub, context);
 
             let dpi = CURRENT_DEVICE.dpi;
-            let (_, height) = CURRENT_DEVICE.dims;
+            let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
+            let (_, height) = context.display.dims;
             let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
 
-            let index = locate::<TopBar>(self).unwrap() + 2;
-            let s_rect = *self.child(index).rect();
+            let sp_rect = *self.child(2).rect() - pt!(0, small_height as i32);
+            let y_min = sp_rect.max.y;
 
             let rect = rect![self.rect.min.x,
-                             s_rect.min.y - small_height as i32,
+                             y_min,
                              self.rect.max.x,
-                             s_rect.min.y];
+                             y_min + small_height as i32 - thickness];
             let search_bar = SearchBar::new(rect, "", "");
-            self.children.insert(index, Box::new(search_bar) as Box<View>);
+            self.children.insert(2, Box::new(search_bar) as Box<View>);
 
-            let separator = Filler::new(s_rect - pt!(0, (s_rect.height() + small_height) as i32),
-                                        BLACK);
-            self.children.insert(index, Box::new(separator) as Box<View>);
+            let separator = Filler::new(sp_rect, BLACK);
+            self.children.insert(2, Box::new(separator) as Box<View>);
 
-            hub.send(Event::Render(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
-            hub.send(Event::Render(*self.child(index+1).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*self.child(2).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*self.child(3).rect(), UpdateMode::Gui)).unwrap();
 
             hub.send(Event::Focus(Some(ViewId::SearchInput))).unwrap();
         }
@@ -1146,7 +1141,7 @@ impl Reader {
                                                        &Margin::default());
 
             self.current_page = location;
-            let margin_cropper = MarginCropper::new(self.rect, pixmap, &margin);
+            let margin_cropper = MarginCropper::new(self.rect, pixmap, &margin, context);
             hub.send(Event::Render(*margin_cropper.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(margin_cropper) as Box<View>);
         }
@@ -1161,7 +1156,7 @@ impl Reader {
             r.font_size = Some(font_size);
         }
 
-        let (width, height) = CURRENT_DEVICE.dims;
+        let (width, height) = context.display.dims;
         {
             let mut doc = self.doc.lock().unwrap();
 
@@ -1322,6 +1317,15 @@ impl Reader {
 impl View for Reader {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
+            Event::Gesture(GestureEvent::Rotate { quarter_turns, .. }) if quarter_turns != 0 => {
+                let mut n = context.display.rotation - quarter_turns;
+                if n < 0 {
+                    n += 4;
+                }
+                n = n % 4;
+                hub.send(Event::Select(EntryId::Rotate(n))).unwrap();
+                true
+            },
             Event::Gesture(GestureEvent::Swipe { dir, start, .. }) if self.rect.includes(start) => {
                 match dir {
                     Dir::West => self.go_to_neighbor(CycleDir::Next, hub, context),
@@ -1492,6 +1496,12 @@ impl View for Reader {
 
                 true
             },
+            Event::RotateView(n) => {
+                if let Some(r) = self.info.reader.as_mut() {
+                    r.rotation = Some(n);
+                }
+                true
+            },
             Event::Submit(ViewId::GoToPageInput, ref text) => {
                 let re = Regex::new(r#"^([-+"])?(.+)$"#).unwrap();
                 if let Some(caps) = re.captures(text) {
@@ -1523,15 +1533,14 @@ impl View for Reader {
                 match make_query(text) {
                     Some(query) => {
                         self.search(text, query, hub);
-                        self.toggle_keyboard(false, None, hub);
-                        self.toggle_results_bar(true, hub);
+                        self.toggle_keyboard(false, None, hub, context);
+                        self.toggle_results_bar(true, hub, context);
                     },
                     None => {
                         let notif = Notification::new(ViewId::InvalidSearchQueryNotif,
                                                       "Invalid search query.".to_string(),
-                                                      &mut context.notification_index,
-                                                      &mut context.fonts,
-                                                      hub);
+                                                      hub,
+                                                      context);
                         self.children.push(Box::new(notif) as Box<View>);
                     }
                 }
@@ -1563,11 +1572,11 @@ impl View for Reader {
                 true
             },
             Event::Toggle(ViewId::GoToPage) => {
-                self.toggle_go_to_page(None, ViewId::GoToPage, hub, &mut context.fonts);
+                self.toggle_go_to_page(None, ViewId::GoToPage, hub, context);
                 true
             },
             Event::Toggle(ViewId::GoToResultsPage) => {
-                self.toggle_go_to_page(None, ViewId::GoToResultsPage, hub, &mut context.fonts);
+                self.toggle_go_to_page(None, ViewId::GoToResultsPage, hub, context);
                 true
             },
             Event::Slider(SliderId::FontSize, font_size, FingerStatus::Up) => {
@@ -1587,11 +1596,11 @@ impl View for Reader {
                 true
             },
             Event::ToggleNear(ViewId::MarginCropperMenu, rect) => {
-                self.toggle_margin_cropper_menu(rect, None, hub, &mut context.fonts);
+                self.toggle_margin_cropper_menu(rect, None, hub, context);
                 true
             },
             Event::ToggleNear(ViewId::SearchMenu, rect) => {
-                self.toggle_search_menu(rect, None, hub, &mut context.fonts);
+                self.toggle_search_menu(rect, None, hub, context);
                 true
             },
             Event::ToggleNear(ViewId::FontFamilyMenu, rect) => {
@@ -1611,7 +1620,7 @@ impl View for Reader {
                 true
             },
             Event::ToggleNear(ViewId::PageMenu, rect) => {
-                self.toggle_page_menu(rect, None, hub, &mut context.fonts);
+                self.toggle_page_menu(rect, None, hub, context);
                 true
             },
             Event::Close(ViewId::MainMenu) => {
@@ -1623,11 +1632,11 @@ impl View for Reader {
                 true
             },
             Event::Close(ViewId::GoToPage) => {
-                self.toggle_go_to_page(Some(false), ViewId::GoToPage, hub, &mut context.fonts);
+                self.toggle_go_to_page(Some(false), ViewId::GoToPage, hub, context);
                 true
             },
             Event::Close(ViewId::GoToResultsPage) => {
-                self.toggle_go_to_page(Some(false), ViewId::GoToResultsPage, hub, &mut context.fonts);
+                self.toggle_go_to_page(Some(false), ViewId::GoToResultsPage, hub, context);
                 true
             },
             Event::Show(ViewId::TableOfContents) => {
@@ -1696,9 +1705,8 @@ impl View for Reader {
                 if results_count == 0 {
                     let notif = Notification::new(ViewId::NoSearchResultsNotif,
                                                   "No search results.".to_string(),
-                                                  &mut context.notification_index,
-                                                  &mut context.fonts,
-                                                  hub);
+                                                  hub,
+                                                  context);
                     self.children.push(Box::new(notif) as Box<View>);
                     self.toggle_bars(Some(true), hub, context);
                     hub.send(Event::Focus(Some(ViewId::SearchInput))).unwrap();
@@ -1779,7 +1787,7 @@ impl View for Reader {
             },
             Event::Focus(v) => {
                 if let Some(ViewId::SearchInput) = v {
-                    self.toggle_results_bar(false, hub);
+                    self.toggle_results_bar(false, hub, context);
                     if let Some(ref mut s) = self.search {
                         s.running.store(false, AtomicOrdering::Relaxed);
                     }
@@ -1787,7 +1795,7 @@ impl View for Reader {
                 }
                 self.focus = v;
                 if v.is_some() {
-                    self.toggle_keyboard(true, v, hub);
+                    self.toggle_keyboard(true, v, hub, context);
                 }
                 true
             },
@@ -1835,6 +1843,104 @@ impl View for Reader {
                                                   &BorderSpec { thickness, color: WHITE },
                                                   &BLACK);
         }
+    }
+
+    fn resize(&mut self, rect: Rectangle, context: &mut Context) {
+        if !self.children.is_empty() {
+            let dpi = CURRENT_DEVICE.dpi;
+            let (_, height) = context.display.dims;
+            let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
+            let (small_thickness, big_thickness) = halves(thickness);
+            let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+            let mut floating_layer_start = 0;
+
+            if self.children[0].is::<TopBar>() {
+                let top_bar_rect = rect![rect.min.x, rect.min.y,
+                                         rect.max.x, small_height as i32 - small_thickness];
+                self.children[0].resize(top_bar_rect, context);
+                let separator_rect = rect![rect.min.x,
+                                           small_height as i32 - small_thickness,
+                                           rect.max.x,
+                                           small_height as i32 + big_thickness];
+                self.children[1].resize(separator_rect, context);
+            } else if self.children[0].is::<Filler>() {
+                if self.children[1].is::<Keyboard>() {
+                    let kb_rect = rect![rect.min.x,
+                                        rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
+                                        rect.max.x,
+                                        rect.max.y - small_height as i32 - small_thickness];
+                    self.children[1].resize(kb_rect, context);
+                    self.children[2].resize(rect![rect.min.x, kb_rect.max.y,
+                                                  rect.max.x, kb_rect.max.y + thickness],
+                                            context);
+                    let kb_rect = *self.children[1].rect();
+                    self.children[0].resize(rect![rect.min.x, kb_rect.min.y - thickness,
+                                                  rect.max.x, kb_rect.min.y],
+                                            context);
+                    floating_layer_start = 3;
+                }
+            }
+
+            if let Some(mut index) = locate::<BottomBar>(self) {
+                floating_layer_start = index + 1;
+                let separator_rect = rect![rect.min.x,
+                                           rect.max.y - small_height as i32 - small_thickness,
+                                           rect.max.x,
+                                           rect.max.y - small_height as i32 + big_thickness];
+                self.children[index-1].resize(separator_rect, context);
+                let bottom_bar_rect = rect![rect.min.x,
+                                            rect.max.y - small_height as i32 + big_thickness,
+                                            rect.max.x,
+                                            rect.max.y];
+                self.children[index].resize(bottom_bar_rect, context);
+
+                index -= 2;
+
+                while index > 2 {
+                    let bar_height = if self.children[index].is::<ToolBar>() {
+                        let doc = self.doc.lock().unwrap();
+                        if doc.is_reflowable() { 2 * big_height } else { big_height }
+                    } else if self.children[index].is::<Keyboard>() {
+                        3 * big_height
+                    } else {
+                        small_height
+                    } as i32;
+
+                    let y_max = self.children[index+1].rect().min.y;
+                    let mut bar_rect = rect![rect.min.x,
+                                             y_max - bar_height + thickness,
+                                             rect.max.x,
+                                             y_max];
+                    self.children[index].resize(bar_rect, context);
+                    let y_max = self.children[index].rect().min.y;
+                    let sp_rect = rect![rect.min.x,
+                                        y_max - thickness,
+                                        rect.max.x,
+                                        y_max];
+                    self.children[index-1].resize(sp_rect, context);
+
+                    index -= 2;
+                }
+            }
+
+            // TODO: Handle menus.
+            for i in floating_layer_start..self.children.len() {
+                self.children[i].resize(rect, context);
+            }
+        }
+
+        self.rect = rect;
+
+        {
+            let font_size = self.info.reader.as_ref()
+                                .and_then(|r| r.font_size)
+                                .unwrap_or(context.settings.reader.font_size);
+            let mut doc = self.doc.lock().unwrap();
+            doc.layout(rect.width(), rect.height(), font_size, CURRENT_DEVICE.dpi);
+        }
+
+        let (tx, _rx) = mpsc::channel();
+        self.update(&tx);
     }
 
     fn is_background(&self) -> bool {

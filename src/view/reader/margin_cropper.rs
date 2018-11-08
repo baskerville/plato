@@ -21,7 +21,7 @@ pub struct MarginCropper {
 }
 
 impl MarginCropper {
-    pub fn new(rect: Rectangle, pixmap: Pixmap, margin: &Margin) -> MarginCropper {
+    pub fn new(rect: Rectangle, pixmap: Pixmap, margin: &Margin, context: &mut Context) -> MarginCropper {
         let mut children = Vec::new();
 
         let pt = pt!((rect.width() as i32 - pixmap.width as i32) / 2,
@@ -35,7 +35,7 @@ impl MarginCropper {
         let frame = rect![x_min, y_min, x_max, y_max];
 
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = CURRENT_DEVICE.dims;
+        let (_, height) = context.display.dims;
         let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
         let big_button_diameter = small_height as i32;
         let padding = big_button_diameter / 2;

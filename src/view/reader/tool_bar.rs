@@ -20,6 +20,7 @@ use app::Context;
 pub struct ToolBar {
     rect: Rectangle,
     children: Vec<Box<View>>,
+    is_reflowable: bool,
 }
 
 impl ToolBar {
@@ -126,6 +127,7 @@ impl ToolBar {
         ToolBar {
             rect,
             children,
+            is_reflowable,
         }
     }
 
@@ -168,6 +170,87 @@ impl View for ToolBar {
     }
 
     fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    }
+
+    fn resize(&mut self, rect: Rectangle, context: &mut Context) {
+        let dpi = CURRENT_DEVICE.dpi;
+        let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
+
+        let side = if self.is_reflowable {
+            (rect.height() as i32 + thickness) / 2 - thickness
+        } else {
+            rect.height() as i32
+        };
+
+        let mut index = 0;
+
+        if self.is_reflowable {
+            let mut remaining_width = rect.width() as i32 - 3 * side;
+            let font_family_label_width = remaining_width / 2;
+            remaining_width -= font_family_label_width;
+            let margin_label_width = remaining_width / 2;
+            let line_height_label_width = remaining_width - margin_label_width;
+
+            // First row.
+
+            let mut x_offset = rect.min.x;
+            self.children[index].resize(rect![x_offset, rect.min.y,
+                                              x_offset + side + margin_label_width, rect.min.y + side],
+                                        context);
+            index += 1;
+            x_offset += side + margin_label_width;
+
+            self.children[index].resize(rect![x_offset, rect.min.y,
+                                              x_offset + side + font_family_label_width, rect.min.y + side],
+                                        context);
+            index += 1;
+            x_offset += side + font_family_label_width;
+
+            self.children[index].resize(rect![x_offset, rect.min.y,
+                                              x_offset + side + line_height_label_width, rect.min.y + side],
+                                        context);
+            index += 1;
+
+            // Separator.
+            self.children[index].resize(rect![rect.min.x, rect.min.y + side,
+                                              rect.max.x, rect.max.y - side],
+                                        context);
+            index += 1;
+
+            // Start of second row.
+            let font_size_rect = rect![rect.min.x, rect.max.y - side,
+                                       rect.min.x + side, rect.max.y];
+            self.children[index].resize(font_size_rect, context);
+            index += 1;
+
+            self.children[index].resize(rect![rect.min.x + side, rect.max.y - side,
+                                              rect.max.x - 2 * side, rect.max.y],
+                                        context);
+            index += 1;
+        } else {
+            // Alternate start of second row.
+            self.children[index].resize(rect![rect.min.x, rect.max.y - side,
+                                              rect.min.x + side, rect.max.y],
+                                        context);
+            index += 1;
+
+            self.children[index].resize(rect![rect.min.x + side, rect.max.y - side,
+                                              rect.max.x - 2 * side, rect.max.y],
+                                        context);
+            index += 1;
+        }
+
+        // End of second row.
+
+        self.children[index].resize(rect![rect.max.x - 2 * side, rect.max.y - side,
+                                          rect.max.x - side, rect.max.y],
+                                    context);
+        index += 1;
+
+        self.children[index].resize(rect![rect.max.x - side, rect.max.y - side,
+                                         rect.max.x, rect.max.y],
+                                    context);
+        self.rect = rect;
     }
 
     fn rect(&self) -> &Rectangle {

@@ -78,6 +78,11 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                 thread::spawn(move || {
                     thread::sleep(FINGER_HOLD_DELAY);
                     let mut ct = contacts.lock().unwrap();
+                    // We don't want to interfere with rotation gestures.
+                    // A better fix would be to emit multi-hold events?
+                    if ct.len() > 1 {
+                        return;
+                    }
                     let mut will_remove = None;
                     if let Some(ts) = ct.get(&id) {
                         if (ts.time - time).abs() < f64::EPSILON && (ts.current - position).length() < jitter {
@@ -143,8 +148,9 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                             },
                             (GestureEvent::Swipe { start: s, end: e, .. }, GestureEvent::Tap(c)) |
                             (GestureEvent::Tap(c), GestureEvent::Swipe { start: s, end: e, .. }) => {
-                                let angle = ((s - c).angle() - (e - c).angle()).to_degrees();
-                                let quarter_turns = (angle.signum() * (angle / 90.0).abs().ceil()) as i8;
+                                // Angle are positive in the counter clockwise direction.
+                                let angle = ((e - c).angle() - (s - c).angle()).to_degrees();
+                                let quarter_turns = (angle / 90.0).round() as i8;
                                 ty.send(Event::Gesture(GestureEvent::Rotate {
                                     angle,
                                     quarter_turns,

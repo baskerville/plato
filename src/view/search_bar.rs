@@ -82,6 +82,22 @@ impl View for SearchBar {
     fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
     }
 
+    fn resize(&mut self, rect: Rectangle, context: &mut Context) {
+        let dpi = CURRENT_DEVICE.dpi;
+        let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
+        let side = rect.height() as i32;
+        self.children[0].resize(rect![rect.min, rect.min + side], context);
+        self.children[1].resize(rect![pt!(rect.min.x + side, rect.min.y),
+                                      pt!(rect.min.x + side + thickness, rect.max.y)], context);
+        self.children[2].resize(rect![pt!(rect.min.x + side + thickness, rect.min.y),
+                                      pt!(rect.max.x - side - thickness, rect.max.y)], context);
+        self.children[3].resize(rect![pt!(rect.max.x - side - thickness, rect.min.y),
+                                      pt!(rect.max.x - side, rect.max.y)], context);
+        self.children[4].resize(rect![pt!(rect.max.x - side, rect.min.y),
+                                      pt!(rect.max.x, rect.max.y)], context);
+        self.rect = rect;
+    }
+
     fn rect(&self) -> &Rectangle {
         &self.rect
     }

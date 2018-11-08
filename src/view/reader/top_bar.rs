@@ -31,13 +31,12 @@ impl TopBar {
         let mut clock_rect = rect![rect.max - pt!(4*side, side),
                                    rect.max - pt!(3*side, 0)];
         let clock_label = Clock::new(&mut clock_rect, fonts);
-        children.push(Box::new(clock_label) as Box<View>);
-
         let title_label = Label::new(rect![rect.min.x + side, rect.min.y,
                                            clock_rect.min.x, rect.max.y],
                                      info.title(),
                                      Align::Center);
         children.push(Box::new(title_label) as Box<View>);
+        children.push(Box::new(clock_label) as Box<View>);
 
         let capacity = context.battery.capacity().unwrap_or(0.0);
         let status = context.battery.status().unwrap_or(::battery::Status::Discharging);
@@ -86,6 +85,29 @@ impl View for TopBar {
     }
 
     fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    }
+
+    fn resize(&mut self, rect: Rectangle, context: &mut Context) {
+        let side = rect.height() as i32;
+        self.children[0].resize(rect![rect.min, rect.min+side], context);
+        let clock_width = self.children[2].rect().width() as i32;
+        let clock_rect = rect![rect.max - pt!(3*side + clock_width, side),
+                               rect.max - pt!(3*side, 0)];
+        self.children[1].resize(rect![rect.min.x + side,
+                                      rect.min.y,
+                                      clock_rect.min.x,
+                                      rect.max.y],
+                                context);
+        self.children[2].resize(clock_rect, context);
+        self.children[3].resize(rect![rect.max - pt!(3*side, side),
+                                      rect.max - pt!(2*side, 0)],
+                                context);
+        self.children[4].resize(rect![rect.max - pt!(2*side, side),
+                                      rect.max - pt!(side, 0)],
+                                context);
+        self.children[5].resize(rect![rect.max-side, rect.max],
+                                context);
+        self.rect = rect;
     }
 
     fn rect(&self) -> &Rectangle {

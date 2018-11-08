@@ -33,10 +33,10 @@ impl Shelf {
         self.second_column = second_column;
     }
 
-    pub fn update(&mut self, metadata: &[Info], hub: &Hub) {
+    pub fn update(&mut self, metadata: &[Info], hub: &Hub, context: &Context) {
         self.children.clear();
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = CURRENT_DEVICE.dims;
+        let (_, height) = context.display.dims;
         let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let max_lines = ((self.rect.height() + thickness as u32) / big_height) as usize;
@@ -72,7 +72,7 @@ impl Shelf {
 }
 
 impl View for Shelf {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) if self.rect.includes(start) => {
                 match dir {

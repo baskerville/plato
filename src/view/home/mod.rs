@@ -34,6 +34,7 @@ use view::menu_entry::MenuEntry;
 use view::search_bar::SearchBar;
 use view::notification::Notification;
 use self::bottom_bar::BottomBar;
+use gesture::GestureEvent;
 use device::{CURRENT_DEVICE, BAR_SIZES};
 use symbolic_path::SymbolicPath;
 use helpers::{load_json, save_json};
@@ -41,7 +42,7 @@ use unit::scale_by_dpi;
 use trash::{trash, untrash};
 use app::Context;
 use color::BLACK;
-use geom::{Rectangle, CycleDir, halves, small_half};
+use geom::{Rectangle, CycleDir, halves};
 use font::Fonts;
 
 const HISTORY_SIZE: usize = 8;
@@ -52,10 +53,10 @@ pub struct Home {
     children: Vec<Box<View>>,
     current_page: usize,
     pages_count: usize,
+    summary_size: u8,
     focus: Option<ViewId>,
     query: Option<Regex>,
     target_path: Option<PathBuf>,
-    summary_size: u8,
     sort_method: SortMethod,
     reverse_order: bool,
     visible_books: Metadata,
@@ -78,7 +79,7 @@ impl Home {
 
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
-        let (_, height) = CURRENT_DEVICE.dims;
+        let (_, height) = context.display.dims;
         let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
 
         let sort_method = SortMethod::Opened;
@@ -140,7 +141,7 @@ impl Home {
         let index_lower = current_page * max_lines;
         let index_upper = (index_lower + max_lines).min(visible_books.len());
 
-        shelf.update(&visible_books[index_lower..index_upper], &tx);
+        shelf.update(&visible_books[index_lower..index_upper], &tx, context);
 
         children.push(Box::new(shelf) as Box<View>);
 
@@ -164,10 +165,10 @@ impl Home {
             children,
             current_page,
             pages_count,
+            summary_size,
             focus: None,
             query: None,
             target_path: None,
-            summary_size,
             sort_method,
             reverse_order,
             visible_books,
@@ -179,10 +180,7 @@ impl Home {
     }
 
     fn refresh_visibles(&mut self, update: bool, reset_page: bool, hub: &Hub, context: &mut Context) {
-        let fonts = &mut context.fonts;
-        let metadata = &mut context.metadata;
-
-        self.visible_books = metadata.iter().filter(|info| {
+        self.visible_books = context.metadata.iter().filter(|info| {
             info.is_match(&self.query) &&
             (self.selected_categories.is_subset(&info.categories) ||
              self.selected_categories.iter()
@@ -234,8 +232,8 @@ impl Home {
         }
 
         if update {
-            self.update_summary(false, hub, fonts);
-            self.update_shelf(false, hub);
+            self.update_summary(false, hub, &mut context.fonts);
+            self.update_shelf(false, hub, context);
             self.update_bottom_bar(hub);
         }
     }
@@ -298,16 +296,16 @@ impl Home {
         }
     }
 
-    fn go_to_page(&mut self, index: usize, hub: &Hub) {
+    fn go_to_page(&mut self, index: usize, hub: &Hub, context: &Context) {
         if index >= self.pages_count {
             return;
         }
         self.current_page = index;
-        self.update_shelf(false, hub);
+        self.update_shelf(false, hub, context);
         self.update_bottom_bar(hub);
     }
 
-    fn set_current_page(&mut self, dir: CycleDir, hub: &Hub) {
+    fn set_current_page(&mut self, dir: CycleDir, hub: &Hub, context: &Context) {
         match dir {
             CycleDir::Next if self.current_page < self.pages_count - 1 => {
                 self.current_page += 1;
@@ -318,7 +316,7 @@ impl Home {
             _ => return,
         }
 
-        self.update_shelf(false, hub);
+        self.update_shelf(false, hub, context);
         self.update_bottom_bar(hub);
     }
 
@@ -331,12 +329,12 @@ impl Home {
     fn update_second_column(&mut self, hub: &Hub, context: &mut Context) {
         self.children[4].as_mut().downcast_mut::<Shelf>().unwrap()
            .set_second_column(context.settings.home.second_column);
-        self.update_shelf(false, hub);
+        self.update_shelf(false, hub, context);
     }
 
-    fn update_shelf(&mut self, was_resized: bool, hub: &Hub) {
+    fn update_shelf(&mut self, was_resized: bool, hub: &Hub, context: &Context) {
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = CURRENT_DEVICE.dims;
+        let (_, height) = context.display.dims;
         let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
 
@@ -367,7 +365,7 @@ impl Home {
         let index_lower = self.current_page * max_lines;
         let index_upper = (index_lower + max_lines).min(self.visible_books.len());
 
-        shelf.update(&self.visible_books[index_lower..index_upper], hub);
+        shelf.update(&self.visible_books[index_lower..index_upper], hub, context);
     }
 
     fn update_top_bar(&mut self, search_visible: bool, hub: &Hub) {
@@ -390,13 +388,12 @@ impl Home {
         }
     }
 
-    fn toggle_keyboard(&mut self, enable: bool, update: bool, id: Option<ViewId>, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_keyboard(&mut self, enable: bool, update: bool, id: Option<ViewId>, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = CURRENT_DEVICE.dims;
+        let (_, height) = context.display.dims;
         let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
-        let mut should_update_summary = false;
         let mut has_search_bar = false;
 
         if let Some(index) = locate::<Keyboard>(self) {
@@ -410,11 +407,6 @@ impl Home {
 
             let delta_y = kb_rect.height() as i32 + thickness;
 
-            {
-                let shelf = self.child_mut(4).downcast_mut::<Shelf>().unwrap();
-                shelf.rect.max.y += delta_y;
-            }
-
             if index > 6 {
                 has_search_bar = true;
                 {
@@ -425,6 +417,8 @@ impl Home {
                     shift(self.child_mut(6), pt!(0, delta_y));
                 }
             }
+
+            hub.send(Event::Expose(kb_rect, UpdateMode::Gui)).unwrap();
         } else {
             if !enable {
                 return;
@@ -441,7 +435,7 @@ impl Home {
                 _ => false,
             };
 
-            let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone(), number);
+            let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone(), number, context);
             self.children.insert(index, Box::new(keyboard) as Box<View>);
 
             let separator = Filler::new(rect![self.rect.min.x, kb_rect.min.y - thickness,
@@ -450,13 +444,6 @@ impl Home {
             self.children.insert(index, Box::new(separator) as Box<View>);
 
             let delta_y = kb_rect.height() as i32 + thickness;
-            self.resize_summary(-delta_y, false, hub, fonts);
-            should_update_summary = true;
-
-            {
-                let shelf = self.child_mut(4).downcast_mut::<Shelf>().unwrap();
-                shelf.rect.max.y -= delta_y;
-            }
 
             if index > 5 {
                 has_search_bar = true;
@@ -471,12 +458,6 @@ impl Home {
         }
 
         if update {
-            if should_update_summary {
-                self.update_summary(true, hub, fonts);
-                hub.send(Event::Render(*self.child(3).rect(), UpdateMode::Gui)).unwrap();
-            }
-            self.update_shelf(true, hub);
-            self.update_bottom_bar(hub);
             if enable {
                 if has_search_bar {
                     for i in 5..9 {
@@ -499,10 +480,10 @@ impl Home {
 
     fn toggle_search_bar(&mut self, enable: Option<bool>, update: bool, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = CURRENT_DEVICE.dims;
-        let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let (_, height) = context.display.dims;
+        let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
-        let delta_y = (big_height - small_height) as i32;
+        let delta_y = small_height as i32;
         let search_visible: bool;
 
         if let Some(index) = locate::<SearchBar>(self) {
@@ -511,7 +492,7 @@ impl Home {
             }
 
             if let Some(ViewId::SearchInput) = self.focus {
-                self.toggle_keyboard(false, false, Some(ViewId::SearchInput), hub, &mut context.fonts);
+                self.toggle_keyboard(false, false, Some(ViewId::SearchInput), hub, context);
                 self.focus = None;
             }
 
@@ -519,10 +500,10 @@ impl Home {
 
             {
                 let shelf = self.child_mut(4).downcast_mut::<Shelf>().unwrap();
-                shelf.rect.max.y += small_height as i32;
+                shelf.rect.max.y += delta_y;
             }
 
-            self.resize_summary(-delta_y, false, hub, &mut context.fonts);
+            self.resize_summary(0, false, hub, context);
 
             self.query = None;
 
@@ -532,11 +513,11 @@ impl Home {
                 return;
             }
 
-            let sp_rect = *self.child(5).rect() - pt!(0, small_height as i32);
+            let sp_rect = *self.child(5).rect() - pt!(0, delta_y);
 
             let search_bar = SearchBar::new(rect![self.rect.min.x, sp_rect.max.y,
                                                   self.rect.max.x,
-                                                  sp_rect.max.y + small_height as i32 - thickness],
+                                                  sp_rect.max.y + delta_y - thickness],
                                             "Title, author, category",
                                             "");
 
@@ -548,17 +529,17 @@ impl Home {
             // move the shelf's bottom edge
             {
                 let shelf = self.child_mut(4).downcast_mut::<Shelf>().unwrap();
-                shelf.rect.max.y -= small_height as i32;
+                shelf.rect.max.y -= delta_y;
             }
 
             if locate::<Keyboard>(self).is_none() {
-                self.toggle_keyboard(true, false, Some(ViewId::SearchInput), hub, &mut context.fonts);
+                self.toggle_keyboard(true, false, Some(ViewId::SearchInput), hub, context);
             }
 
             self.focus = Some(ViewId::SearchInput);
             hub.send(Event::Focus(Some(ViewId::SearchInput))).unwrap();
 
-            self.resize_summary(delta_y - big_height as i32, false, hub, &mut context.fonts);
+            self.resize_summary(0, false, hub, context);
             search_visible = true;
         }
 
@@ -576,7 +557,7 @@ impl Home {
 
             self.update_top_bar(search_visible, hub);
             self.update_summary(true, hub, &mut context.fonts);
-            self.update_shelf(true, hub);
+            self.update_shelf(true, hub, context);
             self.update_bottom_bar(hub);
 
             if !search_visible {
@@ -585,7 +566,7 @@ impl Home {
         }
     }
 
-    fn toggle_go_to_page(&mut self, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_go_to_page(&mut self, enable: Option<bool>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::GoToPage) {
             if let Some(true) = enable {
                 return;
@@ -593,14 +574,17 @@ impl Home {
             hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
             self.children.remove(index);
             if let Some(ViewId::GoToPageInput) = self.focus {
-                self.toggle_keyboard(false, true, Some(ViewId::GoToPageInput), hub, fonts);
+                self.toggle_keyboard(false, true, Some(ViewId::GoToPageInput), hub, context);
                 self.focus = None;
             }
         } else {
             if let Some(false) = enable {
                 return;
             }
-            let go_to_page = NamedInput::new("Go to page".to_string(), ViewId::GoToPage, ViewId::GoToPageInput, 4, fonts);
+            let go_to_page = NamedInput::new("Go to page".to_string(),
+                                             ViewId::GoToPage,
+                                             ViewId::GoToPageInput,
+                                             4, context);
             hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).unwrap();
             hub.send(Event::Focus(Some(ViewId::GoToPageInput))).unwrap();
             self.focus = Some(ViewId::GoToPageInput);
@@ -608,7 +592,7 @@ impl Home {
         }
     }
 
-    fn toggle_sort_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_sort_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::SortMenu) {
             if let Some(true) = enable {
                 return;
@@ -640,7 +624,7 @@ impl Home {
                                EntryKind::Separator,
                                EntryKind::CheckBox("Reverse Order".to_string(),
                                                    EntryId::ReverseOrder, self.reverse_order)];
-            let sort_menu = Menu::new(rect, ViewId::SortMenu, MenuKind::DropDown, entries, fonts);
+            let sort_menu = Menu::new(rect, ViewId::SortMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*sort_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(sort_menu) as Box<View>);
         }
@@ -652,7 +636,7 @@ impl Home {
         (index_lower + index).min(self.visible_books.len())
     }
 
-    fn toggle_book_menu(&mut self, index: usize, rect: Rectangle, enable: Option<bool>, hub: &Hub, fonts: &mut Fonts) {
+    fn toggle_book_menu(&mut self, index: usize, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::BookMenu) {
             if let Some(true) = enable {
                 return;
@@ -683,14 +667,13 @@ impl Home {
             entries.push(EntryKind::Separator);
             entries.push(EntryKind::Command("Remove".to_string(), EntryId::Remove(path.clone())));
 
-            let book_menu = Menu::new(rect, ViewId::BookMenu, MenuKind::Contextual, entries, fonts);
+            let book_menu = Menu::new(rect, ViewId::BookMenu, MenuKind::Contextual, entries, context);
             hub.send(Event::Render(*book_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(book_menu) as Box<View>);
         }
     }
 
     fn toggle_matches_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
-        let fonts = &mut context.fonts;
         if let Some(index) = locate_by_id(self, ViewId::MatchesMenu) {
             if let Some(true) = enable {
                 return;
@@ -742,7 +725,7 @@ impl Home {
                 entries.push(EntryKind::Command("Undo".to_string(), EntryId::Undo));
             }
 
-            let matches_menu = Menu::new(rect, ViewId::MatchesMenu, MenuKind::DropDown, entries, fonts);
+            let matches_menu = Menu::new(rect, ViewId::MatchesMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*matches_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(matches_menu) as Box<View>);
         }
@@ -751,9 +734,9 @@ impl Home {
     // Relatively moves the bottom edge of the summary
     // And consequently moves the top edge of the shelf
     // and the separator between them.
-    fn resize_summary(&mut self, delta_y: i32, update: bool, hub: &Hub, fonts: &mut Fonts) {
+    fn resize_summary(&mut self, delta_y: i32, update: bool, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = CURRENT_DEVICE.dims;
+        let (_, height) = context.display.dims;
         let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
 
@@ -766,7 +749,7 @@ impl Home {
         let (current_height, next_height) = {
             let summary = self.child(2).downcast_ref::<Summary>().unwrap();
             let shelf = self.child(4).downcast_ref::<Shelf>().unwrap();
-            let max_height = shelf.rect.max.y - summary.rect.min.y - big_height as i32;
+            let max_height = min_height.max(shelf.rect.max.y - summary.rect.min.y - big_height as i32);
             let current_height = summary.rect.height() as i32;
             let size_factor = ((current_height + delta_y - min_height) as f32 / big_height as f32).round() as i32;
             let next_height = max_height.min(min_height.max(min_height + size_factor * big_height as i32));
@@ -777,7 +760,9 @@ impl Home {
             return;
         }
 
-        // move the summary's bottom edge
+        self.summary_size = (1 + (next_height - min_height) / big_height as i32) as u8;
+
+        // Move the summary's bottom edge.
         let delta_y = {
             let summary = self.child_mut(2).downcast_mut::<Summary>().unwrap();
             let last_max_y = summary.rect.max.y;
@@ -785,13 +770,13 @@ impl Home {
             summary.rect.max.y - last_max_y
         };
 
-        // move the separator
+        // Move the separator.
         {
             let separator = self.child_mut(3).downcast_mut::<Filler>().unwrap();
             separator.rect += pt!(0, delta_y);
         }
 
-        // move the shelf's top edge
+        // Move the shelf's top edge.
         {
             let shelf = self.child_mut(4).downcast_mut::<Shelf>().unwrap();
 
@@ -800,8 +785,8 @@ impl Home {
 
         if update {
             hub.send(Event::Render(*self.child(3).rect(), UpdateMode::Gui)).unwrap();
-            self.update_summary(true, hub, fonts);
-            self.update_shelf(true, hub);
+            self.update_summary(true, hub, &mut context.fonts);
+            self.update_shelf(true, hub, context);
             self.update_bottom_bar(hub);
         }
     }
@@ -917,7 +902,7 @@ impl Home {
 
     fn set_reverse_order(&mut self, value: bool, hub: &Hub, context: &mut Context) {
         self.reverse_order = value;
-        self.sort(true, &mut context.metadata, hub);
+        self.sort(true, hub, context);
     }
 
     fn set_sort_method(&mut self, sort_method: SortMethod, hub: &Hub, context: &mut Context) {
@@ -931,17 +916,17 @@ impl Home {
                 .update(sort_method.reverse_order(), hub);
         }
 
-        self.sort(true, &mut context.metadata, hub);
+        self.sort(true, hub, context);
     }
 
-    fn sort(&mut self, reset_page: bool, metadata: &mut Metadata, hub: &Hub) {
+    fn sort(&mut self, reset_page: bool, hub: &Hub, context: &mut Context) {
         if reset_page {
             self.current_page = 0;
         }
 
-        sort(metadata, self.sort_method, self.reverse_order);
+        sort(&mut context.metadata, self.sort_method, self.reverse_order);
         sort(&mut self.visible_books, self.sort_method, self.reverse_order);
-        self.update_shelf(false, hub);
+        self.update_shelf(false, hub, context);
         let search_visible = locate::<SearchBar>(self).is_some();
         self.update_top_bar(search_visible, hub);
         self.update_bottom_bar(hub);
@@ -950,7 +935,7 @@ impl Home {
     fn reseed(&mut self, reset_page: bool, hub: &Hub, context: &mut Context) {
         let (tx, _rx) = mpsc::channel();
         self.refresh_visibles(true, reset_page, &tx, context);
-        self.sort(false, &mut context.metadata, &tx);
+        self.sort(false, &tx, context);
         if let Some(top_bar) = self.child_mut(0).downcast_mut::<TopBar>() {
             top_bar.update_frontlight_icon(&tx, context);
         }
@@ -993,17 +978,26 @@ impl Home {
 impl View for Home {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
+            Event::Gesture(GestureEvent::Rotate { quarter_turns, .. }) if quarter_turns != 0 => {
+                let mut n = context.display.rotation - quarter_turns;
+                if n < 0 {
+                    n += 4;
+                }
+                n = n % 4;
+                hub.send(Event::Select(EntryId::Rotate(n))).unwrap();
+                true
+            },
             Event::Focus(v) => {
                 self.focus = v;
-                self.toggle_keyboard(true, true, v, hub, &mut context.fonts);
+                self.toggle_keyboard(true, true, v, hub, context);
                 false // let the event reach every input view
             },
             Event::Show(ViewId::Keyboard) => {
-                self.toggle_keyboard(true, true, None, hub, &mut context.fonts);
+                self.toggle_keyboard(true, true, None, hub, context);
                 true
             },
             Event::Toggle(ViewId::GoToPage) => {
-                self.toggle_go_to_page(None, hub, &mut context.fonts);
+                self.toggle_go_to_page(None, hub, context);
                 true
             },
             Event::Toggle(ViewId::SearchBar) => {
@@ -1011,11 +1005,11 @@ impl View for Home {
                 true
             },
             Event::ToggleNear(ViewId::SortMenu, rect) => {
-                self.toggle_sort_menu(rect, None, hub, &mut context.fonts);
+                self.toggle_sort_menu(rect, None, hub, context);
                 true
             },
             Event::ToggleBookMenu(rect, index) => {
-                self.toggle_book_menu(index, rect, None, hub, &mut context.fonts);
+                self.toggle_book_menu(index, rect, None, hub, context);
                 true
             },
             Event::ToggleNear(ViewId::MainMenu, rect) => {
@@ -1039,7 +1033,7 @@ impl View for Home {
                 true
             },
             Event::Close(ViewId::SortMenu) => {
-                self.toggle_sort_menu(Rectangle::default(), Some(false), hub, &mut context.fonts);
+                self.toggle_sort_menu(Rectangle::default(), Some(false), hub, context);
                 true
             },
             Event::Close(ViewId::MatchesMenu) => {
@@ -1051,7 +1045,7 @@ impl View for Home {
                 true
             },
             Event::Close(ViewId::GoToPage) => {
-                self.toggle_go_to_page(Some(false), hub, &mut context.fonts);
+                self.toggle_go_to_page(Some(false), hub, context);
                 true
             },
             Event::Select(EntryId::Sort(sort_method)) => {
@@ -1067,8 +1061,7 @@ impl View for Home {
                 let export_as = NamedInput::new("Export as".to_string(),
                                                 ViewId::ExportAs,
                                                 ViewId::ExportAsInput,
-                                                12,
-                                                &mut context.fonts);
+                                                12, context);
                 hub.send(Event::Render(*export_as.rect(), UpdateMode::Gui)).unwrap();
                 hub.send(Event::Focus(Some(ViewId::ExportAsInput))).unwrap();
                 self.children.push(Box::new(export_as) as Box<View>);
@@ -1094,8 +1087,7 @@ impl View for Home {
                 let add_categs = NamedInput::new("Add categories".to_string(),
                                                  ViewId::AddCategories,
                                                  ViewId::AddCategoriesInput,
-                                                 21,
-                                                 &mut context.fonts);
+                                                 21, context);
                 hub.send(Event::Render(*add_categs.rect(), UpdateMode::Gui)).unwrap();
                 hub.send(Event::Focus(Some(ViewId::AddCategoriesInput))).unwrap();
                 self.children.push(Box::new(add_categs) as Box<View>);
@@ -1122,7 +1114,7 @@ impl View for Home {
                 if !text.is_empty() {
                     self.export_matches(text, context);
                 }
-                self.toggle_keyboard(false, true, None, hub, &mut context.fonts);
+                self.toggle_keyboard(false, true, None, hub, context);
                 true
             },
             Event::Submit(ViewId::AddCategoriesInput, ref text) => {
@@ -1132,33 +1124,32 @@ impl View for Home {
                 } else {
                     self.add_matches_categories(&categs, hub, context);
                 }
-                self.toggle_keyboard(false, true, None, hub, &mut context.fonts);
+                self.toggle_keyboard(false, true, None, hub, context);
                 true
             },
             Event::Submit(ViewId::SearchInput, ref text) => {
                 self.query = make_query(text);
                 if self.query.is_some() {
                     // TODO: avoid updating things twice
-                    self.toggle_keyboard(false, true, None, hub, &mut context.fonts);
+                    self.toggle_keyboard(false, true, None, hub, context);
                     self.refresh_visibles(true, true, hub, context);
                 } else {
                     let notif = Notification::new(ViewId::InvalidSearchQueryNotif,
                                                   "Invalid search query.".to_string(),
-                                                  &mut context.notification_index,
-                                                  &mut context.fonts,
-                                                  hub);
+                                                  hub,
+                                                  context);
                     self.children.push(Box::new(notif) as Box<View>);
                 }
                 true
             },
             Event::Submit(ViewId::GoToPageInput, ref text) => {
                 if let Ok(index) = text.parse::<usize>() {
-                    self.go_to_page(index.saturating_sub(1), hub);
+                    self.go_to_page(index.saturating_sub(1), hub, context);
                 }
                 true
             },
             Event::ResizeSummary(delta_y) => {
-                self.resize_summary(delta_y, true, hub, &mut context.fonts);
+                self.resize_summary(delta_y, true, hub, context);
                 true
             },
             Event::ToggleSelectCategory(ref categ) => {
@@ -1177,19 +1168,19 @@ impl View for Home {
                 true
             },
             Event::GoTo(location) => {
-                self.go_to_page(location as usize, hub);
+                self.go_to_page(location as usize, hub, context);
                 true
             },
             Event::Chapter(dir) => {
                 let pages_count = self.pages_count;
                 match dir {
-                    CycleDir::Previous => self.go_to_page(0, hub),
-                    CycleDir::Next => self.go_to_page(pages_count.saturating_sub(1), hub),
+                    CycleDir::Previous => self.go_to_page(0, hub, context),
+                    CycleDir::Next => self.go_to_page(pages_count.saturating_sub(1), hub, context),
                 }
                 true
             },
             Event::Page(dir) => {
-                self.set_current_page(dir, hub);
+                self.set_current_page(dir, hub, context);
                 true
             },
             Event::ToggleFrontlight => {
@@ -1208,6 +1199,98 @@ impl View for Home {
     }
 
     fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    }
+
+    fn resize(&mut self, rect: Rectangle, context: &mut Context) {
+        let dpi = CURRENT_DEVICE.dpi;
+        let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
+        let (small_thickness, big_thickness) = halves(thickness);
+        let (_, height) = context.display.dims;
+        let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let (tx, _rx) = mpsc::channel();
+
+        // Top bar.
+        let top_bar_rect = rect![rect.min.x, rect.min.y,
+                                 rect.max.x, rect.min.y + small_height as i32 - small_thickness];
+        self.children[0].resize(top_bar_rect, context);
+
+        let separator_rect = rect![rect.min.x, rect.min.y + small_height as i32 - small_thickness,
+                                   rect.max.x, rect.min.y + small_height as i32 + big_thickness];
+        self.children[1].resize(separator_rect, context);
+
+        // Summary.
+        let min_height = if locate::<SearchBar>(self).is_some() {
+            big_height as i32 - thickness
+        } else {
+            small_height as i32 - thickness
+        };
+
+        let summary_height = min_height + (self.summary_size - 1) as i32 * big_height as i32;
+        let sm_min_y = rect.min.y + small_height as i32 + big_thickness;
+        let sm_max_y = sm_min_y + summary_height;
+        let summary_rect = rect![rect.min.x, sm_min_y, rect.max.x, sm_max_y];
+        self.children[2].resize(summary_rect, context);
+        self.update_summary(true, &tx, &mut context.fonts);
+
+        let separator_rect = rect![rect.min.x, sm_max_y,
+                                   rect.max.x, sm_max_y + thickness];
+        self.children[3].resize(separator_rect, context);
+
+        // Bottom bar.
+        let bottom_bar_index = locate::<BottomBar>(self).unwrap_or(6);
+        let mut index = bottom_bar_index;
+
+        let separator_rect = rect![rect.min.x, rect.max.y - small_height as i32 - small_thickness,
+                                   rect.max.x, rect.max.y - small_height as i32 + big_thickness];
+        self.children[index-1].resize(separator_rect, context);
+
+        let bottom_bar_rect = rect![rect.min.x, rect.max.y - small_height as i32 + big_thickness,
+                                    rect.max.x, rect.max.y];
+        self.children[index].resize(bottom_bar_rect, context);
+
+        let mut shelf_max_y = rect.max.y - small_height as i32 - small_thickness;
+
+        if index > 6 {
+            index -= 2;
+            // Keyboard.
+            if self.children[index].is::<Keyboard>() {
+                let kb_rect = rect![rect.min.x,
+                                    rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
+                                    rect.max.x,
+                                    rect.max.y - small_height as i32 - small_thickness];
+                self.children[index].resize(kb_rect, context);
+                let s_max_y = self.children[index].rect().min.y;
+                self.children[index-1].resize(rect![rect.min.x, s_max_y - thickness,
+                                                    rect.max.x, s_max_y],
+                                              context);
+                index -= 2;
+            }
+            // Search bar.
+            if self.children[index].is::<SearchBar>() {
+                let sp_rect = *self.children[index+1].rect() - pt!(0, small_height as i32);
+                self.children[index].resize(rect![rect.min.x,
+                                                  sp_rect.max.y,
+                                                  rect.max.x,
+                                                  sp_rect.max.y + small_height as i32 - thickness],
+                                            context);
+                self.children[index-1].resize(sp_rect, context);
+                shelf_max_y -= small_height as i32;
+            }
+        }
+
+        let shelf_rect = rect![rect.min.x, sm_max_y + thickness,
+                               rect.max.x, shelf_max_y];
+        self.children[4].resize(shelf_rect, context);
+
+        self.update_shelf(true, &tx, context);
+        self.update_bottom_bar(&tx);
+
+        // TODO: Handle menus.
+        for i in bottom_bar_index+1..self.children.len() {
+            self.children[i].resize(rect, context);
+        }
+
+        self.rect = rect;
     }
 
     fn rect(&self) -> &Rectangle {

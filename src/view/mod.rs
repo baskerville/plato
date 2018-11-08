@@ -75,6 +75,10 @@ pub trait View: Downcast {
     fn children(&self) -> &Vec<Box<View>>;
     fn children_mut(&mut self) -> &mut Vec<Box<View>>;
 
+    fn resize(&mut self, rect: Rectangle, _context: &mut Context) {
+        *self.rect_mut() = rect;
+    }
+
     fn child(&self, index: usize) -> &View {
         self.children()[index].as_ref()
     }
@@ -198,6 +202,7 @@ pub enum Event {
     Key(KeyKind),
     Open(Box<Info>),
     OpenToc(Vec<TocEntry>, f64),
+    RotateView(i8),
     Invalid(Box<Info>),
     Remove(Box<Info>),
     Page(CycleDir),
@@ -375,6 +380,7 @@ pub enum EntryId {
     ToggleInverted,
     ToggleMonochrome,
     ToggleWifi,
+    Rotate(i8),
     TakeScreenshot,
     StartNickel,
     Reboot,

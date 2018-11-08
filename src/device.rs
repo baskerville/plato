@@ -45,7 +45,6 @@ impl fmt::Display for Model {
 pub struct Device {
     pub model: Model,
     pub proto: TouchProto,
-    pub mirrored_x: bool,
     pub dims: (u32, u32),
     pub dpi: u16,
 }
@@ -55,7 +54,6 @@ impl Default for Device {
         Device {
             model: Model::Touch,
             proto: TouchProto::Single,
-            mirrored_x: true,
             dims: (600, 800),
             dpi: 167,
         }
@@ -78,88 +76,84 @@ impl Device {
             _ => false,
         }
     }
+
+    pub fn mirroring_pivot(&self) -> i8 {
+        let model_number = env::var("MODEL_NUMBER").unwrap_or_default();
+        match self.model {
+            Model::AuraH2OEdition2 if model_number == "374" => 1,
+            _ => 2,
+        }
+    }
 }
 
 lazy_static! {
     pub static ref CURRENT_DEVICE: Device = {
         let product = env::var("PRODUCT").unwrap_or_default();
-        let model_number = env::var("MODEL_NUMBER").unwrap_or_default();
 
         match product.as_ref() {
             "kraken" => Device {
                 model: Model::Glo,
                 proto: TouchProto::Single,
-                mirrored_x: true,
                 dims: (758, 1024),
                 dpi: 212,
             },
             "pixie" => Device {
                 model: Model::Mini,
                 proto: TouchProto::Single,
-                mirrored_x: true,
                 dims: (600, 800),
                 dpi: 200,
             },
             "dragon" => Device {
                 model: Model::AuraHD,
                 proto: TouchProto::Single,
-                mirrored_x: true,
                 dims: (1080, 1440),
                 dpi: 265,
             },
             "phoenix" => Device {
                 model: Model::Aura,
                 proto: TouchProto::MultiA,
-                mirrored_x: true,
                 dims: (758, 1024),
                 dpi: 212,
             },
             "dahlia" => Device {
                 model: Model::AuraH2O,
                 proto: TouchProto::MultiA,
-                mirrored_x: true,
                 dims: (1080, 1440),
                 dpi: 265,
             },
             "alyssum" => Device {
                 model: Model::GloHD,
                 proto: TouchProto::MultiA,
-                mirrored_x: true,
                 dims: (1072, 1448),
                 dpi: 300,
             },
             "pika" => Device {
                 model: Model::Touch2,
                 proto: TouchProto::MultiA,
-                mirrored_x: true,
                 dims: (600, 800),
                 dpi: 167,
             },
             "daylight" => Device {
                 model: Model::AuraONE,
                 proto: TouchProto::MultiA,
-                mirrored_x: true,
                 dims: (1404, 1872),
                 dpi: 300,
             },
             "star" => Device {
                 model: Model::AuraEdition2,
                 proto: TouchProto::MultiA,
-                mirrored_x: true,
                 dims: (758, 1024),
                 dpi: 212,
             },
             "snow" => Device {
                 model: Model::AuraH2OEdition2,
                 proto: TouchProto::MultiB,
-                mirrored_x: model_number == "378",
                 dims: (1080, 1440),
                 dpi: 265,
             },
             "nova" => Device {
                 model: Model::ClaraHD,
                 proto: TouchProto::MultiB,
-                mirrored_x: true,
                 dims: (1072, 1448),
                 dpi: 300,
             },
@@ -175,11 +169,17 @@ lazy_static! {
 // SMALL_HEIGHT / DPI * 2.54 is as close as possible to 1 cm
 pub static ref BAR_SIZES: HashMap<(u32, u16), (u32, u32)> =
     [((1872, 300), (126, 166)),
+     ((1404, 300), (126, 171)),
      ((1448, 300), (121, 155)),
+     ((1072, 300), (124, 175)),
      ((1440, 265), (104, 141)),
+     ((1080, 265), (110, 150)),
      ((1024, 212), ( 87, 109)),
+     (( 758, 212), ( 81, 103)),
      (( 800, 167), ( 66,  86)),
-     (( 800, 200), ( 80, 112))].iter().cloned().collect();
+     (( 600, 167), ( 65,  81)),
+     (( 800, 200), ( 80, 112)),
+     (( 600, 200), ( 84, 116))].iter().cloned().collect();
 }
 
 pub fn optimal_bars_setup(height: u32, dpi: u16) -> (u32, u32) {

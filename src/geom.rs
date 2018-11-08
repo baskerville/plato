@@ -505,6 +505,12 @@ impl Default for Rectangle {
     }
 }
 
+impl From<(u32, u32)> for Rectangle {
+    fn from(dims: (u32, u32)) -> Rectangle {
+        Rectangle::new(Point::new(0, 0), Point::new(dims.0 as i32, dims.1 as i32))
+    }
+}
+
 fn rect_cmp(r1: &Rectangle, r2: &Rectangle) -> Ordering {
     if r1.min.y >= r2.max.y {
         Ordering::Greater

@@ -38,16 +38,16 @@ pub enum MenuKind {
 //     C     BOTTOM MENU
 
 impl Menu {
-    pub fn new(target: Rectangle, id: ViewId, kind: MenuKind, mut entries: Vec<EntryKind>, fonts: &mut Fonts) -> Menu {
+    pub fn new(target: Rectangle, id: ViewId, kind: MenuKind, mut entries: Vec<EntryKind>, context: &mut Context) -> Menu {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
-        let (width, height) = CURRENT_DEVICE.dims;
+        let (width, height) = context.display.dims;
         let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
 
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let border_thickness = scale_by_dpi(THICKNESS_LARGE, dpi) as i32;
         let border_radius = scale_by_dpi(BORDER_RADIUS_MEDIUM - THICKNESS_LARGE, dpi) as i32;
-        let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
+        let font = font_from_style(&mut context.fonts, &NORMAL_STYLE, dpi);
         let entry_height = font.x_heights.0 as i32 * 5;
         let padding = 4 * font.em() as i32;
 
@@ -264,7 +264,7 @@ impl View for Menu {
             Event::Gesture(GestureEvent::HoldFinger(center)) if !self.rect.includes(center) => self.root,
             Event::SubMenu(rect, ref entries) => {
                 let menu = Menu::new(rect, ViewId::SubMenu(self.sub_id),
-                                     MenuKind::SubMenu, entries.clone(), &mut context.fonts).root(false);
+                                     MenuKind::SubMenu, entries.clone(), context).root(false);
                 hub.send(Event::Render(*menu.rect(), UpdateMode::Gui)).unwrap();
                 self.children.push(Box::new(menu) as Box<View>);
                 self.sub_id = self.sub_id.wrapping_add(1);
