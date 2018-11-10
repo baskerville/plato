@@ -304,6 +304,10 @@ pub fn run() -> Result<(), Error> {
                         }
                     },
                     DeviceEvent::NetUp => {
+                        if tasks.iter().any(|task| task.id == TaskId::PrepareSuspend ||
+                                                   task.id == TaskId::Suspend) {
+                            continue;
+                        }
                         let ip = Command::new("scripts/ip.sh").output()
                                          .map(|o| String::from_utf8_lossy(&o.stdout).trim_right().to_string())
                                          .unwrap_or_default();
