@@ -1,5 +1,4 @@
 - Fit to width.
-- Landscape mode.
 - Dictionary.
 - Metadata view.
 - Pocket articles.
