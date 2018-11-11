@@ -35,6 +35,8 @@ pub const SYN_REPORT: u16 = 0;
 pub const KEY_POWER: u16 = 116;
 pub const KEY_HOME: u16 = 102;
 pub const KEY_LIGHT: u16 = 90;
+pub const KEY_BACKWARD: u16 = 193;
+pub const KEY_FORWARD: u16 = 194;
 pub const KEY_ROTATE_DISPLAY: u16 = 153;
 pub const SLEEP_COVER: u16 = 59;
 
@@ -96,6 +98,8 @@ pub enum ButtonCode {
     Power,
     Home,
     Light,
+    Backward,
+    Forward,
     Raw(u16),
 }
 
@@ -107,6 +111,10 @@ impl ButtonCode {
             ButtonCode::Home
         } else if code == KEY_LIGHT {
             ButtonCode::Light
+        } else if code == KEY_BACKWARD {
+            ButtonCode::Backward
+        } else if code == KEY_FORWARD {
+            ButtonCode::Forward
         } else {
             ButtonCode::Raw(code)
         }

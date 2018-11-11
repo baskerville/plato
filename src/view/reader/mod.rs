@@ -1334,6 +1334,14 @@ impl View for Reader {
                 };
                 true
             },
+            Event::Device(DeviceEvent::Button { code: ButtonCode::Backward, status: ButtonStatus::Pressed, .. }) => {
+                self.go_to_neighbor(CycleDir::Previous, hub, context);
+                true
+            },
+            Event::Device(DeviceEvent::Button { code: ButtonCode::Forward, status: ButtonStatus::Pressed, .. }) => {
+                self.go_to_neighbor(CycleDir::Next, hub, context);
+                true
+            },
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 if self.focus.is_some() {
                     return true;

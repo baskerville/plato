@@ -35,6 +35,7 @@ use view::search_bar::SearchBar;
 use view::notification::Notification;
 use self::bottom_bar::BottomBar;
 use gesture::GestureEvent;
+use input::{DeviceEvent, ButtonCode, ButtonStatus};
 use device::{CURRENT_DEVICE, BAR_SIZES};
 use symbolic_path::SymbolicPath;
 use helpers::{load_json, save_json};
@@ -305,7 +306,7 @@ impl Home {
         self.update_bottom_bar(hub);
     }
 
-    fn set_current_page(&mut self, dir: CycleDir, hub: &Hub, context: &Context) {
+    fn go_to_neighbor(&mut self, dir: CycleDir, hub: &Hub, context: &Context) {
         match dir {
             CycleDir::Next if self.current_page < self.pages_count - 1 => {
                 self.current_page += 1;
@@ -1180,7 +1181,15 @@ impl View for Home {
                 true
             },
             Event::Page(dir) => {
-                self.set_current_page(dir, hub, context);
+                self.go_to_neighbor(dir, hub, context);
+                true
+            },
+            Event::Device(DeviceEvent::Button { code: ButtonCode::Backward, status: ButtonStatus::Pressed, .. }) => {
+                self.go_to_neighbor(CycleDir::Previous, hub, context);
+                true
+            },
+            Event::Device(DeviceEvent::Button { code: ButtonCode::Forward, status: ButtonStatus::Pressed, .. }) => {
+                self.go_to_neighbor(CycleDir::Next, hub, context);
                 true
             },
             Event::ToggleFrontlight => {

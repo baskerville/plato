@@ -8,6 +8,7 @@ use input::TouchProto;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
+    Forma,
     ClaraHD,
     AuraH2OEdition2,
     AuraEdition2,
@@ -25,6 +26,7 @@ pub enum Model {
 impl fmt::Display for Model {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Model::Forma           => write!(f, "Forma"),
             Model::ClaraHD         => write!(f, "Clara HD"),
             Model::AuraH2OEdition2 => write!(f, "Aura H₂O Edition 2"),
             Model::AuraEdition2    => write!(f, "Aura Edition 2"),
@@ -65,7 +67,8 @@ impl Device {
         match self.model {
             Model::AuraONE |
             Model::AuraH2OEdition2 |
-            Model::ClaraHD => true,
+            Model::ClaraHD |
+            Model::Forma => true,
             _ => false,
         }
     }
@@ -157,6 +160,12 @@ lazy_static! {
                 dims: (1072, 1448),
                 dpi: 300,
             },
+            "frost" => Device {
+                model: Model::Forma,
+                proto: TouchProto::MultiB,
+                dims: (1440, 1920),
+                dpi: 300,
+            },
             _ => Device::default(),
         }
     };
@@ -168,7 +177,9 @@ lazy_static! {
 // BIG_HEIGHT / SMALL_HEIGHT is as close as possible to 83/63
 // SMALL_HEIGHT / DPI * 2.54 is as close as possible to 1 cm
 pub static ref BAR_SIZES: HashMap<(u32, u16), (u32, u32)> =
-    [((1872, 300), (126, 166)),
+    [((1920, 300), (120, 156)),
+     ((1440, 300), (126, 177)),
+     ((1872, 300), (126, 166)),
      ((1404, 300), (126, 171)),
      ((1448, 300), (121, 155)),
      ((1072, 300), (124, 175)),
