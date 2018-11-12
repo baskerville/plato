@@ -204,6 +204,7 @@ impl Framebuffer for KoboFramebuffer {
     fn set_rotation(&mut self, mut n: i8) -> Result<(u32, u32), Error> {
         match CURRENT_DEVICE.model {
             Model::AuraH2O | Model::AuraH2OEdition2 | Model::AuraHD => n ^= 2,
+            Model::Forma => n = (4 - n) % 4,
             _ => (),
         }
         self.var_info.rotate = n as u32;
