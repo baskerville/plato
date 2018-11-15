@@ -3,6 +3,7 @@ use font::{Fonts, font_from_style, NORMAL_STYLE};
 use color::{BLACK, WHITE};
 use gesture::GestureEvent;
 use geom::{Rectangle};
+use document::BYTES_PER_PAGE;
 use framebuffer::{Framebuffer, UpdateMode};
 use super::{View, Event, Hub, Bus, ViewId};
 use app::Context;
@@ -10,13 +11,13 @@ use app::Context;
 pub struct PageLabel {
     rect: Rectangle,
     children: Vec<Box<View>>,
-    current_page: f64,
-    pages_count: f64,
+    current_page: usize,
+    pages_count: usize,
     synthetic: bool,
 }
 
 impl PageLabel {
-    pub fn new(rect: Rectangle, current_page: f64, pages_count: f64, synthetic: bool)  -> PageLabel {
+    pub fn new(rect: Rectangle, current_page: usize, pages_count: usize, synthetic: bool)  -> PageLabel {
         PageLabel {
             rect,
             children: vec![],
@@ -26,7 +27,7 @@ impl PageLabel {
         }
     }
 
-    pub fn update(&mut self, current_page: f64, pages_count: f64, hub: &Hub) {
+    pub fn update(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
         self.current_page = current_page;
         self.pages_count = pages_count;
         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
@@ -34,14 +35,14 @@ impl PageLabel {
 
     pub fn text(&self) -> String {
         if self.synthetic {
-            format!("Page {:.1} of {:.1}", self.current_page, self.pages_count)
+            let current_page = self.current_page as f64 / BYTES_PER_PAGE;
+            let pages_count = self.current_page as f64 / BYTES_PER_PAGE;
+            format!("Page {:.1} of {:.1}", current_page, pages_count)
         } else {
-            let current_page = self.current_page as usize;
-            let pages_count = self.pages_count as usize;
-            if pages_count == 0 {
+            if self.pages_count == 0 {
                 "No pages".to_string()
             } else {
-                format!("Page {} of {}", current_page + 1, pages_count)
+                format!("Page {} of {}", self.current_page + 1, self.pages_count)
             }
         }
     }

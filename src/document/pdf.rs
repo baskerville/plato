@@ -149,7 +149,7 @@ impl PdfDocument {
             while !cur.is_null() {
                 let title = CStr::from_ptr((*cur).title).to_string_lossy().into_owned();
                 // TODO: handle page == -1
-                let location = (*cur).page as f64;
+                let location = (*cur).page as usize;
                 let children = if !(*cur).down.is_null() {
                     Self::walk_toc((*cur).down)
                 } else {
@@ -172,13 +172,13 @@ impl Document for PdfDocument {
         self.page(index).map(|page| page.dims())
     }
 
-    fn pages_count(&self) -> f64 {
-        unsafe { mp_count_pages(self.ctx.0, self.doc) as f64 }
+    fn pages_count(&self) -> usize {
+        unsafe { mp_count_pages(self.ctx.0, self.doc) as usize }
     }
 
-    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, f64)> {
-        let index = self.resolve_location(loc)? as usize;
-        self.page(index).and_then(|page| page.pixmap(scale)).map(|pixmap| (pixmap, index as f64))
+    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, usize)> {
+        let index = self.resolve_location(loc)?;
+        self.page(index).and_then(|page| page.pixmap(scale)).map(|pixmap| (pixmap, index))
     }
 
     fn toc(&mut self) -> Option<Vec<TocEntry>> {
@@ -207,40 +207,14 @@ impl Document for PdfDocument {
         }
     }
 
-    fn resolve_location(&mut self, loc: Location) -> Option<f64> {
-        if self.pages_count() < 1.0 {
-            return None;
-        }
-        match loc {
-            Location::Exact(l) => {
-                Some(l.max(0.0).min(self.pages_count() - 1.0))
-            },
-            Location::Previous(l) => {
-                if l >= 1.0 {
-                    Some(l - 1.0)
-                } else {
-                    None
-                }
-            },
-            Location::Next(l) => {
-                if l < self.pages_count() - 1.0 {
-                    Some(l + 1.0)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
+    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
+        let index = self.resolve_location(loc)?;
+        self.page(index).and_then(|page| page.words()).map(|words| (words, index))
     }
 
-    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)> {
-        let index = self.resolve_location(loc)? as usize;
-        self.page(index).and_then(|page| page.words()).map(|words| (words, index as f64))
-    }
-
-    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)> {
-        let index = self.resolve_location(loc)? as usize;
-        self.page(index).and_then(|page| page.links()).map(|links| (links, index as f64))
+    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
+        let index = self.resolve_location(loc)?;
+        self.page(index).and_then(|page| page.links()).map(|links| (links, index))
     }
 
     fn title(&self) -> Option<String> {

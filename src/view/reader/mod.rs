@@ -10,9 +10,8 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering as AtomicOrdering;
 use std::rc::Rc;
-use std::cmp::Ordering;
 use std::path::PathBuf;
-use std::collections::VecDeque;
+use std::collections::{VecDeque, BTreeMap};
 use chrono::Local;
 use regex::Regex;
 use input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
@@ -38,10 +37,9 @@ use view::notification::Notification;
 use settings::{guess_frontlight, FinishedAction, DEFAULT_FONT_FAMILY};
 use frontlight::LightLevels;
 use gesture::GestureEvent;
-use document::{Document, DocumentOpener, Location, Neighbors};
+use document::{Document, DocumentOpener, Location, Neighbors, BYTES_PER_PAGE};
 use document::{TocEntry, toc_as_html, chapter_at, chapter_relative};
 use document::pdf::PdfOpener;
-use document::epub::LOCATION_EPSILON;
 use metadata::{Info, FileInfo, ReaderInfo, PageScheme, Margin, CroppingMargins, make_query};
 use geom::{Rectangle, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, halves};
 use color::{BLACK, WHITE};
@@ -55,8 +53,8 @@ pub struct Reader {
     info: Info,
     doc: Arc<Mutex<Box<Document>>>,
     pixmap: Rc<Pixmap>,
-    current_page: f64,
-    pages_count: f64,
+    current_page: usize,
+    pages_count: usize,
     synthetic: bool,
     page_turns: usize,
     finished: bool,
@@ -67,29 +65,23 @@ pub struct Reader {
     scale: f32,
     focus: Option<ViewId>,
     search: Option<Search>,
-    history: VecDeque<f64>,
+    history: VecDeque<usize>,
 }
 
 #[derive(Debug)]
 struct Search {
     query: String,
-    highlights: Vec<Highlight>,
+    highlights: BTreeMap<usize, Vec<Rectangle>>,
     running: Arc<AtomicBool>,
     current_page: usize,
     results_count: usize,
-}
-
-#[derive(Debug)]
-struct Highlight {
-    location: f64,
-    rects: Vec<Rectangle>,
 }
 
 impl Default for Search {
     fn default() -> Self {
         Search {
             query: String::new(),
-            highlights: Vec::new(),
+            highlights: BTreeMap::new(),
             running: Arc::new(AtomicBool::new(true)),
             current_page: 0,
             results_count: 0,
@@ -107,7 +99,7 @@ impl Reader {
             let (width, height) = context.display.dims;
             let font_size = info.reader.as_ref().and_then(|r| r.font_size)
                                 .unwrap_or(settings.reader.font_size);
-            let first_location = doc.resolve_location(Location::Exact(0.0))?;
+            let first_location = doc.resolve_location(Location::Exact(0))?;
 
             doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
             doc.set_margin_width(info.reader.as_ref().and_then(|r| r.margin_width)
@@ -151,7 +143,7 @@ impl Reader {
 
             let margin = info.reader.as_ref()
                              .and_then(|r| r.cropping_margins.as_ref()
-                                            .map(|c| c.margin(current_page as usize)))
+                                            .map(|c| c.margin(current_page)))
                              .cloned().unwrap_or_default();
             let ((pixmap, location), scale) = build_pixmap(&rect, doc.as_mut(), current_page, &margin);
             let frame = rect![(margin.left * pixmap.width as f32).ceil() as i32,
@@ -186,7 +178,7 @@ impl Reader {
         })
     }
 
-    pub fn from_toc(rect: Rectangle, toc: &[TocEntry], mut current_page: f64, hub: &Hub, context: &mut Context) -> Reader {
+    pub fn from_toc(rect: Rectangle, toc: &[TocEntry], mut current_page: usize, hub: &Hub, context: &mut Context) -> Reader {
         let html = toc_as_html(toc, current_page);
 
         let info = Info {
@@ -209,7 +201,7 @@ impl Reader {
 
         current_page = chapter_at(toc, current_page).and_then(|chap| {
             let link_uri = format!("@{}", chap.location);
-            let mut loc = Location::Exact(0.0);
+            let mut loc = Location::Exact(0);
             while let Some((links, l)) = doc.links(loc) {
                 if links.iter().any(|link| link.text == link_uri) {
                     return Some(l)
@@ -217,7 +209,7 @@ impl Reader {
                 loc = Location::Next(l);
             }
             None
-        }).unwrap_or(0.0);
+        }).unwrap_or(0);
 
         let ((pixmap, location), scale) = build_pixmap(&rect, &mut doc, current_page, &Margin::default());
         current_page = location;
@@ -248,7 +240,7 @@ impl Reader {
         }
     }
 
-    fn go_to_page(&mut self, location: f64, record: bool, hub: &Hub) {
+    fn go_to_page(&mut self, location: usize, record: bool, hub: &Hub) {
         let loc = {
             let mut doc = self.doc.lock().unwrap();
             doc.resolve_location(Location::Exact(location))
@@ -263,15 +255,7 @@ impl Reader {
             }
 
             if let Some(ref mut s) = self.search {
-                let search_page = s.highlights
-                                   .binary_search_by(|a| a.location.partial_cmp(&location)
-                                                          .unwrap_or(Ordering::Equal));
-                s.current_page = if search_page.is_ok() {
-                    search_page.unwrap()
-                } else {
-                    search_page.unwrap_err()
-                               .min(s.highlights.len().saturating_sub(1))
-                };
+                s.current_page = s.highlights.range(..location+1).count().saturating_sub(1);
             }
 
             self.current_page = location;
@@ -300,10 +284,11 @@ impl Reader {
         if let Some(ref r) = self.info.reader {
             match dir {
                 CycleDir::Next => {
-                    loc = r.bookmarks.iter().find(|&loc| *loc > self.current_page).cloned();
+                    loc = r.bookmarks.range(self.current_page+1 ..)
+                                     .next().cloned();
                 },
                 CycleDir::Previous => {
-                    loc = r.bookmarks.iter().filter(|&loc| *loc < self.current_page)
+                    loc = r.bookmarks.range(.. self.current_page)
                                      .next_back().cloned();
                 },
             }
@@ -366,7 +351,7 @@ impl Reader {
         if let Some(ref mut s) = self.search {
             if index < s.highlights.len() {
                 s.current_page = index;
-                loc = Some(s.highlights[index].location);
+                loc = Some(*s.highlights.keys().nth(index).unwrap());
             }
         }
         if let Some(location) = loc {
@@ -380,22 +365,15 @@ impl Reader {
     fn go_to_results_neighbor(&mut self, dir: CycleDir, hub: &Hub) {
         let loc = self.search.as_ref().and_then(|s| {
             match dir {
-                CycleDir::Next => s.highlights.iter().find(|h| h.location > self.current_page)
-                                              .map(|e| e.location),
-                CycleDir::Previous => s.highlights.iter().filter(|h| h.location < self.current_page)
-                                                  .next_back().map(|e| e.location),
+                CycleDir::Next => s.highlights.range(self.current_page+1..)
+                                              .next().map(|e| *e.0),
+                CycleDir::Previous => s.highlights.range(..self.current_page)
+                                                  .next_back().map(|e| *e.0),
             }
         });
         if let Some(location) = loc {
             if let Some(ref mut s) = self.search {
-                let search_page = s.highlights
-                                   .binary_search_by(|a| a.location.partial_cmp(&location)
-                                                          .unwrap_or(Ordering::Equal));
-                s.current_page = if search_page.is_ok() {
-                    search_page.unwrap()
-                } else {
-                    search_page.unwrap_err()
-                };
+                s.current_page = s.highlights.range(..location+1).count().saturating_sub(1);
             }
             self.current_page = location;
             self.update_results_bar(hub);
@@ -474,7 +452,7 @@ impl Reader {
         };
         let margin = self.info.reader.as_ref()
                          .and_then(|r| r.cropping_margins.as_ref()
-                                        .map(|c| c.margin(self.current_page as usize)))
+                                        .map(|c| c.margin(self.current_page)))
                          .cloned().unwrap_or_default();
         let mut doc = self.doc.lock().unwrap();
         let ((pixmap, location), scale) = build_pixmap(&self.rect, doc.as_mut(), self.current_page, &margin);
@@ -513,7 +491,7 @@ impl Reader {
                 let mut doc = doc2.lock().unwrap();
 
                 if let Some((ref words, location)) = doc.words(loc) {
-                    if (location - current_page).abs() < LOCATION_EPSILON && started {
+                    if location == current_page && started {
                         break;
                     }
                     for word in words {
@@ -530,7 +508,7 @@ impl Reader {
                     };
                 } else {
                     loc = match search_direction {
-                        LinearDir::Forward => Location::Exact(0.0),
+                        LinearDir::Forward => Location::Exact(0),
                         LinearDir::Backward => Location::Exact(doc.pages_count()),
                     };
                 }
@@ -984,10 +962,9 @@ impl Reader {
 
             let first_page = self.info.reader.as_ref()
                                  .and_then(|r| r.first_page).unwrap_or(0);
-            let current_page = self.current_page as usize;
             let entries = vec![EntryKind::CheckBox("First Page".to_string(),
                                                    EntryId::ToggleFirstPage,
-                                                   current_page == first_page)];
+                                                   self.current_page == first_page)];
             let page_menu = Menu::new(rect, ViewId::PageMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*page_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(page_menu) as Box<View>);
@@ -1007,7 +984,7 @@ impl Reader {
                 return;
             }
 
-            let current_page = self.current_page as usize;
+            let current_page = self.current_page;
             let is_split = self.info.reader.as_ref()
                                .and_then(|r| r.cropping_margins
                                               .as_ref().map(|c| c.is_split()));
@@ -1131,7 +1108,7 @@ impl Reader {
 
             let margin = self.info.reader.as_ref()
                              .and_then(|r| r.cropping_margins.as_ref()
-                                            .map(|c| c.margin(self.current_page as usize)))
+                                            .map(|c| c.margin(self.current_page)))
                              .cloned().unwrap_or_default();
 
             let mut doc = self.doc.lock().unwrap();
@@ -1165,7 +1142,7 @@ impl Reader {
             if !self.synthetic {
                 let ratio = doc.pages_count() / self.pages_count;
                 self.pages_count = doc.pages_count();
-                self.current_page = (ratio * self.current_page).min(self.pages_count - 1.0);
+                self.current_page = (ratio * self.current_page).min(self.pages_count - 1);
             }
         }
 
@@ -1195,7 +1172,7 @@ impl Reader {
 
             if !self.synthetic {
                 self.pages_count = doc.pages_count();
-                self.current_page = self.current_page.min(self.pages_count - 1.0);
+                self.current_page = self.current_page.min(self.pages_count - 1);
             }
         }
 
@@ -1219,7 +1196,7 @@ impl Reader {
 
             if !self.synthetic {
                 self.pages_count = doc.pages_count();
-                self.current_page = self.current_page.min(self.pages_count - 1.0);
+                self.current_page = self.current_page.min(self.pages_count - 1);
             }
         }
 
@@ -1243,7 +1220,7 @@ impl Reader {
 
             if !self.synthetic {
                 self.pages_count = doc.pages_count();
-                self.current_page = self.current_page.min(self.pages_count - 1.0);
+                self.current_page = self.current_page.min(self.pages_count - 1);
             }
         }
 
@@ -1253,15 +1230,9 @@ impl Reader {
     }
 
     fn add_remove_bookmark(&mut self, hub: &Hub) {
-        let current_page = self.current_page;
         if let Some(ref mut r) = self.info.reader {
-            if let Ok(index) = r.bookmarks.binary_search_by(|a| a.partial_cmp(&current_page)
-                                                                 .unwrap_or(Ordering::Equal)) {
-                r.bookmarks.remove(index);
-            } else {
-                r.bookmarks.push(self.current_page);
-                r.bookmarks.sort_unstable_by(|a, b| a.partial_cmp(b)
-                                                     .unwrap_or(Ordering::Equal));
+            if !r.bookmarks.insert(self.current_page) {
+                r.bookmarks.remove(&self.current_page);
             }
         }
         self.update(hub);
@@ -1352,7 +1323,7 @@ impl View for Reader {
 
                 let (links, _) = self.doc.lock().ok()
                                      .and_then(|mut doc| doc.links(Location::Exact(self.current_page)))
-                                     .unwrap_or((Vec::new(), 0.0));
+                                     .unwrap_or((Vec::new(), 0));
 
                 for link in links {
                     let r = link.rect;
@@ -1367,16 +1338,16 @@ impl View for Reader {
 
                     if rect.includes(center) {
                         let pdf_page = Regex::new(r"^#(\d+)(?:,\d+,\d+)?$").unwrap();
-                        let toc_page = Regex::new(r"^@(.*)$").unwrap();
+                        let toc_page = Regex::new(r"^@(\d+)$").unwrap();
                         if let Some(caps) = toc_page.captures(&link.text) {
-                            if let Ok(location) = caps[1].parse::<f64>() {
+                            if let Ok(location) = caps[1].parse::<usize>() {
                                 self.quit(context);
                                 hub.send(Event::Back).unwrap();
                                 hub.send(Event::GoTo(location)).unwrap();
                             }
                         } else if let Some(caps) = pdf_page.captures(&link.text) {
                             if let Ok(index) = caps[1].parse::<usize>() {
-                                self.go_to_page(index.saturating_sub(1) as f64, true, hub);
+                                self.go_to_page(index.saturating_sub(1), true, hub);
                             }
                         } else {
                             println!("Unrecognized URI: {}.", link.text);
@@ -1513,19 +1484,23 @@ impl View for Reader {
             Event::Submit(ViewId::GoToPageInput, ref text) => {
                 let re = Regex::new(r#"^([-+"])?(.+)$"#).unwrap();
                 if let Some(caps) = re.captures(text) {
-                    if let Ok(mut location) = caps[2].parse::<f64>() {
-                        if !self.synthetic {
+                    if let Ok(mut number) = caps[2].parse::<f64>() {
+                        let location = if !self.synthetic {
+                            let mut index = number as usize;
                             match caps.get(1).map(|m| m.as_str()) {
                                 Some("\"") => {
-                                    location -= 1.0;
-                                    location += self.info.reader.as_ref()
-                                                    .and_then(|r| r.first_page).unwrap_or(0) as f64;
+                                    index -= 1;
+                                    index += self.info.reader.as_ref()
+                                                    .and_then(|r| r.first_page).unwrap_or(0);
                                 },
-                                Some("-") => location = self.current_page - location,
-                                Some("+") => location += self.current_page,
-                                _ => location -= 1.0,
+                                Some("-") => index = self.current_page - index,
+                                Some("+") => index += self.current_page,
+                                _ => index -= 1,
                             }
-                        }
+                            index
+                        } else {
+                            (number * BYTES_PER_PAGE).round() as usize
+                        };
                         self.go_to_page(location, true, hub);
                     }
                 }
@@ -1571,7 +1546,7 @@ impl View for Reader {
                 true
             },
             Event::CropMargins(ref margin) => {
-                let current_page = self.current_page as usize;
+                let current_page = self.current_page;
                 self.crop_margins(current_page, margin.as_ref(), hub);
                 true
             },
@@ -1678,17 +1653,7 @@ impl View for Reader {
 
                 if let Some(ref mut s) = self.search {
                     let pages_count = s.highlights.len();
-                    let search_page = s.highlights
-                                       .binary_search_by(|a| a.location.partial_cmp(&location)
-                                                              .unwrap_or(Ordering::Equal));
-                    if let Ok(index) = search_page {
-                        s.highlights[index].rects.push(rect);
-                    } else {
-                        s.highlights.push(Highlight { location, rects: vec![rect] });
-                        s.highlights.sort_unstable_by(|a, b| a.location.partial_cmp(&b.location)
-                                                              .unwrap_or(Ordering::Equal));
-                    }
-
+                    s.highlights.entry(location).or_insert_with(|| Vec::new()).push(rect);
                     s.results_count += 1;
                     results_count = s.results_count;
                     if results_count > 1 && location <= self.current_page && s.highlights.len() > pages_count {
@@ -1701,7 +1666,7 @@ impl View for Reader {
                 if results_count == 1 {
                     self.go_to_page(location, true, hub);
                     self.toggle_bars(Some(false), hub, context);
-                } else if (location - self.current_page).abs() < LOCATION_EPSILON {
+                } else if location == self.current_page {
                     self.update(hub);
                 }
 
@@ -1760,12 +1725,11 @@ impl View for Reader {
                 true
             },
             Event::Select(EntryId::ToggleFirstPage) => {
-                let current_page = self.current_page as usize;
                 if let Some(ref mut r) = self.info.reader {
-                    if r.first_page.unwrap_or(0) == current_page {
+                    if r.first_page.unwrap_or(0) == self.current_page {
                         r.first_page = None;
                     } else {
-                        r.first_page = Some(current_page);
+                        r.first_page = Some(self.current_page);
                     }
                 }
                 true
@@ -1817,10 +1781,7 @@ impl View for Reader {
 
         fb.draw_rectangle(&self.rect, WHITE);
         fb.draw_framed_pixmap(&self.pixmap, &self.frame, &pt!(dx, dy));
-
-        if let Some(rects) = self.search.as_ref()
-                                 .and_then(|s| s.highlights.binary_search_by(|a| a.location.partial_cmp(&self.current_page).unwrap_or(Ordering::Equal)).ok()
-                                 .map(|index| &s.highlights[index].rects)) {
+        if let Some(rects) = self.search.as_ref().and_then(|s| s.highlights.get(&self.current_page)) {
             let dx = (self.rect.width() - self.frame.width()) as i32 / 2;
             let dy = (self.rect.height() - self.frame.height()) as i32 / 2;
 
@@ -1972,7 +1933,7 @@ impl View for Reader {
     }
 }
 
-fn build_pixmap(rect: &Rectangle, doc: &mut Document, location: f64, margin: &Margin) -> ((Pixmap, f64), f32) {
+fn build_pixmap(rect: &Rectangle, doc: &mut Document, location: usize, margin: &Margin) -> ((Pixmap, usize), f32) {
     let (width, height) = doc.dims(location as usize).unwrap();
     let p_width = (1.0 - (margin.left + margin.right)) * width;
     let p_height = (1.0 - (margin.top + margin.bottom)) * height;

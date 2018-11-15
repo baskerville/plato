@@ -41,8 +41,6 @@ use self::style::{Stylesheet, specified_values};
 use self::css::{CssParser, RuleKind};
 use self::xml::{XmlParser, decode_entities};
 
-const BYTES_PER_PAGE: f64 = 2048.0;
-pub const LOCATION_EPSILON: f64 = 1.0 / BYTES_PER_PAGE;
 const DEFAULT_DPI: u16 = 300;
 const DEFAULT_WIDTH: u32 = 1404;
 const DEFAULT_HEIGHT: u32 = 1872;
@@ -52,7 +50,7 @@ const VIEWER_STYLESHEET: &str = "css/epub.css";
 const USER_STYLESHEET: &str = "user.css";
 
 type Page = Vec<DrawCommand>;
-type UriCache = FnvHashMap<String, f64>;
+type UriCache = FnvHashMap<String, usize>;
 
 // TODO: Add min_font_size.
 pub struct EpubDocument {
@@ -78,16 +76,6 @@ pub struct EpubDocument {
 struct Chunk {
     path: String,
     size: usize,
-}
-
-#[inline]
-fn offset_from_location(l: f64) -> usize {
-    (l * BYTES_PER_PAGE).round() as usize
-}
-
-#[inline]
-fn location_from_offset(o: usize) -> f64 {
-    o as f64 / BYTES_PER_PAGE
 }
 
 unsafe impl Send for EpubDocument {}
@@ -252,9 +240,9 @@ impl EpubDocument {
                         content.attr("src").map(String::from)
                     }).unwrap_or_default();
 
-                    let location = toc_dir.join(&rel_uri).normalize().to_str().and_then(|uri| {
+                    let loc = toc_dir.join(&rel_uri).normalize().to_str().and_then(|uri| {
                         cache.get(uri).cloned().or_else(|| self.resolve_link(uri, cache))
-                    }).unwrap_or(-1.0);
+                    });
 
                     let sub_entries = if child.children().map(|c| c.len() > 2) == Some(true) {
                         self.walk_toc(child, toc_dir, cache)
@@ -262,7 +250,7 @@ impl EpubDocument {
                         Vec::new()
                     };
 
-                    if location.is_sign_positive() {
+                    if let Some(location) = loc {
                         entries.push(TocEntry {
                             title,
                             location,
@@ -299,7 +287,7 @@ impl EpubDocument {
         })
     }
 
-    fn resolve_link(&mut self, uri: &str, cache: &mut UriCache) -> Option<f64> {
+    fn resolve_link(&mut self, uri: &str, cache: &mut UriCache) -> Option<usize> {
         let frag_index_opt = uri.find('#');
         let name = &uri[..frag_index_opt.unwrap_or_else(|| uri.len())];
 
@@ -315,16 +303,14 @@ impl EpubDocument {
             self.cache_uris(&root, name, start_offset, cache);
             cache.get(uri).cloned()
         } else {
-            let location = start_offset as f64 / BYTES_PER_PAGE;
-            // let page_index = self.page_index(offset, index, start_offset)?;
-            cache.insert(uri.to_string(), location);
-            Some(location)
+            cache.insert(uri.to_string(), start_offset);
+            Some(start_offset)
         }
     }
 
     fn cache_uris(&mut self, node: &Node, name: &str, start_offset: usize, cache: &mut UriCache) {
         if let Some(id) = node.attr("id") {
-            let location = (start_offset + node.offset()) as f64 / BYTES_PER_PAGE;
+            let location = start_offset + node.offset();
             cache.insert(format!("{}#{}", name, id), location);
         }
         if let Some(children) = node.children() {
@@ -334,13 +320,12 @@ impl EpubDocument {
         }
     }
 
-    fn images(&mut self, loc: Location) -> Option<(Vec<Rectangle>, f64)> {
+    fn images(&mut self, loc: Location) -> Option<(Vec<Rectangle>, usize)> {
         if self.spine.is_empty() {
             return None;
         }
 
-        let location = self.resolve_location(loc)?;
-        let offset = offset_from_location(location);
+        let offset = self.resolve_location(loc)?;
         let (index, start_offset) = self.vertebra_coordinates(offset);
         let page_index = self.page_index(offset, index, start_offset)?;
 
@@ -350,7 +335,7 @@ impl EpubDocument {
                     DrawCommand::Image(ImageCommand { rect, .. }) => Some(*rect),
                     _ => None,
                 }
-            }).collect(), location)
+            }).collect(), offset)
         })
     }
 
@@ -1607,7 +1592,7 @@ impl EpubDocument {
                             PdfOpener::new().and_then(|opener| {
                                 opener.open_memory(path, &buf)
                             }).and_then(|mut doc| {
-                                doc.pixmap(Location::Exact(0.0), *scale)
+                                doc.pixmap(Location::Exact(0), *scale)
                             }).map(|(pixmap, _)| {
                                 fb.draw_pixmap(&pixmap, position);
                             });
@@ -1628,9 +1613,8 @@ impl Document for EpubDocument {
         Some((self.dims.0 as f32, self.dims.1 as f32))
     }
 
-    fn pages_count(&self) -> f64 {
-        let total_size: usize = self.spine.iter().map(|c| c.size).sum();
-        total_size as f64 / BYTES_PER_PAGE
+    fn pages_count(&self) -> usize {
+        self.spine.iter().map(|c| c.size).sum()
     }
 
     fn toc(&mut self) -> Option<Vec<TocEntry>> {
@@ -1661,27 +1645,25 @@ impl Document for EpubDocument {
         })
     }
 
-    fn resolve_location(&mut self, loc: Location) -> Option<f64> {
+    fn resolve_location(&mut self, loc: Location) -> Option<usize> {
         if self.fonts.is_none() {
             self.fonts = default_fonts().ok();
         }
 
         match loc {
-            Location::Exact(l) => {
-                let offset = offset_from_location(l);
+            Location::Exact(offset) => {
                 let (index, start_offset) = self.vertebra_coordinates(offset);
                 let page_index = self.page_index(offset, index, start_offset)?;
                 self.cache.get(&index)
                     .and_then(|display_list| display_list[page_index].first())
-                    .map(|dc| location_from_offset(dc.offset()))
+                    .map(|dc| dc.offset())
             },
-            Location::Previous(l) => {
-                let offset = offset_from_location(l);
+            Location::Previous(offset) => {
                 let (index, start_offset) = self.vertebra_coordinates(offset);
                 let page_index = self.page_index(offset, index, start_offset)?;
                 if page_index > 0 {
                     self.cache.get(&index)
-                        .and_then(|display_list| display_list[page_index-1].first().map(|dc| location_from_offset(dc.offset())))
+                        .and_then(|display_list| display_list[page_index-1].first().map(|dc| dc.offset()))
                 } else {
                     if index == 0 {
                         return None;
@@ -1692,15 +1674,14 @@ impl Document for EpubDocument {
                         self.cache.insert(index, display_list);
                     }
                     self.cache.get(&index)
-                        .and_then(|display_list| display_list.last().and_then(|page| page.first()).map(|dc| location_from_offset(dc.offset())))
+                        .and_then(|display_list| display_list.last().and_then(|page| page.first()).map(|dc| dc.offset()))
                 }
             },
-            Location::Next(l) => {
-                let offset = offset_from_location(l);
+            Location::Next(offset) => {
                 let (index, start_offset) = self.vertebra_coordinates(offset);
                 let page_index = self.page_index(offset, index, start_offset)?;
                 if page_index < self.cache.get(&index).map(|display_list| display_list.len())? - 1 {
-                    self.cache.get(&index).and_then(|display_list| display_list[page_index+1].first().map(|dc| location_from_offset(dc.offset())))
+                    self.cache.get(&index).and_then(|display_list| display_list[page_index+1].first().map(|dc| dc.offset()))
                 } else {
                     if index == self.spine.len() - 1 {
                         return None;
@@ -1711,15 +1692,14 @@ impl Document for EpubDocument {
                         self.cache.insert(index, display_list);
                     }
                     self.cache.get(&index)
-                        .and_then(|display_list| display_list.first().and_then(|page| page.first()).map(|dc| location_from_offset(dc.offset())))
+                        .and_then(|display_list| display_list.first().and_then(|page| page.first()).map(|dc| dc.offset()))
                 }
             },
-            Location::Uri(l, uri) => {
+            Location::Uri(offset, uri) => {
                 // TODO: Cache URIs in self.cache.uris and prevent duplicate work?
                 let mut cache = FnvHashMap::default();
                 let normalized_uri: String = {
                     if uri.starts_with('#') {
-                        let offset = offset_from_location(l);
                         let (index, _) = self.vertebra_coordinates(offset);
                         format!("{}{}", &self.spine[index].path, uri)
                     } else {
@@ -1731,13 +1711,12 @@ impl Document for EpubDocument {
         }
     }
 
-    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)> {
+    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
         if self.spine.is_empty() {
             return None;
         }
 
-        let location = self.resolve_location(loc)?;
-        let offset = offset_from_location(location);
+        let offset = self.resolve_location(loc)?;
         let (index, start_offset) = self.vertebra_coordinates(offset);
         let page_index = self.page_index(offset, index, start_offset)?;
 
@@ -1752,17 +1731,16 @@ impl Document for EpubDocument {
                     },
                     _ => None,
                 }
-            }).collect(), location)
+            }).collect(), offset)
         })
     }
 
-    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)> {
+    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
         if self.spine.is_empty() {
             return None;
         }
 
-        let location = self.resolve_location(loc)?;
-        let offset = offset_from_location(location);
+        let offset = self.resolve_location(loc)?;
         let (index, start_offset) = self.vertebra_coordinates(offset);
         let page_index = self.page_index(offset, index, start_offset)?;
 
@@ -1778,17 +1756,16 @@ impl Document for EpubDocument {
                     },
                     _ => None,
                 }
-            }).collect(), location)
+            }).collect(), offset)
         })
     }
 
-    fn pixmap(&mut self, loc: Location, _scale: f32) -> Option<(Pixmap, f64)> {
+    fn pixmap(&mut self, loc: Location, _scale: f32) -> Option<(Pixmap, usize)> {
         if self.spine.is_empty() {
             return None;
         }
 
-        let location = self.resolve_location(loc)?;
-        let offset = offset_from_location(location);
+        let offset = self.resolve_location(loc)?;
         let (index, start_offset) = self.vertebra_coordinates(offset);
 
         let page_index = self.page_index(offset, index, start_offset)?;
@@ -1796,7 +1773,7 @@ impl Document for EpubDocument {
 
         let pixmap = self.render_page(&page);
 
-        Some((pixmap, location))
+        Some((pixmap, offset))
     }
 
     fn layout(&mut self, width: u32, height: u32, font_size: f32, dpi: u16) {

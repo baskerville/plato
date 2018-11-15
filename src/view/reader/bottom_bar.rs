@@ -21,7 +21,7 @@ pub struct BottomBar {
 }
 
 impl BottomBar {
-    pub fn new(rect: Rectangle, doc: &mut Document, current_page: f64, pages_count: f64, neighbors: &Neighbors, synthetic: bool) -> BottomBar {
+    pub fn new(rect: Rectangle, doc: &mut Document, current_page: usize, pages_count: usize, neighbors: &Neighbors, synthetic: bool) -> BottomBar {
         let mut children = Vec::new();
         let side = rect.height() as i32;
         let is_prev_disabled = neighbors.previous_page.is_none();
@@ -80,7 +80,7 @@ impl BottomBar {
         }
     }
 
-    pub fn update_page_label(&mut self, current_page: f64, pages_count: f64, hub: &Hub) {
+    pub fn update_page_label(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
         let page_label = self.child_mut(2).downcast_mut::<PageLabel>().unwrap();
         page_label.update(current_page, pages_count, hub);
     }

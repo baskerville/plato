@@ -146,8 +146,8 @@ impl CroppingMargins {
 pub struct ReaderInfo {
     #[serde(with = "simple_date_format")]
     pub opened: DateTime<Local>,
-    pub current_page: f64,
-    pub pages_count: f64,
+    pub current_page: usize,
+    pub pages_count: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cropping_margins: Option<CroppingMargins>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -162,8 +162,8 @@ pub struct ReaderInfo {
     pub first_page: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rotation: Option<i8>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub bookmarks: Vec<f64>,
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    pub bookmarks: BTreeSet<usize>,
     pub finished: bool,
 }
 
@@ -177,8 +177,8 @@ impl Default for ReaderInfo {
     fn default() -> Self {
         ReaderInfo {
             opened: Local::now(),
-            current_page: 0.0,
-            pages_count: 1.0,
+            current_page: 0,
+            pages_count: 1,
             font_family: None,
             font_size: None,
             margin_width: None,
@@ -186,7 +186,7 @@ impl Default for ReaderInfo {
             first_page: None,
             rotation: None,
             cropping_margins: None,
-            bookmarks: Vec::new(),
+            bookmarks: BTreeSet::new(),
             finished: false,
         }
     }
@@ -227,7 +227,7 @@ impl Info {
             if r.finished {
                 Status::Finished
             } else {
-                Status::Reading((r.current_page / r.pages_count) as f32)
+                Status::Reading(r.current_page as f32 / r.pages_count as f32)
             }
         } else {
             Status::New
@@ -404,10 +404,7 @@ pub fn sort_pages(i1: &Info, i2: &Info) -> Ordering {
         (&None, &None) => Ordering::Equal,
         (&None, &Some(_)) => Ordering::Less,
         (&Some(_), &None) => Ordering::Greater,
-        (&Some(ref r1), &Some(ref r2)) => {
-            r1.pages_count.partial_cmp(&r2.pages_count)
-              .unwrap_or(Ordering::Equal)
-        },
+        (&Some(ref r1), &Some(ref r2)) => r1.pages_count.cmp(&r2.pages_count),
     }
 }
 

@@ -107,13 +107,13 @@ impl Document for DjvuDocument {
         })
     }
 
-    fn pages_count(&self) -> f64 {
-        unsafe { ddjvu_document_get_pagenum(self.doc) as f64 }
+    fn pages_count(&self) -> usize {
+        unsafe { ddjvu_document_get_pagenum(self.doc) as usize }
     }
 
-    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, f64)> {
+    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, usize)> {
         let index = self.resolve_location(loc)? as usize;
-        self.page(index).and_then(|page| page.pixmap(scale)).map(|pixmap| (pixmap, index as f64))
+        self.page(index).and_then(|page| page.pixmap(scale)).map(|pixmap| (pixmap, index))
     }
 
     fn toc(&mut self) -> Option<Vec<TocEntry>> {
@@ -133,35 +133,9 @@ impl Document for DjvuDocument {
         }
     }
 
-    fn resolve_location(&mut self, loc: Location) -> Option<f64> {
-        if self.pages_count() < 1.0 {
-            return None;
-        }
-        match loc {
-            Location::Exact(l) => {
-                Some(l.max(0.0).min(self.pages_count() - 1.0))
-            },
-            Location::Previous(l) => {
-                if l >= 1.0 {
-                    Some(l - 1.0)
-                } else {
-                    None
-                }
-            },
-            Location::Next(l) => {
-                if l < self.pages_count() - 1.0 {
-                    Some(l + 1.0)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
-    }
-
-    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)> {
+    fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
         unsafe {
-            let index = self.resolve_location(loc)? as usize;
+            let index = self.resolve_location(loc)?;
             let page = self.page(index)?;
             let height = page.height() as i32;
             let grain = CString::new("word").unwrap();
@@ -176,14 +150,14 @@ impl Document for DjvuDocument {
                 let mut words = Vec::new();
                 Self::walk_words(exp, height, &mut words);
                 ddjvu_miniexp_release(self.doc, exp);
-                Some((words, index as f64))
+                Some((words, index))
             }
         }
     }
 
-    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, f64)> {
+    fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
         unsafe {
-            let index = self.resolve_location(loc)? as usize;
+            let index = self.resolve_location(loc)?;
             let mut exp = ddjvu_document_get_pageanno(self.doc, index as libc::c_int);
             while exp == MINIEXP_DUMMY {
                 self.ctx.handle_message();
@@ -220,7 +194,7 @@ impl Document for DjvuDocument {
                 }
                 libc::free(links as *mut libc::c_void);
                 ddjvu_miniexp_release(self.doc, exp);
-                Some((result, index as f64))
+                Some((result, index))
             }
         }
     }
@@ -338,7 +312,7 @@ impl DjvuDocument {
                 let digits = bytes.iter().map(|v| *v as u8 as char)
                                          .filter(|c| c.is_digit(10))
                                          .collect::<String>();
-                let location = digits.parse::<usize>().unwrap_or(1).saturating_sub(1) as f64;
+                let location = digits.parse::<usize>().unwrap_or(1).saturating_sub(1);
                 let children = if miniexp_length(itm) > 2 {
                     Self::walk_toc(itm)
                 } else {
