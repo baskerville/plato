@@ -149,7 +149,7 @@ impl View for Icon {
         fb.draw_blended_pixmap(pixmap, &pt, scheme[1]);
     }
 
-    fn resize(&mut self, rect: Rectangle, _context: &mut Context) {
+    fn resize(&mut self, rect: Rectangle, _hub: &Hub, _context: &mut Context) {
         if let Event::ToggleNear(_, ref mut event_rect) = self.event {
             *event_rect = rect;
         }

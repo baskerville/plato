@@ -671,9 +671,8 @@ pub fn run() -> Result<(), Error> {
                     if context.display.dims != dims {
                         context.display.dims = dims;
                         handle_event(view.as_mut(), &Event::RotateView(n), &tx, &mut bus, &mut context);
-                        view.resize(fb_rect, &mut context);
+                        view.resize(fb_rect, &tx, &mut context);
                     }
-                    tx.send(Event::Render(fb_rect, UpdateMode::Full)).unwrap();
                 }
             },
             Event::Select(EntryId::ToggleWifi) => {

@@ -1210,7 +1210,7 @@ impl View for Home {
     fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
     }
 
-    fn resize(&mut self, rect: Rectangle, context: &mut Context) {
+    fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
@@ -1221,11 +1221,11 @@ impl View for Home {
         // Top bar.
         let top_bar_rect = rect![rect.min.x, rect.min.y,
                                  rect.max.x, rect.min.y + small_height as i32 - small_thickness];
-        self.children[0].resize(top_bar_rect, context);
+        self.children[0].resize(top_bar_rect, hub, context);
 
         let separator_rect = rect![rect.min.x, rect.min.y + small_height as i32 - small_thickness,
                                    rect.max.x, rect.min.y + small_height as i32 + big_thickness];
-        self.children[1].resize(separator_rect, context);
+        self.children[1].resize(separator_rect, hub, context);
 
         // Summary.
         let min_height = if locate::<SearchBar>(self).is_some() {
@@ -1238,12 +1238,12 @@ impl View for Home {
         let sm_min_y = rect.min.y + small_height as i32 + big_thickness;
         let sm_max_y = sm_min_y + summary_height;
         let summary_rect = rect![rect.min.x, sm_min_y, rect.max.x, sm_max_y];
-        self.children[2].resize(summary_rect, context);
+        self.children[2].resize(summary_rect, hub, context);
         self.update_summary(true, &tx, &mut context.fonts);
 
         let separator_rect = rect![rect.min.x, sm_max_y,
                                    rect.max.x, sm_max_y + thickness];
-        self.children[3].resize(separator_rect, context);
+        self.children[3].resize(separator_rect, hub, context);
 
         // Bottom bar.
         let bottom_bar_index = locate::<BottomBar>(self).unwrap_or(6);
@@ -1251,11 +1251,11 @@ impl View for Home {
 
         let separator_rect = rect![rect.min.x, rect.max.y - small_height as i32 - small_thickness,
                                    rect.max.x, rect.max.y - small_height as i32 + big_thickness];
-        self.children[index-1].resize(separator_rect, context);
+        self.children[index-1].resize(separator_rect, hub, context);
 
         let bottom_bar_rect = rect![rect.min.x, rect.max.y - small_height as i32 + big_thickness,
                                     rect.max.x, rect.max.y];
-        self.children[index].resize(bottom_bar_rect, context);
+        self.children[index].resize(bottom_bar_rect, hub, context);
 
         let mut shelf_max_y = rect.max.y - small_height as i32 - small_thickness;
 
@@ -1267,11 +1267,11 @@ impl View for Home {
                                     rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                                     rect.max.x,
                                     rect.max.y - small_height as i32 - small_thickness];
-                self.children[index].resize(kb_rect, context);
+                self.children[index].resize(kb_rect, hub, context);
                 let s_max_y = self.children[index].rect().min.y;
                 self.children[index-1].resize(rect![rect.min.x, s_max_y - thickness,
                                                     rect.max.x, s_max_y],
-                                              context);
+                                              hub, context);
                 index -= 2;
             }
             // Search bar.
@@ -1281,25 +1281,26 @@ impl View for Home {
                                                   sp_rect.max.y,
                                                   rect.max.x,
                                                   sp_rect.max.y + small_height as i32 - thickness],
-                                            context);
-                self.children[index-1].resize(sp_rect, context);
+                                            hub, context);
+                self.children[index-1].resize(sp_rect, hub, context);
                 shelf_max_y -= small_height as i32;
             }
         }
 
         let shelf_rect = rect![rect.min.x, sm_max_y + thickness,
                                rect.max.x, shelf_max_y];
-        self.children[4].resize(shelf_rect, context);
+        self.children[4].resize(shelf_rect, hub, context);
 
         self.update_shelf(true, &tx, context);
         self.update_bottom_bar(&tx);
 
         // TODO: Handle menus.
         for i in bottom_bar_index+1..self.children.len() {
-            self.children[i].resize(rect, context);
+            self.children[i].resize(rect, hub, context);
         }
 
         self.rect = rect;
+        hub.send(Event::Render(self.rect, UpdateMode::Full)).unwrap();
     }
 
     fn rect(&self) -> &Rectangle {

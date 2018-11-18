@@ -48,88 +48,6 @@ pub struct Neighbors {
     pub next_page: Option<usize>,
 }
 
-
-pub fn toc_as_html(toc: &[TocEntry], location: usize, next_location: Option<usize>) -> String {
-    let chap = chapter_at(toc, location, next_location);
-    let mut buf = r#"<html>
-                         <head>
-                             <title>Table of Contents</title>
-                             <link rel="stylesheet" type="text/css" href="css/toc.css"/>
-                         </head>
-                     <body>"#.to_string();
-    toc_as_html_aux(toc, &mut buf, chap);
-    buf.push_str("</body></html>");
-    buf
-}
-
-pub fn toc_as_html_aux(toc: &[TocEntry], buf: &mut String, chap: Option<&TocEntry>) {
-    buf.push_str("<ul>");
-    for entry in toc {
-        buf.push_str(&format!(r#"<li><a href="@{}">"#, entry.location));
-        let title = entry.title.replace('<', "&lt;").replace('>', "&gt;");
-        if chap.is_some() && ptr::eq(entry, chap.unwrap()) {
-            buf.push_str(&format!("<strong>{}</strong>", title));
-        } else {
-            buf.push_str(&title);
-        }
-        buf.push_str("</a></li>");
-        if !entry.children.is_empty() {
-            toc_as_html_aux(&entry.children, buf, chap);
-        }
-    }
-    buf.push_str("</ul>");
-}
-
-pub fn chapter_at(toc: &[TocEntry], location: usize, next_location: Option<usize>) -> Option<&TocEntry> {
-    let mut chap_before = None;
-    let mut chap_after = None;
-    chapter_at_aux(toc, location, next_location, &mut chap_before, &mut chap_after);
-    chap_after.or(chap_before)
-}
-
-fn chapter_at_aux<'a>(toc: &'a [TocEntry], location: usize, next_location: Option<usize>, chap_before: &mut Option<&'a TocEntry>, chap_after: &mut Option<&'a TocEntry>) {
-    for entry in toc {
-        if entry.location < location && (chap_before.is_none() || entry.location > chap_before.unwrap().location) {
-            *chap_before = Some(entry);
-        }
-        if entry.location >= location && (next_location.is_none() || entry.location < next_location.unwrap()) && (chap_after.is_none() || entry.location < chap_after.unwrap().location) {
-            *chap_after = Some(entry);
-        }
-        chapter_at_aux(&entry.children, location, next_location, chap_before, chap_after);
-    }
-}
-
-pub fn chapter_relative(toc: &[TocEntry], location: usize, next_location: Option<usize>, dir: CycleDir) -> Option<usize> {
-    let mut page = None;
-    let chap = chapter_at(toc, location, next_location);
-    if dir == CycleDir::Next {
-        chapter_relative_next(toc, location, next_location, &mut page, chap);
-    } else {
-        chapter_relative_prev(toc, location, &mut page, chap);
-    }
-    page
-}
-
-fn chapter_relative_next<'a>(toc: &'a [TocEntry], location: usize, next_location: Option<usize>, page: &mut Option<usize>, chap: Option<&TocEntry>) {
-    for entry in toc {
-        if entry.location > location && (next_location.is_none() || entry.location >= next_location.unwrap()) && (page.is_none() || entry.location < page.unwrap()) && (chap.is_none() || !ptr::eq(chap.unwrap(), entry)) {
-            *page = Some(entry.location);
-        }
-
-        chapter_relative_next(&entry.children, location, next_location, page, chap);
-    }
-}
-
-fn chapter_relative_prev<'a>(toc: &'a [TocEntry], location: usize, page: &mut Option<usize>, chap: Option<&TocEntry>) {
-    for entry in toc.iter().rev() {
-        chapter_relative_prev(&entry.children, location, page, chap);
-
-        if entry.location < location && (page.is_none() || entry.location > page.unwrap()) && (chap.is_none() || !ptr::eq(chap.unwrap(), entry)) {
-            *page = Some(entry.location);
-        }
-    }
-}
-
 pub trait Document: Send+Sync {
     fn dims(&self, index: usize) -> Option<(f32, f32)>;
     fn pages_count(&self) -> usize;
@@ -293,6 +211,87 @@ impl DocumentOpener {
                 },
             }
         })
+    }
+}
+
+pub fn toc_as_html(toc: &[TocEntry], location: usize, next_location: Option<usize>) -> String {
+    let chap = chapter_at(toc, location, next_location);
+    let mut buf = r#"<html>
+                         <head>
+                             <title>Table of Contents</title>
+                             <link rel="stylesheet" type="text/css" href="css/toc.css"/>
+                         </head>
+                     <body>"#.to_string();
+    toc_as_html_aux(toc, &mut buf, chap);
+    buf.push_str("</body></html>");
+    buf
+}
+
+pub fn toc_as_html_aux(toc: &[TocEntry], buf: &mut String, chap: Option<&TocEntry>) {
+    buf.push_str("<ul>");
+    for entry in toc {
+        buf.push_str(&format!(r#"<li><a href="@{}">"#, entry.location));
+        let title = entry.title.replace('<', "&lt;").replace('>', "&gt;");
+        if chap.is_some() && ptr::eq(entry, chap.unwrap()) {
+            buf.push_str(&format!("<strong>{}</strong>", title));
+        } else {
+            buf.push_str(&title);
+        }
+        buf.push_str("</a></li>");
+        if !entry.children.is_empty() {
+            toc_as_html_aux(&entry.children, buf, chap);
+        }
+    }
+    buf.push_str("</ul>");
+}
+
+pub fn chapter_at(toc: &[TocEntry], location: usize, next_location: Option<usize>) -> Option<&TocEntry> {
+    let mut chap_before = None;
+    let mut chap_after = None;
+    chapter_at_aux(toc, location, next_location, &mut chap_before, &mut chap_after);
+    chap_after.or(chap_before)
+}
+
+fn chapter_at_aux<'a>(toc: &'a [TocEntry], location: usize, next_location: Option<usize>, chap_before: &mut Option<&'a TocEntry>, chap_after: &mut Option<&'a TocEntry>) {
+    for entry in toc {
+        if entry.location < location && (chap_before.is_none() || entry.location > chap_before.unwrap().location) {
+            *chap_before = Some(entry);
+        }
+        if entry.location >= location && (next_location.is_none() || entry.location < next_location.unwrap()) && (chap_after.is_none() || entry.location < chap_after.unwrap().location) {
+            *chap_after = Some(entry);
+        }
+        chapter_at_aux(&entry.children, location, next_location, chap_before, chap_after);
+    }
+}
+
+pub fn chapter_relative(toc: &[TocEntry], location: usize, next_location: Option<usize>, dir: CycleDir) -> Option<usize> {
+    let mut page = None;
+    let chap = chapter_at(toc, location, next_location);
+    if dir == CycleDir::Next {
+        chapter_relative_next(toc, location, next_location, &mut page, chap);
+    } else {
+        chapter_relative_prev(toc, location, &mut page, chap);
+    }
+    page
+}
+
+fn chapter_relative_next<'a>(toc: &'a [TocEntry], location: usize, next_location: Option<usize>, page: &mut Option<usize>, chap: Option<&TocEntry>) {
+    for entry in toc {
+        if entry.location > location && (next_location.is_none() || entry.location >= next_location.unwrap()) && (page.is_none() || entry.location < page.unwrap()) && (chap.is_none() || !ptr::eq(chap.unwrap(), entry)) {
+            *page = Some(entry.location);
+        }
+
+        chapter_relative_next(&entry.children, location, next_location, page, chap);
+    }
+}
+
+fn chapter_relative_prev<'a>(toc: &'a [TocEntry], location: usize, page: &mut Option<usize>, chap: Option<&TocEntry>) {
+    for entry in toc.iter().rev() {
+        chapter_relative_prev(&entry.children, location, page, chap);
+
+        if entry.location < location && (page.is_none() || entry.location > page.unwrap()) && (chap.is_none() || !ptr::eq(chap.unwrap(), entry)) {
+            *page = Some(entry.location);
+        }
     }
 }
 

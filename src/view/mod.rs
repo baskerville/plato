@@ -75,7 +75,7 @@ pub trait View: Downcast {
     fn children(&self) -> &Vec<Box<View>>;
     fn children_mut(&mut self) -> &mut Vec<Box<View>>;
 
-    fn resize(&mut self, rect: Rectangle, _context: &mut Context) {
+    fn resize(&mut self, rect: Rectangle, _hub: &Hub, _context: &mut Context) {
         *self.rect_mut() = rect;
     }
 
@@ -202,6 +202,7 @@ pub enum Event {
     Key(KeyKind),
     Open(Box<Info>),
     OpenToc(Vec<TocEntry>, usize, Option<usize>),
+    LoadPixmap(usize, bool),
     RotateView(i8),
     Invalid(Box<Info>),
     Remove(Box<Info>),

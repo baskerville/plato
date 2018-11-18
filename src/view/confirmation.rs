@@ -130,7 +130,7 @@ impl View for Confirmation {
                                               &WHITE);
     }
 
-    fn resize(&mut self, _rect: Rectangle, context: &mut Context) {
+    fn resize(&mut self, _rect: Rectangle, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = context.display.dims;
         let dialog_width = self.rect.width() as i32;
@@ -167,9 +167,9 @@ impl View for Confirmation {
                                   rect.max.x - padding,
                                   rect.max.y - padding];
 
-        self.children[0].resize(label_rect, context);
-        self.children[1].resize(cancel_rect, context);
-        self.children[2].resize(validate_rect, context);
+        self.children[0].resize(label_rect, hub, context);
+        self.children[1].resize(cancel_rect, hub, context);
+        self.children[2].resize(validate_rect, hub, context);
         self.rect = rect;
     }
 

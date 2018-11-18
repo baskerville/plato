@@ -92,9 +92,9 @@ impl View for TopBar {
     fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
     }
 
-    fn resize(&mut self, rect: Rectangle, context: &mut Context) {
+    fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
         let side = rect.height() as i32;
-        self.children[0].resize(rect![rect.min, rect.min+side], context);
+        self.children[0].resize(rect![rect.min, rect.min+side], hub, context);
         let clock_width = self.children[2].rect().width() as i32;
         let clock_rect = rect![rect.max - pt!(3*side + clock_width, side),
                                rect.max - pt!(3*side, 0)];
@@ -102,16 +102,16 @@ impl View for TopBar {
                                       rect.min.y,
                                       clock_rect.min.x,
                                       rect.max.y],
-                                context);
-        self.children[2].resize(clock_rect, context);
+                                hub, context);
+        self.children[2].resize(clock_rect, hub, context);
         self.children[3].resize(rect![rect.max - pt!(3*side, side),
                                       rect.max - pt!(2*side, 0)],
-                                context);
+                                hub, context);
         self.children[4].resize(rect![rect.max - pt!(2*side, side),
                                       rect.max - pt!(side, 0)],
-                                context);
+                                hub, context);
         self.children[5].resize(rect![rect.max-side, rect.max],
-                                context);
+                                hub, context);
         self.rect = rect;
     }
 

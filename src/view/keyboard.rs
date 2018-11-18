@@ -342,7 +342,7 @@ impl View for Keyboard {
     fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
     }
 
-    fn resize(&mut self, mut rect: Rectangle, context: &mut Context) {
+    fn resize(&mut self, mut rect: Rectangle, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (side, padding) = optimal_key_setup(rect.width(), rect.height(), dpi);
 
@@ -367,100 +367,100 @@ impl View for Keyboard {
         for i in 0..10usize {
             let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + i as i32 * normal_side,
                                         small_half_remaining_height);
-            self.children[i].resize(rect![min_pt, min_pt + normal_side], context);
+            self.children[i].resize(rect![min_pt, min_pt + normal_side], hub, context);
         }
 
         // Row 2
 
         let min_pt = rect.min + pt!(small_half_remaining_width, small_half_remaining_height + normal_side);
-        self.children[10].resize(rect![min_pt, min_pt + normal_side], context);
+        self.children[10].resize(rect![min_pt, min_pt + normal_side], hub, context);
 
         for i in 0..9usize {
             let min_pt = rect.min + pt!(small_half_remaining_width + (i + 1) as i32 * normal_side,
                                         small_half_remaining_height + normal_side);
-            self.children[11+i].resize(rect![min_pt, min_pt + normal_side], context);
+            self.children[11+i].resize(rect![min_pt, min_pt + normal_side], hub, context);
         }
 
         let min_pt = rect.min + pt!(small_half_remaining_width + 10 * normal_side, small_half_remaining_height + normal_side);
-        self.children[20].resize(rect![min_pt, min_pt + normal_side], context);
+        self.children[20].resize(rect![min_pt, min_pt + normal_side], hub, context);
 
         // Row 3
 
         let min_pt = rect.min + pt!(small_half_remaining_width, small_half_remaining_height + 2 * normal_side);
-        self.children[21].resize(rect![min_pt, min_pt + pt!(large_length, normal_side)], context);
+        self.children[21].resize(rect![min_pt, min_pt + pt!(large_length, normal_side)], hub, context);
 
         for i in 0..7usize {
             let min_pt = rect.min + pt!(small_half_remaining_width + (i + 2) as i32 * normal_side,
                                         small_half_remaining_height + 2 * normal_side);
-            self.children[22+i].resize(rect![min_pt, min_pt + normal_side], context);
+            self.children[22+i].resize(rect![min_pt, min_pt + normal_side], hub, context);
         }
 
         let min_pt = rect.min + pt!(small_half_remaining_width + 9 * normal_side, small_half_remaining_height + 2 * normal_side);
-        self.children[29].resize(rect![min_pt, min_pt + pt!(large_length, normal_side)], context);
+        self.children[29].resize(rect![min_pt, min_pt + pt!(large_length, normal_side)], hub, context);
 
         // Row 4
 
         let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side, small_half_remaining_height + 3 * normal_side);
-        self.children[30].resize(rect![min_pt, min_pt + pt!(small_medium_length, normal_side)], context);
+        self.children[30].resize(rect![min_pt, min_pt + pt!(small_medium_length, normal_side)], hub, context);
 
         let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + small_medium_length, small_half_remaining_height + 3 * normal_side);
-        self.children[31].resize(rect![min_pt, min_pt + pt!(big_medium_length, normal_side)], context);
+        self.children[31].resize(rect![min_pt, min_pt + pt!(big_medium_length, normal_side)], hub, context);
 
         // Space bar
         let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + 3 * normal_side, small_half_remaining_height + 3 * normal_side);
-        self.children[32].resize(rect![min_pt, min_pt + pt!(huge_length, normal_side)], context);
+        self.children[32].resize(rect![min_pt, min_pt + pt!(huge_length, normal_side)], hub, context);
 
         let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + 7 * normal_side, small_half_remaining_height + 3 * normal_side);
-        self.children[33].resize(rect![min_pt, min_pt + pt!(big_medium_length, normal_side)], context);
+        self.children[33].resize(rect![min_pt, min_pt + pt!(big_medium_length, normal_side)], hub, context);
 
         let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + 7 * normal_side + big_medium_length, small_half_remaining_height + 3 * normal_side);
-        self.children[34].resize(rect![min_pt, min_pt + pt!(small_medium_length, normal_side)], context);
+        self.children[34].resize(rect![min_pt, min_pt + pt!(small_medium_length, normal_side)], hub, context);
 
         // Boundary Fillers
         self.children[35].resize(rect![rect.min,
                                        pt!(rect.max.x - big_half_remaining_width,
                                            rect.min.y + small_half_remaining_height)],
-                                 context);
+                                 hub, context);
 
         self.children[36].resize(rect![pt!(rect.max.x - big_half_remaining_width,
                                            rect.min.y),
                                        pt!(rect.max.x,
                                            rect.max.y - big_half_remaining_height)],
-                                context);
+                                hub, context);
         self.children[37].resize(rect![pt!(rect.min.x + small_half_remaining_width,
                                            rect.max.y - big_half_remaining_height),
                                        rect.max],
-                                 context);
+                                 hub, context);
         self.children[38].resize(rect![pt!(rect.min.x,
                                            rect.min.y + small_half_remaining_height),
                                        pt!(rect.min.x + small_half_remaining_width,
                                            rect.max.y)],
-                                 context);
+                                 hub, context);
 
         // In-between Fillers
         let min_pt = pt!(rect.min.x + small_half_remaining_width,
                          rect.min.y + small_half_remaining_height);
         self.children[39].resize(rect![min_pt, min_pt + pt!(small_half_side,
                                                             normal_side)],
-                                 context);
+                                 hub, context);
 
         let min_pt = pt!(rect.min.x + small_half_remaining_width,
                          rect.max.y - big_half_remaining_height - normal_side);
         self.children[40].resize(rect![min_pt, min_pt + pt!(small_half_side,
                                                             normal_side)],
-                                 context);
+                                 hub, context);
 
         let min_pt = pt!(rect.max.x - big_half_remaining_width - big_half_side,
                          rect.min.y + small_half_remaining_height);
         self.children[41].resize(rect![min_pt, min_pt + pt!(big_half_side,
                                                             normal_side)],
-                                 context);
+                                 hub, context);
 
         let min_pt = pt!(rect.max.x - big_half_remaining_width - big_half_side,
                          rect.max.y - big_half_remaining_height - normal_side);
         self.children[42].resize(rect![min_pt, min_pt + pt!(big_half_side,
                                                             normal_side)],
-                                 context);
+                                 hub, context);
 
         self.rect = rect;
     }

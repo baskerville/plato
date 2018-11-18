@@ -4,6 +4,5 @@
 - Pocket articles.
 - Complex/fuzzy search queries?
 - Rename categories.
-- Preload next/previous page.
 - Input field completions bar.
 - Applications: Sketch, Calculator, Browser.

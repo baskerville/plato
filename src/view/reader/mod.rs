@@ -9,7 +9,6 @@ use std::thread;
 use std::sync::{Arc, Mutex, mpsc};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering as AtomicOrdering;
-use std::rc::Rc;
 use std::path::PathBuf;
 use std::collections::{VecDeque, BTreeMap};
 use chrono::Local;
@@ -50,22 +49,27 @@ const HISTORY_SIZE: usize = 32;
 pub struct Reader {
     rect: Rectangle,
     children: Vec<Box<View>>,
-    info: Info,
     doc: Arc<Mutex<Box<Document>>>,
-    pixmap: Rc<Pixmap>,
+    cache: BTreeMap<usize, Resource>,
+    focus: Option<ViewId>,
+    search: Option<Search>,
+    search_direction: LinearDir,
+    history: VecDeque<usize>,
+    info: Info,
     current_page: usize,
     pages_count: usize,
     synthetic: bool,
     page_turns: usize,
-    finished: bool,
-    ephemeral: bool,
     refresh_every: u8,
-    search_direction: LinearDir,
+    ephemeral: bool,
+    finished: bool,
+}
+
+#[derive(Debug)]
+struct Resource {
+    pixmap: Pixmap,
     frame: Rectangle,
     scale: f32,
-    focus: Option<ViewId>,
-    search: Option<Search>,
-    history: VecDeque<usize>,
 }
 
 #[derive(Debug)]
@@ -89,6 +93,20 @@ impl Default for Search {
     }
 }
 
+fn scaling_factor(rect: &Rectangle, cropping_margin: &Margin, dims: (f32, f32)) -> f32 {
+    let (d_width, d_height) = dims;
+    let p_width = (1.0 - (cropping_margin.left + cropping_margin.right)) * d_width;
+    let p_height = (1.0 - (cropping_margin.top + cropping_margin.bottom)) * d_height;
+    let w_ratio = rect.width() as f32 / p_width;
+    let h_ratio = rect.height() as f32 / p_height;
+    w_ratio.min(h_ratio)
+}
+
+fn build_pixmap(rect: &Rectangle, doc: &mut Document, location: usize, cropping_margin: &Margin) -> (Pixmap, usize) {
+    let scale = scaling_factor(rect, cropping_margin, doc.dims(location).unwrap());
+    doc.pixmap(Location::Exact(location), scale).unwrap()
+}
+
 impl Reader {
     pub fn new(rect: Rectangle, mut info: Info, hub: &Hub, context: &mut Context) -> Option<Reader> {
         let settings = &context.settings;
@@ -106,7 +124,7 @@ impl Reader {
                                      .unwrap_or(settings.reader.margin_width));
 
             let pages_count;
-            let mut current_page;
+            let current_page;
 
             // TODO: use get_or_insert_with?
             if let Some(ref mut r) = info.reader {
@@ -141,39 +159,26 @@ impl Reader {
 
             println!("{}", info.file.path.display());
 
-            let margin = info.reader.as_ref()
-                             .and_then(|r| r.cropping_margins.as_ref()
-                                            .map(|c| c.margin(current_page)))
-                             .cloned().unwrap_or_default();
-            let ((pixmap, location), scale) = build_pixmap(&rect, doc.as_mut(), current_page, &margin);
-            let frame = rect![(margin.left * pixmap.width as f32).ceil() as i32,
-                              (margin.top * pixmap.height as f32).ceil() as i32,
-                              ((1.0 - margin.right) * pixmap.width as f32).floor() as i32,
-                              ((1.0 - margin.bottom) * pixmap.height as f32).floor() as i32];
-            let pixmap = Rc::new(pixmap);
-            current_page = location;
-
+            hub.send(Event::LoadPixmap(current_page, true)).unwrap();
             hub.send(Event::Render(rect, UpdateMode::Partial)).unwrap();
 
             Some(Reader {
                 rect,
                 children: vec![],
-                info,
                 doc: Arc::new(Mutex::new(doc)),
-                pixmap,
+                cache: BTreeMap::new(),
+                focus: None,
+                search: None,
+                search_direction: LinearDir::Forward,
+                history: VecDeque::new(),
+                info,
                 current_page,
                 pages_count,
                 synthetic,
                 page_turns: 0,
-                finished: false,
-                ephemeral: false,
                 refresh_every: settings.reader.refresh_every,
-                search_direction: LinearDir::Forward,
-                frame,
-                scale,
-                focus: None,
-                search: None,
-                history: VecDeque::new(),
+                ephemeral: false,
+                finished: false,
             })
         })
     }
@@ -211,32 +216,75 @@ impl Reader {
             None
         }).unwrap_or(0);
 
-        let ((pixmap, location), scale) = build_pixmap(&rect, &mut doc, current_page, &Margin::default());
-        current_page = location;
-        let pixmap = Rc::new(pixmap);
-        let frame = pixmap.rect();
-
+        hub.send(Event::LoadPixmap(current_page, true)).unwrap();
         hub.send(Event::Render(rect, UpdateMode::Partial)).unwrap();
 
         Reader {
             rect,
             children: vec![],
-            info,
             doc: Arc::new(Mutex::new(Box::new(doc))),
-            pixmap,
+            cache: BTreeMap::new(),
+            focus: None,
+            search: None,
+            search_direction: LinearDir::Forward,
+            history: VecDeque::new(),
+            info,
             current_page,
             pages_count,
             synthetic: false,
             page_turns: 0,
-            finished: false,
-            ephemeral: true,
             refresh_every: context.settings.reader.refresh_every,
-            search_direction: LinearDir::Forward,
-            frame,
-            scale,
-            focus: None,
-            search: None,
-            history: VecDeque::new(),
+            ephemeral: true,
+            finished: false,
+        }
+    }
+
+    fn load_pixmap(&mut self, location: usize, preload: bool, hub: &Hub) {
+        if preload {
+            while self.cache.len() > 2  {
+                let left_count = self.cache.range(..self.current_page).count();
+                let right_count = self.cache.range(self.current_page+1..).count();
+                let extremum = if left_count >= right_count {
+                    self.cache.keys().next().cloned().unwrap()
+                } else {
+                    self.cache.keys().next_back().cloned().unwrap()
+                };
+                self.cache.remove(&extremum);
+            }
+        }
+        if !self.cache.contains_key(&location) {
+            let mut doc = self.doc.lock().unwrap();
+            let cropping_margin = self.info.reader.as_ref()
+                                      .and_then(|r| r.cropping_margins.as_ref()
+                                                     .map(|c| c.margin(location)))
+                                      .cloned().unwrap_or_default();
+            let dims = doc.dims(location).unwrap();
+            let scale = scaling_factor(&self.rect, &cropping_margin, dims);
+            if let Some((pixmap, _)) = doc.pixmap(Location::Exact(location), scale) {
+                let frame = rect![(cropping_margin.left * pixmap.width as f32).ceil() as i32,
+                                  (cropping_margin.top * pixmap.height as f32).ceil() as i32,
+                                  ((1.0 - cropping_margin.right) * pixmap.width as f32).floor() as i32,
+                                  ((1.0 - cropping_margin.bottom) * pixmap.height as f32).floor() as i32];
+                self.cache.insert(location, Resource { pixmap, frame, scale });
+            }
+        }
+        if preload {
+            let doc2 = self.doc.clone();
+            let hub2 = hub.clone();
+            thread::spawn(move || {
+                let mut doc = doc2.lock().unwrap();
+                if let Some(next_location) = doc.resolve_location(Location::Next(location)) {
+                    hub2.send(Event::LoadPixmap(next_location, false)).unwrap();
+                }
+            });
+            let doc3 = self.doc.clone();
+            let hub3 = hub.clone();
+            thread::spawn(move || {
+                let mut doc = doc3.lock().unwrap();
+                if let Some(previous_location) = doc.resolve_location(Location::Previous(location)) {
+                    hub3.send(Event::LoadPixmap(previous_location, false)).unwrap();
+                }
+            });
         }
     }
 
@@ -259,7 +307,7 @@ impl Reader {
             }
 
             self.current_page = location;
-            self.update(hub);
+            self.update(None, hub);
             self.update_bottom_bar(hub);
 
             if self.search.is_some() {
@@ -364,7 +412,7 @@ impl Reader {
             self.current_page = location;
             self.update_results_bar(hub);
             self.update_bottom_bar(hub);
-            self.update(hub);
+            self.update(None, hub);
         }
     }
 
@@ -384,7 +432,7 @@ impl Reader {
             self.current_page = location;
             self.update_results_bar(hub);
             self.update_bottom_bar(hub);
-            self.update(hub);
+            self.update(None, hub);
         }
     }
 
@@ -445,32 +493,22 @@ impl Reader {
         }
     }
 
-    fn update(&mut self, hub: &Hub) {
+    fn update(&mut self, update_mode: Option<UpdateMode>, hub: &Hub) {
         self.page_turns += 1;
-        let update_mode = if self.refresh_every > 0 {
-            if self.page_turns % (self.refresh_every as usize) == 0 {
-                UpdateMode::Full
+        let update_mode = update_mode.unwrap_or_else(|| {
+            if self.refresh_every > 0 {
+                if self.page_turns % (self.refresh_every as usize) == 0 {
+                    UpdateMode::Full
+                } else {
+                    UpdateMode::Partial
+                }
             } else {
                 UpdateMode::Partial
             }
-        } else {
-            UpdateMode::Partial
-        };
-        let margin = self.info.reader.as_ref()
-                         .and_then(|r| r.cropping_margins.as_ref()
-                                        .map(|c| c.margin(self.current_page)))
-                         .cloned().unwrap_or_default();
-        let mut doc = self.doc.lock().unwrap();
-        let ((pixmap, location), scale) = build_pixmap(&self.rect, doc.as_mut(), self.current_page, &margin);
-        self.current_page = location;
-        self.pixmap = Rc::new(pixmap);
-        let frame = rect![(margin.left * self.pixmap.width as f32).ceil() as i32,
-                          (margin.top * self.pixmap.height as f32).ceil() as i32,
-                          ((1.0 - margin.right) * self.pixmap.width as f32).floor() as i32,
-                          ((1.0 - margin.bottom) * self.pixmap.height as f32).floor() as i32];
-        self.frame = frame;
-        self.scale = scale;
+        });
+        let location = self.current_page;
         hub.send(Event::Render(self.rect, update_mode)).unwrap();
+        self.load_pixmap(location, true, hub);
     }
 
     fn search(&mut self, text: &str, query: Regex, hub: &Hub) {
@@ -633,7 +671,6 @@ impl Reader {
             let dpi = CURRENT_DEVICE.dpi;
             let (_, height) = context.display.dims;
             let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
-            let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
             let doc = self.doc.lock().unwrap();
             let tb_height = if doc.is_reflowable() { 2 * big_height } else { big_height };
 
@@ -1118,12 +1155,8 @@ impl Reader {
                              .cloned().unwrap_or_default();
 
             let mut doc = self.doc.lock().unwrap();
-            let ((pixmap, location), _) = build_pixmap(&pixmap_rect,
-                                                       doc.as_mut(),
-                                                       self.current_page,
-                                                       &Margin::default());
+            let (pixmap, _) = build_pixmap(&pixmap_rect, doc.as_mut(), self.current_page, &Margin::default());
 
-            self.current_page = location;
             let margin_cropper = MarginCropper::new(self.rect, pixmap, &margin, context);
             hub.send(Event::Render(*margin_cropper.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(margin_cropper) as Box<View>);
@@ -1152,7 +1185,8 @@ impl Reader {
             }
         }
 
-        self.update(hub);
+        self.cache.clear();
+        self.update(None, hub);
         self.update_tool_bar(hub, context);
         self.update_bottom_bar(hub);
     }
@@ -1182,7 +1216,8 @@ impl Reader {
             }
         }
 
-        self.update(hub);
+        self.cache.clear();
+        self.update(None, hub);
         self.update_tool_bar(hub, context);
         self.update_bottom_bar(hub);
     }
@@ -1206,7 +1241,8 @@ impl Reader {
             }
         }
 
-        self.update(hub);
+        self.cache.clear();
+        self.update(None, hub);
         self.update_tool_bar(hub, context);
         self.update_bottom_bar(hub);
     }
@@ -1230,7 +1266,8 @@ impl Reader {
             }
         }
 
-        self.update(hub);
+        self.cache.clear();
+        self.update(None, hub);
         self.update_tool_bar(hub, context);
         self.update_bottom_bar(hub);
     }
@@ -1241,7 +1278,7 @@ impl Reader {
                 r.bookmarks.remove(&self.current_page);
             }
         }
-        self.update(hub);
+        self.update(None, hub);
     }
 
     fn crop_margins(&mut self, index: usize, margin: &Margin, hub: &Hub) {
@@ -1253,7 +1290,8 @@ impl Reader {
                 *c.margin_mut(index) = margin.clone();
             }
         }
-        self.update(hub);
+        self.cache.clear();
+        self.update(None, hub);
     }
 
     fn reseed(&mut self, hub: &Hub, context: &mut Context) {
@@ -1324,8 +1362,9 @@ impl View for Reader {
                     return true;
                 }
 
-                let dx = (self.rect.width() - self.frame.width()) as i32 / 2;
-                let dy = (self.rect.height() - self.frame.height()) as i32 / 2;
+                let Resource { frame, scale, .. } = *self.cache.get(&self.current_page).unwrap();
+                let dx = (self.rect.width() - frame.width()) as i32 / 2;
+                let dy = (self.rect.height() - frame.height()) as i32 / 2;
 
                 let (links, _) = self.doc.lock().ok()
                                      .and_then(|mut doc| doc.links(Location::Exact(self.current_page)))
@@ -1333,14 +1372,14 @@ impl View for Reader {
 
                 for link in links {
                     let r = link.rect;
-                    let x_min = r.min.x as f32 * self.scale;
-                    let y_min = r.min.y as f32 * self.scale;
-                    let x_max = r.max.x as f32 * self.scale;
-                    let y_max = r.max.y as f32 * self.scale;
-                    let rect = rect![x_min as i32 - self.frame.min.x + dx,
-                                     y_min as i32 - self.frame.min.y + dy,
-                                     x_max as i32 - self.frame.min.x + dx,
-                                     y_max as i32 - self.frame.min.y + dy];
+                    let x_min = r.min.x as f32 * scale;
+                    let y_min = r.min.y as f32 * scale;
+                    let x_max = r.max.x as f32 * scale;
+                    let y_max = r.max.y as f32 * scale;
+                    let rect = rect![x_min as i32 - frame.min.x + dx,
+                                     y_min as i32 - frame.min.y + dy,
+                                     x_max as i32 - frame.min.x + dx,
+                                     y_max as i32 - frame.min.y + dy];
 
                     if rect.includes(center) {
                         let pdf_page = Regex::new(r"^#(\d+)(?:,\d+,\d+)?$").unwrap();
@@ -1491,6 +1530,10 @@ impl View for Reader {
                     hub.send(Event::Render(self.rect, UpdateMode::Full)).unwrap();
                 }
 
+                true
+            },
+            Event::LoadPixmap(location, preload) => {
+                self.load_pixmap(location, preload, hub);
                 true
             },
             Event::RotateView(n) => {
@@ -1686,7 +1729,7 @@ impl View for Reader {
                     self.go_to_page(location, true, hub);
                     self.toggle_bars(Some(false), hub, context);
                 } else if location == self.current_page {
-                    self.update(hub);
+                    self.update(None, hub);
                 }
 
                 true
@@ -1718,7 +1761,8 @@ impl View for Reader {
                 if let Some(r) = self.info.reader.as_mut() {
                     r.cropping_margins = None;
                 }
-                self.update(hub);
+                self.cache.clear();
+                self.update(None, hub);
                 true
             },
             Event::Select(EntryId::SearchDirection(dir)) => {
@@ -1795,24 +1839,27 @@ impl View for Reader {
     }
 
     fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
-        let dx = (self.rect.width() - self.frame.width()) as i32 / 2;
-        let dy = (self.rect.height() - self.frame.height()) as i32 / 2;
+        let Resource { ref pixmap, ref frame, scale } = *self.cache.get(&self.current_page).unwrap();
+
+        let dx = (self.rect.width() - frame.width()) as i32 / 2;
+        let dy = (self.rect.height() - frame.height()) as i32 / 2;
 
         fb.draw_rectangle(&self.rect, WHITE);
-        fb.draw_framed_pixmap(&self.pixmap, &self.frame, &pt!(dx, dy));
+        fb.draw_framed_pixmap(pixmap, frame, &pt!(dx, dy));
+
         if let Some(rects) = self.search.as_ref().and_then(|s| s.highlights.get(&self.current_page)) {
-            let dx = (self.rect.width() - self.frame.width()) as i32 / 2;
-            let dy = (self.rect.height() - self.frame.height()) as i32 / 2;
+            let dx = (self.rect.width() - frame.width()) as i32 / 2;
+            let dy = (self.rect.height() - frame.height()) as i32 / 2;
 
             for r in rects {
-                let x_min = r.min.x as f32 * self.scale;
-                let y_min = r.min.y as f32 * self.scale;
-                let x_max = r.max.x as f32 * self.scale;
-                let y_max = r.max.y as f32 * self.scale;
-                let rect = rect![x_min as i32 - self.frame.min.x + dx,
-                                 y_min as i32 - self.frame.min.y + dy,
-                                 x_max as i32 - self.frame.min.x + dx,
-                                 y_max as i32 - self.frame.min.y + dy];
+                let x_min = r.min.x as f32 * scale;
+                let y_min = r.min.y as f32 * scale;
+                let x_max = r.max.x as f32 * scale;
+                let y_max = r.max.y as f32 * scale;
+                let rect = rect![x_min as i32 - frame.min.x + dx,
+                                 y_min as i32 - frame.min.y + dy,
+                                 x_max as i32 - frame.min.x + dx,
+                                 y_max as i32 - frame.min.y + dy];
 
                 if let Some(ref it) = rect.intersection(&fb.rect()) {
                     fb.invert_region(it);
@@ -1833,7 +1880,7 @@ impl View for Reader {
         }
     }
 
-    fn resize(&mut self, rect: Rectangle, context: &mut Context) {
+    fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
         if !self.children.is_empty() {
             let dpi = CURRENT_DEVICE.dpi;
             let (_, height) = context.display.dims;
@@ -1845,26 +1892,26 @@ impl View for Reader {
             if self.children[0].is::<TopBar>() {
                 let top_bar_rect = rect![rect.min.x, rect.min.y,
                                          rect.max.x, small_height as i32 - small_thickness];
-                self.children[0].resize(top_bar_rect, context);
+                self.children[0].resize(top_bar_rect, hub, context);
                 let separator_rect = rect![rect.min.x,
                                            small_height as i32 - small_thickness,
                                            rect.max.x,
                                            small_height as i32 + big_thickness];
-                self.children[1].resize(separator_rect, context);
+                self.children[1].resize(separator_rect, hub, context);
             } else if self.children[0].is::<Filler>() {
                 if self.children[1].is::<Keyboard>() {
                     let kb_rect = rect![rect.min.x,
                                         rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                                         rect.max.x,
                                         rect.max.y - small_height as i32 - small_thickness];
-                    self.children[1].resize(kb_rect, context);
+                    self.children[1].resize(kb_rect, hub, context);
                     self.children[2].resize(rect![rect.min.x, kb_rect.max.y,
                                                   rect.max.x, kb_rect.max.y + thickness],
-                                            context);
+                                            hub, context);
                     let kb_rect = *self.children[1].rect();
                     self.children[0].resize(rect![rect.min.x, kb_rect.min.y - thickness,
                                                   rect.max.x, kb_rect.min.y],
-                                            context);
+                                            hub, context);
                     floating_layer_start = 3;
                 }
             }
@@ -1875,12 +1922,12 @@ impl View for Reader {
                                            rect.max.y - small_height as i32 - small_thickness,
                                            rect.max.x,
                                            rect.max.y - small_height as i32 + big_thickness];
-                self.children[index-1].resize(separator_rect, context);
+                self.children[index-1].resize(separator_rect, hub, context);
                 let bottom_bar_rect = rect![rect.min.x,
                                             rect.max.y - small_height as i32 + big_thickness,
                                             rect.max.x,
                                             rect.max.y];
-                self.children[index].resize(bottom_bar_rect, context);
+                self.children[index].resize(bottom_bar_rect, hub, context);
 
                 index -= 2;
 
@@ -1899,13 +1946,13 @@ impl View for Reader {
                                              y_max - bar_height + thickness,
                                              rect.max.x,
                                              y_max];
-                    self.children[index].resize(bar_rect, context);
+                    self.children[index].resize(bar_rect, hub, context);
                     let y_max = self.children[index].rect().min.y;
                     let sp_rect = rect![rect.min.x,
                                         y_max - thickness,
                                         rect.max.x,
                                         y_max];
-                    self.children[index-1].resize(sp_rect, context);
+                    self.children[index-1].resize(sp_rect, hub, context);
 
                     index -= 2;
                 }
@@ -1913,7 +1960,7 @@ impl View for Reader {
 
             // TODO: Handle menus.
             for i in floating_layer_start..self.children.len() {
-                self.children[i].resize(rect, context);
+                self.children[i].resize(rect, hub, context);
             }
         }
 
@@ -1927,8 +1974,8 @@ impl View for Reader {
             doc.layout(rect.width(), rect.height(), font_size, CURRENT_DEVICE.dpi);
         }
 
-        let (tx, _rx) = mpsc::channel();
-        self.update(&tx);
+        self.cache.clear();
+        self.update(Some(UpdateMode::Full), hub);
     }
 
     fn is_background(&self) -> bool {
@@ -1950,14 +1997,4 @@ impl View for Reader {
     fn children_mut(&mut self) -> &mut Vec<Box<View>> {
         &mut self.children
     }
-}
-
-fn build_pixmap(rect: &Rectangle, doc: &mut Document, location: usize, margin: &Margin) -> ((Pixmap, usize), f32) {
-    let (width, height) = doc.dims(location as usize).unwrap();
-    let p_width = (1.0 - (margin.left + margin.right)) * width;
-    let p_height = (1.0 - (margin.top + margin.bottom)) * height;
-    let w_ratio = rect.width() as f32 / p_width;
-    let h_ratio = rect.height() as f32 / p_height;
-    let scale = w_ratio.min(h_ratio);
-    (doc.pixmap(Location::Exact(location), scale).unwrap(), scale)
 }

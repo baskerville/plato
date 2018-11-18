@@ -101,7 +101,7 @@ impl View for NamedInput {
                                               &WHITE);
     }
 
-    fn resize(&mut self, _rect: Rectangle, context: &mut Context) {
+    fn resize(&mut self, _rect: Rectangle, _hub: &Hub, context: &mut Context) {
         let (width, height) = context.display.dims;
         let dx = (width as i32 - height as i32) / 2;
         let dy = (height as i32 - width as i32) / 3;

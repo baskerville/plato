@@ -319,7 +319,7 @@ impl View for FrontlightWindow {
                                               &WHITE);
     }
 
-    fn resize(&mut self, _rect: Rectangle, context: &mut Context) {
+    fn resize(&mut self, _rect: Rectangle, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = context.display.dims;
         let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
@@ -352,11 +352,13 @@ impl View for FrontlightWindow {
                                       rect.min.y + thickness,
                                       rect.max.x - thickness,
                                       rect.min.y + small_height as i32],
+                                hub,
                                 context);
         self.children[1].resize(rect![rect.min.x + small_height as i32,
                                       rect.min.y + thickness,
                                       rect.max.x - small_height as i32,
                                       rect.min.y + small_height as i32],
+                                hub,
                                 context);
 
         let mut button_y = rect.min.y + 2 * small_height as i32;
@@ -374,12 +376,12 @@ impl View for FrontlightWindow {
                                                   min_y,
                                                   rect.min.x + 2 * padding + max_label_width,
                                                   min_y + small_height as i32],
-                                          context);
+                                            hub, context);
                 self.children[index+1].resize(rect![rect.min.x + max_label_width + 3 * padding,
                                                     min_y,
                                                     rect.max.x - padding,
                                                     min_y + small_height as i32],
-                                              context);
+                                              hub, context);
                 index += 2;
             }
             button_y += small_height as i32;
@@ -389,7 +391,7 @@ impl View for FrontlightWindow {
                                           min_y,
                                           rect.max.x - padding,
                                           min_y + small_height as i32],
-                                    context);
+                                    hub, context);
             index += 1;
         }
 
@@ -405,14 +407,14 @@ impl View for FrontlightWindow {
                                           button_y + small_height as i32 - button_height,
                                           rect.min.x + 5 * padding + max_label_width,
                                           button_y + small_height as i32],
-                                    context);
+                                    hub, context);
         index += 1;
 
         self.children[index].resize(rect![rect.max.x - 5 * padding - max_label_width,
                                           button_y + small_height as i32 - button_height,
                                           rect.max.x - 3 * padding,
                                           button_y + small_height as i32],
-                                    context);
+                                    hub, context);
         index += 1;
 
         if !context.settings.frontlight_presets.is_empty() {
@@ -420,7 +422,7 @@ impl View for FrontlightWindow {
                                      rect.max.y - small_height as i32 - 2 * padding,
                                      rect.max.x - thickness - 4 * padding,
                                      rect.max.y - thickness - 2 * padding];
-            self.children[index].resize(presets_rect, context);
+            self.children[index].resize(presets_rect, hub, context);
         }
     }
 

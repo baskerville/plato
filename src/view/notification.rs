@@ -104,7 +104,7 @@ impl View for Notification {
         font.render(fb, TEXT_NORMAL[1], &plan, pt);
     }
 
-    fn resize(&mut self, _rect: Rectangle, context: &mut Context) {
+    fn resize(&mut self, _rect: Rectangle, _hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = context.display.dims;
         let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
