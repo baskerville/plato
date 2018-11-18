@@ -12,7 +12,6 @@ use failure::{Error, ResultExt};
 use libc::ioctl;
 use png::HasParameters;
 use geom::Rectangle;
-use device::{Model, CURRENT_DEVICE};
 use super::{UpdateMode, Framebuffer};
 use super::mxcfb_sys::*;
 
@@ -201,12 +200,7 @@ impl Framebuffer for KoboFramebuffer {
         self.var_info.rotate as i8
     }
 
-    fn set_rotation(&mut self, mut n: i8) -> Result<(u32, u32), Error> {
-        match CURRENT_DEVICE.model {
-            Model::AuraH2O | Model::AuraH2OEdition2 | Model::AuraHD => n ^= 2,
-            Model::Forma => n = (4 - n) % 4,
-            _ => (),
-        }
+    fn set_rotation(&mut self, n: i8) -> Result<(u32, u32), Error> {
         self.var_info.rotate = n as u32;
         let result = unsafe {
             libc::ioctl(self.file.as_raw_fd(), FBIOPUT_VSCREENINFO, &mut self.var_info)

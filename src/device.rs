@@ -87,6 +87,18 @@ impl Device {
             _ => 2,
         }
     }
+
+    pub fn startup_rotation(&self) -> i8 {
+        self.transformed_rotation(3)
+    }
+
+    pub fn transformed_rotation(&self, n: i8) -> i8 {
+        match self.model {
+            Model::AuraHD | Model::AuraH2O | Model::AuraH2OEdition2 => n ^ 2,
+            Model::Forma => (4 - n) % 4,
+            _ => n,
+        }
+    }
 }
 
 lazy_static! {

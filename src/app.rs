@@ -33,7 +33,6 @@ use device::CURRENT_DEVICE;
 use font::Fonts;
 
 pub const APP_NAME: &str = "Plato";
-pub const TARGET_ROTATION: i8 = 3;
 
 const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 const BATTERY_REFRESH_INTERVAL: Duration = Duration::from_secs(299);
@@ -61,7 +60,9 @@ impl Context {
     pub fn new(fb: &Framebuffer, settings: Settings, metadata: Metadata,
                filename: PathBuf, fonts: Fonts, battery: Box<Battery>,
                frontlight: Box<Frontlight>, lightsensor: Box<LightSensor>) -> Context {
-        Context { display: Display { dims: fb.dims(), rotation: fb.rotation() },
+        let dims = fb.dims();
+        let rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
+        Context { display: Display { dims, rotation },
                   settings, metadata, filename, fonts,
                   battery, frontlight, lightsensor, notification_index: 0,
                   inverted: false, monochrome: false, plugged: false,
@@ -188,13 +189,13 @@ fn power_off(history: &mut Vec<HistoryItem>, fb: &mut Framebuffer, updating: &mu
 
 pub fn run() -> Result<(), Error> {
     let mut fb = KoboFramebuffer::new("/dev/fb0").context("Can't create framebuffer.")?;
-    let initial_rotation = fb.rotation();
-    if initial_rotation != TARGET_ROTATION {
-        fb.set_rotation(TARGET_ROTATION).ok();
+    let initial_rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
+    let startup_rotation = CURRENT_DEVICE.startup_rotation();
+    if initial_rotation != startup_rotation {
+        fb.set_rotation(startup_rotation).ok();
     }
 
     let mut context = build_context(&fb).context("Can't build context.")?;
-
 
     let paths = vec!["/dev/input/event0".to_string(),
                      "/dev/input/event1".to_string()];
@@ -716,7 +717,7 @@ pub fn run() -> Result<(), Error> {
         }
     }
 
-    if initial_rotation != TARGET_ROTATION {
+    if initial_rotation != startup_rotation {
         fb.set_rotation(initial_rotation).ok();
     }
 
