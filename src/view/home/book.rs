@@ -146,7 +146,7 @@ impl View for Book {
                                  self.rect.min.y + self.rect.height() as i32 / 2);
                 match self.info.status() {
                     Status::New | Status::Finished => {
-                        let color = if self.info.reader.is_none() { WHITE } else { READING_PROGRESS };
+                        let color = if self.info.reader.is_none() { WHITE } else { BLACK };
                         fb.draw_rounded_rectangle_with_border(&rect![center - pt!(small_radius, small_radius),
                                                                      center + pt!(big_radius, big_radius)],
                                                               &CornerSpec::Uniform(small_radius),
