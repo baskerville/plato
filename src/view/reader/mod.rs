@@ -1357,16 +1357,22 @@ impl View for Reader {
                 }
 
                 let w = self.rect.width() as i32;
-                let x1 = self.rect.min.x + w / 3;
-                let x2 = self.rect.max.x - w / 3;
+                let h = self.rect.height() as i32;
+                let m = w.min(h);
+                let db = m / 3;
+                let ds = db / 2;
+                let x1 = self.rect.min.x + db;
+                let x2 = self.rect.max.x - db;
+                let sx1 = self.rect.min.x + ds;
+                let sx2 = self.rect.max.x - ds;
 
                 if center.x < x1 {
-                    let dx = x1 - center.x;
+                    let dc = sx1 - center.x;
                     // Top left corner.
-                    if center.y < self.rect.min.y + dx {
+                    if dc > 0 && center.y < self.rect.min.y + dc {
                         self.go_to_last_page(hub);
                     // Bottom left corner.
-                    } else if center.y > self.rect.max.y - dx {
+                    } else if dc > 0 && center.y > self.rect.max.y - dc {
                         if self.search.is_none() {
                             if self.ephemeral {
                                 self.quit(context);
@@ -1386,12 +1392,12 @@ impl View for Reader {
                         }
                     }
                 } else if center.x > x2 {
-                    let dx = center.x - x2;
+                    let dc = center.x - sx2;
                     // Top right corner.
-                    if center.y < self.rect.min.y + dx {
+                    if dc > 0 && center.y < self.rect.min.y + dc {
                         self.add_remove_bookmark(hub);
                     // Bottom right corner.
-                    } else if center.y > self.rect.max.y - dx {
+                    } else if dc > 0 && center.y > self.rect.max.y - dc {
                         if self.search.is_none() {
                             hub.send(Event::Toggle(ViewId::GoToPage)).unwrap();
                         } else {
@@ -1418,16 +1424,22 @@ impl View for Reader {
                 }
 
                 let w = self.rect.width() as i32;
-                let x1 = self.rect.min.x + w / 3;
-                let x2 = self.rect.max.x - w / 3;
+                let h = self.rect.height() as i32;
+                let m = w.min(h);
+                let db = m / 3;
+                let ds = db / 2;
+                let x1 = self.rect.min.x + db;
+                let x2 = self.rect.max.x - db;
+                let sx1 = self.rect.min.x + ds;
+                let sx2 = self.rect.max.x - ds;
 
                 if center.x < x1 {
-                    let dx = x1 - center.x;
+                    let dc = sx1 - center.x;
                     // Top left corner.
-                    if center.y < self.rect.min.y + dx {
+                    if dc > 0 && center.y < self.rect.min.y + dc {
                         self.go_to_bookmark(CycleDir::Previous, hub);
                     // Bottom left corner.
-                    } else if center.y > self.rect.max.y - dx {
+                    } else if dc > 0 && center.y > self.rect.max.y - dc {
                         if context.settings.frontlight_presets.len() > 1 {
                             if context.settings.frontlight {
                                 let lightsensor_level = if CURRENT_DEVICE.has_lightsensor() {
@@ -1453,12 +1465,12 @@ impl View for Reader {
                         }
                     }
                 } else if center.x > x2 {
-                    let dx = center.x - x2;
+                    let dc = center.x - sx2;
                     // Top right corner.
-                    if center.y < self.rect.min.y + dx {
+                    if dc > 0 && center.y < self.rect.min.y + dc {
                         self.go_to_bookmark(CycleDir::Next, hub);
                     // Bottom right corner.
-                    } else if center.y > self.rect.max.y - dx {
+                    } else if dc > 0 && center.y > self.rect.max.y - dc {
                         hub.send(Event::Select(EntryId::ToggleMonochrome)).unwrap();
                     // Right ear.
                     } else {
