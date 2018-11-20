@@ -324,8 +324,8 @@ pub fn run() -> Result<(), Error> {
                         handle_event(view.as_mut(), &Event::Invalid(info2), &tx, &mut bus, &mut context);
                     }
                 },
-                Event::OpenToc(ref toc, current_page) => {
-                    let r = Reader::from_toc(fb_rect, toc, current_page, &tx, &mut context);
+                Event::OpenToc(ref toc, current_page, next_page) => {
+                    let r = Reader::from_toc(fb_rect, toc, current_page, next_page, &tx, &mut context);
                     history.push(view as Box<View>);
                     view = Box::new(r) as Box<View>;
                 },

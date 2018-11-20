@@ -178,8 +178,8 @@ impl Reader {
         })
     }
 
-    pub fn from_toc(rect: Rectangle, toc: &[TocEntry], mut current_page: usize, hub: &Hub, context: &mut Context) -> Reader {
-        let html = toc_as_html(toc, current_page);
+    pub fn from_toc(rect: Rectangle, toc: &[TocEntry], mut current_page: usize, next_page: Option<usize>, hub: &Hub, context: &mut Context) -> Reader {
+        let html = toc_as_html(toc, current_page, next_page);
 
         let info = Info {
             title: "Table of Contents".to_string(),
@@ -199,7 +199,7 @@ impl Reader {
         doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
         let pages_count = doc.pages_count();
 
-        current_page = chapter_at(toc, current_page).and_then(|chap| {
+        current_page = chapter_at(toc, current_page, next_page).and_then(|chap| {
             let link_uri = format!("@{}", chap.location);
             let mut loc = Location::Exact(0);
             while let Some((links, l)) = doc.links(loc) {
@@ -272,7 +272,8 @@ impl Reader {
         let current_page = self.current_page;
         let chap = {
             let mut doc = self.doc.lock().unwrap();
-            doc.toc().and_then(|toc| chapter_relative(&toc, current_page, dir))
+            let next_page = doc.resolve_location(Location::Next(current_page));
+            doc.toc().and_then(|toc| chapter_relative(&toc, current_page, next_page, dir))
         };
         if let Some(location) = chap {
             self.go_to_page(location, true, hub);
@@ -393,7 +394,7 @@ impl Reader {
             };
             bottom_bar.update_page_label(self.current_page, self.pages_count, hub);
             bottom_bar.update_icons(&neighbors, hub);
-            let chapter = doc.toc().as_ref().and_then(|t| chapter_at(t, current_page))
+            let chapter = doc.toc().as_ref().and_then(|t| chapter_at(t, current_page, neighbors.next_page))
                                    .map(|c| c.title.clone())
                                    .unwrap_or_default();
             bottom_bar.update_chapter(chapter, hub);
@@ -1640,7 +1641,8 @@ impl View for Reader {
                 }
                 let mut doc = self.doc.lock().unwrap();
                 if doc.has_toc() {
-                    hub.send(Event::OpenToc(doc.toc().unwrap(), self.current_page)).unwrap();
+                    let next_page = doc.resolve_location(Location::Next(self.current_page));
+                    hub.send(Event::OpenToc(doc.toc().unwrap(), self.current_page, next_page)).unwrap();
                 }
                 true
             },

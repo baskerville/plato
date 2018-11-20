@@ -201,7 +201,7 @@ pub enum Event {
     Keyboard(KeyboardEvent),
     Key(KeyKind),
     Open(Box<Info>),
-    OpenToc(Vec<TocEntry>, usize),
+    OpenToc(Vec<TocEntry>, usize, Option<usize>),
     RotateView(i8),
     Invalid(Box<Info>),
     Remove(Box<Info>),
