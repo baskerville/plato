@@ -81,7 +81,7 @@ pub enum EpubEngine {
     Mupdf,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FinishedAction {
     Notify,

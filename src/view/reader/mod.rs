@@ -322,7 +322,12 @@ impl Reader {
             match dir {
                 CycleDir::Next => {
                     self.finished = true;
-                    match context.settings.reader.finished {
+                    let action = if self.ephemeral {
+                        FinishedAction::Notify
+                    } else {
+                        context.settings.reader.finished
+                    };
+                    match action {
                         FinishedAction::Notify => {
                             let notif = Notification::new(ViewId::BoundaryNotif,
                                                           "No next page.".to_string(),
