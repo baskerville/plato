@@ -36,7 +36,7 @@ impl PageLabel {
     pub fn text(&self) -> String {
         if self.synthetic {
             let current_page = self.current_page as f64 / BYTES_PER_PAGE;
-            let pages_count = self.current_page as f64 / BYTES_PER_PAGE;
+            let pages_count = self.pages_count as f64 / BYTES_PER_PAGE;
             format!("Page {:.1} of {:.1}", current_page, pages_count)
         } else {
             if self.pages_count == 0 {
