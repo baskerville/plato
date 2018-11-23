@@ -43,6 +43,7 @@ mod symbolic_path;
 mod trash;
 mod app;
 
+use std::mem;
 use std::process;
 use std::thread;
 use std::fs::File;
@@ -174,8 +175,17 @@ impl Framebuffer for WindowCanvas {
         Ok(())
     }
 
-    fn set_rotation(&mut self, _n: i8) -> Result<(u32, u32), Error> {
-        Err(format_err!("Unsupported."))
+    fn rotation(&self) -> i8 {
+        1
+    }
+
+    fn set_rotation(&mut self, n: i8) -> Result<(u32, u32), Error> {
+        let (mut width, mut height) = self.dims();
+        if (width < height && n % 2 == 0) || (width > height && n % 2 == 1) {
+            mem::swap(&mut width, &mut height);
+        }
+        self.window_mut().set_size(width, height);
+        Ok((width, height))
     }
 
     fn toggle_inverted(&mut self) {}
@@ -369,6 +379,19 @@ pub fn run() -> Result<(), Error> {
                         let rect = overlapping_rectangle(view.child(index));
                         tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
                         view.children_mut().remove(index);
+                    }
+                },
+                Event::Select(EntryId::Rotate(n)) if n != context.display.rotation => {
+                    updating.retain(|tok, _| fb.wait(*tok).is_err());
+                    if let Ok(dims) = fb.set_rotation(n) {
+                        context.display.rotation = n;
+                        let fb_rect = Rectangle::from(dims);
+                        if context.display.dims != dims {
+                            context.display.dims = dims;
+                            handle_event(view.as_mut(), &Event::RotateView(n), &tx, &mut bus, &mut context);
+                            view.resize(fb_rect, &mut context);
+                        }
+                        tx.send(Event::Render(fb_rect, UpdateMode::Full)).unwrap();
                     }
                 },
                 Event::Select(EntryId::ToggleInverted) => {
