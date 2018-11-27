@@ -40,7 +40,7 @@ toml = "0.4.6"
 zip = {version = "0.4.2", features = ["deflate-zlib"], default-features = false }
 hyphenation = { version = "0.7.1" }
 entities = "1.0.1"
-paragraph-breaker = "0.3.8"
+paragraph-breaker = "0.4.0"
 either = "1.5.0"
 
 [dependencies.getopts]
