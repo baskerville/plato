@@ -123,7 +123,7 @@ impl Reader {
             doc.set_margin_width(info.reader.as_ref().and_then(|r| r.margin_width)
                                      .unwrap_or(settings.reader.margin_width));
 
-            let pages_count;
+            let pages_count = doc.pages_count();
             let current_page;
 
             // TODO: use get_or_insert_with?
@@ -134,7 +134,6 @@ impl Reader {
                     r.current_page = first_location;
                 }
                 current_page = r.current_page;
-                pages_count = r.pages_count;
                 if let Some(ref font_family) = r.font_family {
                     doc.set_font_family(font_family, &settings.reader.font_path);
                 }
@@ -143,7 +142,6 @@ impl Reader {
                 }
             } else {
                 current_page = first_location;
-                pages_count = doc.pages_count();
                 info.reader = Some(ReaderInfo {
                     current_page,
                     pages_count,
