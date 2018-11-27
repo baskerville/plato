@@ -42,6 +42,12 @@ pub struct Point {
     pub y: i32,
 }
 
+#[macro_export]
+macro_rules! pt {
+    ($x:expr, $y:expr $(,)* ) => ($crate::geom::Point::new($x, $y));
+    ($a:expr) => ($crate::geom::Point::new($a, $a));
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct Edge {
     pub top: i32,
@@ -271,6 +277,36 @@ impl Point {
         ((pt.x - self.x).pow(2) + (pt.y - self.y).pow(2)) as u32
     }
 
+    pub fn rdist2(self, rect: &Rectangle) -> u32 {
+        if rect.includes(self) {
+            0
+        } else if self.y >= rect.min.y && self.y < rect.max.y {
+            if self.x < rect.min.x {
+                (rect.min.x - self.x).pow(2) as u32
+            } else {
+                (self.x - rect.max.x + 1).pow(2) as u32
+            }
+        } else if self.x >= rect.min.x && self.x < rect.max.x {
+            if self.y < rect.min.y {
+                (rect.min.y - self.y).pow(2) as u32
+            } else {
+                (self.y - rect.max.y + 1).pow(2) as u32
+            }
+        } else if self.x < rect.min.x {
+            if self.y < rect.min.y {
+                self.dist2(rect.min)
+            } else {
+                self.dist2(Point::new(rect.min.x, rect.max.y - 1))
+            }
+        } else {
+            if self.y < rect.min.y {
+                self.dist2(Point::new(rect.max.x - 1, rect.min.y))
+            } else {
+                self.dist2(Point::new(rect.max.x - 1, rect.max.y - 1))
+            }
+        }
+    }
+
     pub fn length(self) -> f32 {
         ((self.x.pow(2) + self.y.pow(2)) as f32).sqrt()
     }
@@ -330,12 +366,6 @@ impl Into<Vec2> for Point {
     }
 }
 
-#[macro_export]
-macro_rules! pt {
-    ($x:expr, $y:expr $(,)* ) => ($crate::geom::Point::new($x, $y));
-    ($a:expr) => ($crate::geom::Point::new($a, $a));
-}
-
 #[derive(Debug, Copy, Clone)]
 pub struct Vec2 {
     pub x: f32,
@@ -377,6 +407,12 @@ pub struct Rectangle {
     pub max: Point,
 }
 
+#[macro_export]
+macro_rules! rect {
+    ($x0:expr, $y0:expr, $x1:expr, $y1:expr $(,)* ) => ($crate::geom::Rectangle::new($crate::geom::Point::new($x0, $y0), $crate::geom::Point::new($x1, $y1)));
+    ($min:expr, $max:expr $(,)* ) => ($crate::geom::Rectangle::new($min, $max));
+}
+
 impl Rectangle {
     pub fn new(min: Point, max: Point) -> Rectangle {
         Rectangle {
@@ -396,6 +432,13 @@ impl Rectangle {
         Rectangle {
             min: center - radius,
             max: center + radius,
+        }
+    }
+
+    pub fn to_boundary(&self) -> Boundary {
+        Boundary {
+            min: Vec2::new(self.min.x as f32, self.min.y as f32),
+            max: Vec2::new(self.max.x as f32, self.max.y as f32),
         }
     }
 
@@ -525,12 +568,6 @@ fn rect_cmp(r1: &Rectangle, r2: &Rectangle) -> Ordering {
             Ordering::Equal
         }
     }
-}
-
-#[macro_export]
-macro_rules! rect {
-    ($x0:expr, $y0:expr, $x1:expr, $y1:expr $(,)* ) => ($crate::geom::Rectangle::new($crate::geom::Point::new($x0, $y0), $crate::geom::Point::new($x1, $y1)));
-    ($min:expr, $max:expr $(,)* ) => ($crate::geom::Rectangle::new($min, $max));
 }
 
 impl Add for Point {
@@ -919,6 +956,109 @@ impl DivAssign<f32> for Vec2 {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct Boundary {
+    pub min: Vec2,
+    pub max: Vec2,
+}
+
+impl Boundary {
+    pub fn new(min: Vec2, max: Vec2) -> Boundary {
+        Boundary { min, max }
+    }
+
+    pub fn to_rect(&self) -> Rectangle {
+        Rectangle {
+            min: Point::new(self.min.x.floor() as i32, self.min.y.floor() as i32),
+            max: Point::new(self.max.x.ceil() as i32, self.max.y.ceil() as i32),
+        }
+    }
+
+    pub fn overlaps(&self, rect: &Boundary) -> bool {
+        self.min.x < rect.max.x && rect.min.x < self.max.x &&
+        self.min.y < rect.max.y && rect.min.y < self.max.y
+    }
+}
+
+#[macro_export]
+macro_rules! bndr {
+    ($x0:expr, $y0:expr, $x1:expr, $y1:expr $(,)* ) => ($crate::geom::Boundary::new($crate::geom::Vec2::new($x0, $y0), $crate::geom::Vec2::new($x1, $y1)));
+    ($min:expr, $max:expr $(,)* ) => ($crate::geom::Boundary::new($min, $max));
+}
+
+impl Into<Rectangle> for Boundary {
+    fn into(self) -> Rectangle {
+        Rectangle {
+            min: Point::new(self.min.x.floor() as i32, self.min.y.floor() as i32),
+            max: Point::new(self.max.x.ceil() as i32, self.max.y.ceil() as i32),
+        }
+    }
+}
+
+impl Into<Boundary> for Rectangle {
+    fn into(self) -> Boundary {
+        Boundary {
+            min: Vec2::new(self.min.x as f32, self.min.y as f32),
+            max: Vec2::new(self.max.x as f32, self.max.y as f32),
+        }
+    }
+}
+
+impl Mul<f32> for Boundary {
+    type Output = Boundary;
+    fn mul(self, rhs: f32) -> Boundary {
+        Boundary {
+            min: self.min * rhs,
+            max: self.max * rhs,
+        }
+    }
+}
+
+impl Mul<Boundary> for f32 {
+    type Output = Boundary;
+    fn mul(self, rhs: Boundary) -> Boundary {
+        Boundary {
+            min: self * rhs.min,
+            max: self * rhs.max,
+        }
+    }
+}
+
+impl MulAssign<f32> for Boundary {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.min *= rhs;
+        self.max *= rhs;
+    }
+}
+
+impl Div<f32> for Boundary {
+    type Output = Boundary;
+    fn div(self, rhs: f32) -> Boundary {
+        Boundary {
+            min: self.min / rhs,
+            max: self.max / rhs,
+        }
+    }
+}
+
+impl Div<Boundary> for f32 {
+    type Output = Boundary;
+    fn div(self, rhs: Boundary) -> Boundary {
+        Boundary {
+            min: rhs.min / self,
+            max: rhs.max / self,
+        }
+    }
+}
+
+impl DivAssign<f32> for Boundary {
+    fn div_assign(&mut self, rhs: f32) {
+        self.min /= rhs;
+        self.max /= rhs;
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::divide;
@@ -958,5 +1098,20 @@ mod tests {
         assert_eq!(s, a);
         assert_eq!(v.iter().max(), Some(&4));
         assert_eq!(v.iter().min(), Some(&3));
+    }
+
+    #[test]
+    fn point_rectangle_distance() {
+        let pt1 = pt!(4, 5);
+        let pt2 = pt!(1, 2);
+        let pt3 = pt!(3, 8);
+        let pt4 = pt!(8, 6);
+        let pt5 = pt!(7, 4);
+        let rect = rect![2, 3, 7, 6];
+        assert_eq!(pt1.rdist2(&rect), 0);
+        assert_eq!(pt2.rdist2(&rect), 2);
+        assert_eq!(pt3.rdist2(&rect), 9);
+        assert_eq!(pt4.rdist2(&rect), 5);
+        assert_eq!(pt5.rdist2(&rect), 1);
     }
 }

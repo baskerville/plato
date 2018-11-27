@@ -24,6 +24,7 @@ Documentation: [GUIDE](doc/GUIDE.md), [MANUAL](doc/MANUAL.md) and [BUILD](doc/BU
 - Hierarchical categories.
 - The metadata for each document is read from a single JSON file.
 - Crop margins of non-reflowable documents.
+- Continuous fit-to-width zoom mode with line preserving cuts.
 
 [![Tn01](artworks/thumbnail01.png)](artworks/screenshot01.png) [![Tn02](artworks/thumbnail02.png)](artworks/screenshot02.png) [![Tn03](artworks/thumbnail03.png)](artworks/screenshot03.png)
 

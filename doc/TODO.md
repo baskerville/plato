@@ -1,4 +1,3 @@
-- Fit to width.
 - Dictionary.
 - Metadata view.
 - Pocket articles.

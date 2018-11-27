@@ -46,14 +46,14 @@ use downcast_rs::Downcast;
 use font::Fonts;
 use document::TocEntry;
 use settings::SecondColumn;
-use metadata::{Info, SortMethod, PageScheme, Margin};
+use metadata::{Info, ZoomMode, SortMethod, PageScheme, Margin};
+use geom::{LinearDir, CycleDir, Rectangle, Boundary};
 use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
 use gesture::GestureEvent;
 use view::key::KeyKind;
 use view::intermission::IntermKind;
 use app::Context;
-use geom::{LinearDir, CycleDir, Rectangle};
 
 pub const THICKNESS_SMALL: f32 = 1.0;
 pub const THICKNESS_MEDIUM: f32 = 2.0;
@@ -203,8 +203,8 @@ pub enum Event {
     Key(KeyKind),
     Open(Box<Info>),
     OpenToc(Vec<TocEntry>, usize, Option<usize>),
-    LoadPixmap(usize, bool),
-    RotateView(i8),
+    LoadPixmap(usize),
+    Update(UpdateMode),
     Invalid(Box<Info>),
     Remove(Box<Info>),
     Page(CycleDir),
@@ -232,7 +232,7 @@ pub enum Event {
     Show(ViewId),
     Close(ViewId),
     CloseSub(ViewId),
-    SearchResult(usize, Rectangle),
+    SearchResult(usize, Boundary),
     EndOfSearch,
     Finished,
     ClockTick,
@@ -260,6 +260,7 @@ pub enum ViewId {
     Reader,
     SortMenu,
     MainMenu,
+    TitleMenu,
     BatteryMenu,
     ClockMenu,
     Frontlight,
@@ -381,6 +382,7 @@ pub enum EntryId {
     ExportMatches,
     ApplyCroppings(usize, PageScheme),
     RemoveCroppings,
+    SetZoomMode(ZoomMode),
     ToggleFirstPage,
     SearchDirection(LinearDir),
     SetFontFamily(String),
@@ -391,6 +393,7 @@ pub enum EntryId {
     ToggleMonochrome,
     ToggleWifi,
     Rotate(i8),
+    OpenMetadata,
     TakeScreenshot,
     StartNickel,
     Reboot,

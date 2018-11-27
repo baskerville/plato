@@ -31,10 +31,10 @@ impl TopBar {
         let mut clock_rect = rect![rect.max - pt!(4*side, side),
                                    rect.max - pt!(3*side, 0)];
         let clock_label = Clock::new(&mut clock_rect, fonts);
-        let title_label = Label::new(rect![rect.min.x + side, rect.min.y,
-                                           clock_rect.min.x, rect.max.y],
-                                     info.title(),
-                                     Align::Center);
+        let title_rect = rect![rect.min.x + side, rect.min.y,
+                               clock_rect.min.x, rect.max.y];
+        let title_label = Label::new(title_rect, info.title(), Align::Center)
+                                .event(Some(Event::ToggleNear(ViewId::TitleMenu, title_rect)));
         children.push(Box::new(title_label) as Box<View>);
         children.push(Box::new(clock_label) as Box<View>);
 

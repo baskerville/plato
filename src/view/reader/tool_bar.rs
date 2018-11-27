@@ -13,28 +13,28 @@ use input::DeviceEvent;
 use unit::scale_by_dpi;
 use geom::Rectangle;
 use font::Fonts;
-use color::{WHITE, SEPARATOR_NORMAL};
+use color::{SEPARATOR_NORMAL, WHITE};
 use app::Context;
 
 #[derive(Debug)]
 pub struct ToolBar {
     rect: Rectangle,
     children: Vec<Box<View>>,
-    is_reflowable: bool,
+    reflowable: bool,
 }
 
 impl ToolBar {
-    pub fn new(rect: Rectangle, is_reflowable: bool, reader_info: Option<&ReaderInfo>, reader_settings: &ReaderSettings) -> ToolBar {
+    pub fn new(rect: Rectangle, reflowable: bool, reader_info: Option<&ReaderInfo>, reader_settings: &ReaderSettings) -> ToolBar {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
-        let side = if is_reflowable {
+        let side = if reflowable {
             (rect.height() as i32 + thickness) / 2 - thickness
         } else {
             rect.height() as i32
         };
 
-        if is_reflowable {
+        if reflowable {
             let mut remaining_width = rect.width() as i32 - 3 * side;
             let font_family_label_width = remaining_width / 2;
             remaining_width -= font_family_label_width;
@@ -104,10 +104,36 @@ impl ToolBar {
                                       Event::Show(ViewId::MarginCropper));
             children.push(Box::new(crop_icon) as Box<View>);
 
-            let filler = Filler::new(rect![rect.min.x + side, rect.max.y - side,
-                                           rect.max.x - 2 * side, rect.max.y],
+            let remaining_width = rect.width() as i32 - 3 * side;
+            let margin_label_width = (2 * side).min(remaining_width);
+            let big_padding = (remaining_width - margin_label_width) / 2;
+            let small_padding = remaining_width - margin_label_width - big_padding;
+
+            let filler = Filler::new(rect![rect.min.x + side,
+                                           rect.max.y - side,
+                                           rect.min.x + side + small_padding,
+                                           rect.max.y],
                                      WHITE);
             children.push(Box::new(filler) as Box<View>);
+
+            let margin_width = reader_info.and_then(|r| r.screen_margin_width)
+                                          .unwrap_or(0);
+            let margin_icon = LabeledIcon::new("margin",
+                                               rect![rect.min.x + side + small_padding,
+                                                     rect.max.y - side,
+                                                     rect.max.x - 2 * side - big_padding,
+                                                     rect.max.y],
+                                               Event::Show(ViewId::MarginWidthMenu),
+                                               format!("{} mm", margin_width));
+            children.push(Box::new(margin_icon) as Box<View>);
+
+            let filler = Filler::new(rect![rect.max.x - 2 * side - big_padding,
+                                           rect.max.y - side,
+                                           rect.max.x - 2 * side,
+                                           rect.max.y],
+                                     WHITE);
+            children.push(Box::new(filler) as Box<View>);
+
         }
 
         // End of second row.
@@ -127,12 +153,13 @@ impl ToolBar {
         ToolBar {
             rect,
             children,
-            is_reflowable,
+            reflowable,
         }
     }
 
     pub fn update_margin_width(&mut self, margin_width: i32, hub: &Hub) {
-        if let Some(labeled_icon) = self.children[0].downcast_mut::<LabeledIcon>() {
+        let index = if self.reflowable { 0 } else { 2 };
+        if let Some(labeled_icon) = self.children[index].downcast_mut::<LabeledIcon>() {
             labeled_icon.update(format!("{} mm", margin_width), hub);
         }
     }
@@ -148,7 +175,6 @@ impl ToolBar {
             labeled_icon.update(format!("{:.1} em", line_height), hub);
         }
     }
-
 
     pub fn update_slider(&mut self, font_size: f32, hub: &Hub) {
         if let Some(index) = locate::<Slider>(self) {
@@ -176,7 +202,7 @@ impl View for ToolBar {
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
 
-        let side = if self.is_reflowable {
+        let side = if self.reflowable {
             (rect.height() as i32 + thickness) / 2 - thickness
         } else {
             rect.height() as i32
@@ -184,7 +210,7 @@ impl View for ToolBar {
 
         let mut index = 0;
 
-        if self.is_reflowable {
+        if self.reflowable {
             let mut remaining_width = rect.width() as i32 - 3 * side;
             let font_family_label_width = remaining_width / 2;
             remaining_width -= font_family_label_width;
@@ -234,8 +260,28 @@ impl View for ToolBar {
                                         hub, context);
             index += 1;
 
-            self.children[index].resize(rect![rect.min.x + side, rect.max.y - side,
-                                              rect.max.x - 2 * side, rect.max.y],
+            let remaining_width = rect.width() as i32 - 3 * side;
+            let margin_label_width = self.children[index+1].rect().width() as i32;
+            let big_padding = (remaining_width - margin_label_width) / 2;
+            let small_padding = remaining_width - margin_label_width - big_padding;
+
+            self.children[index].resize(rect![rect.min.x + side,
+                                              rect.max.y - side,
+                                              rect.min.x + side + small_padding,
+                                              rect.max.y],
+                                        hub, context);
+
+            index += 1;
+            self.children[index].resize(rect![rect.min.x + side + small_padding,
+                                              rect.max.y - side,
+                                              rect.max.x - 2 * side - big_padding,
+                                              rect.max.y],
+                                        hub, context);
+            index += 1;
+            self.children[index].resize(rect![rect.max.x - 2 * side - big_padding,
+                                              rect.max.y - side,
+                                              rect.max.x - 2 * side,
+                                              rect.max.y],
                                         hub, context);
             index += 1;
         }

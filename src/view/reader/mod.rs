@@ -6,6 +6,7 @@ mod margin_cropper;
 mod results_label;
 
 use std::thread;
+use std::cmp::Ordering;
 use std::sync::{Arc, Mutex, mpsc};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering as AtomicOrdering;
@@ -36,21 +37,23 @@ use view::notification::Notification;
 use settings::{guess_frontlight, FinishedAction, DEFAULT_FONT_FAMILY};
 use frontlight::LightLevels;
 use gesture::GestureEvent;
-use document::{Document, DocumentOpener, Location, Neighbors, BYTES_PER_PAGE};
+use document::{Document, DocumentOpener, Location, BoundedText, Neighbors, BYTES_PER_PAGE};
 use document::{TocEntry, toc_as_html, chapter_at, chapter_relative};
 use document::pdf::PdfOpener;
-use metadata::{Info, FileInfo, ReaderInfo, PageScheme, Margin, CroppingMargins, make_query};
-use geom::{Rectangle, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, halves};
+use metadata::{Info, FileInfo, ReaderInfo, ZoomMode, PageScheme, Margin, CroppingMargins, make_query};
+use geom::{Point, Rectangle, Boundary, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, Axis, halves};
 use color::{BLACK, WHITE};
 use app::Context;
 
 const HISTORY_SIZE: usize = 32;
+const LINK_DIST_JITTER: f32 = 24.0;
 
 pub struct Reader {
     rect: Rectangle,
     children: Vec<Box<View>>,
     doc: Arc<Mutex<Box<Document>>>,
     cache: BTreeMap<usize, Resource>,
+    chunks: Vec<RenderChunk>,
     focus: Option<ViewId>,
     search: Option<Search>,
     search_direction: LinearDir,
@@ -58,11 +61,30 @@ pub struct Reader {
     info: Info,
     current_page: usize,
     pages_count: usize,
+    view_port: ViewPort,
     synthetic: bool,
     page_turns: usize,
     refresh_every: u8,
+    reflowable: bool,
     ephemeral: bool,
     finished: bool,
+}
+
+#[derive(Debug)]
+struct ViewPort {
+    zoom_mode: ZoomMode,
+    top_offset: i32,
+    margin_width: i32,
+}
+
+impl Default for ViewPort {
+    fn default() -> Self {
+        ViewPort {
+            zoom_mode: ZoomMode::FitToPage,
+            top_offset: 0,
+            margin_width: 0,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -72,10 +94,18 @@ struct Resource {
     scale: f32,
 }
 
+#[derive(Debug, Clone)]
+struct RenderChunk {
+    location: usize,
+    frame: Rectangle,
+    position: Point,
+    scale: f32,
+}
+
 #[derive(Debug)]
 struct Search {
     query: String,
-    highlights: BTreeMap<usize, Vec<Rectangle>>,
+    highlights: BTreeMap<usize, Vec<Boundary>>,
     running: Arc<AtomicBool>,
     current_page: usize,
     results_count: usize,
@@ -93,18 +123,71 @@ impl Default for Search {
     }
 }
 
-fn scaling_factor(rect: &Rectangle, cropping_margin: &Margin, dims: (f32, f32)) -> f32 {
-    let (d_width, d_height) = dims;
-    let p_width = (1.0 - (cropping_margin.left + cropping_margin.right)) * d_width;
-    let p_height = (1.0 - (cropping_margin.top + cropping_margin.bottom)) * d_height;
-    let w_ratio = rect.width() as f32 / p_width;
-    let h_ratio = rect.height() as f32 / p_height;
-    w_ratio.min(h_ratio)
+fn scaling_factor(rect: &Rectangle, cropping_margin: &Margin, screen_margin_width: i32, dims: (f32, f32), zoom_mode: ZoomMode) -> f32 {
+    let (page_width, page_height) = dims;
+    let surface_width = (rect.width() as i32 - 2 * screen_margin_width) as f32;
+    let frame_width = (1.0 - (cropping_margin.left + cropping_margin.right)) * page_width;
+    let width_ratio = surface_width / frame_width;
+    match zoom_mode {
+        ZoomMode::FitToPage => {
+            let surface_height = (rect.height() as i32 - 2 * screen_margin_width) as f32;
+            let frame_height = (1.0 - (cropping_margin.top + cropping_margin.bottom)) * page_height;
+            let height_ratio = surface_height / frame_height;
+            width_ratio.min(height_ratio)
+        },
+        ZoomMode::FitToWidth => width_ratio,
+    }
 }
 
-fn build_pixmap(rect: &Rectangle, doc: &mut Document, location: usize, cropping_margin: &Margin) -> (Pixmap, usize) {
-    let scale = scaling_factor(rect, cropping_margin, doc.dims(location).unwrap());
+fn build_pixmap(rect: &Rectangle, doc: &mut Document, location: usize) -> (Pixmap, usize) {
+    let scale = scaling_factor(rect, &Margin::default(), 0, doc.dims(location).unwrap(), ZoomMode::FitToPage);
     doc.pixmap(Location::Exact(location), scale).unwrap()
+}
+
+fn find_cut(frame: &Rectangle, y_pos: i32, scale: f32, dir: LinearDir, lines: &[BoundedText]) -> Option<i32> {
+    let y_pos_u = y_pos as f32 / scale;
+    let frame_u = frame.to_boundary() / scale;
+    let mut rect_a: Option<Boundary> = None;
+
+    for line in lines {
+        if frame_u.overlaps(&line.rect) && y_pos_u >= line.rect.min.y && y_pos_u < line.rect.max.y {
+            rect_a = Some(line.rect);
+            break;
+        }
+    }
+
+    let ra = rect_a?;
+
+    let mut rect_b: Option<Boundary> = None;
+    let target_ordering = if dir == LinearDir::Backward {
+        Some(Ordering::Less)
+    } else {
+        Some(Ordering::Greater)
+    };
+
+    for line in lines {
+        if line.rect.min.x < ra.max.x && ra.min.x < line.rect.max.x &&
+           line.rect.min.y.partial_cmp(&ra.min.y) == target_ordering &&
+           (rect_b.is_none() || rect_b.unwrap().min.y.partial_cmp(&line.rect.min.y) == target_ordering) {
+            rect_b = Some(line.rect);
+        }
+    }
+
+    if let Some(rb) = rect_b {
+        let sum = if dir == LinearDir::Backward {
+            rb.max.y + ra.min.y
+        } else {
+            ra.max.y + rb.min.y
+        };
+
+        Some((scale * sum / 2.0) as i32)
+    } else {
+        if dir == LinearDir::Backward {
+            Some((scale * ra.min.y).floor() as i32 - 1)
+        } else {
+            Some((scale * ra.max.y).ceil() as i32 + 1)
+        }
+    }
 }
 
 impl Reader {
@@ -123,48 +206,70 @@ impl Reader {
             doc.set_margin_width(info.reader.as_ref().and_then(|r| r.margin_width)
                                      .unwrap_or(settings.reader.margin_width));
 
+            let mut view_port = ViewPort::default();
             let pages_count = doc.pages_count();
             let current_page;
 
             // TODO: use get_or_insert_with?
             if let Some(ref mut r) = info.reader {
                 r.opened = Local::now();
+
                 if r.finished {
                     r.finished = false;
                     r.current_page = first_location;
                 }
+
                 current_page = r.current_page;
+
+                if let Some(zoom_mode) = r.zoom_mode {
+                    view_port.zoom_mode = zoom_mode;
+                }
+
+                if let Some(top_offset) = r.top_offset {
+                    view_port.top_offset = top_offset;
+                }
+
+                if !doc.is_reflowable() {
+                    view_port.margin_width = mm_to_px(r.screen_margin_width.unwrap_or(0) as f32,
+                                                      CURRENT_DEVICE.dpi) as i32;
+                }
+
                 if let Some(ref font_family) = r.font_family {
                     doc.set_font_family(font_family, &settings.reader.font_path);
                 }
+
                 if let Some(line_height) = r.line_height {
                     doc.set_line_height(line_height);
                 }
             } else {
                 current_page = first_location;
+
                 info.reader = Some(ReaderInfo {
                     current_page,
                     pages_count,
                     .. Default::default()
                 });
+
                 if settings.reader.font_family != DEFAULT_FONT_FAMILY {
                     doc.set_font_family(&settings.reader.font_family, &settings.reader.font_path);
                 }
+
                 doc.set_line_height(settings.reader.line_height);
             }
 
             let synthetic = doc.has_synthetic_page_numbers();
+            let reflowable = doc.is_reflowable();
 
             println!("{}", info.file.path.display());
 
-            hub.send(Event::LoadPixmap(current_page, true)).unwrap();
-            hub.send(Event::Render(rect, UpdateMode::Partial)).unwrap();
+            hub.send(Event::Update(UpdateMode::Partial)).unwrap();
 
             Some(Reader {
                 rect,
-                children: vec![],
+                children: Vec::new(),
                 doc: Arc::new(Mutex::new(doc)),
                 cache: BTreeMap::new(),
+                chunks: Vec::new(),
                 focus: None,
                 search: None,
                 search_direction: LinearDir::Forward,
@@ -172,10 +277,12 @@ impl Reader {
                 info,
                 current_page,
                 pages_count,
+                view_port,
                 synthetic,
                 page_turns: 0,
                 refresh_every: settings.reader.refresh_every,
                 ephemeral: false,
+                reflowable,
                 finished: false,
             })
         })
@@ -214,14 +321,14 @@ impl Reader {
             None
         }).unwrap_or(0);
 
-        hub.send(Event::LoadPixmap(current_page, true)).unwrap();
-        hub.send(Event::Render(rect, UpdateMode::Partial)).unwrap();
+        hub.send(Event::Update(UpdateMode::Partial)).unwrap();
 
         Reader {
             rect,
             children: vec![],
             doc: Arc::new(Mutex::new(Box::new(doc))),
             cache: BTreeMap::new(),
+            chunks: Vec::new(),
             focus: None,
             search: None,
             search_direction: LinearDir::Forward,
@@ -229,60 +336,35 @@ impl Reader {
             info,
             current_page,
             pages_count,
+            view_port: ViewPort::default(),
             synthetic: false,
             page_turns: 0,
             refresh_every: context.settings.reader.refresh_every,
             ephemeral: true,
+            reflowable: true,
             finished: false,
         }
     }
 
-    fn load_pixmap(&mut self, location: usize, preload: bool, hub: &Hub) {
-        if preload {
-            while self.cache.len() > 2  {
-                let left_count = self.cache.range(..self.current_page).count();
-                let right_count = self.cache.range(self.current_page+1..).count();
-                let extremum = if left_count >= right_count {
-                    self.cache.keys().next().cloned().unwrap()
-                } else {
-                    self.cache.keys().next_back().cloned().unwrap()
-                };
-                self.cache.remove(&extremum);
-            }
+    fn load_pixmap(&mut self, location: usize) {
+        if self.cache.contains_key(&location) {
+            return;
         }
-        if !self.cache.contains_key(&location) {
-            let mut doc = self.doc.lock().unwrap();
-            let cropping_margin = self.info.reader.as_ref()
-                                      .and_then(|r| r.cropping_margins.as_ref()
-                                                     .map(|c| c.margin(location)))
-                                      .cloned().unwrap_or_default();
-            let dims = doc.dims(location).unwrap();
-            let scale = scaling_factor(&self.rect, &cropping_margin, dims);
-            if let Some((pixmap, _)) = doc.pixmap(Location::Exact(location), scale) {
-                let frame = rect![(cropping_margin.left * pixmap.width as f32).ceil() as i32,
-                                  (cropping_margin.top * pixmap.height as f32).ceil() as i32,
-                                  ((1.0 - cropping_margin.right) * pixmap.width as f32).floor() as i32,
-                                  ((1.0 - cropping_margin.bottom) * pixmap.height as f32).floor() as i32];
-                self.cache.insert(location, Resource { pixmap, frame, scale });
-            }
-        }
-        if preload {
-            let doc2 = self.doc.clone();
-            let hub2 = hub.clone();
-            thread::spawn(move || {
-                let mut doc = doc2.lock().unwrap();
-                if let Some(next_location) = doc.resolve_location(Location::Next(location)) {
-                    hub2.send(Event::LoadPixmap(next_location, false)).unwrap();
-                }
-            });
-            let doc3 = self.doc.clone();
-            let hub3 = hub.clone();
-            thread::spawn(move || {
-                let mut doc = doc3.lock().unwrap();
-                if let Some(previous_location) = doc.resolve_location(Location::Previous(location)) {
-                    hub3.send(Event::LoadPixmap(previous_location, false)).unwrap();
-                }
-            });
+
+        let mut doc = self.doc.lock().unwrap();
+        let cropping_margin = self.info.reader.as_ref()
+                                  .and_then(|r| r.cropping_margins.as_ref()
+                                                 .map(|c| c.margin(location)))
+                                  .cloned().unwrap_or_default();
+        let dims = doc.dims(location).unwrap();
+        let screen_margin_width = self.view_port.margin_width;
+        let scale = scaling_factor(&self.rect, &cropping_margin, screen_margin_width, dims, self.view_port.zoom_mode);
+        if let Some((pixmap, _)) = doc.pixmap(Location::Exact(location), scale) {
+            let frame = rect![(cropping_margin.left * pixmap.width as f32).ceil() as i32,
+                              (cropping_margin.top * pixmap.height as f32).ceil() as i32,
+                              ((1.0 - cropping_margin.right) * pixmap.width as f32).floor() as i32,
+                              ((1.0 - cropping_margin.bottom) * pixmap.height as f32).floor() as i32];
+            self.cache.insert(location, Resource { pixmap, frame, scale });
         }
     }
 
@@ -304,6 +386,7 @@ impl Reader {
                 s.current_page = s.highlights.range(..location+1).count().saturating_sub(1);
             }
 
+            self.view_port.top_offset = 0;
             self.current_page = location;
             self.update(None, hub);
             self.update_bottom_bar(hub);
@@ -351,19 +434,146 @@ impl Reader {
         }
     }
 
+    fn page_scroll(&mut self, delta_y: i32, hub: &Hub, context: &mut Context) {
+        if delta_y == 0 {
+            return;
+        }
+
+        let mut next_top_offset = self.view_port.top_offset - delta_y;
+        let mut location = self.current_page;
+        let max_top_offset = self.cache.get(&location)
+                                 .unwrap().frame.height().saturating_sub(1) as i32;
+        if next_top_offset < 0 {
+            let mut doc = self.doc.lock().unwrap();
+            if let Some(previous_location) = doc.resolve_location(Location::Previous(location)) {
+                location = previous_location;
+                let frame = self.cache.get(&location).unwrap().frame;
+                next_top_offset = (frame.height() as i32 + next_top_offset).max(0);
+            } else {
+                next_top_offset = 0;
+            }
+        } else if next_top_offset > max_top_offset {
+            let mut doc = self.doc.lock().unwrap();
+            if let Some(next_location) = doc.resolve_location(Location::Next(location)) {
+                location = next_location;
+                let frame = self.cache.get(&location).unwrap().frame;
+                let max_top_offset = frame.height().saturating_sub(1) as i32;
+                next_top_offset = (next_top_offset - max_top_offset - 1).min(max_top_offset);
+            } else {
+                next_top_offset = max_top_offset;
+            }
+        }
+
+        {
+            let Resource { frame, scale, .. } = *self.cache.get(&location).unwrap();
+            let mut doc = self.doc.lock().unwrap();
+            if let Some((lines, _)) = doc.lines(Location::Exact(location)) {
+                if let Some(mut y_pos) = find_cut(&frame, frame.min.y + next_top_offset,
+                                                  scale, LinearDir::Forward, &lines) {
+                    y_pos = y_pos.max(frame.min.y).min(frame.max.y - 1);
+                    next_top_offset = y_pos - frame.min.y;
+                }
+            }
+        }
+
+        let location_changed = location != self.current_page;
+        if !location_changed && next_top_offset == self.view_port.top_offset {
+            return;
+        }
+
+        self.view_port.top_offset = next_top_offset;
+        self.current_page = location;
+        self.update(None, hub);
+
+        if location_changed {
+            if let Some(ref mut s) = self.search {
+                s.current_page = s.highlights.range(..location+1).count().saturating_sub(1);
+            }
+            self.update_bottom_bar(hub);
+            if self.search.is_some() {
+                self.update_results_bar(hub);
+            }
+        }
+    }
+
     fn go_to_neighbor(&mut self, dir: CycleDir, hub: &Hub, context: &mut Context) {
         let current_page = self.current_page;
         let loc = {
             let neighloc = if dir == CycleDir::Previous {
-                Location::Previous(current_page)
+                match self.view_port.zoom_mode {
+                    ZoomMode::FitToPage => Location::Previous(current_page),
+                    ZoomMode::FitToWidth => {
+                        let first_chunk = self.chunks.first().cloned().unwrap();
+                        let mut location = first_chunk.location;
+                        let available_height = self.rect.height() as i32 - 2 * self.view_port.margin_width;
+                        let mut height = 0;
+
+                        loop {
+                            self.load_pixmap(location);
+                            let Resource { mut frame, .. } = *self.cache.get(&location).unwrap();
+                            if location == first_chunk.location {
+                                frame.max.y = first_chunk.frame.min.y;
+                            }
+                            height += frame.height() as i32;
+                            if height >= available_height {
+                                break;
+                            }
+                            let mut doc = self.doc.lock().unwrap();
+                            if let Some(previous_location) = doc.resolve_location(Location::Previous(location)) {
+                                location = previous_location;
+                            } else {
+                                break;
+                            }
+                        }
+
+                        let mut next_top_offset = (height - available_height).max(0);
+                        if height > available_height {
+                            let Resource { frame, scale, .. } = *self.cache.get(&location).unwrap();
+                            let mut doc = self.doc.lock().unwrap();
+                            if let Some((lines, _)) = doc.lines(Location::Exact(location)) {
+                                if let Some(mut y_pos) = find_cut(&frame, frame.min.y + next_top_offset,
+                                                                  scale, LinearDir::Forward, &lines) {
+                                    y_pos = y_pos.max(frame.min.y).min(frame.max.y - 1);
+                                    next_top_offset = y_pos - frame.min.y;
+                                }
+                            }
+                        }
+
+                        self.view_port.top_offset = next_top_offset;
+                        Location::Exact(location)
+                    },
+                }
             } else {
-                Location::Next(current_page)
+                match self.view_port.zoom_mode {
+                    ZoomMode::FitToPage => Location::Next(current_page),
+                    ZoomMode::FitToWidth => {
+                        let last_chunk = self.chunks.last().unwrap();
+                        let pixmap_frame = self.cache.get(&last_chunk.location).unwrap().frame;
+                        let next_top_offset = last_chunk.frame.max.y - pixmap_frame.min.y;
+                        self.view_port.top_offset = next_top_offset;
+                        if next_top_offset >= pixmap_frame.height() as i32 {
+                            Location::Next(last_chunk.location)
+                        } else {
+                            Location::Exact(last_chunk.location)
+                        }
+                    },
+                }
             };
             let mut doc = self.doc.lock().unwrap();
             doc.resolve_location(neighloc)
         };
         if let Some(location) = loc {
-            self.go_to_page(location, false, hub);
+            if let Some(ref mut s) = self.search {
+                s.current_page = s.highlights.range(..location+1).count().saturating_sub(1);
+            }
+
+            self.current_page = location;
+            self.update(None, hub);
+            self.update_bottom_bar(hub);
+
+            if self.search.is_some() {
+                self.update_results_bar(hub);
+            }
         } else {
             match dir {
                 CycleDir::Next => {
@@ -407,6 +617,7 @@ impl Reader {
             }
         }
         if let Some(location) = loc {
+            self.view_port.top_offset = 0;
             self.current_page = location;
             self.update_results_bar(hub);
             self.update_bottom_bar(hub);
@@ -427,6 +638,7 @@ impl Reader {
             if let Some(ref mut s) = self.search {
                 s.current_page = s.highlights.range(..location+1).count().saturating_sub(1);
             }
+            self.view_port.top_offset = 0;
             self.current_page = location;
             self.update_results_bar(hub);
             self.update_bottom_bar(hub);
@@ -454,24 +666,27 @@ impl Reader {
 
     fn update_tool_bar(&mut self, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate::<ToolBar>(self) {
-            let settings = &context.settings;
             let tool_bar = self.children[index].as_mut().downcast_mut::<ToolBar>().unwrap();
-            let font_family = self.info.reader.as_ref()
-                                  .and_then(|r| r.font_family.clone())
-                                  .unwrap_or_else(|| settings.reader.font_family.clone());
-            tool_bar.update_font_family(font_family, hub);
-            let font_size = self.info.reader.as_ref()
-                                .and_then(|r| r.font_size)
-                                .unwrap_or(settings.reader.font_size);
-            tool_bar.update_slider(font_size, hub);
+            let settings = &context.settings;
+            if self.reflowable {
+                let font_family = self.info.reader.as_ref()
+                                      .and_then(|r| r.font_family.clone())
+                                      .unwrap_or_else(|| settings.reader.font_family.clone());
+                tool_bar.update_font_family(font_family, hub);
+                let font_size = self.info.reader.as_ref()
+                                    .and_then(|r| r.font_size)
+                                    .unwrap_or(settings.reader.font_size);
+                tool_bar.update_slider(font_size, hub);
+                let line_height = self.info.reader.as_ref()
+                                      .and_then(|r| r.line_height)
+                                      .unwrap_or(settings.reader.line_height);
+                tool_bar.update_line_height(line_height, hub);
+            }
+            let reflowable = self.reflowable;
             let margin_width = self.info.reader.as_ref()
-                                   .and_then(|r| r.margin_width)
-                                   .unwrap_or(settings.reader.margin_width);
+                                   .and_then(|r| if reflowable { r.margin_width } else { r.screen_margin_width })
+                                   .unwrap_or_else(|| if reflowable { settings.reader.margin_width } else { 0 });
             tool_bar.update_margin_width(margin_width, hub);
-            let line_height = self.info.reader.as_ref()
-                                  .and_then(|r| r.line_height)
-                                  .unwrap_or(settings.reader.line_height);
-            tool_bar.update_line_height(line_height, hub);
         }
     }
 
@@ -504,9 +719,91 @@ impl Reader {
                 UpdateMode::Partial
             }
         });
-        let location = self.current_page;
+
+        self.chunks.clear();
+        let mut location = self.current_page;
+        let smw = self.view_port.margin_width;
+
+        match self.view_port.zoom_mode {
+            ZoomMode::FitToPage => {
+                self.load_pixmap(location);
+                let Resource { frame, scale, .. } = *self.cache.get(&location).unwrap();
+                let dx = smw + ((self.rect.width() - frame.width()) as i32 - 2 * smw) / 2;
+                let dy = smw + ((self.rect.height() - frame.height()) as i32 - 2 * smw) / 2;
+                self.chunks.push(RenderChunk { frame, location, position: pt!(dx, dy), scale });
+            },
+            ZoomMode::FitToWidth => {
+                let available_height = self.rect.height() as i32 - 2 * smw;
+                let mut height = 0;
+                while height < available_height {
+                    self.load_pixmap(location);
+                    let Resource { mut frame, scale, .. } = *self.cache.get(&location).unwrap();
+                    if location == self.current_page {
+                        frame.min.y += self.view_port.top_offset;
+                    }
+                    let position = pt!(smw, smw + height);
+                    self.chunks.push(RenderChunk { frame, location, position, scale });
+                    height += frame.height() as i32;
+                    if let Ok(mut doc) = self.doc.lock() {
+                        if let Some(next_location) = doc.resolve_location(Location::Next(location)) {
+                            location = next_location;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                if height > available_height {
+                    if let Some(last_chunk) = self.chunks.last_mut() {
+                        last_chunk.frame.max.y -= height - available_height;
+                        let mut doc = self.doc.lock().unwrap();
+                        if let Some((lines, _)) = doc.lines(Location::Exact(last_chunk.location)) {
+                            let pixmap_frame = self.cache.get(&last_chunk.location).unwrap().frame;
+                            if let Some(mut y_pos) = find_cut(&pixmap_frame, last_chunk.frame.max.y, last_chunk.scale, LinearDir::Backward, &lines) {
+                                y_pos = y_pos.max(pixmap_frame.min.y).min(pixmap_frame.max.y - 1);
+                                last_chunk.frame.max.y = y_pos;
+                            }
+                        }
+                    }
+                    let actual_height: i32 = self.chunks.iter().map(|c| c.frame.height() as i32).sum();
+                    let dy = (available_height - actual_height) / 2;
+                    for chunk in &mut self.chunks {
+                        chunk.position.y += dy;
+                    }
+                }
+            },
+        }
+
         hub.send(Event::Render(self.rect, update_mode)).unwrap();
-        self.load_pixmap(location, true, hub);
+        let first_location = self.chunks.first().map(|c| c.location).unwrap();
+        let last_location = self.chunks.last().map(|c| c.location).unwrap();
+
+        while self.cache.len() > 3 {
+            let left_count = self.cache.range(..first_location).count();
+            let right_count = self.cache.range(last_location+1..).count();
+            let extremum = if left_count >= right_count {
+                self.cache.keys().next().cloned().unwrap()
+            } else {
+                self.cache.keys().next_back().cloned().unwrap()
+            };
+            self.cache.remove(&extremum);
+        }
+
+        let doc2 = self.doc.clone();
+        let hub2 = hub.clone();
+        thread::spawn(move || {
+            let mut doc = doc2.lock().unwrap();
+            if let Some(next_location) = doc.resolve_location(Location::Next(last_location)) {
+                hub2.send(Event::LoadPixmap(next_location)).ok();
+            }
+        });
+        let doc3 = self.doc.clone();
+        let hub3 = hub.clone();
+        thread::spawn(move || {
+            let mut doc = doc3.lock().unwrap();
+            if let Some(previous_location) = doc.resolve_location(Location::Previous(first_location)) {
+                hub3.send(Event::LoadPixmap(previous_location)).ok();
+            }
+        });
     }
 
     fn search(&mut self, text: &str, query: Regex, hub: &Hub) {
@@ -669,8 +966,7 @@ impl Reader {
             let dpi = CURRENT_DEVICE.dpi;
             let (_, height) = context.display.dims;
             let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
-            let doc = self.doc.lock().unwrap();
-            let tb_height = if doc.is_reflowable() { 2 * big_height } else { big_height };
+            let tb_height = if self.reflowable { 2 * big_height } else { big_height };
 
             let sp_rect = *self.child(2).rect() - pt!(0, tb_height as i32);
 
@@ -678,7 +974,7 @@ impl Reader {
                                               sp_rect.max.y,
                                               self.rect.max.x,
                                               sp_rect.max.y + tb_height as i32],
-                                        doc.is_reflowable(),
+                                        self.reflowable,
                                         self.info.reader.as_ref(),
                                         &context.settings.reader);
             self.children.insert(2, Box::new(tool_bar) as Box<View>);
@@ -802,7 +1098,7 @@ impl Reader {
                 self.children.insert(index, Box::new(search_bar) as Box<View>);
                 index += 1;
             } else {
-                let tb_height = if doc.is_reflowable() { 2 * big_height } else { big_height };
+                let tb_height = if self.reflowable { 2 * big_height } else { big_height };
                 let separator = Filler::new(rect![self.rect.min.x,
                                                   self.rect.max.y - (small_height + tb_height) as i32 - small_thickness,
                                                   self.rect.max.x,
@@ -815,7 +1111,7 @@ impl Reader {
                                                   self.rect.max.y - (small_height + tb_height) as i32 + big_thickness,
                                                   self.rect.max.x,
                                                   self.rect.max.y - small_height as i32 - small_thickness],
-                                            doc.is_reflowable(),
+                                            self.reflowable,
                                             self.info.reader.as_ref(),
                                             &context.settings.reader);
                 self.children.insert(index, Box::new(tool_bar) as Box<View>);
@@ -882,6 +1178,38 @@ impl Reader {
             self.children.push(Box::new(go_to_page) as Box<View>);
         }
     }
+
+    pub fn toggle_title_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+        if let Some(index) = locate_by_id(self, ViewId::SearchMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+            let mut entries = Vec::new();
+            if !self.reflowable {
+                let zoom_mode = self.view_port.zoom_mode;
+                entries.push(EntryKind::SubMenu("Zoom Mode".to_string(), vec![
+                                      EntryKind::RadioButton("Fit to Page".to_string(),
+                                                             EntryId::SetZoomMode(ZoomMode::FitToPage),
+                                                             zoom_mode == ZoomMode::FitToPage),
+                                      EntryKind::RadioButton("Fit to Width".to_string(),
+                                                             EntryId::SetZoomMode(ZoomMode::FitToWidth),
+                                                             zoom_mode == ZoomMode::FitToWidth)]));
+            }
+            entries.push(EntryKind::Command("Metadata".to_string(),
+                                            EntryId::OpenMetadata));
+            let title_menu = Menu::new(rect, ViewId::TitleMenu, MenuKind::DropDown, entries, context);
+            hub.send(Event::Render(*title_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(title_menu) as Box<View>);
+        }
+    }
+
 
     fn toggle_font_family_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::FontFamilyMenu) {
@@ -977,8 +1305,10 @@ impl Reader {
                 return;
             }
 
-            let margin_width = self.info.reader.as_ref().and_then(|r| r.margin_width)
-                                   .unwrap_or(context.settings.reader.margin_width);
+            let reflowable = self.reflowable;
+            let margin_width = self.info.reader.as_ref()
+                                   .and_then(|r| if reflowable { r.margin_width } else { r.screen_margin_width })
+                                   .unwrap_or_else(|| if reflowable { context.settings.reader.margin_width } else { 0 });
             let entries = (0..=10).map(|mw| EntryKind::RadioButton(format!("{}", mw),
                                                                   EntryId::SetMarginWidth(mw),
                                                                   mw == margin_width)).collect();
@@ -1153,7 +1483,7 @@ impl Reader {
                              .cloned().unwrap_or_default();
 
             let mut doc = self.doc.lock().unwrap();
-            let (pixmap, _) = build_pixmap(&pixmap_rect, doc.as_mut(), self.current_page, &Margin::default());
+            let (pixmap, _) = build_pixmap(&pixmap_rect, doc.as_mut(), self.current_page);
 
             let margin_cropper = MarginCropper::new(self.rect, pixmap, &margin, context);
             hub.send(Event::Render(*margin_cropper.rect(), UpdateMode::Gui)).unwrap();
@@ -1251,10 +1581,18 @@ impl Reader {
         }
 
         if let Some(ref mut r) = self.info.reader {
-            r.margin_width = Some(width);
+            if self.reflowable {
+                r.margin_width = Some(width);
+            } else {
+                if width == 0 {
+                    r.screen_margin_width = None;
+                } else {
+                    r.screen_margin_width = Some(width);
+                }
+            }
         }
 
-        {
+        if self.reflowable {
             let mut doc = self.doc.lock().unwrap();
             doc.set_margin_width(width);
 
@@ -1262,6 +1600,12 @@ impl Reader {
                 self.pages_count = doc.pages_count();
                 self.current_page = self.current_page.min(self.pages_count - 1);
             }
+        } else {
+            let next_margin_width = mm_to_px(width as f32, CURRENT_DEVICE.dpi) as i32;
+            let ratio = (self.rect.width() as i32 - 2 * next_margin_width) as f32 /
+                        (self.rect.width() as i32 - 2 * self.view_port.margin_width) as f32;
+            self.view_port.top_offset = (self.view_port.top_offset as f32 * ratio) as i32;
+            self.view_port.margin_width = next_margin_width;
         }
 
         self.cache.clear();
@@ -1276,6 +1620,16 @@ impl Reader {
                 r.bookmarks.remove(&self.current_page);
             }
         }
+        self.update(None, hub);
+    }
+
+    fn set_zoom_mode(&mut self, zoom_mode: ZoomMode, hub: &Hub) {
+        if self.view_port.zoom_mode == zoom_mode {
+            return;
+        }
+        self.view_port.zoom_mode = zoom_mode;
+        self.view_port.top_offset = 0;
+        self.cache.clear();
         self.update(None, hub);
     }
 
@@ -1316,6 +1670,14 @@ impl Reader {
             r.current_page = self.current_page;
             r.pages_count = self.pages_count;
             r.finished = self.finished;
+            if self.view_port.zoom_mode == ZoomMode::FitToPage {
+                r.zoom_mode = None;
+                r.top_offset = None;
+            } else {
+                r.zoom_mode = Some(self.view_port.zoom_mode);
+                r.top_offset = Some(self.view_port.top_offset);
+            }
+            r.rotation = Some(context.display.rotation);
         }
 
         for i in &mut context.metadata {
@@ -1339,13 +1701,18 @@ impl View for Reader {
                 hub.send(Event::Select(EntryId::Rotate(n))).unwrap();
                 true
             },
-            Event::Gesture(GestureEvent::Swipe { dir, start, .. }) if self.rect.includes(start) => {
+            Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) if self.rect.includes(start) => {
                 match dir {
                     Dir::West => self.go_to_neighbor(CycleDir::Next, hub, context),
                     Dir::East => self.go_to_neighbor(CycleDir::Previous, hub, context),
-                    _ => (),
+                    Dir::South | Dir::North => self.page_scroll(end.y - start.y, hub, context),
                 };
                 true
+            },
+            Event::Gesture(GestureEvent::Spread { axis: Axis::Horizontal, starts, .. }) if self.rect.includes(starts[0]) => {
+                self.set_zoom_mode(ZoomMode::FitToWidth, hub);
+                true
+
             },
             Event::Device(DeviceEvent::Button { code: ButtonCode::Backward, status: ButtonStatus::Pressed, .. }) => {
                 self.go_to_neighbor(CycleDir::Previous, hub, context);
@@ -1360,27 +1727,27 @@ impl View for Reader {
                     return true;
                 }
 
-                let Resource { frame, scale, .. } = *self.cache.get(&self.current_page).unwrap();
-                let dx = (self.rect.width() - frame.width()) as i32 / 2;
-                let dy = (self.rect.height() - frame.height()) as i32 / 2;
+                let mut nearest_link = None;
+                let mut dmin = u32::max_value();
 
-                let (links, _) = self.doc.lock().ok()
-                                     .and_then(|mut doc| doc.links(Location::Exact(self.current_page)))
-                                     .unwrap_or((Vec::new(), 0));
+                for chunk in &self.chunks {
+                    let (links, _) = self.doc.lock().ok()
+                                         .and_then(|mut doc| doc.links(Location::Exact(chunk.location)))
+                                         .unwrap_or((Vec::new(), 0));
+                    for link in links {
+                        let rect = (link.rect * chunk.scale).to_rect() - chunk.frame.min + chunk.position;
+                        let rd = center.rdist2(&rect);
+                        if rd < dmin {
+                            dmin = rd;
+                            nearest_link = Some(link.clone());
+                        }
+                    }
+                }
 
-                for link in links {
-                    let r = link.rect;
-                    let x_min = r.min.x as f32 * scale;
-                    let y_min = r.min.y as f32 * scale;
-                    let x_max = r.max.x as f32 * scale;
-                    let y_max = r.max.y as f32 * scale;
-                    let rect = rect![x_min as i32 - frame.min.x + dx,
-                                     y_min as i32 - frame.min.y + dy,
-                                     x_max as i32 - frame.min.x + dx,
-                                     y_max as i32 - frame.min.y + dy];
-
-                    if rect.includes(center) {
-                        let pdf_page = Regex::new(r"^#(\d+)(?:,\d+,\d+)?$").unwrap();
+                let dmax = (scale_by_dpi(LINK_DIST_JITTER, CURRENT_DEVICE.dpi) as i32).pow(2) as u32;
+                if dmin < dmax {
+                    if let Some(link) = nearest_link.take() {
+                        let pdf_page = Regex::new(r"^#(\d+)(?:,-?\d+,-?\d+)?$").unwrap();
                         let toc_page = Regex::new(r"^@(\d+)$").unwrap();
                         if let Some(caps) = toc_page.captures(&link.text) {
                             if let Ok(location) = caps[1].parse::<usize>() {
@@ -1530,14 +1897,12 @@ impl View for Reader {
 
                 true
             },
-            Event::LoadPixmap(location, preload) => {
-                self.load_pixmap(location, preload, hub);
+            Event::Update(mode) => {
+                self.update(Some(mode), hub);
                 true
             },
-            Event::RotateView(n) => {
-                if let Some(r) = self.info.reader.as_mut() {
-                    r.rotation = Some(n);
-                }
+            Event::LoadPixmap(location) => {
+                self.load_pixmap(location);
                 true
             },
             Event::Submit(ViewId::GoToPageInput, ref text) => {
@@ -1545,20 +1910,20 @@ impl View for Reader {
                 if let Some(caps) = re.captures(text) {
                     if let Ok(mut number) = caps[2].parse::<f64>() {
                         let location = if !self.synthetic {
-                            let mut index = number as usize;
+                            let mut index = number.max(0.0) as usize;
                             match caps.get(1).map(|m| m.as_str()) {
                                 Some("\"") => {
-                                    index -= 1;
+                                    index = index.saturating_sub(1);
                                     index += self.info.reader.as_ref()
                                                     .and_then(|r| r.first_page).unwrap_or(0);
                                 },
-                                Some("-") => index = self.current_page - index,
+                                Some("-") => index = self.current_page.saturating_sub(index),
                                 Some("+") => index += self.current_page,
-                                _ => index -= 1,
+                                _ => index = index.saturating_sub(1),
                             }
                             index
                         } else {
-                            (number * BYTES_PER_PAGE).round() as usize
+                            (number * BYTES_PER_PAGE).max(0.0).round() as usize
                         };
                         self.go_to_page(location, true, hub);
                     }
@@ -1623,6 +1988,10 @@ impl View for Reader {
             },
             Event::Slider(SliderId::FontSize, font_size, FingerStatus::Up) => {
                 self.set_font_size(font_size, hub, context);
+                true
+            },
+            Event::ToggleNear(ViewId::TitleMenu, rect) => {
+                self.toggle_title_menu(rect, None, hub, context);
                 true
             },
             Event::ToggleNear(ViewId::MainMenu, rect) => {
@@ -1746,6 +2115,10 @@ impl View for Reader {
                 }
                 true
             },
+            Event::Select(EntryId::SetZoomMode(zoom_mode)) => {
+                self.set_zoom_mode(zoom_mode, hub);
+                true
+            },
             Event::Select(EntryId::ApplyCroppings(index, scheme)) => {
                 self.info.reader.as_mut().map(|r| {
                     if r.cropping_margins.is_none() {
@@ -1837,30 +2210,18 @@ impl View for Reader {
     }
 
     fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
-        let Resource { ref pixmap, ref frame, scale } = *self.cache.get(&self.current_page).unwrap();
-
-        let dx = (self.rect.width() - frame.width()) as i32 / 2;
-        let dy = (self.rect.height() - frame.height()) as i32 / 2;
-
         fb.draw_rectangle(&self.rect, WHITE);
-        fb.draw_framed_pixmap(pixmap, frame, &pt!(dx, dy));
 
-        if let Some(rects) = self.search.as_ref().and_then(|s| s.highlights.get(&self.current_page)) {
-            let dx = (self.rect.width() - frame.width()) as i32 / 2;
-            let dy = (self.rect.height() - frame.height()) as i32 / 2;
+        for chunk in &self.chunks {
+            let Resource { ref pixmap, scale, .. } = *self.cache.get(&chunk.location).unwrap();
+            fb.draw_framed_pixmap(pixmap, &chunk.frame, &chunk.position);
 
-            for r in rects {
-                let x_min = r.min.x as f32 * scale;
-                let y_min = r.min.y as f32 * scale;
-                let x_max = r.max.x as f32 * scale;
-                let y_max = r.max.y as f32 * scale;
-                let rect = rect![x_min as i32 - frame.min.x + dx,
-                                 y_min as i32 - frame.min.y + dy,
-                                 x_max as i32 - frame.min.x + dx,
-                                 y_max as i32 - frame.min.y + dy];
-
-                if let Some(ref it) = rect.intersection(&fb.rect()) {
-                    fb.invert_region(it);
+            if let Some(rects) = self.search.as_ref().and_then(|s| s.highlights.get(&chunk.location)) {
+                for r in rects {
+                    let rect = (*r * scale).to_rect() - chunk.frame.min + chunk.position;
+                    if let Some(ref it) = rect.intersection(&fb.rect()) {
+                        fb.invert_region(it);
+                    }
                 }
             }
         }
@@ -1931,8 +2292,7 @@ impl View for Reader {
 
                 while index > 2 {
                     let bar_height = if self.children[index].is::<ToolBar>() {
-                        let doc = self.doc.lock().unwrap();
-                        if doc.is_reflowable() { 2 * big_height } else { big_height }
+                        if self.reflowable { 2 * big_height } else { big_height }
                     } else if self.children[index].is::<Keyboard>() {
                         3 * big_height
                     } else {
@@ -1960,6 +2320,12 @@ impl View for Reader {
             for i in floating_layer_start..self.children.len() {
                 self.children[i].resize(rect, hub, context);
             }
+        }
+
+        if self.view_port.zoom_mode == ZoomMode::FitToWidth {
+            let ratio = (rect.width() as i32 - 2 * self.view_port.margin_width) as f32 /
+                        (self.rect.width() as i32 - 2 * self.view_port.margin_width) as f32;
+            self.view_port.top_offset = (self.view_port.top_offset as f32 * ratio) as i32;
         }
 
         self.rect = rect;

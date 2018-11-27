@@ -12,7 +12,7 @@ use fnv::FnvHashSet;
 use isbn::Isbn;
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::{is_combining_mark};
-use geom::{Rectangle, CycleDir};
+use geom::{Boundary, CycleDir};
 use document::djvu::DjvuOpener;
 use document::pdf::PdfOpener;
 use document::epub::EpubDocument;
@@ -32,7 +32,7 @@ pub enum Location<'a> {
 #[derive(Debug, Clone)]
 pub struct BoundedText {
     pub text: String,
-    pub rect: Rectangle,
+    pub rect: Boundary,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +54,7 @@ pub trait Document: Send+Sync {
 
     fn toc(&mut self) -> Option<Vec<TocEntry>>;
     fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)>;
+    fn lines(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)>;
     fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)>;
 
     fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, usize)>;

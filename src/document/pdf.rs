@@ -15,27 +15,14 @@ use failure::Error;
 use super::{Document, Location, BoundedText, TocEntry};
 use unit::pt_to_px;
 use framebuffer::Pixmap;
-use geom::Rectangle;
+use geom::Boundary;
 
-impl Into<FzRect> for Rectangle {
-    fn into(self) -> FzRect {
-        FzRect {
-            x0: self.min.y as libc::c_float,
-            y0: self.min.x as libc::c_float,
-            x1: (self.max.x - 1) as libc::c_float,
-            y1: (self.max.y - 1) as libc::c_float,
+impl Into<Boundary> for FzRect {
+    fn into(self) -> Boundary {
+        Boundary {
+            min: vec2!(self.x0, self.y0),
+            max: vec2!(self.x1, self.y1),
         }
-    }
-}
-
-impl Into<Rectangle> for FzRect {
-    fn into(self) -> Rectangle {
-        rect![
-            self.x0.floor() as i32,
-            self.y0.floor() as i32,
-            self.x1.ceil() as i32,
-            self.y1.ceil() as i32,
-        ]
     }
 }
 
@@ -212,6 +199,11 @@ impl Document for PdfDocument {
         self.page(index).and_then(|page| page.words()).map(|words| (words, index))
     }
 
+    fn lines(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
+        let index = self.resolve_location(loc)?;
+        self.page(index).and_then(|page| page.lines()).map(|lines| (lines, index))
+    }
+
     fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
         let index = self.resolve_location(loc)?;
         self.page(index).and_then(|page| page.links()).map(|links| (links, index))
@@ -250,6 +242,35 @@ impl Document for PdfDocument {
 }
 
 impl<'a> PdfPage<'a> {
+    pub fn lines(&self) -> Option<Vec<BoundedText>> {
+        unsafe {
+            let mut lines = Vec::new();
+            let tp = mp_new_stext_page_from_page(self.ctx.0, self.page, ptr::null());
+            if tp.is_null() {
+                return None;
+            }
+            let mut block = (*tp).first_block;
+
+            while !block.is_null() {
+                if (*block).kind == FZ_PAGE_BLOCK_TEXT {
+                    let text_block = (*block).u.text;
+                    let mut line = text_block.first_line;
+
+                    while !line.is_null() {
+                        let rect = (*line).bbox.clone().into();
+                        lines.push(BoundedText { text: "".to_string(), rect });
+                        line = (*line).next;
+                    }
+                }
+
+                block = (*block).next;
+            }
+
+            fz_drop_stext_page(self.ctx.0, tp);
+            Some(lines)
+        }
+    }
+
     pub fn words(&self) -> Option<Vec<BoundedText>> {
         unsafe {
             let mut words = Vec::new();
@@ -351,7 +372,7 @@ impl<'a> PdfPage<'a> {
         }
     }
 
-    pub fn boundary_box(&self) -> Option<Rectangle> {
+    pub fn boundary_box(&self) -> Option<Boundary> {
         unsafe {
             let mut rect = FzRect::default();
             let dev = fz_new_bbox_device(self.ctx.0, &mut rect);

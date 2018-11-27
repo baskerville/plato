@@ -1774,13 +1774,17 @@ impl Document for EpubDocument {
                     DrawCommand::Text(TextCommand { text, rect, .. }) => {
                         Some(BoundedText {
                             text: text.clone(),
-                            rect: *rect,
+                            rect: (*rect).into(),
                         })
                     },
                     _ => None,
                 }
             }).collect(), offset)
         })
+    }
+
+    fn lines(&mut self, _loc: Location) -> Option<(Vec<BoundedText>, usize)> {
+        None
     }
 
     fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
@@ -1799,7 +1803,7 @@ impl Document for EpubDocument {
                     DrawCommand::Image(ImageCommand { uri, rect, .. }) if uri.is_some() => {
                         Some(BoundedText {
                             text: uri.clone().unwrap(),
-                            rect: *rect,
+                            rect: (*rect).into(),
                         })
                     },
                     _ => None,

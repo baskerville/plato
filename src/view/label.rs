@@ -72,6 +72,13 @@ impl View for Label {
         font.render(fb, TEXT_NORMAL[1], &plan, pt);
     }
 
+    fn resize(&mut self, rect: Rectangle, _hub: &Hub, _context: &mut Context) {
+        if let Some(Event::ToggleNear(_, ref mut event_rect)) = self.event.as_mut() {
+            *event_rect = rect;
+        }
+        self.rect = rect;
+    }
+
     fn rect(&self) -> &Rectangle {
         &self.rect
     }

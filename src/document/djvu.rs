@@ -134,25 +134,11 @@ impl Document for DjvuDocument {
     }
 
     fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
-        unsafe {
-            let index = self.resolve_location(loc)?;
-            let page = self.page(index)?;
-            let height = page.height() as i32;
-            let grain = CString::new("word").unwrap();
-            let mut exp = ddjvu_document_get_pagetext(self.doc, index as libc::c_int, grain.as_ptr());
-            while exp == MINIEXP_DUMMY {
-                self.ctx.handle_message();
-                exp = ddjvu_document_get_pagetext(self.doc, index as libc::c_int, grain.as_ptr());
-            }
-            if exp == MINIEXP_NIL {
-                None
-            } else {
-                let mut words = Vec::new();
-                Self::walk_words(exp, height, &mut words);
-                ddjvu_miniexp_release(self.doc, exp);
-                Some((words, index))
-            }
-        }
+        self.text(loc, b"word")
+    }
+
+    fn lines(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
+        self.text(loc, b"line")
     }
 
     fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
@@ -186,7 +172,7 @@ impl Document for DjvuDocument {
                             let y_max = height - (miniexp_nth(2, area) as i32 >> 2);
                             let r_width = miniexp_nth(3, area) as i32 >> 2;
                             let r_height = miniexp_nth(4, area) as i32 >> 2;
-                            rect![x_min, y_max - r_height, x_min + r_width, y_max]
+                            bndr![x_min as f32, (y_max - r_height) as f32, (x_min + r_width) as f32, y_max as f32]
                         };
                         result.push(BoundedText { text, rect });
                     }
@@ -266,7 +252,29 @@ impl DjvuDocument {
         }
     }
 
-    fn walk_words(exp: *mut MiniExp, height: i32, words: &mut Vec<BoundedText>) {
+    fn text(&mut self, loc: Location, kind: &[u8]) -> Option<(Vec<BoundedText>, usize)> {
+        unsafe {
+            let index = self.resolve_location(loc)?;
+            let page = self.page(index)?;
+            let height = page.height() as i32;
+            let grain = CString::new(kind).unwrap();
+            let mut exp = ddjvu_document_get_pagetext(self.doc, index as libc::c_int, grain.as_ptr());
+            while exp == MINIEXP_DUMMY {
+                self.ctx.handle_message();
+                exp = ddjvu_document_get_pagetext(self.doc, index as libc::c_int, grain.as_ptr());
+            }
+            if exp == MINIEXP_NIL {
+                None
+            } else {
+                let mut words = Vec::new();
+                Self::walk_text(exp, height, kind, &mut words);
+                ddjvu_miniexp_release(self.doc, exp);
+                Some((words, index))
+            }
+        }
+    }
+
+    fn walk_text(exp: *mut MiniExp, height: i32, kind: &[u8], data: &mut Vec<BoundedText>) {
         unsafe {
             let len = miniexp_length(exp);
             let rect = {
@@ -274,20 +282,20 @@ impl DjvuDocument {
                 let y_max = height - (miniexp_nth(2, exp) as i32 >> 2);
                 let x_max = miniexp_nth(3, exp) as i32 >> 2;
                 let y_min = height - (miniexp_nth(4, exp) as i32 >> 2);
-                rect![x_min, y_min, x_max, y_max]
+                bndr![x_min as f32, y_min as f32, x_max as f32, y_max as f32]
             };
             let grain = {
                 let raw = miniexp_to_name(miniexp_nth(0, exp));
                 CStr::from_ptr(raw).to_bytes()
             };
-            if grain == b"word" && miniexp_stringp(miniexp_nth(5, exp)) == 1 {
+            if grain == kind && miniexp_stringp(miniexp_nth(5, exp)) == 1 {
                 let raw = miniexp_to_str(miniexp_nth(5, exp));
                 let c_str = CStr::from_ptr(raw);
                 let text = c_str.to_string_lossy().into_owned();
-                words.push(BoundedText { rect, text });
+                data.push(BoundedText { rect, text });
             } else {
                 for i in 5..len {
-                    Self::walk_words(miniexp_nth(i, exp), height, words);
+                    Self::walk_text(miniexp_nth(i, exp), height, kind, data);
                 }
             }
         }

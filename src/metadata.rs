@@ -145,23 +145,35 @@ pub struct ReaderInfo {
     pub opened: DateTime<Local>,
     pub current_page: usize,
     pub pages_count: usize,
+    pub finished: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub zoom_mode: Option<ZoomMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_offset: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<i8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cropping_margins: Option<CroppingMargins>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub margin_width: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub screen_margin_width: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub font_family: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub font_size: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub margin_width: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub line_height: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub first_page: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rotation: Option<i8>,
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     pub bookmarks: BTreeSet<usize>,
-    pub finished: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ZoomMode {
+    FitToPage,
+    FitToWidth,
 }
 
 impl ReaderInfo {
@@ -176,15 +188,18 @@ impl Default for ReaderInfo {
             opened: Local::now(),
             current_page: 0,
             pages_count: 1,
-            font_family: None,
-            font_size: None,
-            margin_width: None,
-            line_height: None,
-            first_page: None,
+            finished: false,
+            zoom_mode: None,
+            top_offset: None,
             rotation: None,
             cropping_margins: None,
+            margin_width: None,
+            screen_margin_width: None,
+            font_family: None,
+            font_size: None,
+            line_height: None,
+            first_page: None,
             bookmarks: BTreeSet::new(),
-            finished: false,
         }
     }
 }

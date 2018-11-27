@@ -85,6 +85,7 @@ use font::Fonts;
 use app::Context;
 
 pub const APP_NAME: &str = "Plato";
+const DEFAULT_ROTATION: i8 = 1;
 
 const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
@@ -176,7 +177,7 @@ impl Framebuffer for WindowCanvas {
     }
 
     fn rotation(&self) -> i8 {
-        1
+        DEFAULT_ROTATION
     }
 
     fn set_rotation(&mut self, n: i8) -> Result<(u32, u32), Error> {
@@ -231,10 +232,8 @@ pub fn run() -> Result<(), Error> {
         }
     });
 
-    let fb_rect = fb.rect();
-
     let mut history: Vec<Box<View>> = Vec::new();
-    let mut view: Box<View> = Box::new(Home::new(fb_rect, &tx, &mut context)?);
+    let mut view: Box<View> = Box::new(Home::new(fb.rect(), &tx, &mut context)?);
 
     let mut updating = FnvHashMap::default();
 
@@ -249,8 +248,8 @@ pub fn run() -> Result<(), Error> {
 
     println!("{} is running on a Kobo {}.", APP_NAME,
                                             CURRENT_DEVICE.model);
-    println!("The framebuffer resolution is {} by {}.", fb_rect.width(),
-                                                        fb_rect.height());
+    println!("The framebuffer resolution is {} by {}.", fb.rect().width(),
+                                                        fb.rect().height());
 
     let mut bus = VecDeque::with_capacity(4);
 
@@ -326,8 +325,17 @@ pub fn run() -> Result<(), Error> {
                     }
                 },
                 Event::Open(info) => {
+                    let rotation = context.display.rotation;
+                    if let Some(n) = info.reader.as_ref().and_then(|r| r.rotation) {
+                        if n != rotation {
+                            if let Ok(dims) = fb.set_rotation(n) {
+                                context.display.rotation = n;
+                                context.display.dims = dims;
+                            }
+                        }
+                    }
                     let info2 = info.clone();
-                    if let Some(r) = Reader::new(fb_rect, *info, &tx, &mut context) {
+                    if let Some(r) = Reader::new(fb.rect(), *info, &tx, &mut context) {
                         history.push(view as Box<View>);
                         view = Box::new(r) as Box<View>;
                     } else {
@@ -335,13 +343,21 @@ pub fn run() -> Result<(), Error> {
                     }
                 },
                 Event::OpenToc(ref toc, current_page, next_page) => {
-                    let r = Reader::from_toc(fb_rect, toc, current_page, next_page, &tx, &mut context);
+                    let r = Reader::from_toc(fb.rect(), toc, current_page, next_page, &tx, &mut context);
                     history.push(view as Box<View>);
                     view = Box::new(r) as Box<View>;
                 },
                 Event::Back => {
                     if let Some(v) = history.pop() {
                         view = v;
+                        if view.is::<Home>() {
+                            if context.display.rotation % 2 != 1 {
+                                if let Ok(dims) = fb.set_rotation(DEFAULT_ROTATION) {
+                                    context.display.rotation = DEFAULT_ROTATION;
+                                    context.display.dims = dims;
+                                }
+                            }
+                        }
                         view.handle_event(&Event::Reseed, &tx, &mut bus, &mut context);
                     }
                 },
@@ -388,7 +404,6 @@ pub fn run() -> Result<(), Error> {
                         let fb_rect = Rectangle::from(dims);
                         if context.display.dims != dims {
                             context.display.dims = dims;
-                            handle_event(view.as_mut(), &Event::RotateView(n), &tx, &mut bus, &mut context);
                             view.resize(fb_rect, &tx, &mut context);
                         }
                     }
@@ -396,12 +411,12 @@ pub fn run() -> Result<(), Error> {
                 Event::Select(EntryId::ToggleInverted) => {
                     fb.toggle_inverted();
                     context.inverted = !context.inverted;
-                    tx.send(Event::Render(fb_rect, UpdateMode::Gui)).unwrap();
+                    tx.send(Event::Render(fb.rect(), UpdateMode::Gui)).unwrap();
                 },
                 Event::Select(EntryId::ToggleMonochrome) => {
                     fb.toggle_monochrome();
                     context.monochrome = !context.monochrome;
-                    tx.send(Event::Render(fb_rect, UpdateMode::Gui)).unwrap();
+                    tx.send(Event::Render(fb.rect(), UpdateMode::Gui)).unwrap();
                 },
                 Event::Select(EntryId::TakeScreenshot) => {
                     let name = Local::now().format("screenshot-%Y%m%d_%H%M%S.png");

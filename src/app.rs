@@ -689,8 +689,9 @@ pub fn run() -> Result<(), Error> {
                     let fb_rect = Rectangle::from(dims);
                     if context.display.dims != dims {
                         context.display.dims = dims;
-                        handle_event(view.as_mut(), &Event::RotateView(n), &tx, &mut bus, &mut context);
                         view.resize(fb_rect, &tx, &mut context);
+                    } else {
+                        tx.send(Event::Render(fb.rect(), UpdateMode::Full)).unwrap();
                     }
                 }
             },
