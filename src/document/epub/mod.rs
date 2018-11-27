@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 use fnv::FnvHashMap;
 use zip::ZipArchive;
-use hyphenation::{Standard, Load, Hyphenator, Iter};
+use hyphenation::{Standard, Hyphenator, Iter};
 use failure::Error;
 use either::Either;
 use framebuffer::{Framebuffer, Pixmap};
@@ -34,7 +34,7 @@ use self::layout::{StyleData, InlineMaterial, TextMaterial, ImageMaterial};
 use self::layout::{GlueMaterial, PenaltyMaterial, ChildArtifact, SiblingStyle, LoopContext};
 use self::layout::{RootData, DrawCommand, TextCommand, ImageCommand, FontKind, Fonts};
 use self::layout::{TextAlign, ParagraphElement, TextElement, ImageElement, Display, LineStats};
-use self::layout::{hyph_lang, DEFAULT_HYPH_LANG};
+use self::layout::{hyph_lang, DEFAULT_HYPH_LANG, HYPHENATION_PATTERNS};
 use self::layout::{EM_SPACE_RATIOS, WORD_SPACE_RATIOS, FONT_SPACES};
 use self::layout::{collapse_margins, SpecialSplitter, SPECIAL_CHARS};
 use self::style::{Stylesheet, specified_values};
@@ -1135,8 +1135,8 @@ impl EpubDocument {
             // Hyphenate.
             if let Some(dictionary) = hyph_lang(style.language.as_ref()
                                                      .map_or(DEFAULT_HYPH_LANG, String::as_str))
-                                               .and_then(|lang| Standard::from_embedded(lang).ok()) {
-                items = self.hyphenate_paragraph(items, &dictionary, &mut hyph_indices);
+                                               .and_then(|lang| HYPHENATION_PATTERNS.get(&lang)) {
+                items = self.hyphenate_paragraph(items, dictionary, &mut hyph_indices);
                 bps = total_fit(&items, &line_lengths, stretch_tolerance, 0);
             }
         }

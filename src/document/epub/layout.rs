@@ -1,9 +1,9 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use fnv::FnvHashMap;
 use geom::{Point, Rectangle, Edge};
 use font::{FontFamily, Font, RenderPlan};
 use super::dom::Node;
-use hyphenation::Language;
+use hyphenation::{Standard, Language, Load};
 use color::BLACK;
 
 pub const DEFAULT_HYPH_LANG: &str = "en";
@@ -448,6 +448,19 @@ pub static ref HYPHENATION_LANGUAGES: FnvHashMap<&'static str, Language> = [
     ("uk", Language::Ukrainian),
     ("hsb", Language::Uppersorbian),
     ("cy", Language::Welsh)].iter().cloned().collect();
+
+pub static ref HYPHENATION_PATTERNS: FnvHashMap<Language, Standard> = {
+    let mut map = FnvHashMap::default();
+    for lang in HYPHENATION_LANGUAGES.values() {
+        let path = Path::new("hyphenation-patterns")
+                       .join(lang.code())
+                       .with_extension("standard.bincode");
+        if let Ok(patterns) = Standard::from_path(*lang, path) {
+            map.insert(*lang, patterns);
+        }
+    }
+    map
+};
 
 pub static ref EM_SPACE_RATIOS: FnvHashMap<char, f32> = [
     // Em space.

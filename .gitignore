@@ -6,6 +6,7 @@
 /libs
 /Settings.toml
 /user.css
+/hyphenation-patterns
 /src/wrapper/*.so
 /src/wrapper/*.dylib
 /dist
