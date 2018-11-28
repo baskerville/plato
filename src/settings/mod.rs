@@ -37,6 +37,7 @@ pub struct Settings {
 #[serde(default, rename_all = "kebab-case")]
 pub struct ImportSettings {
     pub unshare_trigger: bool,
+    pub startup_trigger: bool,
     pub allowed_kinds: FnvHashSet<String>,
 }
 
@@ -116,6 +117,7 @@ impl Default for ImportSettings {
     fn default() -> Self {
         ImportSettings {
             unshare_trigger: true,
+            startup_trigger: true,
             allowed_kinds: ["pdf", "djvu", "epub",
                             "fb2", "cbz"].iter().map(|k| k.to_string()).collect(),
         }

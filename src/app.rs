@@ -106,12 +106,20 @@ fn build_context(fb: &Framebuffer) -> Result<Context, Error> {
     let settings = settings.unwrap_or_default();
 
     let path = settings.library_path.join(METADATA_FILENAME);
-    let metadata = load_json::<Metadata, _>(path)
-                             .map_err(|e| eprintln!("Can't load metadata: {}", e))
-                             .or_else(|_| auto_import(&settings.library_path,
-                                                      &Vec::new(),
-                                                      &settings.import.allowed_kinds))
-                             .unwrap_or_default();
+    let mut metadata = load_json::<Metadata, _>(path)
+                                 .map_err(|e| eprintln!("Can't load metadata: {}", e))
+                                 .or_else(|_| auto_import(&settings.library_path,
+                                                          &Vec::new(),
+                                                          &settings.import.allowed_kinds))
+                                 .unwrap_or_default();
+
+    if settings.import.startup_trigger {
+        let imported_metadata = auto_import(&settings.library_path,
+                                            &metadata,
+                                            &settings.import.allowed_kinds);
+        metadata.append(&mut imported_metadata.unwrap_or_default());
+    }
+
     let fonts = Fonts::load().context("Can't load fonts.")?;
 
     let battery = Box::new(KoboBattery::new().context("Can't create battery.")?) as Box<Battery>;
@@ -415,9 +423,7 @@ pub fn run() -> Result<(), Error> {
                                 let metadata = auto_import(&context.settings.library_path,
                                                            &context.metadata,
                                                            &context.settings.import.allowed_kinds);
-                                if metadata.is_ok() {
-                                    context.metadata.append(&mut metadata.unwrap());
-                                }
+                                context.metadata.append(&mut metadata.unwrap_or_default());
                             }
                             view.handle_event(&Event::Reseed, &tx, &mut bus, &mut context);
                         } else {
