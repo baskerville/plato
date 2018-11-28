@@ -516,6 +516,8 @@ pub fn run() -> Result<(), Error> {
                     }
                     view = item.view;
                 }
+                let path = Path::new(SETTINGS_PATH);
+                save_toml(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {}", e)).ok();
                 let path = context.settings.library_path.join(&context.filename);
                 save_json(&context.metadata, path).map_err(|e| eprintln!("Can't save metadata: {}", e)).ok();
                 if context.settings.frontlight {
