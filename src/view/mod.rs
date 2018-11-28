@@ -51,6 +51,7 @@ use framebuffer::{Framebuffer, UpdateMode};
 use input::{DeviceEvent, FingerStatus};
 use gesture::GestureEvent;
 use view::key::KeyKind;
+use view::intermission::IntermKind;
 use app::Context;
 use geom::{LinearDir, CycleDir, Rectangle};
 
@@ -373,6 +374,7 @@ pub enum EntryId {
     RemovePreset(usize),
     AddMatchesCategories,
     RemoveMatchesCategory(String),
+    ToggleIntermissionImage(IntermKind, PathBuf),
     SecondColumn(SecondColumn),
     Load(PathBuf),
     ExportMatches,

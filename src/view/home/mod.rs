@@ -33,6 +33,7 @@ use view::menu::{Menu, MenuKind};
 use view::menu_entry::MenuEntry;
 use view::search_bar::SearchBar;
 use view::notification::Notification;
+use view::intermission::IntermKind;
 use self::bottom_bar::BottomBar;
 use gesture::GestureEvent;
 use input::{DeviceEvent, ButtonCode, ButtonStatus};
@@ -659,10 +660,26 @@ impl Home {
                                                                                           c.to_string())))
                                   .collect::<Vec<EntryKind>>();
 
-            let mut entries = vec![EntryKind::Command("Add Categories".to_string(), EntryId::AddBookCategories(path.clone()))];
+            let mut entries = vec![EntryKind::Command("Add Categories".to_string(),
+                                                      EntryId::AddBookCategories(path.clone()))];
 
             if !categories.is_empty() {
                 entries.push(EntryKind::SubMenu("Remove Category".to_string(), categories));
+            }
+
+            {
+                let images = &context.settings.intermission_images;
+                let submenu = [IntermKind::Suspend,
+                               IntermKind::PowerOff,
+                               IntermKind::Share].iter().map(|k| {
+                                   EntryKind::CheckBox(k.label().to_string(),
+                                                       EntryId::ToggleIntermissionImage(*k, path.clone()),
+                                                       images.get(k.key()) == Some(path))
+                               }).collect::<Vec<EntryKind>>();
+
+
+                entries.push(EntryKind::Separator);
+                entries.push(EntryKind::SubMenu("Set As".to_string(), submenu))
             }
 
             entries.push(EntryKind::Separator);

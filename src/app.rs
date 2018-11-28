@@ -27,7 +27,7 @@ use geom::Rectangle;
 use view::home::Home;
 use view::reader::Reader;
 use view::confirmation::Confirmation;
-use view::intermission::Intermission;
+use view::intermission::{Intermission, IntermKind};
 use view::notification::Notification;
 use device::CURRENT_DEVICE;
 use font::Fonts;
@@ -189,7 +189,7 @@ fn power_off(history: &mut Vec<HistoryItem>, fb: &mut Framebuffer, updating: &mu
     let _ = File::create("poweroff").map_err(|e| {
         eprintln!("Couldn't create the poweroff file: {}", e);
     }).ok();
-    let interm = Intermission::new(fb.rect(), "Powered off".to_string(), true);
+    let interm = Intermission::new(fb.rect(), IntermKind::PowerOff, context);
     updating.retain(|tok, _| fb.wait(*tok).is_err());
     interm.render(fb, &mut context.fonts);
     fb.update(interm.rect(), UpdateMode::Full).ok();
@@ -288,7 +288,7 @@ pub fn run() -> Result<(), Error> {
                         } else if tasks.iter().any(|task| task.id == TaskId::Suspend) {
                             resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut context);
                         } else {
-                            let interm = Intermission::new(fb.rect(), "Sleeping".to_string(), false);
+                            let interm = Intermission::new(fb.rect(), IntermKind::Suspend, &context);
                             tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
                             schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
                                           PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
@@ -306,7 +306,7 @@ pub fn run() -> Result<(), Error> {
                             continue;
                         }
 
-                        let interm = Intermission::new(fb.rect(), "Sleeping".to_string(), false);
+                        let interm = Intermission::new(fb.rect(), IntermKind::Suspend, &context);
                         tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
                         schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
                                       PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
@@ -530,7 +530,7 @@ pub fn run() -> Result<(), Error> {
                             .status()
                             .ok();
                 }
-                let interm = Intermission::new(fb.rect(), "Shared".to_string(), false);
+                let interm = Intermission::new(fb.rect(), IntermKind::Share, &context);
                 tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
                 view.children_mut().push(Box::new(interm) as Box<View>);
                 tx.send(Event::Share).unwrap();
@@ -669,6 +669,14 @@ pub fn run() -> Result<(), Error> {
                 fb.toggle_monochrome();
                 context.monochrome = !context.monochrome;
                 tx.send(Event::Render(fb.rect(), UpdateMode::Gui)).unwrap();
+            },
+            Event::Select(EntryId::ToggleIntermissionImage(ref kind, ref path)) => {
+                let key = kind.key();
+                if context.settings.intermission_images.get(key) == Some(path) {
+                    context.settings.intermission_images.remove(key);
+                } else {
+                    context.settings.intermission_images.insert(key.to_string(), path.clone());
+                }
             },
             Event::Select(EntryId::Rotate(n)) if n != context.display.rotation => {
                 updating.retain(|tok, _| fb.wait(*tok).is_err());

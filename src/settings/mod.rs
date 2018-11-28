@@ -1,7 +1,7 @@
 mod preset;
 
 use std::path::PathBuf;
-use fnv::FnvHashSet;
+use fnv::{FnvHashSet, FnvHashMap};
 use frontlight::LightLevels;
 
 pub use self::preset::{LightPreset, guess_frontlight};
@@ -24,6 +24,8 @@ pub struct Settings {
     pub library_path: PathBuf,
     pub frontlight: bool,
     pub wifi: bool,
+    #[serde(skip_serializing_if = "FnvHashMap::is_empty")]
+    pub intermission_images: FnvHashMap<String, PathBuf>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub frontlight_presets: Vec<LightPreset>,
     pub home: HomeSettings,
@@ -139,6 +141,7 @@ impl Default for Settings {
             library_path: PathBuf::from("/mnt/onboard"),
             frontlight: true,
             wifi: false,
+            intermission_images: FnvHashMap::default(),
             home: HomeSettings::default(),
             reader: ReaderSettings::default(),
             import: ImportSettings::default(),

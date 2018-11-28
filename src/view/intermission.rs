@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use device::CURRENT_DEVICE;
 use document::pdf::PdfOpener;
 use geom::Rectangle;
@@ -10,17 +11,65 @@ use app::Context;
 pub struct Intermission {
     rect: Rectangle,
     children: Vec<Box<View>>,
-    text: String,
+    message: Message,
     halt: bool,
 }
 
+pub enum Message {
+    Text(String),
+    Image(PathBuf),
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum IntermKind {
+    Suspend,
+    PowerOff,
+    Share,
+}
+
+impl IntermKind {
+    pub fn text(&self) -> &str {
+        match self {
+            IntermKind::Suspend => "Sleeping",
+            IntermKind::PowerOff => "Powered off",
+            IntermKind::Share => "Shared",
+        }
+    }
+
+    pub fn label(&self) -> &str {
+        match self {
+            IntermKind::Suspend => "Suspend Image",
+            IntermKind::PowerOff => "Power Off Image",
+            IntermKind::Share => "Share Image",
+        }
+    }
+
+    pub fn key(&self) -> &str {
+        match self {
+            IntermKind::Suspend => "suspend",
+            IntermKind::PowerOff => "power-off",
+            IntermKind::Share => "share",
+        }
+    }
+}
+
+
 impl Intermission {
-    pub fn new(rect: Rectangle, text: String, halt: bool) -> Intermission {
+    pub fn new(rect: Rectangle, kind: IntermKind, context: &Context) -> Intermission {
+        let message = if let Some(path) = context.settings.intermission_images.get(kind.key()) {
+            if path.is_relative() {
+                Message::Image(context.settings.library_path.join(path))
+            } else {
+                Message::Image(path.clone())
+            }
+        } else {
+            Message::Text(kind.text().to_string())
+        };
         Intermission {
             rect,
             children: vec![],
-            text,
-            halt,
+            message,
+            halt: kind == IntermKind::PowerOff,
         }
     }
 }
@@ -31,45 +80,65 @@ impl View for Intermission {
     }
 
     fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
-        let dpi = CURRENT_DEVICE.dpi;
-        
         let scheme = if self.halt {
             TEXT_INVERTED_HARD
         } else {
             TEXT_NORMAL
         };
 
-        let font = font_from_style(fonts, &DISPLAY_STYLE, dpi);
-        let padding = font.em();
-        let max_width = self.rect.width() - 3 * padding as u32;
-        let mut plan = font.plan(&self.text, None, None);
-
-        if plan.width > max_width {
-            let scale = max_width as f32 / plan.width as f32;
-            let size = (scale * DISPLAY_STYLE.size as f32) as u32;
-            font.set_size(size, dpi);
-            plan = font.plan(&self.text, None, None);
-        }
-
-        let x_height = font.x_heights.0 as i32;
-
-        let dx = (self.rect.width() - plan.width) as i32 / 2;
-        let dy = (self.rect.height() as i32) / 3;
-
         fb.draw_rectangle(&self.rect, scheme[0]);
 
-        font.render(fb, scheme[1], &plan, pt!(dx, dy));
+        match self.message {
+            Message::Text(ref text) => {
+                let dpi = CURRENT_DEVICE.dpi;
 
-        let doc = PdfOpener::new().and_then(|o| o.open("icons/dodecahedron.svg")).unwrap();
-        let page = doc.page(0).unwrap();
-        let (width, height) = page.dims();
-        let scale = (plan.width as f32 / width.max(height) as f32) / 4.0;
-        let pixmap = page.pixmap(scale).unwrap();
-        let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
-        let dy = dy + 2 * x_height;
-        let pt = self.rect.min + pt!(dx, dy);
+                let font = font_from_style(fonts, &DISPLAY_STYLE, dpi);
+                let padding = font.em();
+                let max_width = self.rect.width() - 3 * padding as u32;
+                let mut plan = font.plan(text, None, None);
 
-        fb.draw_blended_pixmap(&pixmap, &pt, scheme[1]);
+                if plan.width > max_width {
+                    let scale = max_width as f32 / plan.width as f32;
+                    let size = (scale * DISPLAY_STYLE.size as f32) as u32;
+                    font.set_size(size, dpi);
+                    plan = font.plan(text, None, None);
+                }
+
+                let x_height = font.x_heights.0 as i32;
+
+                let dx = (self.rect.width() - plan.width) as i32 / 2;
+                let dy = (self.rect.height() as i32) / 3;
+
+                font.render(fb, scheme[1], &plan, pt!(dx, dy));
+
+                let doc = PdfOpener::new().and_then(|o| o.open("icons/dodecahedron.svg")).unwrap();
+                let page = doc.page(0).unwrap();
+                let (width, height) = page.dims();
+                let scale = (plan.width as f32 / width.max(height) as f32) / 4.0;
+                let pixmap = page.pixmap(scale).unwrap();
+                let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
+                let dy = dy + 2 * x_height;
+                let pt = self.rect.min + pt!(dx, dy);
+
+                fb.draw_blended_pixmap(&pixmap, &pt, scheme[1]);
+            },
+            Message::Image(ref path) => {
+                if let Some(doc) = PdfOpener::new().and_then(|o| o.open(path)) {
+                    if let Some(page) = doc.page(0) {
+                        let (width, height) = page.dims();
+                        let w_ratio = self.rect.width() as f32 / width;
+                        let h_ratio = self.rect.height() as f32 / height;
+                        let scale = w_ratio.min(h_ratio);
+                        if let Some(pixmap) = page.pixmap(scale) {
+                            let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
+                            let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
+                            let pt = self.rect.min + pt!(dx, dy);
+                            fb.draw_pixmap(&pixmap, &pt);
+                        }
+                    }
+                }
+            },
+        }
     }
 
     fn rect(&self) -> &Rectangle {
