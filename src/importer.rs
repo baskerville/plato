@@ -67,6 +67,7 @@ pub fn run() -> Result<(), Error> {
     opts.optflag("N", "rename", "Rename files based on their info.");
     opts.optflag("Y", "synchronize", "Synchronize libraries.");
     opts.optflag("Z", "initialize", "Initialize a database.");
+    opts.optflag("t", "traverse-hidden", "Traverse hidden directories.");
     opts.optopt("a", "allowed-kinds", "Comma separated list of allowed kinds.", "ALLOWED_KINDS");
     opts.optopt("i", "input", "Input file name.", "INPUT_NAME");
     opts.optopt("o", "output", "Output file name.", "OUTPUT_NAME");
@@ -74,7 +75,7 @@ pub fn run() -> Result<(), Error> {
     let matches = opts.parse(&args).context("Failed to parse the command line arguments.")?;
 
     if matches.opt_present("h") {
-        println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-C|-N|-Z|-Y [-a ALLOWED_KINDS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
+        println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-C|-N|-Z|-Y [-t] [-a ALLOWED_KINDS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
         return Ok(());
     }
 
@@ -88,7 +89,7 @@ pub fn run() -> Result<(), Error> {
 
     let input_path = library_path.join(&input_name);
     let output_path = library_path.join(&output_name);
-
+    let traverse_hidden = matches.opt_present("t");
 
     if matches.opt_present("Z") {
         if input_path.exists() {
@@ -100,7 +101,7 @@ pub fn run() -> Result<(), Error> {
         let metadata = load_json(input_path)?;
         let allowed_kinds = matches.opt_str("a").map(|v| v.split(',').map(|k| k.to_string()).collect())
                                    .unwrap_or_else(|| ImportSettings::default().allowed_kinds);
-        let metadata = import(library_path, &metadata, &allowed_kinds)?;
+        let metadata = import(library_path, &metadata, &allowed_kinds, traverse_hidden)?;
         save_json(&metadata, output_path)?;
     } else {
         let mut metadata = load_json(&output_path)?;

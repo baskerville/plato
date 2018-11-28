@@ -452,16 +452,20 @@ lazy_static! {
         p.insert("french", Regex::new(r"^(Les?\s|La\s|L['’]|Une?\s|Des?\s|Du\s)").unwrap());
         p
     };
+
+    pub static ref RESERVED_DIRECTORIES: FnvHashSet<&'static str> = [
+        ".trash",
+    ].iter().cloned().collect();
 }
 
-pub fn auto_import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String>) -> Result<Metadata, Error> {
-    let mut imported_metadata = import(dir, metadata, allowed_kinds)?;
+pub fn auto_import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String>, traverse_hidden: bool) -> Result<Metadata, Error> {
+    let mut imported_metadata = import(dir, metadata, allowed_kinds, traverse_hidden)?;
     extract_metadata(dir, &mut imported_metadata);
     Ok(imported_metadata)
 }
 
-pub fn import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String>) -> Result<Metadata, Error> {
-    let files = find_files(dir, dir)?;
+pub fn import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String>, traverse_hidden: bool) -> Result<Metadata, Error> {
+    let files = find_files(dir, dir, traverse_hidden)?;
     let known: FnvHashSet<PathBuf> = metadata.iter()
                                              .map(|info| info.file.path.clone())
                                              .collect();
@@ -514,19 +518,20 @@ pub fn extract_metadata(dir: &Path, metadata: &mut Metadata) {
     }
 }
 
-fn find_files(root: &Path, dir: &Path) -> Result<Vec<FileInfo>, Error> {
+fn find_files(root: &Path, dir: &Path, traverse_hidden: bool) -> Result<Vec<FileInfo>, Error> {
     let mut result = Vec::new();
 
     for entry in fs::read_dir(dir).context("Can't read directory.")? {
         let entry = entry.context("Can't read directory entry.")?;
         let path = entry.path();
 
-        if entry.file_name().to_string_lossy().starts_with('.') {
-            continue;
-        }
-
         if path.is_dir() {
-            result.extend_from_slice(&find_files(root, path.as_path())?);
+            if let Some(name) = entry.file_name().to_str() {
+                if (!traverse_hidden && name.starts_with(".")) || RESERVED_DIRECTORIES.contains(name) {
+                    continue;
+                }
+            }
+            result.extend_from_slice(&find_files(root, path.as_path(), traverse_hidden)?);
         } else {
             let relat = path.strip_prefix(root).unwrap().to_path_buf();
             let kind = file_kind(path).unwrap_or_default();
