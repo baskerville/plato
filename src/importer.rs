@@ -62,7 +62,7 @@ pub fn run() -> Result<(), Error> {
     opts.optflag("S", "extract-isbn", "Try to extract identifiers from books.");
     opts.optflag("R", "retrieve-metadata", "Try to retrieve missing metadata.");
     opts.optflag("s", "strict", "Only use the ISBN when retreiving metadata.");
-    opts.optflag("M", "extract-metadata", "Try to extract metadata from the books.");
+    opts.optflag("M", "extract-metadata", "Try to extract metadata from ePUBs.");
     opts.optflag("C", "consolidate", "Consolidate an existing database.");
     opts.optflag("N", "rename", "Rename files based on their info.");
     opts.optflag("Y", "synchronize", "Synchronize libraries.");

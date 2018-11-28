@@ -11,6 +11,7 @@ use std::io::Read;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
+use std::collections::BTreeSet;
 use fnv::FnvHashMap;
 use zip::ZipArchive;
 use hyphenation::{Standard, Hyphenator, Iter};
@@ -1605,6 +1606,53 @@ impl EpubDocument {
 
         fb
     }
+
+    pub fn metadata_by_name(&self, name: &str) -> Option<String> {
+        self.content.find("metadata")
+            .and_then(|metadata| metadata.children())
+            .and_then(|children| children.iter()
+                                         .find(|child| child.tag_name() == Some("meta") &&
+                                                       child.attr("name") == Some(name)))
+            .and_then(|child| child.attr("content").map(String::from))
+    }
+
+    pub fn categories(&self) -> Option<BTreeSet<String>> {
+        self.content.find("metadata")
+            .and_then(|metadata| metadata.children())
+            .map(|children| children.iter()
+                                    .filter_map(|child| {
+                                        if child.tag_name() == Some("dc:subject") {
+                                           child.text().map(String::from)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect())
+    }
+
+    pub fn series(&self) -> Option<String> {
+        self.metadata_by_name("calibre:series")
+    }
+
+    pub fn series_index(&self) -> Option<String> {
+        self.metadata_by_name("calibre:series_index")
+    }
+
+    pub fn description(&self) -> Option<String> {
+        self.metadata("dc:description").map(|ref s| decode_entities(s).into_owned())
+    }
+
+    pub fn publisher(&self) -> Option<String> {
+        self.metadata("dc:publisher")
+    }
+
+    pub fn language(&self) -> Option<String> {
+        self.metadata("dc:language")
+    }
+
+    pub fn year(&self) -> Option<String> {
+        self.metadata("dc:date").map(|s| s.chars().take(4).collect())
+    }
 }
 
 impl Document for EpubDocument {
@@ -1813,6 +1861,7 @@ impl Document for EpubDocument {
     }
 
     fn author(&self) -> Option<String> {
+        // TODO: Consider the opf:file-as attribute?
         self.metadata("dc:creator")
     }
 

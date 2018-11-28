@@ -6,8 +6,8 @@ use std::collections::BTreeSet;
 use std::cmp::Ordering;
 use fnv::{FnvHashMap, FnvHashSet};
 use chrono::{Local, DateTime};
-use document::DocumentOpener;
-use settings::EpubEngine;
+use document::Document;
+use document::epub::EpubDocument;
 use helpers::simple_date_format;
 use regex::Regex;
 use document::file_kind;
@@ -44,11 +44,7 @@ pub struct Info {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub number: String,
     #[serde(skip_serializing_if = "String::is_empty")]
-    pub isbn: String, // International Standard Book Number
-    // #[serde(skip_serializing_if = "String::is_empty")]
-    // pub issn: String, // International Standard Serial Number
-    // #[serde(skip_serializing_if = "String::is_empty")]
-    // pub ismn: String, // International Standard Music Number
+    pub isbn: String,
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     pub categories: BTreeSet<String>,
     pub file: FileInfo,
@@ -499,10 +495,20 @@ pub fn extract_metadata(dir: &Path, metadata: &mut Metadata) {
 
         let path = dir.join(&info.file.path);
 
-        if let Some(doc) = DocumentOpener::new(EpubEngine::BuiltIn)
-                                          .open(&path) {
+        if let Ok(doc) = EpubDocument::new(&path) {
             info.title = doc.title().unwrap_or_default();
             info.author = doc.author().unwrap_or_default();
+            info.year = doc.year().unwrap_or_default();
+            info.publisher = doc.publisher().unwrap_or_default();
+            info.series = doc.series().unwrap_or_default();
+            if !info.series.is_empty() {
+                info.number = doc.series_index().unwrap_or_default();
+            }
+            info.language = doc.language().unwrap_or_default();
+            if info.language == "en" || info.language == "en-US" {
+                info.language.clear();
+            }
+            info.categories.append(&mut doc.categories().unwrap_or_default());
             println!("{}", info.label());
         }
     }
