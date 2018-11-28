@@ -21,7 +21,7 @@ use geom::Point;
 use framebuffer::Framebuffer;
 
 // Font sizes in 1/64th of a point
-pub const FONT_SIZES: [u32; 3] = [349, 524, 699];
+pub const FONT_SIZES: [u32; 3] = [349, 524, 629];
 
 pub const KEYBOARD_FONT_SIZES: [u32; 2] = [337, 843];
 
