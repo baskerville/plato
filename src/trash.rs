@@ -143,12 +143,14 @@ pub fn empty(context: &Context) -> Result<(), Error> {
     let contents_path = trash_path.join(CONTENTS_NAME);
     let mut contents = load_json::<Trash, _>(&contents_path)?;
 
-    if let Some(mut entries) = contents.pop_front() {
-        while let Some(entry) = entries.pop() {
-            fs::remove_file(trash_path.join(&entry.name))?;
+    for entries in &contents {
+        for entry in entries {
+            fs::remove_file(trash_path.join(&entry.name))
+               .map_err(|e| eprintln!("Can't remove {}: {}", &entry.name, e)).ok();
         }
     }
 
+    contents.clear();
     save_json(&contents, &contents_path)?;
 
     Ok(())
