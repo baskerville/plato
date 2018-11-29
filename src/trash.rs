@@ -136,3 +136,31 @@ pub fn untrash(context: &mut Context) -> Result<(), Error> {
 
     Ok(())
 }
+
+pub fn empty(context: &Context) -> Result<(), Error> {
+    let library_path = &context.settings.library_path;
+    let trash_path = library_path.join(TRASH_NAME);
+    let contents_path = trash_path.join(CONTENTS_NAME);
+    let mut contents = load_json::<Trash, _>(&contents_path)?;
+
+    if let Some(mut entries) = contents.pop_front() {
+        while let Some(entry) = entries.pop() {
+            fs::remove_file(trash_path.join(&entry.name))?;
+        }
+    }
+
+    save_json(&contents, &contents_path)?;
+
+    Ok(())
+}
+
+pub fn is_empty(context: &Context) -> bool {
+    let library_path = &context.settings.library_path;
+    let trash_path = library_path.join(TRASH_NAME);
+    if !trash_path.exists() {
+        return true;
+    }
+    let count = fs::read_dir(trash_path)
+                   .map(|dir| dir.into_iter().count()).unwrap_or(0);
+    count < 2
+}

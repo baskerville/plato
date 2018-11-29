@@ -367,6 +367,7 @@ pub enum EntryId {
     SetLineHeight(i32),
     RemoveCroppings,
     Remove(PathBuf),
+    EmptyTrash,
     SearchDirection(LinearDir),
     AddBookCategories(PathBuf),
     RemoveBookCategory(PathBuf, String),

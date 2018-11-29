@@ -41,7 +41,7 @@ use device::{CURRENT_DEVICE, BAR_SIZES};
 use symbolic_path::SymbolicPath;
 use helpers::{load_json, save_json};
 use unit::scale_by_dpi;
-use trash::{trash, untrash};
+use trash::{self, trash, untrash};
 use app::Context;
 use color::BLACK;
 use geom::{Rectangle, CycleDir, halves};
@@ -737,6 +737,11 @@ impl Home {
                      EntryKind::RadioButton("Year".to_string(), EntryId::SecondColumn(SecondColumn::Year), second_column == SecondColumn::Year)]));
 
             entries.push(EntryKind::Separator);
+
+            if !trash::is_empty(context) {
+                entries.push(EntryKind::Command("Empty Trash".to_string(), EntryId::EmptyTrash));
+            }
+
             entries.push(EntryKind::Command("Remove".to_string(), EntryId::RemoveMatches));
 
             if !self.history.is_empty() {
@@ -1117,6 +1122,10 @@ impl View for Home {
             },
             Event::Select(EntryId::RemoveMatchesCategory(ref categ)) => {
                 self.remove_matches_category(categ, hub, context);
+                true
+            },
+            Event::Select(EntryId::EmptyTrash) => {
+                trash::empty(context).map_err(|e| eprintln!("Couldn't empty the trash: {}", e)).ok();
                 true
             },
             Event::Select(EntryId::Undo) => {
