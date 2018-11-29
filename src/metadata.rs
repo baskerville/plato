@@ -533,6 +533,9 @@ fn find_files(root: &Path, dir: &Path, traverse_hidden: bool) -> Result<Vec<File
             }
             result.extend_from_slice(&find_files(root, path.as_path(), traverse_hidden)?);
         } else {
+            if entry.file_name().to_string_lossy().starts_with(".") {
+                continue;
+            }
             let relat = path.strip_prefix(root).unwrap().to_path_buf();
             let kind = file_kind(path).unwrap_or_default();
             let size = entry.metadata().map(|m| m.len()).unwrap_or_default();
