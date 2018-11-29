@@ -29,7 +29,7 @@ impl Default for TrashEntry {
 
 type Trash = VecDeque<Vec<TrashEntry>>;
 
-const TRASH_NAME: &str = ".trash";
+pub const TRASH_NAME: &str = ".trash";
 const CONTENTS_NAME: &str = "contents.json";
 const SIZE_LIMIT: u64 = 32 * 1024 * 1024;
 const MIN_PACKETS: usize = 8;

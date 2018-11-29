@@ -10,6 +10,7 @@ use document::Document;
 use document::epub::EpubDocument;
 use helpers::simple_date_format;
 use regex::Regex;
+use trash::TRASH_NAME;
 use document::file_kind;
 use symbolic_path;
 use failure::{Error, ResultExt};
@@ -454,7 +455,7 @@ lazy_static! {
     };
 
     pub static ref RESERVED_DIRECTORIES: FnvHashSet<&'static str> = [
-        ".trash",
+        TRASH_NAME,
     ].iter().cloned().collect();
 }
 
