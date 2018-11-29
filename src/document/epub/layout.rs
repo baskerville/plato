@@ -452,6 +452,9 @@ pub static ref HYPHENATION_LANGUAGES: FnvHashMap<&'static str, Language> = [
 pub static ref HYPHENATION_PATTERNS: FnvHashMap<Language, Standard> = {
     let mut map = FnvHashMap::default();
     for lang in HYPHENATION_LANGUAGES.values() {
+        if map.contains_key(lang) {
+            continue;
+        }
         let path = Path::new("hyphenation-patterns")
                        .join(lang.code())
                        .with_extension("standard.bincode");
