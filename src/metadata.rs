@@ -10,7 +10,6 @@ use document::Document;
 use document::epub::EpubDocument;
 use helpers::simple_date_format;
 use regex::Regex;
-use trash::TRASH_NAME;
 use document::file_kind;
 use symbolic_path;
 use failure::{Error, ResultExt};
@@ -18,6 +17,7 @@ use failure::{Error, ResultExt};
 pub const METADATA_FILENAME: &str = ".metadata.json";
 pub const IMPORTED_MD_FILENAME: &str = ".metadata-imported.json";
 pub const MATCHES_MD_FILENAME: &str = ".metadata-matches-%Y%m%d_%H%M%S.json";
+pub const TRASH_NAME: &str = ".trash";
 
 pub type Metadata = Vec<Info>;
 

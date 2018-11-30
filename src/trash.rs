@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::collections::VecDeque;
 use failure::Error;
 use rand::{Rng, thread_rng};
+use metadata::TRASH_NAME;
 use fnv::FnvHashSet;
 use helpers::{load_json, save_json};
 use app::Context;
@@ -29,7 +30,6 @@ impl Default for TrashEntry {
 
 type Trash = VecDeque<Vec<TrashEntry>>;
 
-pub const TRASH_NAME: &str = ".trash";
 const CONTENTS_NAME: &str = "contents.json";
 const SIZE_LIMIT: u64 = 32 * 1024 * 1024;
 const MIN_PACKETS: usize = 8;
