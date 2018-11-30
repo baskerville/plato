@@ -106,6 +106,11 @@ impl InputField {
         self
     }
 
+    pub fn set_text(&mut self, text: &str) {
+        self.text = text.to_string();
+        self.cursor = self.text.len();
+    }
+
     fn char_move(&mut self, dir: LinearDir) {
         if let Some(index) = closest_char_boundary(&self.text, self.cursor, dir) {
             self.cursor = index;

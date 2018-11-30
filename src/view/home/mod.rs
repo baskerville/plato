@@ -59,6 +59,7 @@ pub struct Home {
     focus: Option<ViewId>,
     query: Option<Regex>,
     target_path: Option<PathBuf>,
+    target_category: Option<String>,
     sort_method: SortMethod,
     reverse_order: bool,
     visible_books: Metadata,
@@ -171,6 +172,7 @@ impl Home {
             focus: None,
             query: None,
             target_path: None,
+            target_category: None,
             sort_method,
             reverse_order,
             visible_books,
@@ -691,6 +693,31 @@ impl Home {
         }
     }
 
+    fn toggle_category_menu(&mut self, categ: &str, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+        if let Some(index) = locate_by_id(self, ViewId::CategoryMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let entries = vec![EntryKind::Command("Add".to_string(),
+                                                  EntryId::AddMatchesCategories),
+                               EntryKind::Command("Rename".to_string(),
+                                                  EntryId::RenameCategory(categ.to_string())),
+                               EntryKind::Command("Remove".to_string(),
+                                                  EntryId::RemoveCategory(categ.to_string()))];
+
+            let category_menu = Menu::new(rect, ViewId::CategoryMenu, MenuKind::Contextual, entries, context);
+            hub.send(Event::Render(*category_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(category_menu) as Box<View>);
+        }
+    }
+
     fn toggle_matches_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::MatchesMenu) {
             if let Some(true) = enable {
@@ -721,9 +748,9 @@ impl Home {
 
             if !self.visible_books.is_empty() {
                 entries.push(EntryKind::Separator);
-                entries.push(EntryKind::Command("Add categories".to_string(), EntryId::AddMatchesCategories));
+                entries.push(EntryKind::Command("Add Categories".to_string(), EntryId::AddMatchesCategories));
                 let categories: BTreeSet<String> = self.visible_books.iter().flat_map(|info| info.categories.clone()).collect();
-                let categories: Vec<EntryKind> = categories.iter().map(|c| EntryKind::Command(c.clone(), EntryId::RemoveMatchesCategory(c.clone()))).collect();
+                let categories: Vec<EntryKind> = categories.iter().map(|c| EntryKind::Command(c.clone(), EntryId::RemoveCategory(c.clone()))).collect();
 
                 if !categories.is_empty() {
                     entries.push(EntryKind::SubMenu("Remove Category".to_string(), categories));
@@ -870,6 +897,8 @@ impl Home {
         let mut paths: FnvHashSet<PathBuf> = self.visible_books.drain(..)
                                                  .map(|info| info.file.path).collect();
 
+        self.selected_categories.remove(categ);
+
         for info in &mut context.metadata {
             if paths.remove(&info.file.path) {
                 info.categories.remove(categ);
@@ -882,6 +911,45 @@ impl Home {
         self.refresh_visibles(true, false, hub, context);
     }
 
+    fn remove_category(&mut self, categ: &str, hub: &Hub, context: &mut Context) {
+        self.history_push(false, context);
+
+        self.selected_categories.remove(categ);
+        self.negated_categories.remove(categ);
+
+        for info in &mut context.metadata {
+            info.categories.remove(categ);
+        }
+
+        self.refresh_visibles(true, false, hub, context);
+    }
+
+    fn rename_category(&mut self, categ_old: &str, categ_new: &str, hub: &Hub, context: &mut Context) {
+        if categ_old == categ_new {
+            return;
+        }
+
+        self.history_push(false, context);
+
+        if self.selected_categories.contains(categ_old) {
+            self.selected_categories.remove(categ_old);
+            self.selected_categories.insert(categ_new.to_string());
+        }
+
+        if self.negated_categories.contains(categ_old) {
+            self.negated_categories.remove(categ_old);
+            self.negated_categories.insert(categ_new.to_string());
+        }
+
+        for info in &mut context.metadata {
+            if info.categories.contains(categ_old) {
+                info.categories.remove(categ_old);
+                info.categories.insert(categ_new.to_string());
+            }
+        }
+
+        self.refresh_visibles(true, false, hub, context);
+    }
 
     fn remove(&mut self, path: &PathBuf, hub: &Hub, context: &mut Context) {
         let paths: FnvHashSet<PathBuf> = [path.clone()].iter().cloned().collect();
@@ -1031,6 +1099,10 @@ impl View for Home {
                 self.toggle_sort_menu(rect, None, hub, context);
                 true
             },
+            Event::ToggleCategoryMenu(rect, ref categ) => {
+                self.toggle_category_menu(categ, rect, None, hub, context);
+                true
+            },
             Event::ToggleBookMenu(rect, index) => {
                 self.toggle_book_menu(index, rect, None, hub, context);
                 true
@@ -1116,12 +1188,32 @@ impl View for Home {
                 self.children.push(Box::new(add_categs) as Box<View>);
                 true
             },
+            Event::Select(EntryId::RenameCategory(ref categ_old)) => {
+                self.target_category = Some(categ_old.to_string());
+                let mut ren_categ = NamedInput::new("Rename category".to_string(),
+                                                    ViewId::RenameCategory,
+                                                    ViewId::RenameCategoryInput,
+                                                    21, context);
+                ren_categ.set_text(categ_old);
+                hub.send(Event::Render(*ren_categ.rect(), UpdateMode::Gui)).unwrap();
+                hub.send(Event::Focus(Some(ViewId::RenameCategoryInput))).unwrap();
+                self.children.push(Box::new(ren_categ) as Box<View>);
+                true
+            },
             Event::Select(EntryId::RemoveMatches) => {
                 self.remove_matches(hub, context);
                 true
             },
             Event::Select(EntryId::RemoveMatchesCategory(ref categ)) => {
                 self.remove_matches_category(categ, hub, context);
+                true
+            },
+            Event::Select(EntryId::RemoveCategory(ref categ)) => {
+                if self.negated_categories.contains(categ) {
+                    self.remove_category(categ, hub, context);
+                } else {
+                    self.remove_matches_category(categ, hub, context);
+                }
                 true
             },
             Event::Select(EntryId::EmptyTrash) => {
@@ -1150,6 +1242,13 @@ impl View for Home {
                     self.add_book_categories(path, &categs, hub, context);
                 } else {
                     self.add_matches_categories(&categs, hub, context);
+                }
+                self.toggle_keyboard(false, true, None, hub, context);
+                true
+            },
+            Event::Submit(ViewId::RenameCategoryInput, ref categ_new) => {
+                if let Some(ref categ_old) = self.target_category.take() {
+                    self.rename_category(categ_old, categ_new, hub, context);
                 }
                 self.toggle_keyboard(false, true, None, hub, context);
                 true

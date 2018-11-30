@@ -77,6 +77,12 @@ impl NamedInput {
             id,
         }
     }
+
+    pub fn set_text(&mut self, text: &str) {
+        if let Some(input_field) = self.children[1].downcast_mut::<InputField>() {
+            input_field.set_text(text);
+        }
+    }
 }
 
 impl View for NamedInput {

@@ -3,6 +3,5 @@
 - Metadata view.
 - Pocket articles.
 - Complex/fuzzy search queries?
-- Rename categories.
 - Input field completions bar.
 - Applications: Sketch, Calculator, Browser.

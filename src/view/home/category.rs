@@ -50,6 +50,10 @@ impl View for Category {
                 bus.push_back(Event::ToggleNegateCategory(self.text.clone()));
                 true
             },
+            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
+                bus.push_back(Event::ToggleCategoryMenu(self.rect, self.text.clone()));
+                true
+            },
             _ => false,
         }
     }
