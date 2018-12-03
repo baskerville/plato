@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 use fnv::FnvHashMap;
 use geom::{Point, Rectangle, Edge};
@@ -455,10 +456,20 @@ pub static ref HYPHENATION_PATTERNS: FnvHashMap<Language, Standard> = {
         if map.contains_key(lang) {
             continue;
         }
-        let path = Path::new("hyphenation-patterns")
-                       .join(lang.code())
-                       .with_extension("standard.bincode");
-        if let Ok(patterns) = Standard::from_path(*lang, path) {
+        let base = Path::new("hyphenation-patterns")
+                        .join(lang.code());
+        let path = base.with_extension("standard.bincode");
+        if let Ok(mut patterns) = Standard::from_path(*lang, path) {
+            let path = base.with_extension("bounds");
+            if let Ok(pair) = fs::read_to_string(path) {
+                let bounds = pair.trim_right().split(' ')
+                                 .filter_map(|s| s.parse().ok())
+                                 .collect::<Vec<usize>>();
+                if bounds.len() == 2 {
+                    patterns.minima.0 = bounds[0];
+                    patterns.minima.1 = bounds[1];
+                }
+            }
             map.insert(*lang, patterns);
         }
     }
