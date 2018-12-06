@@ -270,7 +270,11 @@ pub fn chapter_relative(toc: &[TocEntry], location: usize, next_location: Option
     if dir == CycleDir::Next {
         chapter_relative_next(toc, location, next_location, &mut page, chap);
     } else {
-        chapter_relative_prev(toc, location, &mut page, chap);
+        if chap.map(|c| c.location < location) == Some(true) {
+            page = Some(chap.unwrap().location);
+        } else {
+            chapter_relative_prev(toc, location, &mut page, chap);
+        }
     }
     page
 }
