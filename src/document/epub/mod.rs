@@ -1613,7 +1613,7 @@ impl EpubDocument {
             .and_then(|children| children.iter()
                                          .find(|child| child.tag_name() == Some("meta") &&
                                                        child.attr("name") == Some(name)))
-            .and_then(|child| child.attr("content").map(String::from))
+            .and_then(|child| child.attr("content").map(|s| decode_entities(s).into_owned()))
     }
 
     pub fn categories(&self) -> Option<BTreeSet<String>> {
@@ -1622,7 +1622,7 @@ impl EpubDocument {
             .map(|children| children.iter()
                                     .filter_map(|child| {
                                         if child.tag_name() == Some("dc:subject") {
-                                           child.text().map(String::from)
+                                           child.text().map(|s| decode_entities(s).into_owned())
                                         } else {
                                             None
                                         }
@@ -1639,7 +1639,7 @@ impl EpubDocument {
     }
 
     pub fn description(&self) -> Option<String> {
-        self.metadata("dc:description").map(|ref s| decode_entities(s).into_owned())
+        self.metadata("dc:description")
     }
 
     pub fn publisher(&self) -> Option<String> {
@@ -1874,7 +1874,7 @@ impl Document for EpubDocument {
             .and_then(|metadata| metadata.children())
             .and_then(|children| children.iter().find(|child| child.tag_name() == Some(key)))
             .and_then(|child| child.children().and_then(|c| c.get(0)))
-            .and_then(|child| child.text().map(String::from))
+            .and_then(|child| child.text().map(|s| decode_entities(s).into_owned()))
     }
 
     fn is_reflowable(&self) -> bool {
