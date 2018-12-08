@@ -13,6 +13,8 @@ use symbolic_path::SymbolicPath;
 use font::{Font, Fonts, font_from_style, category_font_size, NORMAL_STYLE};
 use geom::{Rectangle, Dir, CycleDir, divide, small_half, big_half};
 
+const MIN_CATEGS_PER_LINE: i32 = 3;
+
 #[derive(Debug)]
 pub struct Summary {
     pub rect: Rectangle,
@@ -160,6 +162,8 @@ impl Summary {
                                          width: pixmap.width as i32 });
         }
 
+        let categ_width_limit = (max_line_width - (MIN_CATEGS_PER_LINE - 1) * padding) / MIN_CATEGS_PER_LINE;
+
         for categ in visible_categories.iter().skip(start_index) {
             font.set_size(category_font_size(categ.depth()), dpi);
             let mut categ_width = font.plan(categ.last_component(),
@@ -167,9 +171,9 @@ impl Summary {
                                             None).width as i32;
             let mut max_categ_width = None;
 
-            if categ_width > max_line_width {
-                max_categ_width = Some(max_line_width as u32);
-                categ_width = max_line_width;
+            if categ_width > categ_width_limit {
+                max_categ_width = Some(categ_width_limit as u32);
+                categ_width = categ_width_limit;
             }
 
             line.labels_count += 1;
