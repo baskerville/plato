@@ -1,6 +1,6 @@
 ## Preliminary
 
-Install [Ubuntu 12.04.5](http://releases.ubuntu.com/12.04/).
+Install [Ubuntu 14.04.5](http://releases.ubuntu.com/14.04.5/).
 
 Install the required packages:
 ```sh

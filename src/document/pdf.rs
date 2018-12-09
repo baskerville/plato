@@ -257,7 +257,7 @@ impl<'a> PdfPage<'a> {
                     let mut line = text_block.first_line;
 
                     while !line.is_null() {
-                        let rect = (*line).bbox.clone().into();
+                        let rect = (*line).bbox.into();
                         lines.push(BoundedText { text: "".to_string(), rect });
                         line = (*line).next;
                     }
@@ -297,7 +297,8 @@ impl<'a> PdfPage<'a> {
                                         chr = (*chr).next;
                                         break;
                                     } else {
-                                        fz_union_rect(&mut rect, &(*chr).bbox);
+                                        let chr_rect = fz_rect_from_quad((*chr).quad);
+                                        rect = fz_union_rect(rect, chr_rect);
                                         text.push(c);
                                     }
                                 }
@@ -337,7 +338,7 @@ impl<'a> PdfPage<'a> {
 
             while !link.is_null() {
                 let text = CStr::from_ptr((*link).uri).to_string_lossy().into_owned();
-                let rect = (*link).rect.clone().into();
+                let rect = (*link).rect.into();
                 result.push(BoundedText { text, rect });
                 link = (*link).next;
             }
@@ -350,11 +351,10 @@ impl<'a> PdfPage<'a> {
 
     pub fn pixmap(&self, scale: f32) -> Option<Pixmap> {
         unsafe {
-            let mut mat = FzMatrix::default();
-            fz_scale(&mut mat, scale as libc::c_float, scale as libc::c_float);
+            let mat = fz_scale(scale as libc::c_float, scale as libc::c_float);
             let pixmap = fz_new_pixmap_from_page(self.ctx.0,
                                                  self.page,
-                                                 &mat,
+                                                 mat,
                                                  fz_device_gray(self.ctx.0),
                                                  0);
             if pixmap.is_null() {
@@ -379,7 +379,7 @@ impl<'a> PdfPage<'a> {
             if dev.is_null() {
                 None
             } else {
-                fz_run_page(self.ctx.0, self.page, dev, &fz_identity, ptr::null_mut());
+                fz_run_page(self.ctx.0, self.page, dev, fz_identity, ptr::null_mut());
                 fz_close_device(self.ctx.0, dev);
                 fz_drop_device(self.ctx.0, dev);
                 Some(rect.into())
@@ -389,8 +389,7 @@ impl<'a> PdfPage<'a> {
 
     pub fn dims(&self) -> (f32, f32) {
         unsafe {
-            let mut bounds = FzRect::default();
-            fz_bound_page(self.ctx.0, self.page, &mut bounds);
+            let bounds = fz_bound_page(self.ctx.0, self.page);
             ((bounds.x1 - bounds.x0) as f32, (bounds.y1 - bounds.y0) as f32)
         }
     }

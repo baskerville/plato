@@ -5,7 +5,7 @@ extern crate libc;
 use std::mem;
 
 pub const FZ_MAX_COLORS: usize = 32;
-pub const FZ_VERSION: &str = "1.13.0";
+pub const FZ_VERSION: &str = "1.14.0";
 
 pub const FZ_META_INFO_AUTHOR: &str = "info:Author";
 pub const FZ_META_INFO_TITLE: &str = "info:Title";
@@ -56,14 +56,14 @@ extern {
     pub fn fz_drop_outline(ctx: *mut FzContext, outline: *mut FzOutline);
     pub fn fz_device_rgb(ctx: *mut FzContext) -> *mut FzColorspace;
     pub fn fz_device_gray(ctx: *mut FzContext) -> *mut FzColorspace;
-    pub fn fz_scale(mat: *mut FzMatrix, sx: libc::c_float, sy: libc::c_float);
-    pub fn fz_new_pixmap_from_page(ctx: *mut FzContext, page: *mut FzPage, mat: *const FzMatrix, cs: *mut FzColorspace, alpha: libc::c_int) -> *mut FzPixmap;
+    pub fn fz_scale(sx: libc::c_float, sy: libc::c_float) -> FzMatrix;
+    pub fn fz_new_pixmap_from_page(ctx: *mut FzContext, page: *mut FzPage, mat: FzMatrix, cs: *mut FzColorspace, alpha: libc::c_int) -> *mut FzPixmap;
     pub fn fz_set_pixmap_resolution(ctx: *mut FzContext, pix: *mut FzPixmap, xres: libc::c_int, yres: libc::c_int);
     pub fn fz_drop_pixmap(ctx: *mut FzContext, pixmap: *mut FzPixmap);
     pub fn mp_load_page(ctx: *mut FzContext, doc: *mut FzDocument, page_idx: libc::c_int) -> *mut FzPage;
     pub fn fz_drop_page(ctx: *mut FzContext, page: *mut FzPage);
-    pub fn fz_bound_page(ctx: *mut FzContext, page: *mut FzPage, rect: *mut FzRect) -> *mut FzRect;
-    pub fn fz_run_page(ctx: *mut FzContext, page: *mut FzPage, dev: *mut FzDevice, mat: *const FzMatrix, cookie: *mut FzCookie);
+    pub fn fz_bound_page(ctx: *mut FzContext, page: *mut FzPage) -> FzRect;
+    pub fn fz_run_page(ctx: *mut FzContext, page: *mut FzPage, dev: *mut FzDevice, mat: FzMatrix, cookie: *mut FzCookie);
     pub fn fz_load_links(ctx: *mut FzContext, page: *mut FzPage) -> *mut FzLink;
     pub fn fz_drop_link(ctx: *mut FzContext, link: *mut FzLink);
     pub fn mp_new_stext_page_from_page(ctx: *mut FzContext, page: *mut FzPage, options: *const FzTextOptions) -> *mut FzTextPage;
@@ -72,13 +72,14 @@ extern {
     pub fn fz_close_device(ctx: *mut FzContext, dev: *mut FzDevice);
     pub fn fz_drop_device(ctx: *mut FzContext, dev: *mut FzDevice);
     pub fn fz_new_pixmap(ctx: *mut FzContext, cs: *mut FzColorspace, width: libc::c_int, height: libc::c_int, alpha: libc::c_int) -> *mut FzPixmap;
-    pub fn fz_union_rect(a: *mut FzRect, b: *const FzRect);
+    pub fn fz_union_rect(a: FzRect, b: FzRect) -> FzRect;
+    pub fn fz_rect_from_quad(q: FzQuad) -> FzRect;
     pub fn fz_runetochar(buf: *mut u8, rune: libc::c_int) -> libc::c_int;
     pub static fz_identity: FzMatrix;
 }
 
 #[repr(C)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct FzRect {
     pub x0: libc::c_float,
     pub y0: libc::c_float,
@@ -93,9 +94,19 @@ impl Default for FzRect {
 }
 
 #[repr(C)]
+#[derive(Debug, Copy, Clone)]
 pub struct FzPoint {
     x: libc::c_float,
     y: libc::c_float,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct FzQuad {
+    ul: FzPoint,
+    ur: FzPoint,
+    ll: FzPoint,
+    lr: FzPoint,
 }
 
 #[derive(Copy, Clone)]
@@ -207,7 +218,7 @@ pub struct FzTextLine {
 pub struct FzTextChar {
     pub c: libc::c_int,
     origin: FzPoint,
-    pub bbox: FzRect,
+    pub quad: FzQuad,
     size: libc::c_float,
     font: *mut FzFont,
     pub next: *mut FzTextChar,
