@@ -139,6 +139,10 @@ impl EpubDocument {
             }
         }
 
+        if spine.is_empty() {
+            return Err(format_err!("The spine is empty."));
+        }
+
         let margin = Edge::uniform(mm_to_px(DEFAULT_MARGIN_WIDTH as f32, DEFAULT_DPI).round() as i32);
         let line_height = DEFAULT_LINE_HEIGHT;
 
