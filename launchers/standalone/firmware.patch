@@ -1,26 +1,30 @@
 diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
---- a/etc/init.d/rcS	2018-03-26 15:29:50.000000000 +0200
-+++ b/etc/init.d/rcS	2018-06-15 09:29:32.000000000 +0200
-@@ -70,8 +70,7 @@
+--- a/etc/init.d/rcS	2018-12-07 10:12:39.000000000 +0100
++++ b/etc/init.d/rcS	2018-12-07 10:44:40.000000000 +0100
+@@ -70,7 +70,12 @@
  FS_CORRUPT=0
  dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || FS_CORRUPT=1
  [ ! -s /usr/local/Kobo/pickel ] && FORCE_FACTORY_RESET=1
 -/usr/local/Kobo/pickel should-factory-reset
--if [ $? != 0 ] || [ $FS_CORRUPT == 1 ] || [ $FORCE_FACTORY_RESET == 1 ]; then
-+if [ $FS_CORRUPT == 1 ] || [ $FORCE_FACTORY_RESET == 1 ]; then
++PLATO_HOME=/usr/local/Plato
++if [ -e "$PLATO_HOME"/bootlock ]; then
++	true
++else
++	/usr/local/Kobo/pickel should-factory-reset
++fi
+ if [ $? != 0 ] || [ $FS_CORRUPT == 1 ] || [ $FORCE_FACTORY_RESET == 1 ]; then
  	case $PRODUCT in
  		kraken|phoenix|star)
- 			export COORDINATES="80 870 70 70 200 870 70 70";;
-@@ -178,7 +177,12 @@
+@@ -178,7 +183,12 @@
  /bin/dbus-daemon --system &
  export DBUS_SESSION_BUS_ADDRESS=`/bin/dbus-daemon --session --print-address --fork`
  
 -/usr/local/Kobo/hindenburg &
 -LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &
-+PLATO_HOME=/usr/local/Plato
-+if [ -e "$PLATO_HOME"/bootlock ] ; then
++if [ -e "$PLATO_HOME"/bootlock -a -x "$PLATO_HOME"/plato.sh ]; then
 +	"$PLATO_HOME"/plato.sh &
 +else
++	[ -e "$PLATO_HOME"/bootlock ] && rm "$PLATO_HOME"/bootlock
 +	/usr/local/Kobo/hindenburg &
 +	LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &
 +fi
