@@ -196,24 +196,33 @@ impl Framebuffer for KoboFramebuffer {
         Ok(())
     }
 
+    #[inline]
     fn rotation(&self) -> i8 {
         self.var_info.rotate as i8
     }
 
     fn set_rotation(&mut self, n: i8) -> Result<(u32, u32), Error> {
-        self.var_info.rotate = n as u32;
-        let result = unsafe {
-            libc::ioctl(self.file.as_raw_fd(), FBIOPUT_VSCREENINFO, &mut self.var_info)
-        };
-        match result {
-            -1 => Err(Error::from(io::Error::last_os_error())
-                            .context("Can't set variable screen info.").into()),
-            _ => {
+        let read_rotation = self.rotation();
+        let mut remaining_tries = 3;
+
+        while read_rotation == self.rotation() && remaining_tries > 0 {
+            self.var_info.rotate = n as u32;
+            let result = unsafe {
+                libc::ioctl(self.file.as_raw_fd(), FBIOPUT_VSCREENINFO, &mut self.var_info)
+            };
+            if result == -1 {
+                return Err(Error::from(io::Error::last_os_error())
+                                 .context("Can't set variable screen info.").into());
+            } else {
                 self.fix_info = fix_screen_info(&self.file)?;
                 self.frame_size = (self.var_info.yres * self.fix_info.line_length) as libc::size_t;
-                Ok((self.var_info.xres, self.var_info.yres))
             }
+            remaining_tries -= 1;
         }
+
+        println!("Framebuffer rotation: {} -> {}.", n, self.rotation());
+
+        Ok((self.var_info.xres, self.var_info.yres))
     }
 
 

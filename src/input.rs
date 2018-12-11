@@ -282,9 +282,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
         TouchProto::MultiB => MULTI_TOUCH_CODES_B,
     };
 
-    let mirroring_pivot = CURRENT_DEVICE.mirroring_pivot();
-    let mut mirrored_x = mirroring_pivot == rotation || mirroring_pivot + 1 == rotation;
-    let mut mirrored_y = mirroring_pivot == rotation || mirroring_pivot - 1 == rotation;
+    let (mut mirror_x, mut mirror_y) = CURRENT_DEVICE.should_mirror_axes(rotation);
     if rotation % 2 == 1 {
         mem::swap(&mut tc.x, &mut tc.y);
     }
@@ -297,13 +295,13 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                     packet_ids.insert(id);
                 }
             } else if evt.code == tc.x {
-                position.x = if mirrored_x {
+                position.x = if mirror_x {
                     dims.0 as i32 - 1 - evt.value
                 } else {
                     evt.value
                 };
             } else if evt.code == tc.y {
-                position.y = if mirrored_y {
+                position.y = if mirror_y {
                     dims.1 as i32 - 1 - evt.value
                 } else {
                     evt.value
@@ -370,8 +368,9 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                         mem::swap(&mut dims.0, &mut dims.1);
                     }
                     rotation = next_rotation;
-                    mirrored_x = mirroring_pivot == rotation || mirroring_pivot + 1 == rotation;
-                    mirrored_y = mirroring_pivot == rotation || mirroring_pivot - 1 == rotation;
+                    let should_mirror = CURRENT_DEVICE.should_mirror_axes(rotation);
+                    mirror_x = should_mirror.0;
+                    mirror_y = should_mirror.1;
                 }
             } else {
                 ty.send(DeviceEvent::Button {

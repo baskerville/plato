@@ -80,21 +80,35 @@ impl Device {
         }
     }
 
-    pub fn mirroring_pivot(&self) -> i8 {
+    pub fn should_mirror_axes(&self, rotation: i8) -> (bool, bool) {
+        let (mxy, dir) = self.mirroring_scheme();
+        let mx = (4 + (mxy + dir)) % 4;
+        let my = (4 + (mxy - dir)) % 4;
+        let mirror_x = mxy == rotation || mx == rotation;
+        let mirror_y = mxy == rotation || my == rotation;
+        (mirror_x, mirror_y)
+    }
+
+    // Returns the center and direction of the mirroring pattern.
+    pub fn mirroring_scheme(&self) -> (i8, i8) {
         let model_number = env::var("MODEL_NUMBER").unwrap_or_default();
         match self.model {
-            Model::AuraH2OEdition2 if model_number == "374" => 1,
-            _ => 2,
+            Model::AuraH2OEdition2 if model_number == "374" => (1, 1),
+            Model::AuraH2OEdition2 if model_number == "378" => (0, -1),
+            _ => (2, 1),
         }
     }
 
     pub fn startup_rotation(&self) -> i8 {
-        self.transformed_rotation(3)
+        3
     }
 
     pub fn transformed_rotation(&self, n: i8) -> i8 {
+        let model_number = env::var("MODEL_NUMBER").unwrap_or_default();
         match self.model {
-            Model::AuraHD | Model::AuraH2O | Model::AuraH2OEdition2 => n ^ 2,
+            Model::AuraHD | Model::AuraH2O => n ^ 2,
+            Model::AuraH2OEdition2 if model_number == "374" => n ^ 2,
+            Model::AuraH2OEdition2 if model_number == "378" => (4 - n) % 4,
             Model::Forma => (4 - n) % 4,
             _ => n,
         }
