@@ -528,7 +528,7 @@ pub fn extract_metadata(dir: &Path, metadata: &mut Metadata) {
             if info.language == "en" || info.language == "en-US" {
                 info.language.clear();
             }
-            info.categories.append(&mut doc.categories().unwrap_or_default());
+            info.categories.append(&mut doc.categories());
             println!("{}", info.label());
         }
     }

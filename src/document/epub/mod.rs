@@ -1620,18 +1620,28 @@ impl EpubDocument {
             .and_then(|child| child.attr("content").map(|s| decode_entities(s).into_owned()))
     }
 
-    pub fn categories(&self) -> Option<BTreeSet<String>> {
+    pub fn categories(&self) -> BTreeSet<String> {
+        let mut result = BTreeSet::new();
         self.content.find("metadata")
             .and_then(|metadata| metadata.children())
-            .map(|children| children.iter()
-                                    .filter_map(|child| {
-                                        if child.tag_name() == Some("dc:subject") {
-                                           child.text().map(|s| decode_entities(s).into_owned())
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .collect())
+            .map(|children| {
+                for child in children {
+                    if child.tag_name() == Some("dc:subject") {
+                        for subject in child.text().map(|text| decode_entities(text)) {
+                            // Pipe separated list of BISAC categories
+                            if subject.contains(" / ") {
+                                for categ in subject.split('|') {
+                                    let start_index = if let Some(index) = categ.find(" - ") { index+3 } else { 0 };
+                                    result.insert(categ[start_index..].trim().replace(" / ", "."));
+                                }
+                            } else {
+                                result.insert(subject.into_owned());
+                            }
+                        }
+                    }
+                }
+            });
+        result
     }
 
     pub fn series(&self) -> Option<String> {
