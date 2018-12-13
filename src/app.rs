@@ -736,7 +736,7 @@ pub fn run() -> Result<(), Error> {
         }
     }
 
-    if initial_rotation != startup_rotation {
+    if context.display.rotation != initial_rotation {
         fb.set_rotation(initial_rotation).ok();
     }
 
