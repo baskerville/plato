@@ -371,7 +371,6 @@ pub enum EntryId {
     RenameCategory(String),
     RemoveCategory(String),
     AddMatchesCategories,
-    RemoveMatchesCategory(String),
     AddBookCategories(PathBuf),
     RemoveBookCategory(PathBuf, String),
     ToggleIntermissionImage(IntermKind, PathBuf),

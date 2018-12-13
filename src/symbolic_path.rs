@@ -1,12 +1,14 @@
 pub const PATH_SEPARATOR: char = '.';
 
 pub trait SymbolicPath<'a> {
+    type Owned;
     fn parent(&self) -> Option<&Self>;
     fn ancestors(&'a self) -> Ancestors<'a>;
     fn is_child_of(&self, other: &Self) -> bool;
     fn is_descendant_of(&self, other: &Self) -> bool;
     fn first_component(&self) -> &Self;
     fn last_component(&self) -> &Self;
+    fn join(&self, other: &Self) -> Self::Owned;
     fn depth(&self) -> usize;
 }
 
@@ -24,6 +26,8 @@ impl<'a> Iterator for Ancestors<'a> {
 }
 
 impl<'a> SymbolicPath<'a> for str {
+    type Owned = String;
+
     fn parent(&self) -> Option<&str> {
         self.rfind(PATH_SEPARATOR).map(|index| &self[..index])
     }
@@ -43,8 +47,13 @@ impl<'a> SymbolicPath<'a> for str {
     }
 
     #[inline]
+    fn join(&self, other: &str) -> String {
+        format!("{}{}{}", self, PATH_SEPARATOR, other)
+    }
+
+    #[inline]
     fn is_descendant_of(&self, other: &str) -> bool {
-        self.ancestors().any(|a| a == other)
+        self.starts_with(other) && self[other.len()..].starts_with(PATH_SEPARATOR)
     }
 
     fn first_component(&self) -> &str {
@@ -76,9 +85,11 @@ mod tests {
     fn relationships() {
         assert!("a.b".is_child_of("a"));
         assert!(!"a.bb".is_child_of("a.b"));
+        assert!(!"a.b.c".is_child_of("a"));
+        assert!(!"a".is_descendant_of("a"));
+        assert!(!"a.bb".is_descendant_of("a.b"));
         assert!("a.b.c".is_descendant_of("a"));
         assert!(!"a.b.c".is_descendant_of("b"));
-        assert!(!"a.b.c".is_child_of("a"));
     }
 
     #[test]

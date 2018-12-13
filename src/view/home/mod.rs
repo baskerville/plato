@@ -897,11 +897,24 @@ impl Home {
         let mut paths: FnvHashSet<PathBuf> = self.visible_books.drain(..)
                                                  .map(|info| info.file.path).collect();
 
-        self.selected_categories.remove(categ);
+        self.selected_categories = self.selected_categories.iter().filter_map(|c| {
+            if c == categ || c.is_descendant_of(categ) {
+                None
+            } else {
+                Some(c.clone())
+            }
+        }).collect();
+
 
         for info in &mut context.metadata {
             if paths.remove(&info.file.path) {
-                info.categories.remove(categ);
+                info.categories = info.categories.iter().filter_map(|c| {
+                    if c == categ || c.is_descendant_of(categ) {
+                        None
+                    } else {
+                        Some(c.clone())
+                    }
+                }).collect();
                 if paths.is_empty() {
                     break;
                 }
@@ -914,11 +927,30 @@ impl Home {
     fn remove_category(&mut self, categ: &str, hub: &Hub, context: &mut Context) {
         self.history_push(false, context);
 
-        self.selected_categories.remove(categ);
-        self.negated_categories.remove(categ);
+        self.selected_categories = self.selected_categories.iter().filter_map(|c| {
+            if c == categ || c.is_descendant_of(categ) {
+                None
+            } else {
+                Some(c.clone())
+            }
+        }).collect();
+
+        self.negated_categories = self.negated_categories.iter().filter_map(|c| {
+            if c == categ || c.is_descendant_of(categ) {
+                None
+            } else {
+                Some(c.clone())
+            }
+        }).collect();
 
         for info in &mut context.metadata {
-            info.categories.remove(categ);
+            info.categories = info.categories.iter().filter_map(|c| {
+                if c == categ || c.is_descendant_of(categ) {
+                    None
+                } else {
+                    Some(c.clone())
+                }
+            }).collect();
         }
 
         self.refresh_visibles(true, false, hub, context);
@@ -931,21 +963,36 @@ impl Home {
 
         self.history_push(false, context);
 
-        if self.selected_categories.contains(categ_old) {
-            self.selected_categories.remove(categ_old);
-            self.selected_categories.insert(categ_new.to_string());
-        }
+        self.selected_categories = self.selected_categories.iter().map(|c| {
+            if c == categ_old {
+                categ_new.to_string()
+            } else if c.is_descendant_of(categ_old) {
+                categ_new.join(&c[categ_old.len()+1..])
+            } else {
+                c.clone()
+            }
+        }).collect();
 
-        if self.negated_categories.contains(categ_old) {
-            self.negated_categories.remove(categ_old);
-            self.negated_categories.insert(categ_new.to_string());
-        }
+        self.negated_categories = self.negated_categories.iter().map(|c| {
+            if c == categ_old {
+                categ_new.to_string()
+            } else if c.is_descendant_of(categ_old) {
+                categ_new.join(&c[categ_old.len()+1..])
+            } else {
+                c.clone()
+            }
+        }).collect();
 
         for info in &mut context.metadata {
-            if info.categories.contains(categ_old) {
-                info.categories.remove(categ_old);
-                info.categories.insert(categ_new.to_string());
-            }
+            info.categories = info.categories.iter().map(|c| {
+                if c == categ_old {
+                    categ_new.to_string()
+                } else if c.is_descendant_of(categ_old) {
+                    categ_new.join(&c[categ_old.len()+1..])
+                } else {
+                    c.clone()
+                }
+            }).collect();
         }
 
         self.refresh_visibles(true, false, hub, context);
@@ -1201,16 +1248,8 @@ impl View for Home {
                 self.remove_matches(hub, context);
                 true
             },
-            Event::Select(EntryId::RemoveMatchesCategory(ref categ)) => {
-                self.remove_matches_category(categ, hub, context);
-                true
-            },
             Event::Select(EntryId::RemoveCategory(ref categ)) => {
-                if self.negated_categories.contains(categ) {
-                    self.remove_category(categ, hub, context);
-                } else {
-                    self.remove_matches_category(categ, hub, context);
-                }
+                self.remove_category(categ, hub, context);
                 true
             },
             Event::Select(EntryId::EmptyTrash) => {
