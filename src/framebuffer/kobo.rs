@@ -203,22 +203,30 @@ impl Framebuffer for KoboFramebuffer {
 
     fn set_rotation(&mut self, n: i8) -> Result<(u32, u32), Error> {
         let read_rotation = self.rotation();
-        let mut remaining_tries = 3;
 
-        while read_rotation == self.rotation() && remaining_tries > 0 {
-            self.var_info.rotate = n as u32;
+        // On the Aura H₂O, the first ioctl call will fail if (n - m).abs() % 2 == 1.
+        // Where m is the previously written value. In order for the call to succeed,
+        // we need to write an intermediate value: (n+1)%4.
+        for (i, v) in [n, (n+1)%4, n].iter().enumerate() {
+            self.var_info.rotate = *v as u32;
+
             let result = unsafe {
                 libc::ioctl(self.file.as_raw_fd(), FBIOPUT_VSCREENINFO, &mut self.var_info)
             };
+
             if result == -1 {
                 return Err(Error::from(io::Error::last_os_error())
                                  .context("Can't set variable screen info.").into());
-            } else {
-                self.fix_info = fix_screen_info(&self.file)?;
-                self.frame_size = (self.var_info.yres * self.fix_info.line_length) as libc::size_t;
             }
-            remaining_tries -= 1;
+
+            // If the first call is successful, we can exit the loop.
+            if i == 0 && read_rotation != self.rotation() {
+                break;
+            }
         }
+
+        self.fix_info = fix_screen_info(&self.file)?;
+        self.frame_size = (self.var_info.yres * self.fix_info.line_length) as libc::size_t;
 
         println!("Framebuffer rotation: {} -> {}.", n, self.rotation());
 
