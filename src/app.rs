@@ -9,8 +9,8 @@ use failure::{Error, ResultExt};
 use fnv::FnvHashMap;
 use chrono::Local;
 use crate::framebuffer::{Framebuffer, KoboFramebuffer, Display, UpdateMode};
-use crate::view::{View, Event, EntryId, EntryKind, ViewId};
-use crate::view::{render, render_no_wait, handle_event, fill_crack};
+use crate::view::{View, Event, EntryId, EntryKind, ViewId, AppId};
+use crate::view::{render, render_no_wait, render_no_wait_region, handle_event, fill_crack};
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
 use crate::view::frontlight::FrontlightWindow;
 use crate::view::menu::{Menu, MenuKind};
@@ -29,6 +29,7 @@ use crate::view::reader::Reader;
 use crate::view::confirmation::Confirmation;
 use crate::view::intermission::{Intermission, IntermKind};
 use crate::view::notification::Notification;
+use crate::apps::sketch::Sketch;
 use crate::device::CURRENT_DEVICE;
 use crate::font::Fonts;
 
@@ -91,6 +92,7 @@ enum TaskId {
 struct HistoryItem {
     view: Box<dyn View>,
     rotation: i8,
+    monochrome: bool,
 }
 
 fn build_context(fb: &Framebuffer) -> Result<Context, Error> {
@@ -193,7 +195,7 @@ fn power_off(history: &mut Vec<HistoryItem>, fb: &mut Framebuffer, updating: &mu
     }).ok();
     let interm = Intermission::new(fb.rect(), IntermKind::PowerOff, context);
     updating.retain(|tok, _| fb.wait(*tok).is_err());
-    interm.render(fb, &mut context.fonts);
+    interm.render(fb, *interm.rect(), &mut context.fonts);
     fb.update(interm.rect(), UpdateMode::Full).ok();
 }
 
@@ -582,6 +584,12 @@ pub fn run() -> Result<(), Error> {
                     updating.insert(tok, rect);
                 }
             },
+            Event::RenderNoWaitRegion(mut rect, mode) => {
+                render_no_wait_region(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
+                if let Ok(tok) = fb.update(&rect, mode) {
+                    updating.insert(tok, rect);
+                }
+            },
             Event::Expose(mut rect, mode) => {
                 fill_crack(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
                 if let Ok(tok) = fb.update(&rect, mode) {
@@ -604,7 +612,11 @@ pub fn run() -> Result<(), Error> {
                 if let Some(r) = Reader::new(fb.rect(), *info, &tx, &mut context) {
                     let mut next_view = Box::new(r) as Box<dyn View>;
                     transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
-                    history.push(HistoryItem { view, rotation });
+                    history.push(HistoryItem {
+                        view,
+                        rotation,
+                        monochrome: fb.monochrome()
+                    });
                     view = next_view;
                 } else {
                     handle_event(view.as_mut(), &Event::Invalid(info2), &tx, &mut bus, &mut context);
@@ -614,12 +626,45 @@ pub fn run() -> Result<(), Error> {
                 let r = Reader::from_toc(fb.rect(), toc, current_page, next_page, &tx, &mut context);
                 let mut next_view = Box::new(r) as Box<dyn View>;
                 transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
-                history.push(HistoryItem { view, rotation: context.display.rotation });
+                history.push(HistoryItem {
+                    view,
+                    rotation: context.display.rotation,
+                    monochrome: fb.monochrome(),
+                });
                 view = next_view;
+            },
+            Event::Select(EntryId::Launch(app_id)) => {
+                view.children_mut().retain(|child| !child.is::<Menu>());
+                match app_id {
+                    AppId::Sketch => {
+                        let monochrome = fb.monochrome();
+                        fb.set_monochrome(true);
+                        if context.display.rotation != startup_rotation {
+                            updating.retain(|tok, _| fb.wait(*tok).is_err());
+                            if let Ok(dims) = fb.set_rotation(startup_rotation) {
+                                raw_sender.send(display_rotate_event(startup_rotation)).unwrap();
+                                context.display.rotation = startup_rotation;
+                                context.display.dims = dims;
+                            }
+                        }
+                        let v = Sketch::new(fb.rect(), &tx, &mut context);
+                        let mut next_view = Box::new(v) as Box<View>;
+                        transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
+                        history.push(HistoryItem {
+                            view,
+                            rotation: context.display.rotation,
+                            monochrome
+                        });
+                        view = next_view;
+                    },
+                }
             },
             Event::Back => {
                 if let Some(item) = history.pop() {
                     view = item.view;
+                    if item.monochrome != fb.monochrome() {
+                        fb.set_monochrome(item.monochrome);
+                    }
                     if item.rotation != context.display.rotation {
                         updating.retain(|tok, _| fb.wait(*tok).is_err());
                         if let Ok(dims) = fb.set_rotation(item.rotation) {

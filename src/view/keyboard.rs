@@ -341,7 +341,8 @@ impl View for Keyboard {
     }
 
     // TODO: draw background and remove fillers
-    fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    fn render(&self, _fb: &mut Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+        self.rect
     }
 
     fn resize(&mut self, mut rect: Rectangle, hub: &Hub, context: &mut Context) {

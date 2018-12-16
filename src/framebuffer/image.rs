@@ -21,6 +21,14 @@ impl Pixmap {
             data: vec![WHITE; len],
         }
     }
+
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+
+    pub fn data_mut(&mut self) -> &mut [u8] {
+        &mut self.data
+    }
 }
 
 impl Framebuffer for Pixmap {
@@ -77,10 +85,18 @@ impl Framebuffer for Pixmap {
         Err(format_err!("Unsupported."))
     }
 
-    fn toggle_inverted(&mut self) {
+    fn set_inverted(&mut self, _enable: bool) {
     }
 
-    fn toggle_monochrome(&mut self) {
+    fn set_monochrome(&mut self, _enable: bool) {
+    }
+
+    fn inverted(&self) -> bool {
+        false
+    }
+
+    fn monochrome(&self) -> bool {
+        false
     }
 
     fn dims(&self) -> (u32, u32) {

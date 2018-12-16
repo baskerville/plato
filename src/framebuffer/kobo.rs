@@ -231,13 +231,28 @@ impl Framebuffer for KoboFramebuffer {
         Ok((self.var_info.xres, self.var_info.yres))
     }
 
-
-    fn toggle_inverted(&mut self) {
-        self.flags ^= EPDC_FLAG_ENABLE_INVERSION;
+    fn set_inverted(&mut self, enable: bool) {
+        if enable {
+            self.flags |= EPDC_FLAG_ENABLE_INVERSION;
+        } else {
+            self.flags &= !EPDC_FLAG_ENABLE_INVERSION;
+        }
     }
 
-    fn toggle_monochrome(&mut self) {
-        self.flags ^= EPDC_FLAG_FORCE_MONOCHROME;
+    fn inverted(&self) -> bool {
+        self.flags & EPDC_FLAG_ENABLE_INVERSION != 0
+    }
+
+    fn set_monochrome(&mut self, enable: bool) {
+        if enable {
+            self.flags |= EPDC_FLAG_FORCE_MONOCHROME;
+        } else {
+            self.flags &= !EPDC_FLAG_FORCE_MONOCHROME;
+        }
+    }
+
+    fn monochrome(&self) -> bool {
+        self.flags & EPDC_FLAG_FORCE_MONOCHROME != 0
     }
 
     fn width(&self) -> u32 {

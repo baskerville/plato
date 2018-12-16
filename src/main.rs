@@ -16,6 +16,7 @@ mod settings;
 mod trash;
 mod view;
 mod font;
+mod apps;
 mod app;
 
 use std::process;

@@ -16,6 +16,7 @@ mod frontlight;
 mod lightsensor;
 mod symbolic_path;
 mod trash;
+mod apps;
 mod app;
 
 use std::mem;
@@ -27,7 +28,6 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use failure::{Error, ResultExt};
-use serde_derive::{Serialize, Deserialize};
 use fnv::FnvHashMap;
 use chrono::Local;
 use png::HasParameters;
@@ -39,8 +39,8 @@ use sdl2::rect::Point as SdlPoint;
 use sdl2::rect::Rect as SdlRect;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
-use crate::view::{View, Event, ViewId, EntryId, EntryKind};
-use crate::view::{render, render_no_wait, handle_event, fill_crack};
+use crate::view::{View, Event, ViewId, EntryId, AppId, EntryKind};
+use crate::view::{render, render_no_wait, render_no_wait_region, handle_event, fill_crack};
 use crate::view::home::Home;
 use crate::view::reader::Reader;
 use crate::view::notification::Notification;
@@ -57,6 +57,7 @@ use crate::device::CURRENT_DEVICE;
 use crate::battery::{Battery, FakeBattery};
 use crate::frontlight::{Frontlight, LightLevels};
 use crate::lightsensor::LightSensor;
+use crate::apps::sketch::Sketch;
 use crate::font::Fonts;
 use crate::app::Context;
 
@@ -165,9 +166,19 @@ impl Framebuffer for WindowCanvas {
         Ok((width, height))
     }
 
-    fn toggle_inverted(&mut self) {}
+    fn set_inverted(&mut self, _enable: bool) {
+    }
 
-    fn toggle_monochrome(&mut self) {}
+    fn set_monochrome(&mut self, _enable: bool) {
+    }
+
+    fn inverted(&self) -> bool {
+        false
+    }
+
+    fn monochrome(&self) -> bool {
+        false
+    }
 
     fn dims(&self) -> (u32, u32) {
         self.window().size()
@@ -294,6 +305,12 @@ pub fn run() -> Result<(), Error> {
                         updating.insert(tok, rect);
                     }
                 },
+                Event::RenderNoWaitRegion(mut rect, mode) => {
+                    render_no_wait_region(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
+                    if let Ok(tok) = fb.update(&rect, mode) {
+                        updating.insert(tok, rect);
+                    }
+                },
                 Event::Expose(mut rect, mode) => {
                     fill_crack(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
                     if let Ok(tok) = fb.update(&rect, mode) {
@@ -326,6 +343,19 @@ pub fn run() -> Result<(), Error> {
                     transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
                     history.push(view as Box<dyn View>);
                     view = next_view;
+                },
+                Event::Select(EntryId::Launch(app_id)) => {
+                    view.children_mut().retain(|child| !child.is::<Menu>());
+                    match app_id {
+                        AppId::Sketch => {
+                            let v = Sketch::new(fb.rect(), &tx, &mut context);
+                            let mut next_view = Box::new(v) as Box<View>;
+                            transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
+                            history.push(view as Box<View>);
+                            view = next_view;
+                        },
+                        _ => (),
+                    }
                 },
                 Event::Back => {
                     if let Some(v) = history.pop() {

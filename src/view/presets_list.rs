@@ -115,8 +115,9 @@ impl View for PresetsList {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
         fb.draw_rectangle(&self.rect, WHITE);
+        self.rect
     }
 
     fn is_background(&self) -> bool {

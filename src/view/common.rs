@@ -3,7 +3,7 @@ use std::sync::mpsc;
 use chrono::Local;
 use crate::framebuffer::UpdateMode;
 use crate::geom::{Point, Rectangle};
-use super::{View, Event, Hub, ViewId, EntryId, EntryKind};
+use super::{View, Event, Hub, ViewId, AppId, EntryId, EntryKind};
 use super::menu::{Menu, MenuKind};
 use super::notification::Notification;
 use crate::app::Context;
@@ -65,6 +65,9 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
                                                            EntryId::Rotate(n),
                                                            n == context.display.rotation))
                            .collect::<Vec<EntryKind>>();
+        let apps = vec![EntryKind::Command("Sketch".to_string(),
+                                           EntryId::Launch(AppId::Sketch))];
+
         let mut entries = vec![EntryKind::CheckBox("Invert Colors".to_string(),
                                                    EntryId::ToggleInverted,
                                                    context.inverted),
@@ -78,6 +81,8 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
                                EntryKind::SubMenu("Rotate".to_string(), rotate),
                                EntryKind::Command("Take Screenshot".to_string(),
                                                   EntryId::TakeScreenshot),
+                               EntryKind::Separator,
+                               EntryKind::SubMenu("Applications".to_string(), apps),
                                EntryKind::Separator];
         if env::var("PLATO_STANDALONE").is_ok() {
             entries.extend_from_slice(&[EntryKind::Command("Start Nickel".to_string(),

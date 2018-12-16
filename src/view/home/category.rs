@@ -58,7 +58,7 @@ impl View for Category {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
         fb.draw_rectangle(&self.rect, TEXT_BUMP_SMALL[0]);
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
@@ -90,6 +90,7 @@ impl View for Category {
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
         let color_index = if self.status == Status::Negated { 2 } else { 1 };
         font.render(fb, TEXT_BUMP_SMALL[color_index], &plan, pt);
+        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

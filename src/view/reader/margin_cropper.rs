@@ -149,13 +149,13 @@ impl View for MarginCropper {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
         let dx = (self.rect.width() as i32 - self.pixmap.width as i32) / 2;
         let dy = (self.rect.height() as i32 - self.pixmap.height as i32) / 2;
 
         fb.draw_rectangle(&self.rect, WHITE);
-        fb.draw_pixmap(&self.pixmap, &pt!(dx, dy));
+        fb.draw_pixmap(&self.pixmap, pt!(dx, dy));
 
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as u16;
 
@@ -200,6 +200,8 @@ impl View for MarginCropper {
                                                       &WHITE);
             }
         }
+
+        self.rect
     }
 
     fn is_background(&self) -> bool {

@@ -124,7 +124,8 @@ impl View for BottomBar {
         false
     }
 
-    fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    fn render(&self, _fb: &mut Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+        self.rect
     }
 
     fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {

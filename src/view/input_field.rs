@@ -224,7 +224,7 @@ impl View for InputField {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let padding = font.em() as i32;
@@ -258,7 +258,7 @@ impl View for InputField {
         font.render(fb, foreground, &plan, pt);
 
         if !self.focused {
-            return;
+            return self.rect;
         }
 
         if lower_index > 0 {
@@ -287,6 +287,8 @@ impl View for InputField {
                          self.rect.max.y - big_dy + x_height);
             font.render(fb, TEXT_NORMAL[1], &plan, pt);
         }
+
+        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

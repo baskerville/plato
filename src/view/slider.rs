@@ -94,7 +94,7 @@ impl View for Slider {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
         let progress_height = scale_by_dpi(PROGRESS_HEIGHT, dpi) as i32;
         let button_diameter = scale_by_dpi(BUTTON_DIAMETER, dpi) as i32;
@@ -142,6 +142,7 @@ impl View for Slider {
 
         let pt = pt!(x_offset + x_drift, self.rect.min.y + x_height.max(small_padding));
         font.render(fb, PROGRESS_VALUE, &plan, pt);
+        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

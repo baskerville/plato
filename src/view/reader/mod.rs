@@ -2206,12 +2206,12 @@ impl View for Reader {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
         fb.draw_rectangle(&self.rect, WHITE);
 
         for chunk in &self.chunks {
             let Resource { ref pixmap, scale, .. } = *self.cache.get(&chunk.location).unwrap();
-            fb.draw_framed_pixmap(pixmap, &chunk.frame, &chunk.position);
+            fb.draw_framed_pixmap(pixmap, &chunk.frame, chunk.position);
 
             if let Some(rects) = self.search.as_ref().and_then(|s| s.highlights.get(&chunk.location)) {
                 for r in rects {
@@ -2234,6 +2234,8 @@ impl View for Reader {
                                                   &BorderSpec { thickness, color: WHITE },
                                                   &BLACK);
         }
+
+        self.rect
     }
 
     fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {

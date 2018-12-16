@@ -41,7 +41,7 @@ impl View for SortLabel {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let padding = font.em() as i32;
@@ -53,6 +53,7 @@ impl View for SortLabel {
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
         fb.draw_rectangle(&self.rect, WHITE);
         font.render(fb, BLACK, &plan, pt);
+        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

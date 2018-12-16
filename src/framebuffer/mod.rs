@@ -5,6 +5,7 @@ mod image;
 use failure::Error;
 use crate::geom::{Point, Rectangle, surface_area, nearest_segment_point, lerp};
 use crate::geom::{CornerSpec, BorderSpec, ColorSource, Vec2};
+use crate::color::{BLACK, WHITE};
 
 pub use self::kobo::KoboFramebuffer;
 pub use self::image::Pixmap;
@@ -32,8 +33,18 @@ pub trait Framebuffer {
     fn wait(&self, token: u32) -> Result<i32, Error>;
     fn save(&self, path: &str) -> Result<(), Error>;
     fn set_rotation(&mut self, n: i8) -> Result<(u32, u32), Error>;
-    fn toggle_inverted(&mut self);
-    fn toggle_monochrome(&mut self);
+    fn set_monochrome(&mut self, enable: bool);
+    fn set_inverted(&mut self, enable: bool);
+    fn monochrome(&self) -> bool;
+    fn inverted(&self) -> bool;
+
+    fn toggle_inverted(&mut self) {
+        self.set_inverted(!self.inverted());
+    }
+
+    fn toggle_monochrome(&mut self) {
+        self.set_monochrome(!self.monochrome());
+    }
 
     fn rotation(&self) -> i8 {
         0
@@ -99,7 +110,7 @@ pub trait Framebuffer {
                             border_color);
     }
 
-    fn draw_pixmap(&mut self, pixmap: &Pixmap, pt: &Point) {
+    fn draw_pixmap(&mut self, pixmap: &Pixmap, pt: Point) {
         for y in 0..pixmap.height {
             for x in 0..pixmap.width {
                 let px = x + pt.x as u32;
@@ -111,7 +122,7 @@ pub trait Framebuffer {
         }
     }
 
-    fn draw_framed_pixmap(&mut self, pixmap: &Pixmap, rect: &Rectangle, pt: &Point) {
+    fn draw_framed_pixmap(&mut self, pixmap: &Pixmap, rect: &Rectangle, pt: Point) {
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
                 let px = x - rect.min.x + pt.x;
@@ -123,7 +134,28 @@ pub trait Framebuffer {
         }
     }
 
-    fn draw_blended_pixmap(&mut self, pixmap: &Pixmap, pt: &Point, color: u8) {
+    fn draw_framed_pixmap_halftone(&mut self, pixmap: &Pixmap, random: &Pixmap, rect: &Rectangle, pt: Point) {
+        for y in rect.min.y..rect.max.y {
+            for x in rect.min.x..rect.max.x {
+                let px = x - rect.min.x + pt.x;
+                let py = y - rect.min.y + pt.y;
+                let addr = (y * pixmap.width as i32 + x) as usize;
+                let source_color = pixmap.data[addr];
+                let color = if source_color == BLACK {
+                    BLACK
+                } else if source_color == WHITE {
+                    WHITE
+                } else {
+                    let rnd_color = random.data[addr];
+                    255 * (rnd_color < source_color) as u8
+                };
+                // let color = 255 * (pixmap.data[addr] / 255);
+                self.set_pixel(px as u32, py as u32, color);
+            }
+        }
+    }
+
+    fn draw_blended_pixmap(&mut self, pixmap: &Pixmap, pt: Point, color: u8) {
         for y in 0..pixmap.height {
             for x in 0..pixmap.width {
                 let px = x + pt.x as u32;
@@ -290,7 +322,7 @@ pub trait Framebuffer {
                 let mut nearest = None;
 
                 for &(u, v) in &[(a, b), (b, c), (a, c)] {
-                    let n = nearest_segment_point(p, u, v);
+                    let (n, _) = nearest_segment_point(p, u, v);
                     let d = (n - p).length();
                     if d < dmin {
                         dmin = d;
@@ -308,8 +340,8 @@ pub trait Framebuffer {
         }
     }
 
-    fn draw_disk(&mut self, center: &Point, radius: i32, color: u8) {
-        let rect = Rectangle::from_disk(*center, radius);
+    fn draw_disk(&mut self, center: Point, radius: i32, color: u8) {
+        let rect = Rectangle::from_disk(center, radius);
 
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
@@ -318,6 +350,23 @@ pub trait Framebuffer {
                 let delta_dist = v.length() - radius as f32;
                 let alpha = surface_area(delta_dist, angle);
                 self.set_blended_pixel(x as u32, y as u32, color, alpha);
+            }
+        }
+    }
+
+    fn draw_segment(&mut self, start: Point, end: Point, start_radius: f32, end_radius: f32, color: u8) {
+        let rect = Rectangle::from_segment(start, end, start_radius.ceil() as i32, end_radius.ceil() as i32);
+        let a = vec2!(start.x as f32, start.y as f32);
+        let b = vec2!(end.x as f32, end.y as f32);
+
+        for y in rect.min.y..rect.max.y {
+            for x in rect.min.x..rect.max.x {
+                let pt = vec2!(x as f32, y as f32) + 0.5;
+                let (nsp, t) = nearest_segment_point(pt, a, b);
+                let radius = lerp(start_radius, end_radius, t);
+                if (nsp - pt).length() <= radius {
+                    self.set_pixel(x as u32, y as u32, color);
+                }
             }
         }
     }

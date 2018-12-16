@@ -43,6 +43,7 @@ hyphenation = "0.7.1"
 entities = "1.0.1"
 paragraph-breaker = "0.4.2"
 either = "1.5.0"
+rand_xorshift = "0.1.0"
 
 [dependencies.getopts]
 version = "0.2.18"

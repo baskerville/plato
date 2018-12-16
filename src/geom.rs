@@ -187,19 +187,19 @@ pub fn surface_area(dist: f32, angle: f32) -> f32 {
 }
 
 // Returns the nearest point to p on segment ab
-pub fn nearest_segment_point(p: Vec2, a: Vec2, b: Vec2) -> Vec2 {
+pub fn nearest_segment_point(p: Vec2, a: Vec2, b: Vec2) -> (Vec2, f32) {
     let ab = b - a;
     let ap = p - a;
     let l2 = ab.dot(ab);
 
     // Will not happen in practice
     if l2 < ::std::f32::EPSILON {
-        return a;
+        return (a, 0.0);
     }
 
     let mut t = ap.dot(ab) / l2;
     t = t.min(1.0).max(0.0);
-    a + t * ab
+    (a + t * ab, t)
 }
 
 #[inline]
@@ -432,6 +432,23 @@ impl Rectangle {
         Rectangle {
             min: center - radius,
             max: center + radius,
+        }
+    }
+
+    pub fn from_segment(start: Point, end: Point, start_radius: i32, end_radius: i32) -> Rectangle {
+        let (x_min, x_max) = if start.x < end.x {
+            (start.x - start_radius, end.x + end_radius)
+        } else {
+            (end.x - end_radius, start.x + start_radius)
+        };
+        let (y_min, y_max) = if start.y < end.y {
+            (start.y - start_radius, end.y + end_radius)
+        } else {
+            (end.y - end_radius, start.y + start_radius)
+        };
+        Rectangle {
+            min: pt!(x_min, y_min),
+            max: pt!(x_max, y_max),
         }
     }
 

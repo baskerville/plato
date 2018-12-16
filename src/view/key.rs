@@ -136,7 +136,7 @@ impl View for Key {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
         fb.draw_rectangle(&self.rect, KEYBOARD_BG);
         let scheme: [u8; 3] = if self.active ^ (self.pressure == 2) {
@@ -144,10 +144,12 @@ impl View for Key {
         } else {
             TEXT_NORMAL
         };
+
         let border_radius = scale_by_dpi(BORDER_RADIUS_LARGE, dpi) as i32;
         let (small_half_padding, big_half_padding) = halves(self.padding as i32);
         let key_rect = rect![self.rect.min + big_half_padding, self.rect.max - small_half_padding];
         fb.draw_rounded_rectangle(&key_rect, &CornerSpec::Uniform(border_radius), scheme[0]);
+
         match self.kind.label() {
             KeyLabel::Char(ch) => {
                 let font = font_from_style(fonts, &KBD_CHAR, dpi);
@@ -172,9 +174,11 @@ impl View for Key {
                 let dx = (key_rect.width() as i32 - pixmap.width as i32) / 2;
                 let dy = (key_rect.height() as i32 - pixmap.height as i32) / 2;
                 let pt = key_rect.min + pt!(dx, dy);
-                fb.draw_blended_pixmap(pixmap, &pt, scheme[1]);
+                fb.draw_blended_pixmap(pixmap, pt, scheme[1]);
             }
         }
+
+        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

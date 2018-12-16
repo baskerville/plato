@@ -79,7 +79,7 @@ impl View for Intermission {
         true
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let scheme = if self.halt {
             TEXT_INVERTED_HARD
         } else {
@@ -120,7 +120,7 @@ impl View for Intermission {
                 let dy = dy + 2 * x_height;
                 let pt = self.rect.min + pt!(dx, dy);
 
-                fb.draw_blended_pixmap(&pixmap, &pt, scheme[1]);
+                fb.draw_blended_pixmap(&pixmap, pt, scheme[1]);
             },
             Message::Image(ref path) => {
                 if let Some(doc) = PdfOpener::new().and_then(|o| o.open(path)) {
@@ -133,12 +133,14 @@ impl View for Intermission {
                             let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
                             let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
                             let pt = self.rect.min + pt!(dx, dy);
-                            fb.draw_pixmap(&pixmap, &pt);
+                            fb.draw_pixmap(&pixmap, pt);
                         }
                     }
                 }
             },
         }
+
+        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

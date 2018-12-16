@@ -109,7 +109,7 @@ impl View for MenuEntry {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let x_height = font.x_heights.0 as i32;
@@ -148,8 +148,10 @@ impl View for MenuEntry {
             let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
             let pt = self.rect.min + pt!(dx, dy);
 
-            fb.draw_blended_pixmap(pixmap, &pt, scheme[1]);
+            fb.draw_blended_pixmap(pixmap, pt, scheme[1]);
         }
+
+        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

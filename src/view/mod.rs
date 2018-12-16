@@ -66,12 +66,12 @@ pub const BORDER_RADIUS_LARGE: f32 = 12.0;
 
 pub const CLOSE_IGNITION_DELAY: Duration = Duration::from_millis(150);
 
-type Bus = VecDeque<Event>;
-type Hub = Sender<Event>;
+pub type Bus = VecDeque<Event>;
+pub type Hub = Sender<Event>;
 
 pub trait View: Downcast {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool;
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts);
+    fn render(&self, fb: &mut Framebuffer, rect: Rectangle, fonts: &mut Fonts) -> Rectangle;
     fn rect(&self) -> &Rectangle;
     fn rect_mut(&mut self) -> &mut Rectangle;
     fn children(&self) -> &Vec<Box<dyn View>>;
@@ -153,11 +153,16 @@ pub fn render_no_wait(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, f
     render_aux(view, rect, fb, fonts, &mut false, false, updating);
 }
 
+pub fn render_no_wait_region(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
+    render_aux(view, rect, fb, fonts, &mut true, false, updating);
+}
+
 // We don't start rendering until we reach the z-level of the view that generated the event.
 // Once we reach that z-level, we start comparing the candidate rectangles with the source
 // rectangle. If there is an overlap, we render the corresponding view. And update the source
 // rectangle by absorbing the candidate rectangle into it.
 fn render_aux(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &mut Fonts, above: &mut bool, wait: bool, updating: &mut FnvHashMap<u32, Rectangle>) {
+    // FIXME: rect is used as an identifier.
     if !*above && view.rect() == rect {
         *above = true;
     }
@@ -168,8 +173,8 @@ fn render_aux(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &m
                 !view.rect().overlaps(urect) || fb.wait(*tok).is_err()
             });
         }
-        view.render(fb, fonts);
-        rect.absorb(view.rect());
+        let render_rect = view.render(fb, *rect, fonts);
+        rect.absorb(&render_rect);
     }
 
     for i in 0..view.len() {
@@ -184,8 +189,8 @@ pub fn fill_crack(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts
         updating.retain(|tok, urect| {
             !view.rect().overlaps(urect) || fb.wait(*tok).is_err()
         });
-        view.render(fb, fonts);
-        rect.absorb(view.rect());
+        let render_rect = view.render(fb, *rect, fonts);
+        rect.absorb(&render_rect);
     }
 
     for i in 0..view.len() {
@@ -197,6 +202,7 @@ pub fn fill_crack(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts
 pub enum Event {
     Render(Rectangle, UpdateMode),
     RenderNoWait(Rectangle, UpdateMode),
+    RenderNoWaitRegion(Rectangle, UpdateMode),
     Expose(Rectangle, UpdateMode),
     Device(DeviceEvent),
     Gesture(GestureEvent),
@@ -256,6 +262,11 @@ pub enum Event {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum AppId {
+    Sketch
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ViewId {
     Home,
     Reader,
@@ -276,6 +287,7 @@ pub enum ViewId {
     PresetMenu,
     MarginCropperMenu,
     SearchMenu,
+    SketchMenu,
     GoToPage,
     GoToPageInput,
     GoToResultsPage,
@@ -295,6 +307,8 @@ pub enum ViewId {
     TableOfContents,
     BoundaryNotif,
     TakeScreenshotNotif,
+    SaveSketchNotif,
+    LoadSketchNotif,
     NoSearchResultsNotif,
     InvalidSearchQueryNotif,
     LowBatteryNotif,
@@ -393,6 +407,12 @@ pub enum EntryId {
     ToggleMonochrome,
     ToggleWifi,
     Rotate(i8),
+    Launch(AppId),
+    SetPenSize(i32),
+    SetPenColor(u8),
+    TogglePenDynamism,
+    New,
+    Save,
     OpenMetadata,
     TakeScreenshot,
     StartNickel,

@@ -401,7 +401,9 @@ impl View for Summary {
         }
     }
 
-    fn render(&self, _fb: &mut Framebuffer, _fonts: &mut Fonts) {}
+    fn render(&self, _fb: &mut Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+        self.rect
+    }
 
     fn rect(&self) -> &Rectangle {
         &self.rect

@@ -83,7 +83,7 @@ impl View for Notification {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
 
         let border_radius = scale_by_dpi(BORDER_RADIUS_MEDIUM, dpi) as i32;
@@ -104,6 +104,7 @@ impl View for Notification {
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 
         font.render(fb, TEXT_NORMAL[1], &plan, pt);
+        self.rect
     }
 
     fn resize(&mut self, _rect: Rectangle, _hub: &Hub, context: &mut Context) {

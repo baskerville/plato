@@ -53,7 +53,7 @@ impl View for Label {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
 
         fb.draw_rectangle(&self.rect, TEXT_NORMAL[0]);
@@ -70,6 +70,7 @@ impl View for Label {
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 
         font.render(fb, TEXT_NORMAL[1], &plan, pt);
+        self.rect
     }
 
     fn resize(&mut self, rect: Rectangle, _hub: &Hub, _context: &mut Context) {

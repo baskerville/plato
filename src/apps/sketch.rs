@@ -1,0 +1,331 @@
+use std::fs::{self, File};
+use std::path::PathBuf;
+use rand::{Rng, SeedableRng};
+use rand_xorshift::XorShiftRng;
+use fnv::FnvHashMap;
+use chrono::Local;
+use glob::glob;
+use failure::Error;
+use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use crate::geom::{Point, Rectangle, CornerSpec};
+use crate::input::{DeviceEvent, FingerStatus};
+use crate::view::icon::Icon;
+use crate::view::notification::Notification;
+use crate::view::menu::{Menu, MenuKind};
+use crate::view::common::{locate_by_id};
+use crate::view::{View, Event, Hub, Bus, EntryKind, EntryId, ViewId};
+use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
+use crate::metadata::import;
+use crate::settings::Pen;
+use crate::font::Fonts;
+use crate::color::{BLACK, WHITE};
+use crate::app::Context;
+
+const UPDATE_INTERVAL: f64 = 1.0 / 60.0;
+const MAX_TOUCH_SPEED: f32 = 30.0 / UPDATE_INTERVAL as f32;
+const FILENAME_PATTERN: &str = "sketch-%Y%m%d_%H%M%S.png";
+
+struct TouchState {
+    pt: Point,
+    time: f64,
+    radius: f32,
+    rect: Rectangle,
+    last_update_time: f64,
+}
+
+impl TouchState {
+    fn new(pt: Point, radius: f32, time: f64, rect: Rectangle) -> TouchState {
+        TouchState { pt, rect, time, radius, last_update_time: time }
+    }
+}
+
+pub struct Sketch {
+    rect: Rectangle,
+    children: Vec<Box<dyn View>>,
+    pixmap: Pixmap,
+    random: Pixmap,
+    fingers: FnvHashMap<i32, TouchState>,
+    pen: Pen,
+    save_path: PathBuf,
+    filename: String,
+}
+
+impl Sketch {
+    pub fn new(rect: Rectangle, hub: &Hub, context: &mut Context) -> Sketch {
+        let mut children = Vec::new();
+        let dpi = CURRENT_DEVICE.dpi;
+        let (_, height) = context.display.dims;
+        let (small_height, _) = *BAR_SIZES.get(&(height, dpi)).unwrap();
+        let side = small_height as i32;
+        let icon_rect = rect![rect.min.x, rect.max.y - side,
+                              rect.min.x + side, rect.max.y];
+        let icon = Icon::new("ellipsis",
+                             icon_rect,
+                             Event::ToggleNear(ViewId::TitleMenu, icon_rect))
+                        .corners(Some(CornerSpec::Uniform(side / 2)));
+        children.push(Box::new(icon) as Box<dyn View>);
+        let mut random = Pixmap::new(rect.width(), rect.height());
+        let mut rng = XorShiftRng::seed_from_u64(Local::now().timestamp_millis() as u64);
+        rng.fill(random.data_mut());
+        let save_path = context.settings.library_path.join(&context.settings.sketch.save_path);
+        hub.send(Event::Render(rect, UpdateMode::Full)).unwrap();
+        Sketch {
+            rect,
+            children,
+            pixmap: Pixmap::new(rect.width(), rect.height()),
+            random,
+            fingers: FnvHashMap::default(),
+            pen: context.settings.sketch.pen.clone(),
+            save_path,
+            filename: Local::now().format(FILENAME_PATTERN).to_string(),
+        }
+    }
+
+    fn toggle_title_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+        if let Some(index) = locate_by_id(self, ViewId::SketchMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let mut loadables: Vec<PathBuf> = self.save_path.join("*.png").to_str().and_then(|s| {
+                glob(s).ok().map(|paths| {
+                    paths.filter_map(|x| x.ok().and_then(|p| p.file_name().map(PathBuf::from))).collect()
+                })
+            }).unwrap_or_default();
+
+            loadables.sort_by(|a, b| b.cmp(a));
+
+            let mut sizes = (1..=8).map(|s| {
+                EntryKind::RadioButton(s.to_string(),
+                                       EntryId::SetPenSize(s),
+                                       self.pen.size == s)
+            }).collect::<Vec<EntryKind>>();
+            sizes.insert(0, EntryKind::Separator);
+            sizes.insert(0, EntryKind::CheckBox("Dynamic".to_string(),
+                                                EntryId::TogglePenDynamism,
+                                                self.pen.dynamic));
+
+            let mut colors = (1..=14).map(|i| {
+                let c = i * 17;
+                EntryKind::RadioButton(format!("Gray {:02}", i),
+                                       EntryId::SetPenColor(c),
+                                       self.pen.color == c)
+            }).collect::<Vec<EntryKind>>();
+
+            colors.insert(0, EntryKind::RadioButton("Black".to_string(),
+                                                    EntryId::SetPenColor(BLACK),
+                                                    self.pen.color == BLACK));
+
+            colors.push(EntryKind::RadioButton("White".to_string(),
+                                               EntryId::SetPenColor(WHITE),
+                                               self.pen.color == WHITE));
+
+            let mut entries = vec![
+                EntryKind::SubMenu("Size".to_string(), sizes),
+                EntryKind::SubMenu("Color".to_string(), colors),
+                EntryKind::Separator,
+                EntryKind::Command("Save".to_string(), EntryId::Save),
+                EntryKind::Command("New".to_string(), EntryId::New),
+                EntryKind::Command("Quit".to_string(), EntryId::Quit),
+            ];
+
+            if !loadables.is_empty() {
+                entries.insert(5, EntryKind::SubMenu("Load".to_string(),
+                    loadables.into_iter().map(|e|
+                        EntryKind::Command(e.to_string_lossy().into_owned(),
+                                           EntryId::Load(e))).collect()));
+            }
+
+            let sketch_menu = Menu::new(rect, ViewId::SketchMenu, MenuKind::Contextual, entries, context);
+            hub.send(Event::Render(*sketch_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(sketch_menu) as Box<dyn View>);
+        }
+    }
+
+    fn load(&mut self, filename: &PathBuf) -> Result<(), Error> {
+        let path = self.save_path.join(filename);
+        let decoder = png::Decoder::new(File::open(path)?);
+        let (_, mut reader) = decoder.read_info()?;
+        reader.next_frame(self.pixmap.data_mut())?;
+        self.filename = filename.to_string_lossy().into_owned();
+        Ok(())
+    }
+
+    fn save(&self) -> Result<(), Error> {
+        if !self.save_path.exists() {
+            fs::create_dir_all(&self.save_path)?;
+        }
+        let path = self.save_path.join(&self.filename);
+        self.pixmap.save(&path.to_string_lossy().into_owned())?;
+        Ok(())
+    }
+
+    fn quit(&self, context: &mut Context) {
+        if let Ok(suffix) = self.save_path.strip_prefix(&context.settings.library_path) {
+            let allowed_kinds = ["png".to_string()].iter().cloned().collect();
+            let imported_metadata = import(&context.settings.library_path,
+                                           &context.metadata,
+                                           &allowed_kinds,
+                                           false);
+            if let Ok(mut imported_metadata) = imported_metadata {
+                imported_metadata.retain(|info| info.file.path.starts_with(&suffix));
+                context.metadata.append(&mut imported_metadata);
+            }
+        }
+    }
+}
+
+#[inline]
+fn draw_segment(pixmap: &mut Pixmap, ts: &mut TouchState, position: Point, time: f64, force_update: bool, pen: &Pen, hub: &Hub) {
+    let (start_radius, end_radius) = if pen.dynamic {
+        if time > ts.time {
+            let d = vec2!((position.x - ts.pt.x) as f32,
+                          (position.y - ts.pt.y) as f32).length();
+            let speed = d / (time - ts.time) as f32;
+            let base_radius = pen.size as f32 / 2.0;
+            let radius = base_radius * (1.0 + 3.0 * speed.min(MAX_TOUCH_SPEED) / MAX_TOUCH_SPEED);
+            (ts.radius, radius)
+        } else {
+            (ts.radius, ts.radius)
+        }
+    } else {
+        let radius = pen.size as f32 / 2.0;
+        (radius, radius)
+    };
+
+    let rect = Rectangle::from_segment(ts.pt, position,
+                                       start_radius.ceil() as i32,
+                                       end_radius.ceil() as i32);
+
+    ts.rect.absorb(&rect);
+
+    pixmap.draw_segment(ts.pt, position, start_radius, end_radius, pen.color);
+
+    if (time - ts.last_update_time).abs() > UPDATE_INTERVAL || force_update {
+        hub.send(Event::RenderNoWaitRegion(ts.rect, UpdateMode::FastMono)).unwrap();
+        ts.last_update_time = time;
+        ts.rect = Rectangle::from_disk(position, end_radius.ceil() as i32);
+    }
+
+    ts.pt = position;
+    ts.time = time;
+    ts.radius = end_radius;
+}
+
+impl View for Sketch {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
+        match *evt {
+            Event::Device(DeviceEvent::Finger { status: FingerStatus::Motion, id, position, time }) => {
+                if let Some(ts) = self.fingers.get_mut(&id) {
+                    draw_segment(&mut self.pixmap, ts, position, time, false, &self.pen, hub);
+                }
+                true
+            },
+            Event::Device(DeviceEvent::Finger { status: FingerStatus::Down, id, position, time }) => {
+                let radius = self.pen.size as f32 / 2.0;
+                let rect = Rectangle::from_disk(position, radius.ceil() as i32);
+                self.fingers.insert(id, TouchState::new(position, radius, time, rect));
+                true
+            },
+            Event::Device(DeviceEvent::Finger { status: FingerStatus::Up, id, position, time }) => {
+                if let Some(ts) = self.fingers.get_mut(&id) {
+                    draw_segment(&mut self.pixmap, ts, position, time, true, &self.pen, hub);
+                }
+                self.fingers.remove(&id);
+                true
+            },
+            Event::ToggleNear(ViewId::TitleMenu, rect) => {
+                self.toggle_title_menu(rect, None, hub, context);
+                true
+            },
+            Event::Select(EntryId::SetPenSize(size)) => {
+                self.pen.size = size;
+                true
+            },
+            Event::Select(EntryId::SetPenColor(color)) => {
+                self.pen.color = color;
+                true
+            },
+            Event::Select(EntryId::TogglePenDynamism) => {
+                self.pen.dynamic = !self.pen.dynamic;
+                true
+            },
+            Event::Select(EntryId::Load(ref name)) => {
+                if let Err(e) = self.load(name) {
+                    let msg = format!("Couldn't load sketch: {}).", e);
+                    let notif = Notification::new(ViewId::LoadSketchNotif, msg, hub, context);
+                    self.children.push(Box::new(notif) as Box<dyn View>);
+                } else {
+                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                }
+                true
+            },
+            Event::Select(EntryId::New) => {
+                self.pixmap.clear(WHITE);
+                self.filename = Local::now().format(FILENAME_PATTERN).to_string();
+                hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                true
+            },
+            Event::Select(EntryId::Save) => {
+                let mut msg = match self.save() {
+                    Err(e) => Some(format!("Can't save sketch: {}.", e)),
+                    Ok(..) => {
+                        if context.settings.sketch.notify_success {
+                            Some(format!("Saved {}.", self.filename))
+                        } else {
+                            None
+                        }
+                    },
+                };
+                if let Some(msg) = msg.take() {
+                    let notif = Notification::new(ViewId::SaveSketchNotif,
+                                                  msg, hub, context);
+                    self.children.push(Box::new(notif) as Box<dyn View>);
+                }
+                true
+            },
+            Event::Select(EntryId::Quit) => {
+                self.quit(context);
+                hub.send(Event::Back).unwrap();
+                true
+            },
+            _ => true,
+        }
+    }
+
+    fn render(&self, fb: &mut Framebuffer, rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+        if let Some(render_rect) = rect.intersection(&self.rect) {
+            let pt = render_rect.min - self.rect.min;
+            fb.draw_framed_pixmap_halftone(&self.pixmap, &self.random, &render_rect, pt);
+            return render_rect;
+        }
+        rect
+    }
+
+    fn is_background(&self) -> bool {
+        true
+    }
+
+    fn rect(&self) -> &Rectangle {
+        &self.rect
+    }
+
+    fn rect_mut(&mut self) -> &mut Rectangle {
+        &mut self.rect
+    }
+
+    fn children(&self) -> &Vec<Box<dyn View>> {
+        &self.children
+    }
+
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
+        &mut self.children
+    }
+}

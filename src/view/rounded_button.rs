@@ -57,7 +57,7 @@ impl View for RoundedButton {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, _fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as u16;
         let button_radius = self.rect.height() as i32 / 2;
@@ -79,7 +79,8 @@ impl View for RoundedButton {
                                                             color: scheme[1] },
                                               &scheme[0]);
 
-        fb.draw_blended_pixmap(pixmap, &pt, scheme[1]);
+        fb.draw_blended_pixmap(pixmap, pt, scheme[1]);
+        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

@@ -68,7 +68,7 @@ impl View for Preset {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
 
         let (scheme, border_radius) = if self.active {
@@ -96,6 +96,7 @@ impl View for Preset {
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 
         font.render(fb, scheme[1], &plan, pt);
+        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

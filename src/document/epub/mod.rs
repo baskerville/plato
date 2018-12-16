@@ -1597,7 +1597,7 @@ impl EpubDocument {
                             }).and_then(|mut doc| {
                                 doc.pixmap(Location::Exact(0), *scale)
                             }).map(|(pixmap, _)| {
-                                fb.draw_pixmap(&pixmap, position);
+                                fb.draw_pixmap(&pixmap, *position);
                             });
                         }
                     }

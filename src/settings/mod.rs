@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use fnv::{FnvHashSet, FnvHashMap};
 use serde::{Serialize, Deserialize};
 use crate::frontlight::LightLevels;
+use crate::color::BLACK;
 
 pub use self::preset::{LightPreset, guess_frontlight};
 
@@ -32,6 +33,7 @@ pub struct Settings {
     pub home: HomeSettings,
     pub reader: ReaderSettings,
     pub import: ImportSettings,
+    pub sketch: SketchSettings,
     pub battery: BatterySettings,
     pub frontlight_levels: LightLevels,
 }
@@ -43,6 +45,42 @@ pub struct ImportSettings {
     pub startup_trigger: bool,
     pub traverse_hidden: bool,
     pub allowed_kinds: FnvHashSet<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct SketchSettings {
+    pub save_path: PathBuf,
+    pub notify_success: bool,
+    pub pen: Pen,
+}
+
+impl Default for SketchSettings {
+    fn default() -> Self {
+        SketchSettings {
+            save_path: PathBuf::from("Sketches"),
+            notify_success: true,
+            pen: Pen::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct Pen {
+    pub size: i32,
+    pub dynamic: bool,
+    pub color: u8,
+}
+
+impl Default for Pen {
+    fn default() -> Self {
+        Pen {
+            size: 2,
+            color: BLACK,
+            dynamic: true,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -148,6 +186,7 @@ impl Default for Settings {
             home: HomeSettings::default(),
             reader: ReaderSettings::default(),
             import: ImportSettings::default(),
+            sketch: SketchSettings::default(),
             battery: BatterySettings::default(),
             frontlight_levels: LightLevels::default(),
             frontlight_presets: Vec::new(),

@@ -64,7 +64,7 @@ impl View for Book {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts) {
+    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
 
         let scheme = if self.active {
@@ -189,6 +189,8 @@ impl View for Book {
                          self.rect.max.y - baseline);
             font.render(fb, scheme[1], &plan, pt);
         }
+
+        self.rect
     }
 
     fn rect(&self) -> &Rectangle {
