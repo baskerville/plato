@@ -1379,6 +1379,8 @@ impl View for Home {
         let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
         let (tx, _rx) = mpsc::channel();
 
+        self.children.retain(|child| !child.is::<Menu>());
+
         // Top bar.
         let top_bar_rect = rect![rect.min.x, rect.min.y,
                                  rect.max.x, rect.min.y + small_height as i32 - small_thickness];
@@ -1455,7 +1457,6 @@ impl View for Home {
         self.update_shelf(true, &tx, context);
         self.update_bottom_bar(&tx);
 
-        // TODO: Handle menus.
         for i in bottom_bar_index+1..self.children.len() {
             self.children[i].resize(rect, hub, context);
         }

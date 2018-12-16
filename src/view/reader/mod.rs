@@ -2245,6 +2245,8 @@ impl View for Reader {
             let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
             let mut floating_layer_start = 0;
 
+            self.children.retain(|child| !child.is::<Menu>());
+
             if self.children[0].is::<TopBar>() {
                 let top_bar_rect = rect![rect.min.x, rect.min.y,
                                          rect.max.x, small_height as i32 - small_thickness];
@@ -2313,7 +2315,6 @@ impl View for Reader {
                 }
             }
 
-            // TODO: Handle menus.
             for i in floating_layer_start..self.children.len() {
                 self.children[i].resize(rect, hub, context);
             }
