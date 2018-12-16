@@ -20,6 +20,7 @@ pub mod input_field;
 pub mod page_label;
 pub mod named_input;
 pub mod labeled_icon;
+pub mod top_bar;
 pub mod search_bar;
 pub mod confirmation;
 pub mod notification;

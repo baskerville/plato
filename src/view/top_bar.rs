@@ -1,5 +1,4 @@
 use framebuffer::{Framebuffer, UpdateMode};
-use metadata::Info;
 use gesture::GestureEvent;
 use input::DeviceEvent;
 use view::{View, Event, Hub, Bus, ViewId, Align};
@@ -18,14 +17,19 @@ pub struct TopBar {
 }
 
 impl TopBar {
-    pub fn new(rect: Rectangle, info: &Info, context: &mut Context) -> TopBar {
+    pub fn new(rect: Rectangle, root_event: Event, title: String, context: &mut Context) -> TopBar {
         let mut children = Vec::new();
         let fonts = &mut context.fonts;
 
         let side = rect.height() as i32;
-        let root_icon = Icon::new("back",
+        let icon_name = match root_event {
+            Event::Back => "back",
+            _ => "search",
+        };
+
+        let root_icon = Icon::new(icon_name,
                                   rect![rect.min, rect.min+side],
-                                  Event::Back);
+                                  root_event);
         children.push(Box::new(root_icon) as Box<View>);
 
         let mut clock_rect = rect![rect.max - pt!(4*side, side),
@@ -33,7 +37,7 @@ impl TopBar {
         let clock_label = Clock::new(&mut clock_rect, fonts);
         let title_rect = rect![rect.min.x + side, rect.min.y,
                                clock_rect.min.x, rect.max.y];
-        let title_label = Label::new(title_rect, info.title(), Align::Center)
+        let title_label = Label::new(title_rect, title, Align::Center)
                                 .event(Some(Event::ToggleNear(ViewId::TitleMenu, title_rect)));
         children.push(Box::new(title_label) as Box<View>);
         children.push(Box::new(clock_label) as Box<View>);
@@ -63,6 +67,17 @@ impl TopBar {
             rect,
             children,
         }
+    }
+
+    pub fn update_root_icon(&mut self, icon_name: &str, hub: &Hub) {
+        let icon = self.child_mut(0).downcast_mut::<Icon>().unwrap();
+        icon.name = icon_name.to_string();
+        hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).unwrap();
+    }
+
+    pub fn update_title_label(&mut self, title: &str, hub: &Hub) {
+        let title_label = self.children[1].as_mut().downcast_mut::<Label>().unwrap();
+        title_label.update(title.to_string(), hub);
     }
 
     pub fn update_frontlight_icon(&mut self, hub: &Hub, context: &mut Context) {

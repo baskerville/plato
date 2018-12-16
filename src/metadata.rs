@@ -380,6 +380,10 @@ impl SortMethod {
             SortMethod::Pages => "Pages",
         }
     }
+
+    pub fn title(&self) -> String {
+        format!("Sort by: {}", self.label())
+    }
 }
 
 pub fn sort(md: &mut Metadata, sort_method: SortMethod, reverse_order: bool) {

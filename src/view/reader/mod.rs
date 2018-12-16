@@ -1,4 +1,3 @@
-mod top_bar;
 mod tool_bar;
 mod bottom_bar;
 mod results_bar;
@@ -22,7 +21,7 @@ use device::{CURRENT_DEVICE, BAR_SIZES};
 use font::Fonts;
 use font::family_names;
 use self::margin_cropper::{MarginCropper, BUTTON_DIAMETER};
-use self::top_bar::TopBar;
+use super::top_bar::TopBar;
 use self::tool_bar::ToolBar;
 use self::bottom_bar::BottomBar;
 use self::results_bar::ResultsBar;
@@ -1050,7 +1049,8 @@ impl Reader {
 
             let top_bar = TopBar::new(rect![self.rect.min.x, self.rect.min.y,
                                             self.rect.max.x, small_height as i32 - small_thickness],
-                                      &self.info,
+                                      Event::Back,
+                                      self.info.title(),
                                       context);
 
             self.children.insert(index, Box::new(top_bar) as Box<View>);

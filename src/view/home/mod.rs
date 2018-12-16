@@ -1,6 +1,5 @@
 extern crate serde_json;
 
-mod top_bar;
 mod sort_label;
 mod matches_label;
 mod summary;
@@ -22,7 +21,7 @@ use settings::SecondColumn;
 use framebuffer::{Framebuffer, UpdateMode};
 use view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
 use view::filler::Filler;
-use self::top_bar::TopBar;
+use super::top_bar::TopBar;
 use self::summary::Summary;
 use self::shelf::Shelf;
 use view::common::{shift, locate, locate_by_id};
@@ -108,7 +107,8 @@ impl Home {
 
         let top_bar = TopBar::new(rect![rect.min.x, rect.min.y,
                                         rect.max.x, rect.min.y + small_height as i32 - small_thickness],
-                                  sort_method,
+                                  Event::Toggle(ViewId::SearchBar),
+                                  sort_method.title(),
                                   context);
         children.push(Box::new(top_bar) as Box<View>);
 
@@ -375,8 +375,9 @@ impl Home {
     fn update_top_bar(&mut self, search_visible: bool, hub: &Hub) {
         if let Some(index) = locate::<TopBar>(self) {
             let top_bar = self.children[index].as_mut().downcast_mut::<TopBar>().unwrap();
-            top_bar.update_root_icon(search_visible, hub);
-            top_bar.update_sort_label(self.sort_method, hub);
+            let name = if search_visible { "home" } else { "search" };
+            top_bar.update_root_icon(name, hub);
+            top_bar.update_title_label(&self.sort_method.title(), hub);
         }
     }
 
@@ -1139,7 +1140,7 @@ impl View for Home {
                 self.toggle_search_bar(None, true, hub, context);
                 true
             },
-            Event::ToggleNear(ViewId::SortMenu, rect) => {
+            Event::ToggleNear(ViewId::TitleMenu, rect) => {
                 self.toggle_sort_menu(rect, None, hub, context);
                 true
             },
