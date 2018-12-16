@@ -1,9 +1,11 @@
 use std::env;
+use std::sync::mpsc;
 use chrono::Local;
 use framebuffer::UpdateMode;
 use geom::{Point, Rectangle};
 use super::{View, Event, Hub, ViewId, EntryId, EntryKind};
 use super::menu::{Menu, MenuKind};
+use super::notification::Notification;
 use app::Context;
 
 pub fn shift(view: &mut View, delta: Point) {
@@ -32,6 +34,20 @@ pub fn overlapping_rectangle(view: &View) -> Rectangle {
         rect.absorb(&overlapping_rectangle(child.as_ref()));
     }
     rect
+}
+
+// Transfer the notifications from the view1 to the view2.
+pub fn transfer_notifications(view1: &mut View, view2: &mut View, context: &mut Context) {
+    for index in (0..view1.len()).rev() {
+        if view1.child(index).is::<Notification>() {
+            let mut child = view1.children_mut().remove(index);
+            if view2.rect() != view1.rect() {
+                let (tx, _rx) = mpsc::channel();
+                child.resize(*view2.rect(), &tx, context);
+            }
+            view2.children_mut().push(child);
+        }
+    }
 }
 
 pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
@@ -118,15 +134,5 @@ pub fn toggle_clock_menu(view: &mut View, rect: Rectangle, enable: Option<bool>,
         let clock_menu = Menu::new(rect, ViewId::ClockMenu, MenuKind::DropDown, entries, context);
         hub.send(Event::Render(*clock_menu.rect(), UpdateMode::Gui)).unwrap();
         view.children_mut().push(Box::new(clock_menu) as Box<View>);
-    }
-}
-
-// Transfer the children of type T from view1 to view2.
-pub fn transfer<T: View>(view1: &mut View, view2: &mut View) {
-    for index in (0..view1.len()).rev() {
-        if view1.child(index).is::<T>() {
-            let child = view1.children_mut().remove(index);
-            view2.children_mut().push(child);
-        }
     }
 }
