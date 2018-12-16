@@ -120,3 +120,13 @@ pub fn toggle_clock_menu(view: &mut View, rect: Rectangle, enable: Option<bool>,
         view.children_mut().push(Box::new(clock_menu) as Box<View>);
     }
 }
+
+// Transfer the children of type T from view1 to view2.
+pub fn transfer<T: View>(view1: &mut View, view2: &mut View) {
+    for index in (0..view1.len()).rev() {
+        if view1.child(index).is::<T>() {
+            let child = view1.children_mut().remove(index);
+            view2.children_mut().push(child);
+        }
+    }
+}

@@ -71,7 +71,7 @@ use view::notification::Notification;
 use view::frontlight::FrontlightWindow;
 use view::keyboard::Keyboard;
 use view::menu::{Menu, MenuKind};
-use view::common::{locate, locate_by_id, overlapping_rectangle};
+use view::common::{locate, locate_by_id, transfer, overlapping_rectangle};
 use helpers::{load_json, save_json, load_toml, save_toml};
 use metadata::{Metadata, METADATA_FILENAME};
 use settings::{Settings, SETTINGS_PATH};
@@ -336,16 +336,20 @@ pub fn run() -> Result<(), Error> {
                     }
                     let info2 = info.clone();
                     if let Some(r) = Reader::new(fb.rect(), *info, &tx, &mut context) {
+                        let mut next_view = Box::new(r) as Box<View>;
+                        transfer::<Notification>(view.as_mut(), next_view.as_mut());
                         history.push(view as Box<View>);
-                        view = Box::new(r) as Box<View>;
+                        view = next_view;
                     } else {
                         handle_event(view.as_mut(), &Event::Invalid(info2), &tx, &mut bus, &mut context);
                     }
                 },
                 Event::OpenToc(ref toc, current_page, next_page) => {
                     let r = Reader::from_toc(fb.rect(), toc, current_page, next_page, &tx, &mut context);
+                    let mut next_view = Box::new(r) as Box<View>;
+                    transfer::<Notification>(view.as_mut(), next_view.as_mut());
                     history.push(view as Box<View>);
-                    view = Box::new(r) as Box<View>;
+                    view = next_view;
                 },
                 Event::Back => {
                     if let Some(v) = history.pop() {

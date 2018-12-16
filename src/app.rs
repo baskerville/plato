@@ -11,7 +11,7 @@ use chrono::Local;
 use framebuffer::{Framebuffer, KoboFramebuffer, Display, UpdateMode};
 use view::{View, Event, EntryId, EntryKind, ViewId};
 use view::{render, render_no_wait, handle_event, fill_crack};
-use view::common::{locate, locate_by_id, overlapping_rectangle};
+use view::common::{locate, locate_by_id, transfer, overlapping_rectangle};
 use view::frontlight::FrontlightWindow;
 use view::menu::{Menu, MenuKind};
 use input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus};
@@ -602,16 +602,20 @@ pub fn run() -> Result<(), Error> {
                 }
                 let info2 = info.clone();
                 if let Some(r) = Reader::new(fb.rect(), *info, &tx, &mut context) {
+                    let mut next_view = Box::new(r) as Box<View>;
+                    transfer::<Notification>(view.as_mut(), next_view.as_mut());
                     history.push(HistoryItem { view, rotation });
-                    view = Box::new(r) as Box<View>;
+                    view = next_view;
                 } else {
                     handle_event(view.as_mut(), &Event::Invalid(info2), &tx, &mut bus, &mut context);
                 }
             },
             Event::OpenToc(ref toc, current_page, next_page) => {
-                history.push(HistoryItem { view, rotation: context.display.rotation });
                 let r = Reader::from_toc(fb.rect(), toc, current_page, next_page, &tx, &mut context);
-                view = Box::new(r) as Box<View>;
+                let mut next_view = Box::new(r) as Box<View>;
+                transfer::<Notification>(view.as_mut(), next_view.as_mut());
+                history.push(HistoryItem { view, rotation: context.display.rotation });
+                view = next_view;
             },
             Event::Back => {
                 if let Some(item) = history.pop() {
