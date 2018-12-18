@@ -13,7 +13,7 @@ unzip plato-VERSION.zip -d SD_ROOT/.adds/plato
 
 #### KSM
 
-Install [KSM](https://www.mobileread.com/forums/showthread.php?t=293804).
+Install [KSM 09](https://www.mobileread.com/forums/showthread.php?t=293804).
 
 #### fmon
 
