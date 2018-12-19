@@ -13,9 +13,9 @@ use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
 use failure::Error;
 use super::{Document, Location, BoundedText, TocEntry};
-use unit::pt_to_px;
-use framebuffer::Pixmap;
-use geom::Boundary;
+use crate::unit::pt_to_px;
+use crate::framebuffer::Pixmap;
+use crate::geom::Boundary;
 
 impl Into<Boundary> for FzRect {
     fn into(self) -> Boundary {

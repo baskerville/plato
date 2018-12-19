@@ -1,17 +1,17 @@
 use std::f32;
-use device::CURRENT_DEVICE;
+use crate::device::CURRENT_DEVICE;
 use std::collections::BTreeSet;
-use framebuffer::{Framebuffer, UpdateMode};
-use view::{View, Event, Hub, Bus, Align};
-use view::icon::{Icon, ICONS_PIXMAPS};
-use view::filler::Filler;
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::view::{View, Event, Hub, Bus, Align};
+use crate::view::icon::{Icon, ICONS_PIXMAPS};
+use crate::view::filler::Filler;
 use super::category::{Category, Status};
-use gesture::GestureEvent;
-use color::TEXT_BUMP_SMALL;
-use app::Context;
-use symbolic_path::SymbolicPath;
-use font::{Font, Fonts, font_from_style, category_font_size, NORMAL_STYLE};
-use geom::{Rectangle, Dir, CycleDir, divide, small_half, big_half};
+use crate::gesture::GestureEvent;
+use crate::color::TEXT_BUMP_SMALL;
+use crate::app::Context;
+use crate::symbolic_path::SymbolicPath;
+use crate::font::{Font, Fonts, font_from_style, category_font_size, NORMAL_STYLE};
+use crate::geom::{Rectangle, Dir, CycleDir, divide, small_half, big_half};
 
 #[derive(Debug)]
 pub struct Summary {

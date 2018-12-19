@@ -10,9 +10,9 @@ use std::sync::mpsc::{self, Sender, Receiver};
 use std::os::unix::io::AsRawFd;
 use std::ffi::CString;
 use fnv::{FnvHashMap, FnvHashSet};
-use framebuffer::Display;
-use device::CURRENT_DEVICE;
-use geom::Point;
+use crate::framebuffer::Display;
+use crate::device::CURRENT_DEVICE;
+use crate::geom::Point;
 use failure::{Error, ResultExt};
 
 // Event types

@@ -1,17 +1,17 @@
 use std::thread;
-use device::{CURRENT_DEVICE, BAR_SIZES};
-use font::{Fonts, font_from_style, NORMAL_STYLE};
-use geom::{Point, Rectangle, CornerSpec, BorderSpec, small_half, big_half};
-use gesture::GestureEvent;
-use unit::scale_by_dpi;
-use color::{BLACK, WHITE, SEPARATOR_NORMAL};
-use framebuffer::{Framebuffer, UpdateMode};
+use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
+use crate::geom::{Point, Rectangle, CornerSpec, BorderSpec, small_half, big_half};
+use crate::gesture::GestureEvent;
+use crate::unit::scale_by_dpi;
+use crate::color::{BLACK, WHITE, SEPARATOR_NORMAL};
+use crate::framebuffer::{Framebuffer, UpdateMode};
 use super::filler::Filler;
 use super::menu_entry::MenuEntry;
 use super::common::locate_by_id;
 use super::{View, Event, Hub, Bus, EntryKind, ViewId, CLOSE_IGNITION_DELAY};
 use super::{THICKNESS_MEDIUM, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
-use app::Context;
+use crate::app::Context;
 
 pub struct Menu {
     rect: Rectangle,

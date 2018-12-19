@@ -1,11 +1,11 @@
-use font::{Fonts, font_from_style, NORMAL_STYLE};
-use color::{BLACK, WHITE};
-use geom::{Rectangle};
-use app::Context;
-use gesture::GestureEvent;
-use framebuffer::{Framebuffer, UpdateMode};
-use view::{View, Event, Hub, Bus, ViewId};
-use device::CURRENT_DEVICE;
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
+use crate::color::{BLACK, WHITE};
+use crate::geom::{Rectangle};
+use crate::app::Context;
+use crate::gesture::GestureEvent;
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::view::{View, Event, Hub, Bus, ViewId};
+use crate::device::CURRENT_DEVICE;
 
 // TODO: use a regular label; active state
 pub struct SortLabel {

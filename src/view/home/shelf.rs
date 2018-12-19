@@ -1,16 +1,16 @@
-use device::{CURRENT_DEVICE, BAR_SIZES};
-use view::{View, Event, Hub, Bus, THICKNESS_MEDIUM};
-use view::filler::Filler;
+use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use crate::view::{View, Event, Hub, Bus, THICKNESS_MEDIUM};
+use crate::view::filler::Filler;
 use super::book::Book;
-use framebuffer::{Framebuffer, UpdateMode};
-use font::Fonts;
-use metadata::Info;
-use settings::SecondColumn;
-use geom::{Rectangle, Dir, CycleDir};
-use color::{WHITE, SEPARATOR_NORMAL};
-use gesture::GestureEvent;
-use unit::scale_by_dpi;
-use app::Context;
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::font::Fonts;
+use crate::metadata::Info;
+use crate::settings::SecondColumn;
+use crate::geom::{Rectangle, Dir, CycleDir};
+use crate::color::{WHITE, SEPARATOR_NORMAL};
+use crate::gesture::GestureEvent;
+use crate::unit::scale_by_dpi;
+use crate::app::Context;
 
 pub struct Shelf {
     pub rect: Rectangle,
@@ -72,7 +72,7 @@ impl Shelf {
 }
 
 impl View for Shelf {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) if self.rect.includes(start) => {
                 match dir {

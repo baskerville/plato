@@ -5,7 +5,7 @@ use std::fs::OpenOptions;
 use std::path::PathBuf;
 use fnv::FnvHashMap;
 use failure::Error;
-use device::{CURRENT_DEVICE, Model};
+use crate::device::{CURRENT_DEVICE, Model};
 use super::{Frontlight, LightLevels};
 
 const FRONTLIGHT_INTERFACE: &str = "/sys/class/backlight";

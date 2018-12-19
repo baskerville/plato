@@ -4,8 +4,8 @@ use std::fs::File;
 use png::HasParameters;
 use failure::{Error, ResultExt};
 use super::{Framebuffer, UpdateMode};
-use color::WHITE;
-use geom::{Rectangle, lerp};
+use crate::color::WHITE;
+use crate::geom::{Rectangle, lerp};
 
 #[derive(Debug, Clone)]
 pub struct Pixmap {

@@ -1,8 +1,8 @@
 use std::sync::mpsc;
-use device::{CURRENT_DEVICE, BAR_SIZES};
-use framebuffer::{Framebuffer, UpdateMode};
-use geom::{Rectangle, CornerSpec, BorderSpec};
-use font::{Fonts, font_from_style, NORMAL_STYLE};
+use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::geom::{Rectangle, CornerSpec, BorderSpec};
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use super::{View, Event, Hub, Bus, ViewId, EntryId, SliderId, Align};
 use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use super::label::Label;
@@ -11,13 +11,13 @@ use super::slider::Slider;
 use super::icon::Icon;
 use super::presets_list::PresetsList;
 use super::common::shift;
-use frontlight::LightLevels;
-use gesture::GestureEvent;
-use input::FingerStatus;
-use settings::{LightPreset, guess_frontlight};
-use color::{BLACK, WHITE};
-use unit::scale_by_dpi;
-use app::Context;
+use crate::frontlight::LightLevels;
+use crate::gesture::GestureEvent;
+use crate::input::FingerStatus;
+use crate::settings::{LightPreset, guess_frontlight};
+use crate::color::{BLACK, WHITE};
+use crate::unit::scale_by_dpi;
+use crate::app::Context;
 
 const LABEL_SAVE: &str = "Save";
 const LABEL_GUESS: &str = "Guess";
@@ -324,7 +324,6 @@ impl View for FrontlightWindow {
         let (width, height) = context.display.dims;
         let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
         let thickness = scale_by_dpi(THICKNESS_LARGE, dpi) as i32;
-        let border_radius = scale_by_dpi(BORDER_RADIUS_MEDIUM, dpi) as i32;
 
         let (x_height, padding) = {
             let font = font_from_style(&mut context.fonts, &NORMAL_STYLE, dpi);

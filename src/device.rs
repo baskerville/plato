@@ -3,8 +3,8 @@ extern crate libc;
 use std::env;
 use std::fmt;
 use std::collections::HashMap;
-use unit::scale_by_dpi;
-use input::TouchProto;
+use crate::unit::scale_by_dpi;
+use crate::input::TouchProto;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {

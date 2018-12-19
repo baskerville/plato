@@ -1,11 +1,11 @@
-use device::CURRENT_DEVICE;
-use font::{Fonts, font_from_style, NORMAL_STYLE};
+use crate::device::CURRENT_DEVICE;
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use super::{View, Event, Hub, Bus, Align};
-use gesture::GestureEvent;
-use framebuffer::{Framebuffer, UpdateMode};
-use geom::Rectangle;
-use color::TEXT_NORMAL;
-use app::Context;
+use crate::gesture::GestureEvent;
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::geom::Rectangle;
+use crate::color::TEXT_NORMAL;
+use crate::app::Context;
 
 pub struct Label {
     rect: Rectangle,

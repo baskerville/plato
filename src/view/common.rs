@@ -1,12 +1,12 @@
 use std::env;
 use std::sync::mpsc;
 use chrono::Local;
-use framebuffer::UpdateMode;
-use geom::{Point, Rectangle};
+use crate::framebuffer::UpdateMode;
+use crate::geom::{Point, Rectangle};
 use super::{View, Event, Hub, ViewId, EntryId, EntryKind};
 use super::menu::{Menu, MenuKind};
 use super::notification::Notification;
-use app::Context;
+use crate::app::Context;
 
 pub fn shift(view: &mut View, delta: Point) {
     *view.rect_mut() += delta;

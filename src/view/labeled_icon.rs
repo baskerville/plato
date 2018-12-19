@@ -1,10 +1,10 @@
-use framebuffer::Framebuffer;
-use view::{View, Event, Hub, Bus, Align};
-use view::icon::Icon;
-use view::label::Label;
-use geom::Rectangle;
-use font::Fonts;
-use app::Context;
+use crate::framebuffer::Framebuffer;
+use crate::view::{View, Event, Hub, Bus, Align};
+use crate::view::icon::Icon;
+use crate::view::label::Label;
+use crate::geom::Rectangle;
+use crate::font::Fonts;
+use crate::app::Context;
 
 #[derive(Debug)]
 pub struct LabeledIcon {

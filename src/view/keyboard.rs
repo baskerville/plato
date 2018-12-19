@@ -1,15 +1,15 @@
 use fnv::FnvHashMap;
-use device::{CURRENT_DEVICE, BAR_SIZES};
-use framebuffer::Framebuffer;
-use gesture::GestureEvent;
-use input::DeviceEvent;
+use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use crate::framebuffer::Framebuffer;
+use crate::gesture::GestureEvent;
+use crate::input::DeviceEvent;
 use super::{View, Event, Hub, Bus, KeyboardEvent, TextKind};
 use super::filler::Filler;
 use super::key::{Key, KeyKind};
-use color::KEYBOARD_BG;
-use font::Fonts;
-use app::Context;
-use geom::{Rectangle, LinearDir, halves};
+use crate::color::KEYBOARD_BG;
+use crate::font::Fonts;
+use crate::app::Context;
+use crate::geom::{Rectangle, LinearDir, halves};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Layout {
@@ -39,7 +39,7 @@ pub struct Keyboard {
     combine_buffer: String,
 }
 
-use device::optimal_key_setup;
+use crate::device::optimal_key_setup;
 
 impl Keyboard {
     pub fn new(rect: &mut Rectangle, layout: Layout, number: bool, context: &Context) -> Keyboard {

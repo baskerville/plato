@@ -1,7 +1,7 @@
 use std::f32;
 use chrono::{Local, Timelike};
-use frontlight::LightLevels;
-use geom::circular_distances;
+use crate::frontlight::LightLevels;
+use crate::geom::circular_distances;
 
 const MINUTES_PER_DAY: u16 = 24 * 60;
 

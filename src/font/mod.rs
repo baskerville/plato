@@ -3,8 +3,8 @@ extern crate libc;
 mod harfbuzz_sys;
 mod freetype_sys;
 
-use font::harfbuzz_sys::*;
-use font::freetype_sys::*;
+use crate::font::harfbuzz_sys::*;
+use crate::font::freetype_sys::*;
 
 use std::str;
 use std::ptr;
@@ -17,8 +17,8 @@ use std::rc::Rc;
 use fnv::FnvHashMap;
 use failure::Error;
 use glob::glob;
-use geom::Point;
-use framebuffer::Framebuffer;
+use crate::geom::Point;
+use crate::framebuffer::Framebuffer;
 
 // Font sizes in 1/64th of a point
 pub const FONT_SIZES: [u32; 3] = [349, 524, 629];

@@ -5,10 +5,10 @@ use std::path::PathBuf;
 use std::collections::VecDeque;
 use failure::Error;
 use rand::{Rng, thread_rng};
-use metadata::TRASH_NAME;
+use crate::metadata::TRASH_NAME;
 use fnv::FnvHashSet;
-use helpers::{load_json, save_json};
-use app::Context;
+use crate::helpers::{load_json, save_json};
+use crate::app::Context;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]

@@ -1,14 +1,14 @@
-use device::CURRENT_DEVICE;
-use gesture::GestureEvent;
-use font::{Fonts, font_from_style, category_font_size, NORMAL_STYLE};
-use color::{WHITE, BLACK, TEXT_BUMP_SMALL};
-use geom::{Rectangle, CornerSpec, BorderSpec, Dir};
-use framebuffer::Framebuffer;
-use view::{View, Event, Hub, Bus, Align};
-use view::{THICKNESS_SMALL, BORDER_RADIUS_SMALL};
-use symbolic_path::SymbolicPath;
-use unit::scale_by_dpi;
-use app::Context;
+use crate::device::CURRENT_DEVICE;
+use crate::gesture::GestureEvent;
+use crate::font::{Fonts, font_from_style, category_font_size, NORMAL_STYLE};
+use crate::color::{WHITE, BLACK, TEXT_BUMP_SMALL};
+use crate::geom::{Rectangle, CornerSpec, BorderSpec, Dir};
+use crate::framebuffer::Framebuffer;
+use crate::view::{View, Event, Hub, Bus, Align};
+use crate::view::{THICKNESS_SMALL, BORDER_RADIUS_SMALL};
+use crate::symbolic_path::SymbolicPath;
+use crate::unit::scale_by_dpi;
+use crate::app::Context;
 
 pub struct Category {
     rect: Rectangle,

@@ -1,13 +1,13 @@
-use device::CURRENT_DEVICE;
-use framebuffer::{Framebuffer, UpdateMode};
+use crate::device::CURRENT_DEVICE;
+use crate::framebuffer::{Framebuffer, UpdateMode};
 use super::{View, Event, Hub, Bus, KeyboardEvent, ViewId, TextKind};
 use super::THICKNESS_MEDIUM;
-use gesture::GestureEvent;
-use font::{Fonts, font_from_style, NORMAL_STYLE, FONT_SIZES};
-use geom::{Rectangle, LinearDir, BorderSpec, halves};
-use color::{TEXT_NORMAL, BLACK};
-use app::Context;
-use unit::scale_by_dpi;
+use crate::gesture::GestureEvent;
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE, FONT_SIZES};
+use crate::geom::{Rectangle, LinearDir, BorderSpec, halves};
+use crate::color::{TEXT_NORMAL, BLACK};
+use crate::app::Context;
+use crate::unit::scale_by_dpi;
 
 pub struct InputField {
     pub rect: Rectangle,

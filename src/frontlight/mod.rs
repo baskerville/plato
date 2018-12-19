@@ -3,7 +3,7 @@ mod natural;
 
 pub use self::standard::StandardFrontlight;
 pub use self::natural::NaturalFrontlight;
-use geom::lerp;
+use crate::geom::lerp;
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct LightLevels {

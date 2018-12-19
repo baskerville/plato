@@ -1,16 +1,16 @@
 use std::thread;
-use device::CURRENT_DEVICE;
-use geom::{Rectangle, CornerSpec, BorderSpec};
-use font::{Fonts, font_from_style, NORMAL_STYLE};
+use crate::device::CURRENT_DEVICE;
+use crate::geom::{Rectangle, CornerSpec, BorderSpec};
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use super::{View, Event, Hub, Bus, ViewId, Align};
 use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM, CLOSE_IGNITION_DELAY};
 use super::button::Button;
 use super::label::Label;
-use framebuffer::Framebuffer;
-use gesture::GestureEvent;
-use color::{BLACK, WHITE};
-use unit::scale_by_dpi;
-use app::Context;
+use crate::framebuffer::Framebuffer;
+use crate::gesture::GestureEvent;
+use crate::color::{BLACK, WHITE};
+use crate::unit::scale_by_dpi;
+use crate::app::Context;
 
 const LABEL_VALIDATE: &str = "OK";
 const LABEL_CANCEL: &str = "Cancel";

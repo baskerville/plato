@@ -3,8 +3,8 @@ mod kobo;
 mod image;
 
 use failure::Error;
-use geom::{Point, Rectangle, surface_area, nearest_segment_point, lerp};
-use geom::{CornerSpec, BorderSpec, ColorSource, Vec2};
+use crate::geom::{Point, Rectangle, surface_area, nearest_segment_point, lerp};
+use crate::geom::{CornerSpec, BorderSpec, ColorSource, Vec2};
 
 pub use self::kobo::KoboFramebuffer;
 pub use self::image::Pixmap;

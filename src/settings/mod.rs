@@ -2,7 +2,7 @@ mod preset;
 
 use std::path::PathBuf;
 use fnv::{FnvHashSet, FnvHashMap};
-use frontlight::LightLevels;
+use crate::frontlight::LightLevels;
 
 pub use self::preset::{LightPreset, guess_frontlight};
 

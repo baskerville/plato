@@ -2,6 +2,7 @@
 authors = ["Bastien Dejean <nihilhill@gmail.com>"]
 name = "plato"
 version = "0.6.1"
+edition = "2018"
 
 [[bin]]
 name = "plato"

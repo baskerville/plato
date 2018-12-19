@@ -1,15 +1,15 @@
-use framebuffer::{Framebuffer, UpdateMode};
-use view::{View, Event, Hub, Bus, ViewId};
-use view::icon::Icon;
-use view::filler::Filler;
-use view::page_label::PageLabel;
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::view::{View, Event, Hub, Bus, ViewId};
+use crate::view::icon::Icon;
+use crate::view::filler::Filler;
+use crate::view::page_label::PageLabel;
 use super::results_label::ResultsLabel;
-use gesture::GestureEvent;
-use input::DeviceEvent;
-use geom::{Rectangle, CycleDir, halves};
-use color::WHITE;
-use app::Context;
-use font::Fonts;
+use crate::gesture::GestureEvent;
+use crate::input::DeviceEvent;
+use crate::geom::{Rectangle, CycleDir, halves};
+use crate::color::WHITE;
+use crate::app::Context;
+use crate::font::Fonts;
 
 #[derive(Debug)]
 pub struct ResultsBar {

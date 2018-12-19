@@ -4,11 +4,11 @@ use fnv::FnvHashMap;
 use std::f64;
 use std::time::Duration;
 use std::thread;
-use unit::mm_to_px;
-use input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
-use view::Event;
-use device::CURRENT_DEVICE;
-use geom::{Point, Dir, Axis};
+use crate::unit::mm_to_px;
+use crate::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
+use crate::view::Event;
+use crate::device::CURRENT_DEVICE;
+use crate::geom::{Point, Dir, Axis};
 
 pub const JITTER_TOLERANCE_MM: f32 = 6.0;
 pub const FINGER_HOLD_DELAY: Duration = Duration::from_millis(666);

@@ -1,8 +1,8 @@
-use framebuffer::Framebuffer;
+use crate::framebuffer::Framebuffer;
 use super::{View, Event, Hub, Bus};
-use geom::Rectangle;
-use app::Context;
-use font::Fonts;
+use crate::geom::Rectangle;
+use crate::app::Context;
+use crate::font::Fonts;
 
 pub struct Filler {
     pub rect: Rectangle,

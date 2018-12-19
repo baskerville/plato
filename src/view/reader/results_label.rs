@@ -1,10 +1,10 @@
-use device::CURRENT_DEVICE;
-use font::{Fonts, font_from_style, NORMAL_STYLE};
-use framebuffer::{Framebuffer, UpdateMode};
-use color::TEXT_NORMAL;
-use geom::{Rectangle};
-use view::{View, Event, Hub, Bus};
-use app::Context;
+use crate::device::CURRENT_DEVICE;
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::color::TEXT_NORMAL;
+use crate::geom::{Rectangle};
+use crate::view::{View, Event, Hub, Bus};
+use crate::app::Context;
 
 pub struct ResultsLabel {
     rect: Rectangle,

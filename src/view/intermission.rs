@@ -1,12 +1,12 @@
 use std::path::PathBuf;
-use device::CURRENT_DEVICE;
-use document::pdf::PdfOpener;
-use geom::Rectangle;
-use font::{Fonts, font_from_style, DISPLAY_STYLE};
+use crate::device::CURRENT_DEVICE;
+use crate::document::pdf::PdfOpener;
+use crate::geom::Rectangle;
+use crate::font::{Fonts, font_from_style, DISPLAY_STYLE};
 use super::{View, Event, Hub, Bus};
-use framebuffer::Framebuffer;
-use color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
-use app::Context;
+use crate::framebuffer::Framebuffer;
+use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
+use crate::app::Context;
 
 pub struct Intermission {
     rect: Rectangle,

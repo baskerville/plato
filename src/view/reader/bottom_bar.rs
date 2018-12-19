@@ -1,16 +1,16 @@
-use framebuffer::{Framebuffer, UpdateMode};
-use view::{View, Event, Hub, Bus, Align};
-use view::icon::Icon;
-use view::filler::Filler;
-use view::label::Label;
-use view::page_label::PageLabel;
-use gesture::GestureEvent;
-use input::DeviceEvent;
-use geom::{Rectangle, CycleDir, halves};
-use document::{Document, Neighbors, chapter_at};
-use color::WHITE;
-use font::Fonts;
-use app::Context;
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::view::{View, Event, Hub, Bus, Align};
+use crate::view::icon::Icon;
+use crate::view::filler::Filler;
+use crate::view::label::Label;
+use crate::view::page_label::PageLabel;
+use crate::gesture::GestureEvent;
+use crate::input::DeviceEvent;
+use crate::geom::{Rectangle, CycleDir, halves};
+use crate::document::{Document, Neighbors, chapter_at};
+use crate::color::WHITE;
+use crate::font::Fonts;
+use crate::app::Context;
 
 #[derive(Debug)]
 pub struct BottomBar {

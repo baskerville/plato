@@ -1,12 +1,12 @@
-use device::CURRENT_DEVICE;
-use font::{Fonts, font_from_style, NORMAL_STYLE};
-use color::{BLACK, WHITE};
-use gesture::GestureEvent;
-use geom::{Rectangle};
-use document::BYTES_PER_PAGE;
-use framebuffer::{Framebuffer, UpdateMode};
+use crate::device::CURRENT_DEVICE;
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
+use crate::color::{BLACK, WHITE};
+use crate::gesture::GestureEvent;
+use crate::geom::{Rectangle};
+use crate::document::BYTES_PER_PAGE;
+use crate::framebuffer::{Framebuffer, UpdateMode};
 use super::{View, Event, Hub, Bus, ViewId};
-use app::Context;
+use crate::app::Context;
 
 pub struct PageLabel {
     rect: Rectangle,

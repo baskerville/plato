@@ -45,12 +45,12 @@ use failure::{Error, ResultExt};
 use regex::Regex;
 use getopts::Options;
 use titlecase::titlecase;
-use helpers::{load_json, save_json};
-use settings::{ImportSettings, EpubEngine};
-use metadata::{Info, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
-use metadata::{import, extract_metadata};
-use document::epub::xml::decode_entities;
-use document::{DocumentOpener, asciify};
+use crate::helpers::{load_json, save_json};
+use crate::settings::{ImportSettings, EpubEngine};
+use crate::metadata::{Info, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
+use crate::metadata::{import, extract_metadata};
+use crate::document::epub::xml::decode_entities;
+use crate::document::{DocumentOpener, asciify};
 
 pub fn run() -> Result<(), Error> {
     let args: Vec<String> = env::args().skip(1).collect();

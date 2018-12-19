@@ -1,13 +1,13 @@
 use std::f32;
-use device::CURRENT_DEVICE;
-use unit::scale_by_dpi;
-use framebuffer::{Framebuffer, UpdateMode};
-use input::{DeviceEvent, FingerStatus};
+use crate::device::CURRENT_DEVICE;
+use crate::unit::scale_by_dpi;
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::input::{DeviceEvent, FingerStatus};
 use super::{View, Event, Hub, Bus, SliderId, THICKNESS_SMALL};
-use color::{BLACK, WHITE, PROGRESS_VALUE, PROGRESS_FULL, PROGRESS_EMPTY};
-use font::{Fonts, font_from_style, SLIDER_VALUE};
-use geom::{Rectangle, BorderSpec, CornerSpec, halves};
-use app::Context;
+use crate::color::{BLACK, WHITE, PROGRESS_VALUE, PROGRESS_FULL, PROGRESS_EMPTY};
+use crate::font::{Fonts, font_from_style, SLIDER_VALUE};
+use crate::geom::{Rectangle, BorderSpec, CornerSpec, halves};
+use crate::app::Context;
 
 const PROGRESS_HEIGHT: f32 = 7.0;
 const BUTTON_DIAMETER: f32 = 46.0;

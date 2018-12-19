@@ -2,9 +2,9 @@ use fnv::FnvHashSet;
 use regex::Regex;
 use super::layout::{FontKind, FontStyle, FontWeight, TextAlign, Display};
 use super::layout::{InlineMaterial, GlueMaterial, PenaltyMaterial};
-use geom::Edge;
-use unit::{pt_to_px, pc_to_px, mm_to_px, in_to_px};
-use unit::{POINTS_PER_INCH, PICAS_PER_INCH, MILLIMETERS_PER_INCH, CENTIMETERS_PER_INCH};
+use crate::geom::Edge;
+use crate::unit::{pt_to_px, pc_to_px, mm_to_px, in_to_px};
+use crate::unit::{POINTS_PER_INCH, PICAS_PER_INCH, MILLIMETERS_PER_INCH, CENTIMETERS_PER_INCH};
 
 const SIZE_FACTOR: f32 = 1.26;
 const ABSOLUTE_SIZE_KEYWORDS: [&str; 7] = ["xx-small", "x-small", "small", "medium", "large", "x-large", "xx-large"];

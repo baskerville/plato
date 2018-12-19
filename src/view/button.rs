@@ -1,14 +1,14 @@
-use device::CURRENT_DEVICE;
-use geom::{Rectangle, CornerSpec, BorderSpec};
-use font::{Fonts, font_from_style, NORMAL_STYLE};
+use crate::device::CURRENT_DEVICE;
+use crate::geom::{Rectangle, CornerSpec, BorderSpec};
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use super::{View, Event, Hub, Bus};
 use super::{THICKNESS_MEDIUM, BORDER_RADIUS_LARGE};
-use framebuffer::{Framebuffer, UpdateMode};
-use input::{DeviceEvent, FingerStatus};
-use gesture::GestureEvent;
-use color::{BLACK, TEXT_NORMAL, TEXT_INVERTED_HARD};
-use unit::scale_by_dpi;
-use app::Context;
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::input::{DeviceEvent, FingerStatus};
+use crate::gesture::GestureEvent;
+use crate::color::{BLACK, TEXT_NORMAL, TEXT_INVERTED_HARD};
+use crate::unit::scale_by_dpi;
+use crate::app::Context;
 
 pub struct Button {
     rect: Rectangle,

@@ -1,11 +1,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use fnv::FnvHashMap;
-use geom::{Point, Rectangle, Edge};
-use font::{FontFamily, Font, RenderPlan};
+use crate::geom::{Point, Rectangle, Edge};
+use crate::font::{FontFamily, Font, RenderPlan};
 use super::dom::Node;
 use hyphenation::{Standard, Language, Load};
-use color::BLACK;
+use crate::color::BLACK;
 
 pub const DEFAULT_HYPH_LANG: &str = "en";
 

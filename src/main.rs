@@ -44,7 +44,7 @@ mod font;
 mod app;
 
 use std::process;
-use app::run;
+use crate::app::run;
 
 fn main() {
     if let Err(e) = run() {

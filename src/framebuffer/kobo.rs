@@ -11,7 +11,7 @@ use std::ops::Drop;
 use failure::{Error, ResultExt};
 use libc::ioctl;
 use png::HasParameters;
-use geom::Rectangle;
+use crate::geom::Rectangle;
 use super::{UpdateMode, Framebuffer};
 use super::mxcfb_sys::*;
 

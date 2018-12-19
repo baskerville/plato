@@ -6,12 +6,12 @@ use std::collections::BTreeSet;
 use std::cmp::Ordering;
 use fnv::{FnvHashMap, FnvHashSet};
 use chrono::{Local, DateTime};
-use document::Document;
-use document::epub::EpubDocument;
-use helpers::simple_date_format;
+use crate::document::Document;
+use crate::document::epub::EpubDocument;
+use crate::helpers::simple_date_format;
 use regex::Regex;
-use document::file_kind;
-use symbolic_path;
+use crate::document::file_kind;
+use crate::symbolic_path;
 use failure::{Error, ResultExt};
 
 pub const METADATA_FILENAME: &str = ".metadata.json";

@@ -1,13 +1,13 @@
-use framebuffer::{Framebuffer, UpdateMode};
-use view::{View, Event, Hub, Bus};
-use view::icon::Icon;
-use view::filler::Filler;
-use view::page_label::PageLabel;
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::view::{View, Event, Hub, Bus};
+use crate::view::icon::Icon;
+use crate::view::filler::Filler;
+use crate::view::page_label::PageLabel;
 use super::matches_label::MatchesLabel;
-use geom::{Rectangle, CycleDir, halves};
-use color::WHITE;
-use app::Context;
-use font::Fonts;
+use crate::geom::{Rectangle, CycleDir, halves};
+use crate::color::WHITE;
+use crate::app::Context;
+use crate::font::Fonts;
 
 #[derive(Debug)]
 pub struct BottomBar {

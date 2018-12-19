@@ -1,20 +1,20 @@
-use device::CURRENT_DEVICE;
-use framebuffer::Framebuffer;
-use settings::ReaderSettings;
-use view::{View, Event, Hub, Bus, SliderId, ViewId, THICKNESS_MEDIUM};
-use view::common::locate;
-use view::filler::Filler;
-use view::slider::Slider;
-use view::icon::Icon;
-use view::labeled_icon::LabeledIcon;
-use metadata::ReaderInfo;
-use gesture::GestureEvent;
-use input::DeviceEvent;
-use unit::scale_by_dpi;
-use geom::Rectangle;
-use font::Fonts;
-use color::{SEPARATOR_NORMAL, WHITE};
-use app::Context;
+use crate::device::CURRENT_DEVICE;
+use crate::framebuffer::Framebuffer;
+use crate::settings::ReaderSettings;
+use crate::view::{View, Event, Hub, Bus, SliderId, ViewId, THICKNESS_MEDIUM};
+use crate::view::common::locate;
+use crate::view::filler::Filler;
+use crate::view::slider::Slider;
+use crate::view::icon::Icon;
+use crate::view::labeled_icon::LabeledIcon;
+use crate::metadata::ReaderInfo;
+use crate::gesture::GestureEvent;
+use crate::input::DeviceEvent;
+use crate::unit::scale_by_dpi;
+use crate::geom::Rectangle;
+use crate::font::Fonts;
+use crate::color::{SEPARATOR_NORMAL, WHITE};
+use crate::app::Context;
 
 #[derive(Debug)]
 pub struct ToolBar {

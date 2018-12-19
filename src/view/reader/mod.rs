@@ -13,36 +13,36 @@ use std::path::PathBuf;
 use std::collections::{VecDeque, BTreeMap};
 use chrono::Local;
 use regex::Regex;
-use input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
-use framebuffer::{Framebuffer, UpdateMode, Pixmap};
-use view::{View, Event, Hub, ViewId, EntryKind, EntryId, SliderId, Bus, THICKNESS_MEDIUM};
-use unit::{scale_by_dpi, mm_to_px};
-use device::{CURRENT_DEVICE, BAR_SIZES};
-use font::Fonts;
-use font::family_names;
+use crate::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
+use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
+use crate::view::{View, Event, Hub, ViewId, EntryKind, EntryId, SliderId, Bus, THICKNESS_MEDIUM};
+use crate::unit::{scale_by_dpi, mm_to_px};
+use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use crate::font::Fonts;
+use crate::font::family_names;
 use self::margin_cropper::{MarginCropper, BUTTON_DIAMETER};
 use super::top_bar::TopBar;
 use self::tool_bar::ToolBar;
 use self::bottom_bar::BottomBar;
 use self::results_bar::ResultsBar;
-use view::common::{locate, locate_by_id, shift};
-use view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
-use view::filler::Filler;
-use view::named_input::NamedInput;
-use view::search_bar::SearchBar;
-use view::keyboard::{Keyboard, DEFAULT_LAYOUT};
-use view::menu::{Menu, MenuKind};
-use view::notification::Notification;
-use settings::{guess_frontlight, FinishedAction, DEFAULT_FONT_FAMILY};
-use frontlight::LightLevels;
-use gesture::GestureEvent;
-use document::{Document, DocumentOpener, Location, BoundedText, Neighbors, BYTES_PER_PAGE};
-use document::{TocEntry, toc_as_html, chapter_at, chapter_relative};
-use document::pdf::PdfOpener;
-use metadata::{Info, FileInfo, ReaderInfo, ZoomMode, PageScheme, Margin, CroppingMargins, make_query};
-use geom::{Point, Rectangle, Boundary, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, Axis, halves};
-use color::{BLACK, WHITE};
-use app::Context;
+use crate::view::common::{locate, locate_by_id, shift};
+use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
+use crate::view::filler::Filler;
+use crate::view::named_input::NamedInput;
+use crate::view::search_bar::SearchBar;
+use crate::view::keyboard::{Keyboard, DEFAULT_LAYOUT};
+use crate::view::menu::{Menu, MenuKind};
+use crate::view::notification::Notification;
+use crate::settings::{guess_frontlight, FinishedAction, DEFAULT_FONT_FAMILY};
+use crate::frontlight::LightLevels;
+use crate::gesture::GestureEvent;
+use crate::document::{Document, DocumentOpener, Location, BoundedText, Neighbors, BYTES_PER_PAGE};
+use crate::document::{TocEntry, toc_as_html, chapter_at, chapter_relative};
+use crate::document::pdf::PdfOpener;
+use crate::metadata::{Info, FileInfo, ReaderInfo, ZoomMode, PageScheme, Margin, CroppingMargins, make_query};
+use crate::geom::{Point, Rectangle, Boundary, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, Axis, halves};
+use crate::color::{BLACK, WHITE};
+use crate::app::Context;
 
 const HISTORY_SIZE: usize = 32;
 const LINK_DIST_JITTER: f32 = 24.0;
@@ -433,7 +433,7 @@ impl Reader {
         }
     }
 
-    fn page_scroll(&mut self, delta_y: i32, hub: &Hub, context: &mut Context) {
+    fn page_scroll(&mut self, delta_y: i32, hub: &Hub, _context: &mut Context) {
         if delta_y == 0 {
             return;
         }

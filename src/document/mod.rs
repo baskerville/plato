@@ -12,12 +12,12 @@ use fnv::FnvHashSet;
 use isbn::Isbn;
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::{is_combining_mark};
-use geom::{Boundary, CycleDir};
-use document::djvu::DjvuOpener;
-use document::pdf::PdfOpener;
-use document::epub::EpubDocument;
-use settings::EpubEngine;
-use framebuffer::Pixmap;
+use crate::geom::{Boundary, CycleDir};
+use crate::document::djvu::DjvuOpener;
+use crate::document::pdf::PdfOpener;
+use crate::document::epub::EpubDocument;
+use crate::settings::EpubEngine;
+use crate::framebuffer::Pixmap;
 
 pub const BYTES_PER_PAGE: f64 = 2048.0;
 

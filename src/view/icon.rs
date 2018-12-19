@@ -1,17 +1,17 @@
 use std::path::Path;
 use fnv::FnvHashMap;
-use device::CURRENT_DEVICE;
-use framebuffer::{Framebuffer, Pixmap, UpdateMode};
+use crate::device::CURRENT_DEVICE;
+use crate::framebuffer::{Framebuffer, Pixmap, UpdateMode};
 use super::{View, Event, Hub, Bus, ViewId, Align};
 use super::BORDER_RADIUS_SMALL;
-use gesture::GestureEvent;
-use input::{DeviceEvent, FingerStatus};
-use document::pdf::PdfOpener;
-use color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
-use unit::{scale_by_dpi, scale_by_dpi_raw};
-use geom::{Rectangle, CornerSpec};
-use font::Fonts;
-use app::Context;
+use crate::gesture::GestureEvent;
+use crate::input::{DeviceEvent, FingerStatus};
+use crate::document::pdf::PdfOpener;
+use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
+use crate::unit::{scale_by_dpi, scale_by_dpi_raw};
+use crate::geom::{Rectangle, CornerSpec};
+use crate::font::Fonts;
+use crate::app::Context;
 
 const ICON_SCALE: f32 = 1.0 / 32.0;
 

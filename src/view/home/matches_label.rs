@@ -1,11 +1,11 @@
-use device::CURRENT_DEVICE;
-use font::{Fonts, font_from_style, NORMAL_STYLE};
-use framebuffer::{Framebuffer, UpdateMode};
-use gesture::GestureEvent;
-use color::{BLACK, WHITE};
-use geom::{Rectangle};
-use view::{View, Event, Hub, Bus, ViewId};
-use app::Context;
+use crate::device::CURRENT_DEVICE;
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::gesture::GestureEvent;
+use crate::color::{BLACK, WHITE};
+use crate::geom::{Rectangle};
+use crate::view::{View, Event, Hub, Bus, ViewId};
+use crate::app::Context;
 
 pub struct MatchesLabel {
     rect: Rectangle,

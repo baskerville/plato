@@ -1,15 +1,15 @@
-use device::CURRENT_DEVICE;
-use framebuffer::{Framebuffer, UpdateMode};
-use geom::{Rectangle, BorderSpec, CornerSpec};
-use color::{BLACK, WHITE, BATTERY_FILL};
+use crate::device::CURRENT_DEVICE;
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::geom::{Rectangle, BorderSpec, CornerSpec};
+use crate::color::{BLACK, WHITE, BATTERY_FILL};
 use super::{View, ViewId, Event, Hub, Bus};
 use super::THICKNESS_LARGE;
 use super::icon::ICONS_PIXMAPS;
-use gesture::GestureEvent;
-use battery::Status;
-use unit::scale_by_dpi;
-use font::Fonts;
-use app::Context;
+use crate::gesture::GestureEvent;
+use crate::battery::Status;
+use crate::unit::scale_by_dpi;
+use crate::font::Fonts;
+use crate::app::Context;
 
 const BATTERY_WIDTH: f32 = 58.0;
 const BATTERY_HEIGHT: f32 = 28.0;

@@ -1,14 +1,14 @@
-use device::CURRENT_DEVICE;
-use geom::{Rectangle, CornerSpec, CycleDir};
-use font::{Fonts, font_from_style, NORMAL_STYLE};
+use crate::device::CURRENT_DEVICE;
+use crate::geom::{Rectangle, CornerSpec, CycleDir};
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use super::{View, Event, Hub, Bus};
 use super::BORDER_RADIUS_MEDIUM;
-use framebuffer::{Framebuffer, UpdateMode};
-use input::{DeviceEvent, FingerStatus};
-use gesture::GestureEvent;
-use color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
-use unit::scale_by_dpi;
-use app::Context;
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::input::{DeviceEvent, FingerStatus};
+use crate::gesture::GestureEvent;
+use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
+use crate::unit::scale_by_dpi;
+use crate::app::Context;
 
 pub struct Preset {
     rect: Rectangle,

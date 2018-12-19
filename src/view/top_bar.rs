@@ -1,14 +1,14 @@
-use framebuffer::{Framebuffer, UpdateMode};
-use gesture::GestureEvent;
-use input::DeviceEvent;
-use view::{View, Event, Hub, Bus, ViewId, Align};
-use view::icon::Icon;
-use view::clock::Clock;
-use view::battery::Battery;
-use view::label::Label;
-use geom::{Rectangle};
-use font::Fonts;
-use app::Context;
+use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::gesture::GestureEvent;
+use crate::input::DeviceEvent;
+use crate::view::{View, Event, Hub, Bus, ViewId, Align};
+use crate::view::icon::Icon;
+use crate::view::clock::Clock;
+use crate::view::battery::Battery;
+use crate::view::label::Label;
+use crate::geom::{Rectangle};
+use crate::font::Fonts;
+use crate::app::Context;
 
 #[derive(Debug)]
 pub struct TopBar {
@@ -43,7 +43,7 @@ impl TopBar {
         children.push(Box::new(clock_label) as Box<View>);
 
         let capacity = context.battery.capacity().unwrap_or(0.0);
-        let status = context.battery.status().unwrap_or(::battery::Status::Discharging);
+        let status = context.battery.status().unwrap_or(crate::battery::Status::Discharging);
         let battery_widget = Battery::new(rect![rect.max - pt!(3*side, side),
                                                 rect.max - pt!(2*side, 0)],
                                           capacity,

@@ -8,8 +8,8 @@ use std::path::Path;
 use std::ffi::{CStr, CString};
 use std::os::unix::ffi::OsStrExt;
 use super::{Document, Location, BoundedText, TocEntry};
-use framebuffer::Pixmap;
-use geom::Rectangle;
+use crate::framebuffer::Pixmap;
+use crate::geom::Rectangle;
 
 impl Into<DjvuRect> for Rectangle {
     fn into(self) -> DjvuRect {
