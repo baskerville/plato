@@ -18,6 +18,7 @@ pub struct Notification {
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     text: String,
+    max_width: u32,
     index: u8,
     id: ViewId,
 }
@@ -65,6 +66,7 @@ impl Notification {
             rect,
             children: vec![],
             text,
+            max_width: max_message_width as u32,
             index,
             id,
         }
@@ -94,7 +96,7 @@ impl View for Notification {
                                               &WHITE);
 
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
-        let plan = font.plan(&self.text, None, None);
+        let plan = font.plan(&self.text, Some(self.max_width), None);
         let x_height = font.x_heights.0 as i32;
 
         let dx = (self.rect.width() - plan.width) as i32 / 2;
