@@ -13,7 +13,7 @@ use crate::app::Context;
 
 pub struct NamedInput {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     input_size: usize,
     id: ViewId,
 }
@@ -58,14 +58,14 @@ impl NamedInput {
                                      y_max - x_height],
                                text,
                                Align::Center);
-        children.push(Box::new(label) as Box<View>);
+        children.push(Box::new(label) as Box<dyn View>);
 
         let input_field = InputField::new(rect![x_max - 3 * padding - input_width,
                                                 y_min + 2 * x_height,
                                                 x_max - padding,
                                                 y_max - 2 * x_height],
                                           input_id);
-        children.push(Box::new(input_field) as Box<View>);
+        children.push(Box::new(input_field) as Box<dyn View>);
 
         let rect = rect![x_min, y_min,
                          x_max, y_max];
@@ -131,11 +131,11 @@ impl View for NamedInput {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

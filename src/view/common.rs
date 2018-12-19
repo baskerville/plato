@@ -90,7 +90,7 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
 
         let main_menu = Menu::new(rect, ViewId::MainMenu, MenuKind::DropDown, entries, context);
         hub.send(Event::Render(*main_menu.rect(), UpdateMode::Gui)).unwrap();
-        view.children_mut().push(Box::new(main_menu) as Box<View>);
+        view.children_mut().push(Box::new(main_menu) as Box<dyn View>);
     }
 }
 
@@ -114,7 +114,7 @@ pub fn toggle_battery_menu(view: &mut View, rect: Rectangle, enable: Option<bool
         let entries = vec![EntryKind::Message(text)];
         let battery_menu = Menu::new(rect, ViewId::BatteryMenu, MenuKind::DropDown, entries, context);
         hub.send(Event::Render(*battery_menu.rect(), UpdateMode::Gui)).unwrap();
-        view.children_mut().push(Box::new(battery_menu) as Box<View>);
+        view.children_mut().push(Box::new(battery_menu) as Box<dyn View>);
     }
 }
 
@@ -133,6 +133,6 @@ pub fn toggle_clock_menu(view: &mut View, rect: Rectangle, enable: Option<bool>,
         let entries = vec![EntryKind::Message(text)];
         let clock_menu = Menu::new(rect, ViewId::ClockMenu, MenuKind::DropDown, entries, context);
         hub.send(Event::Render(*clock_menu.rect(), UpdateMode::Gui)).unwrap();
-        view.children_mut().push(Box::new(clock_menu) as Box<View>);
+        view.children_mut().push(Box::new(clock_menu) as Box<dyn View>);
     }
 }

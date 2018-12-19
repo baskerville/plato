@@ -12,7 +12,7 @@ use crate::app::Context;
 
 pub struct MenuEntry {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     kind: EntryKind,
     corner_spec: Option<CornerSpec>,
     anchor: Rectangle,
@@ -160,11 +160,11 @@ impl View for MenuEntry {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

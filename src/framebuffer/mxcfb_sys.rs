@@ -1,7 +1,5 @@
 #![allow(unused)]
 
-extern crate libc;
-
 use std::mem;
 
 pub const FBIOGET_VSCREENINFO: libc::c_ulong = 0x4600;

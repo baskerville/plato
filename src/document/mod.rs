@@ -10,6 +10,7 @@ use std::path::Path;
 use std::str::FromStr;
 use fnv::FnvHashSet;
 use isbn::Isbn;
+use lazy_static::lazy_static;
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::{is_combining_mark};
 use crate::geom::{Boundary, CycleDir};
@@ -176,14 +177,14 @@ impl DocumentOpener {
         DocumentOpener { epub_engine }
     }
 
-    pub fn open<P: AsRef<Path>>(&self, path: P) -> Option<Box<Document>> {
+    pub fn open<P: AsRef<Path>>(&self, path: P) -> Option<Box<dyn Document>> {
         file_kind(path.as_ref()).and_then(|k| {
             match k.as_ref() {
                 "epub" => {
                     match self.epub_engine {
                         EpubEngine::BuiltIn => {
                             EpubDocument::new(path)
-                                         .map(|d| Box::new(d) as Box<Document>).ok()
+                                         .map(|d| Box::new(d) as Box<dyn Document>).ok()
                         },
                         EpubEngine::Mupdf => {
                             PdfOpener::new()
@@ -193,7 +194,7 @@ impl DocumentOpener {
                                         o.set_user_css(css_path).ok();
                                     }
                                     o.open(path)
-                                     .map(|d| Box::new(d) as Box<Document>)
+                                     .map(|d| Box::new(d) as Box<dyn Document>)
                                 })
                         },
                     }
@@ -201,13 +202,13 @@ impl DocumentOpener {
                 "djvu" | "djv" => {
                     DjvuOpener::new().and_then(|o| {
                         o.open(path)
-                         .map(|d| Box::new(d) as Box<Document>)
+                         .map(|d| Box::new(d) as Box<dyn Document>)
                     })
                 },
                 _ => {
                     PdfOpener::new().and_then(|o| {
                         o.open(path)
-                         .map(|d| Box::new(d) as Box<Document>)
+                         .map(|d| Box::new(d) as Box<dyn Document>)
                     })
                 },
             }

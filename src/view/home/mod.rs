@@ -1,5 +1,3 @@
-extern crate serde_json;
-
 mod sort_label;
 mod matches_label;
 mod summary;
@@ -51,7 +49,7 @@ const HISTORY_SIZE: usize = 8;
 #[derive(Debug)]
 pub struct Home {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     current_page: usize,
     pages_count: usize,
     summary_size: u8,
@@ -110,12 +108,12 @@ impl Home {
                                   Event::Toggle(ViewId::SearchBar),
                                   sort_method.title(),
                                   context);
-        children.push(Box::new(top_bar) as Box<View>);
+        children.push(Box::new(top_bar) as Box<dyn View>);
 
         let separator = Filler::new(rect![rect.min.x, rect.min.y + small_height as i32 - small_thickness,
                                           rect.max.x, rect.min.y + small_height as i32 + big_thickness],
                                     BLACK);
-        children.push(Box::new(separator) as Box<View>);
+        children.push(Box::new(separator) as Box<dyn View>);
 
         let summary_height = small_height as i32 - thickness +
                              (summary_size - 1) as i32 * big_height as i32;
@@ -130,12 +128,12 @@ impl Home {
         summary.update(&visible_categories, &selected_categories,
                        &negated_categories, false, &tx, &mut context.fonts);
 
-        children.push(Box::new(summary) as Box<View>);
+        children.push(Box::new(summary) as Box<dyn View>);
 
         let separator = Filler::new(rect![rect.min.x, s_max_y,
                                           rect.max.x, s_max_y + thickness],
                                     BLACK);
-        children.push(Box::new(separator) as Box<View>);
+        children.push(Box::new(separator) as Box<dyn View>);
 
         let mut shelf = Shelf::new(rect![rect.min.x, s_max_y + thickness,
                                          rect.max.x, rect.max.y - small_height as i32 - small_thickness],
@@ -146,12 +144,12 @@ impl Home {
 
         shelf.update(&visible_books[index_lower..index_upper], &tx, context);
 
-        children.push(Box::new(shelf) as Box<View>);
+        children.push(Box::new(shelf) as Box<dyn View>);
 
         let separator = Filler::new(rect![rect.min.x, rect.max.y - small_height as i32 - small_thickness,
                                           rect.max.x, rect.max.y - small_height as i32 + big_thickness],
                                     BLACK);
-        children.push(Box::new(separator) as Box<View>);
+        children.push(Box::new(separator) as Box<dyn View>);
 
         let bottom_bar = BottomBar::new(rect![rect.min.x, rect.max.y - small_height as i32 + big_thickness,
                                               rect.max.x, rect.max.y],
@@ -159,7 +157,7 @@ impl Home {
                                         pages_count,
                                         count,
                                         false);
-        children.push(Box::new(bottom_bar) as Box<View>);
+        children.push(Box::new(bottom_bar) as Box<dyn View>);
 
         hub.send(Event::Render(rect, UpdateMode::Full)).unwrap();
 
@@ -441,12 +439,12 @@ impl Home {
             };
 
             let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone(), number, context);
-            self.children.insert(index, Box::new(keyboard) as Box<View>);
+            self.children.insert(index, Box::new(keyboard) as Box<dyn View>);
 
             let separator = Filler::new(rect![self.rect.min.x, kb_rect.min.y - thickness,
                                               self.rect.max.x, kb_rect.min.y],
                                         BLACK);
-            self.children.insert(index, Box::new(separator) as Box<View>);
+            self.children.insert(index, Box::new(separator) as Box<dyn View>);
 
             let delta_y = kb_rect.height() as i32 + thickness;
 
@@ -526,10 +524,10 @@ impl Home {
                                             "Title, author, category",
                                             "");
 
-            self.children.insert(5, Box::new(search_bar) as Box<View>);
+            self.children.insert(5, Box::new(search_bar) as Box<dyn View>);
 
             let separator = Filler::new(sp_rect, BLACK);
-            self.children.insert(5, Box::new(separator) as Box<View>);
+            self.children.insert(5, Box::new(separator) as Box<dyn View>);
 
             // move the shelf's bottom edge
             {
@@ -593,7 +591,7 @@ impl Home {
             hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).unwrap();
             hub.send(Event::Focus(Some(ViewId::GoToPageInput))).unwrap();
             self.focus = Some(ViewId::GoToPageInput);
-            self.children.push(Box::new(go_to_page) as Box<View>);
+            self.children.push(Box::new(go_to_page) as Box<dyn View>);
         }
     }
 
@@ -631,7 +629,7 @@ impl Home {
                                                    EntryId::ReverseOrder, self.reverse_order)];
             let sort_menu = Menu::new(rect, ViewId::SortMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*sort_menu.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(sort_menu) as Box<View>);
+            self.children.push(Box::new(sort_menu) as Box<dyn View>);
         }
     }
 
@@ -690,7 +688,7 @@ impl Home {
 
             let book_menu = Menu::new(rect, ViewId::BookMenu, MenuKind::Contextual, entries, context);
             hub.send(Event::Render(*book_menu.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(book_menu) as Box<View>);
+            self.children.push(Box::new(book_menu) as Box<dyn View>);
         }
     }
 
@@ -715,7 +713,7 @@ impl Home {
 
             let category_menu = Menu::new(rect, ViewId::CategoryMenu, MenuKind::Contextual, entries, context);
             hub.send(Event::Render(*category_menu.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(category_menu) as Box<View>);
+            self.children.push(Box::new(category_menu) as Box<dyn View>);
         }
     }
 
@@ -778,7 +776,7 @@ impl Home {
 
             let matches_menu = Menu::new(rect, ViewId::MatchesMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*matches_menu.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(matches_menu) as Box<View>);
+            self.children.push(Box::new(matches_menu) as Box<dyn View>);
         }
     }
 
@@ -1204,7 +1202,7 @@ impl View for Home {
                                                 12, context);
                 hub.send(Event::Render(*export_as.rect(), UpdateMode::Gui)).unwrap();
                 hub.send(Event::Focus(Some(ViewId::ExportAsInput))).unwrap();
-                self.children.push(Box::new(export_as) as Box<View>);
+                self.children.push(Box::new(export_as) as Box<dyn View>);
                 true
             },
             Event::Select(EntryId::Load(ref filename)) => {
@@ -1230,7 +1228,7 @@ impl View for Home {
                                                  21, context);
                 hub.send(Event::Render(*add_categs.rect(), UpdateMode::Gui)).unwrap();
                 hub.send(Event::Focus(Some(ViewId::AddCategoriesInput))).unwrap();
-                self.children.push(Box::new(add_categs) as Box<View>);
+                self.children.push(Box::new(add_categs) as Box<dyn View>);
                 true
             },
             Event::Select(EntryId::RenameCategory(ref categ_old)) => {
@@ -1242,7 +1240,7 @@ impl View for Home {
                 ren_categ.set_text(categ_old);
                 hub.send(Event::Render(*ren_categ.rect(), UpdateMode::Gui)).unwrap();
                 hub.send(Event::Focus(Some(ViewId::RenameCategoryInput))).unwrap();
-                self.children.push(Box::new(ren_categ) as Box<View>);
+                self.children.push(Box::new(ren_categ) as Box<dyn View>);
                 true
             },
             Event::Select(EntryId::RemoveMatches) => {
@@ -1301,7 +1299,7 @@ impl View for Home {
                                                   "Invalid search query.".to_string(),
                                                   hub,
                                                   context);
-                    self.children.push(Box::new(notif) as Box<View>);
+                    self.children.push(Box::new(notif) as Box<dyn View>);
                 }
                 true
             },
@@ -1474,11 +1472,11 @@ impl View for Home {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

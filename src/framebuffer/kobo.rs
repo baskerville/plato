@@ -1,6 +1,3 @@
-extern crate libc;
-extern crate png;
-
 use std::ptr;
 use std::path::Path;
 use std::io;

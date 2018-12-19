@@ -11,7 +11,7 @@ use crate::app::Context;
 
 pub struct PresetsList {
     rect: Rectangle,
-    pages: Vec<Vec<Box<View>>>,
+    pages: Vec<Vec<Box<dyn View>>>,
     current_page: usize,
 }
 
@@ -61,7 +61,7 @@ impl PresetsList {
             };
 
             let preset = Preset::new(preset_rect, kind);
-            children.push(Box::new(preset) as Box<View>);
+            children.push(Box::new(preset) as Box<dyn View>);
             item_index += 1;
 
             if item_index % max_per_line == 0 || index == presets_count {
@@ -131,11 +131,11 @@ impl View for PresetsList {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.pages[self.current_page]
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.pages[self.current_page]
     }
 }

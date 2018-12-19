@@ -6,7 +6,7 @@ use crate::font::Fonts;
 
 pub struct Filler {
     pub rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     color: u8,
 }
 
@@ -37,11 +37,11 @@ impl View for Filler {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

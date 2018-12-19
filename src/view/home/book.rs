@@ -17,7 +17,7 @@ const PROGRESS_HEIGHT: f32 = 13.0;
 
 pub struct Book {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     info: Info,
     index: usize,
     second_column: SecondColumn,
@@ -199,11 +199,11 @@ impl View for Book {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

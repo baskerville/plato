@@ -1,28 +1,3 @@
-extern crate rand;
-#[macro_use] extern crate failure;
-#[macro_use] extern crate failure_derive;
-extern crate serde;
-#[macro_use] extern crate serde_derive;
-extern crate serde_json;
-extern crate toml;
-#[macro_use] extern crate lazy_static;
-#[macro_use] extern crate bitflags;
-#[macro_use] extern crate downcast_rs;
-extern crate unicode_normalization;
-extern crate paragraph_breaker;
-extern crate hyphenation;
-extern crate entities;
-extern crate libc;
-extern crate regex;
-extern crate either;
-extern crate chrono;
-extern crate glob;
-extern crate fnv;
-extern crate zip;
-extern crate png;
-extern crate isbn;
-extern crate titlecase;
-
 #[macro_use] mod geom;
 mod unit;
 mod color;

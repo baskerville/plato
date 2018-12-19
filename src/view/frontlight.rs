@@ -24,7 +24,7 @@ const LABEL_GUESS: &str = "Guess";
 
 pub struct FrontlightWindow {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
 }
 
 impl FrontlightWindow {
@@ -69,7 +69,7 @@ impl FrontlightWindow {
                                    Event::Close(ViewId::Frontlight))
                               .corners(Some(CornerSpec::Uniform(border_radius - thickness)));
 
-        children.push(Box::new(close_icon) as Box<View>);
+        children.push(Box::new(close_icon) as Box<dyn View>);
 
         let label = Label::new(rect![rect.min.x + small_height as i32,
                                      rect.min.y + thickness,
@@ -78,7 +78,7 @@ impl FrontlightWindow {
                                "Frontlight".to_string(),
                                Align::Center);
 
-        children.push(Box::new(label) as Box<View>);
+        children.push(Box::new(label) as Box<dyn View>);
 
         let mut button_y = rect.min.y + 2 * small_height as i32;
 
@@ -97,7 +97,7 @@ impl FrontlightWindow {
                                              min_y + small_height as i32],
                                        slider_id.label(),
                                        Align::Right(padding / 2));
-                children.push(Box::new(label) as Box<View>);
+                children.push(Box::new(label) as Box<dyn View>);
 
                 let value = if *slider_id == SliderId::LightIntensity {
                     levels.intensity
@@ -113,7 +113,7 @@ impl FrontlightWindow {
                                          value,
                                          0.0,
                                          100.0);
-                children.push(Box::new(slider) as Box<View>);
+                children.push(Box::new(slider) as Box<dyn View>);
             }
 
             button_y += small_height as i32;
@@ -127,7 +127,7 @@ impl FrontlightWindow {
                                          levels.intensity,
                                          0.0,
                                          100.0);
-                children.push(Box::new(slider) as Box<View>);
+                children.push(Box::new(slider) as Box<dyn View>);
         }
 
         let max_label_width = {
@@ -144,7 +144,7 @@ impl FrontlightWindow {
                                             button_y + small_height as i32],
                                       Event::Save,
                                       LABEL_SAVE.to_string());
-        children.push(Box::new(button_save) as Box<View>);
+        children.push(Box::new(button_save) as Box<dyn View>);
 
         let button_guess = Button::new(rect![rect.max.x - 5 * padding - max_label_width,
                                              button_y + small_height as i32 - button_height,
@@ -152,7 +152,7 @@ impl FrontlightWindow {
                                              button_y + small_height as i32],
                                        Event::Guess,
                                        LABEL_GUESS.to_string()).disabled(presets.len() < 2);
-        children.push(Box::new(button_guess) as Box<View>);
+        children.push(Box::new(button_guess) as Box<dyn View>);
 
         if !presets.is_empty() {
             let presets_rect = rect![rect.min.x + thickness + 4 * padding,
@@ -162,7 +162,7 @@ impl FrontlightWindow {
             let mut presets_list = PresetsList::new(presets_rect);
             let (tx, _rx) = mpsc::channel();
             presets_list.update(&presets, &tx, fonts);
-            children.push(Box::new(presets_list) as Box<View>);
+            children.push(Box::new(presets_list) as Box<dyn View>);
         }
 
         FrontlightWindow {
@@ -191,7 +191,7 @@ impl FrontlightWindow {
                                      self.rect.max.y - thickness - 2 * padding];
             let mut presets_list = PresetsList::new(presets_rect);
             presets_list.update(&context.settings.frontlight_presets, &tx, &mut context.fonts);
-            self.children.push(Box::new(presets_list) as Box<View>);
+            self.children.push(Box::new(presets_list) as Box<dyn View>);
             hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
         } else {
             self.children.pop();
@@ -437,11 +437,11 @@ impl View for FrontlightWindow {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

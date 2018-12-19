@@ -1,5 +1,3 @@
-extern crate libc;
-
 mod harfbuzz_sys;
 mod freetype_sys;
 
@@ -15,7 +13,8 @@ use std::path::Path;
 use std::collections::BTreeSet;
 use std::rc::Rc;
 use fnv::FnvHashMap;
-use failure::Error;
+use bitflags::bitflags;
+use failure::{Error, Fail, format_err};
 use glob::glob;
 use crate::geom::Point;
 use crate::framebuffer::Framebuffer;

@@ -13,7 +13,7 @@ use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 
 pub struct RoundedButton {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     name: String,
     event: Event,
     active: bool,
@@ -90,11 +90,11 @@ impl View for RoundedButton {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

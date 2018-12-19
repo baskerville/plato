@@ -17,7 +17,7 @@ const LABEL_CANCEL: &str = "Cancel";
 
 pub struct Confirmation {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     id: ViewId,
     event: Event,
     will_close: bool,
@@ -56,7 +56,7 @@ impl Confirmation {
 
         let label = Label::new(rect_label, text, Align::Center);
 
-        children.push(Box::new(label) as Box<View>);
+        children.push(Box::new(label) as Box<dyn View>);
 
         let plan_cancel = font.plan(LABEL_CANCEL, Some(max_button_width as u32), None);
         let plan_validate = font.plan(LABEL_VALIDATE, Some(max_button_width as u32), None);
@@ -74,10 +74,10 @@ impl Confirmation {
                                   rect.max.y - padding];
 
         let button_cancel = Button::new(rect_cancel, Event::Cancel, LABEL_CANCEL.to_string()); 
-        children.push(Box::new(button_cancel) as Box<View>);
+        children.push(Box::new(button_cancel) as Box<dyn View>);
 
         let button_validate = Button::new(rect_validate, Event::Validate, LABEL_VALIDATE.to_string()); 
-        children.push(Box::new(button_validate) as Box<View>);
+        children.push(Box::new(button_validate) as Box<dyn View>);
 
         Confirmation {
             rect,
@@ -185,11 +185,11 @@ impl View for Confirmation {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 

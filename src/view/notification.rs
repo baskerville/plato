@@ -16,7 +16,7 @@ const NOTIFICATION_CLOSE_DELAY: Duration = Duration::from_secs(4);
 
 pub struct Notification {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     text: String,
     index: u8,
     id: ViewId,
@@ -135,11 +135,11 @@ impl View for Notification {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 

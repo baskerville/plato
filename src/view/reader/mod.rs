@@ -49,8 +49,8 @@ const LINK_DIST_JITTER: f32 = 24.0;
 
 pub struct Reader {
     rect: Rectangle,
-    children: Vec<Box<View>>,
-    doc: Arc<Mutex<Box<Document>>>,
+    children: Vec<Box<dyn View>>,
+    doc: Arc<Mutex<Box<dyn Document>>>,
     cache: BTreeMap<usize, Resource>,
     chunks: Vec<RenderChunk>,
     focus: Option<ViewId>,
@@ -588,7 +588,7 @@ impl Reader {
                                                           "No next page.".to_string(),
                                                           hub,
                                                           context);
-                            self.children.push(Box::new(notif) as Box<View>);
+                            self.children.push(Box::new(notif) as Box<dyn View>);
                         },
                         FinishedAction::Close => {
                             self.quit(context);
@@ -601,7 +601,7 @@ impl Reader {
                                                   "No previous page.".to_string(),
                                                   hub,
                                                   context);
-                    self.children.push(Box::new(notif) as Box<View>);
+                    self.children.push(Box::new(notif) as Box<dyn View>);
                 },
             }
         }
@@ -917,16 +917,16 @@ impl Reader {
                 let separator = Filler::new(rect![self.rect.min.x, kb_rect.max.y,
                                                   self.rect.max.x, kb_rect.max.y + thickness],
                                             BLACK);
-                self.children.insert(index, Box::new(separator) as Box<View>);
+                self.children.insert(index, Box::new(separator) as Box<dyn View>);
             }
 
             let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone(), number, context);
-            self.children.insert(index, Box::new(keyboard) as Box<View>);
+            self.children.insert(index, Box::new(keyboard) as Box<dyn View>);
 
             let separator = Filler::new(rect![self.rect.min.x, kb_rect.min.y - thickness,
                                               self.rect.max.x, kb_rect.min.y],
                                         BLACK);
-            self.children.insert(index, Box::new(separator) as Box<View>);
+            self.children.insert(index, Box::new(separator) as Box<dyn View>);
 
             if index == 0 {
                 for i in index..index+3 {
@@ -976,10 +976,10 @@ impl Reader {
                                         self.reflowable,
                                         self.info.reader.as_ref(),
                                         &context.settings.reader);
-            self.children.insert(2, Box::new(tool_bar) as Box<View>);
+            self.children.insert(2, Box::new(tool_bar) as Box<dyn View>);
 
             let separator = Filler::new(sp_rect, BLACK);
-            self.children.insert(2, Box::new(separator) as Box<View>);
+            self.children.insert(2, Box::new(separator) as Box<dyn View>);
         }
     }
 
@@ -1012,9 +1012,9 @@ impl Reader {
                 let results_bar = ResultsBar::new(rect, s.current_page,
                                                   s.highlights.len(), s.results_count,
                                                   !s.running.load(AtomicOrdering::Relaxed));
-                self.children.insert(2, Box::new(results_bar) as Box<View>);
+                self.children.insert(2, Box::new(results_bar) as Box<dyn View>);
                 let separator = Filler::new(sp_rect, BLACK);
-                self.children.insert(2, Box::new(separator) as Box<View>);
+                self.children.insert(2, Box::new(separator) as Box<dyn View>);
                 rect.absorb(&sp_rect);
                 hub.send(Event::Render(rect, UpdateMode::Gui)).unwrap();
             }
@@ -1053,7 +1053,7 @@ impl Reader {
                                       self.info.title(),
                                       context);
 
-            self.children.insert(index, Box::new(top_bar) as Box<View>);
+            self.children.insert(index, Box::new(top_bar) as Box<dyn View>);
             index += 1;
 
             let separator = Filler::new(rect![self.rect.min.x,
@@ -1061,7 +1061,7 @@ impl Reader {
                                               self.rect.max.x,
                                               small_height as i32 + big_thickness],
                                         BLACK);
-            self.children.insert(index, Box::new(separator) as Box<View>);
+            self.children.insert(index, Box::new(separator) as Box<dyn View>);
             index += 1;
 
             if let Some(ref s) = self.search {
@@ -1070,7 +1070,7 @@ impl Reader {
                                                   self.rect.max.x,
                                                   self.rect.max.y - 3 * small_height as i32 + big_thickness],
                                             BLACK);
-                self.children.insert(index, Box::new(separator) as Box<View>);
+                self.children.insert(index, Box::new(separator) as Box<dyn View>);
                 index += 1;
 
                 let results_bar = ResultsBar::new(rect![self.rect.min.x,
@@ -1079,7 +1079,7 @@ impl Reader {
                                                         self.rect.max.y - 2 * small_height as i32 - small_thickness],
                                                   s.current_page, s.highlights.len(),
                                                   s.results_count, !s.running.load(AtomicOrdering::Relaxed));
-                self.children.insert(index, Box::new(results_bar) as Box<View>);
+                self.children.insert(index, Box::new(results_bar) as Box<dyn View>);
                 index += 1;
 
                 let separator = Filler::new(rect![self.rect.min.x,
@@ -1087,7 +1087,7 @@ impl Reader {
                                                   self.rect.max.x,
                                                   self.rect.max.y - 2 * small_height as i32 + big_thickness],
                                             BLACK);
-                self.children.insert(index, Box::new(separator) as Box<View>);
+                self.children.insert(index, Box::new(separator) as Box<dyn View>);
                 index += 1;
 
                 let search_bar = SearchBar::new(rect![self.rect.min.x,
@@ -1095,7 +1095,7 @@ impl Reader {
                                                       self.rect.max.x,
                                                       self.rect.max.y - small_height as i32 - small_thickness],
                                                 "", &s.query);
-                self.children.insert(index, Box::new(search_bar) as Box<View>);
+                self.children.insert(index, Box::new(search_bar) as Box<dyn View>);
                 index += 1;
             } else {
                 let tb_height = if self.reflowable { 2 * big_height } else { big_height };
@@ -1104,7 +1104,7 @@ impl Reader {
                                                   self.rect.max.x,
                                                   self.rect.max.y - (small_height + tb_height) as i32 + big_thickness],
                                             BLACK);
-                self.children.insert(index, Box::new(separator) as Box<View>);
+                self.children.insert(index, Box::new(separator) as Box<dyn View>);
                 index += 1;
 
                 let tool_bar = ToolBar::new(rect![self.rect.min.x,
@@ -1114,7 +1114,7 @@ impl Reader {
                                             self.reflowable,
                                             self.info.reader.as_ref(),
                                             &context.settings.reader);
-                self.children.insert(index, Box::new(tool_bar) as Box<View>);
+                self.children.insert(index, Box::new(tool_bar) as Box<dyn View>);
                 index += 1;
             }
 
@@ -1123,7 +1123,7 @@ impl Reader {
                                               self.rect.max.x,
                                               self.rect.max.y - small_height as i32 + big_thickness],
                                         BLACK);
-            self.children.insert(index, Box::new(separator) as Box<View>);
+            self.children.insert(index, Box::new(separator) as Box<dyn View>);
             index += 1;
 
             let neighbors = Neighbors {
@@ -1140,7 +1140,7 @@ impl Reader {
                                             self.pages_count,
                                             &neighbors,
                                             self.synthetic);
-            self.children.insert(index, Box::new(bottom_bar) as Box<View>);
+            self.children.insert(index, Box::new(bottom_bar) as Box<dyn View>);
 
             hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
         }
@@ -1175,7 +1175,7 @@ impl Reader {
             hub.send(Event::Focus(Some(input_id))).unwrap();
 
             self.focus = Some(input_id);
-            self.children.push(Box::new(go_to_page) as Box<View>);
+            self.children.push(Box::new(go_to_page) as Box<dyn View>);
         }
     }
 
@@ -1206,7 +1206,7 @@ impl Reader {
                                             EntryId::OpenMetadata));
             let title_menu = Menu::new(rect, ViewId::TitleMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*title_menu.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(title_menu) as Box<View>);
+            self.children.push(Box::new(title_menu) as Box<dyn View>);
         }
     }
 
@@ -1234,7 +1234,7 @@ impl Reader {
                                                                          *f == current_family)).collect();
             let font_family_menu = Menu::new(rect, ViewId::FontFamilyMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*font_family_menu.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(font_family_menu) as Box<View>);
+            self.children.push(Box::new(font_family_menu) as Box<dyn View>);
         }
     }
 
@@ -1261,7 +1261,7 @@ impl Reader {
             }).collect();
             let font_size_menu = Menu::new(rect, ViewId::FontSizeMenu, MenuKind::Contextual, entries, context);
             hub.send(Event::Render(*font_size_menu.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(font_size_menu) as Box<View>);
+            self.children.push(Box::new(font_size_menu) as Box<dyn View>);
         }
     }
 
@@ -1288,7 +1288,7 @@ impl Reader {
             }).collect();
             let line_height_menu = Menu::new(rect, ViewId::LineHeightMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*line_height_menu.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(line_height_menu) as Box<View>);
+            self.children.push(Box::new(line_height_menu) as Box<dyn View>);
         }
     }
 
@@ -1314,7 +1314,7 @@ impl Reader {
                                                                   mw == margin_width)).collect();
             let margin_width_menu = Menu::new(rect, ViewId::MarginWidthMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*margin_width_menu.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(margin_width_menu) as Box<View>);
+            self.children.push(Box::new(margin_width_menu) as Box<dyn View>);
         }
     }
 
@@ -1338,7 +1338,7 @@ impl Reader {
                                                    self.current_page == first_page)];
             let page_menu = Menu::new(rect, ViewId::PageMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*page_menu.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(page_menu) as Box<View>);
+            self.children.push(Box::new(page_menu) as Box<dyn View>);
         }
     }
 
@@ -1377,7 +1377,7 @@ impl Reader {
 
             let margin_cropper_menu = Menu::new(rect, ViewId::MarginCropperMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*margin_cropper_menu.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(margin_cropper_menu) as Box<View>);
+            self.children.push(Box::new(margin_cropper_menu) as Box<dyn View>);
         }
     }
 
@@ -1408,7 +1408,7 @@ impl Reader {
             };
             let search_menu = Menu::new(rect, ViewId::SearchMenu, kind, entries, context);
             hub.send(Event::Render(*search_menu.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(search_menu) as Box<View>);
+            self.children.push(Box::new(search_menu) as Box<dyn View>);
         }
     }
 
@@ -1445,10 +1445,10 @@ impl Reader {
                              self.rect.max.x,
                              y_min + small_height as i32 - thickness];
             let search_bar = SearchBar::new(rect, "", "");
-            self.children.insert(2, Box::new(search_bar) as Box<View>);
+            self.children.insert(2, Box::new(search_bar) as Box<dyn View>);
 
             let separator = Filler::new(sp_rect, BLACK);
-            self.children.insert(2, Box::new(separator) as Box<View>);
+            self.children.insert(2, Box::new(separator) as Box<dyn View>);
 
             hub.send(Event::Render(*self.child(2).rect(), UpdateMode::Gui)).unwrap();
             hub.send(Event::Render(*self.child(3).rect(), UpdateMode::Gui)).unwrap();
@@ -1487,7 +1487,7 @@ impl Reader {
 
             let margin_cropper = MarginCropper::new(self.rect, pixmap, &margin, context);
             hub.send(Event::Render(*margin_cropper.rect(), UpdateMode::Gui)).unwrap();
-            self.children.push(Box::new(margin_cropper) as Box<View>);
+            self.children.push(Box::new(margin_cropper) as Box<dyn View>);
         }
     }
 
@@ -1945,7 +1945,7 @@ impl View for Reader {
                                                       "Invalid search query.".to_string(),
                                                       hub,
                                                       context);
-                        self.children.push(Box::new(notif) as Box<View>);
+                        self.children.push(Box::new(notif) as Box<dyn View>);
                     }
                 }
                 true
@@ -2106,7 +2106,7 @@ impl View for Reader {
                                                   "No search results.".to_string(),
                                                   hub,
                                                   context);
-                    self.children.push(Box::new(notif) as Box<View>);
+                    self.children.push(Box::new(notif) as Box<dyn View>);
                     self.toggle_bars(Some(true), hub, context);
                     hub.send(Event::Focus(Some(ViewId::SearchInput))).unwrap();
                 }
@@ -2352,11 +2352,11 @@ impl View for Reader {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

@@ -1,28 +1,3 @@
-extern crate rand;
-#[macro_use] extern crate failure;
-extern crate serde;
-#[macro_use] extern crate serde_derive;
-extern crate serde_json;
-extern crate toml;
-#[macro_use] extern crate lazy_static;
-#[macro_use] extern crate bitflags;
-#[macro_use] extern crate downcast_rs;
-extern crate unicode_normalization;
-extern crate paragraph_breaker;
-extern crate hyphenation;
-extern crate entities;
-extern crate libc;
-extern crate regex;
-extern crate either;
-extern crate chrono;
-extern crate zip;
-extern crate glob;
-extern crate sdl2;
-extern crate fnv;
-extern crate png;
-extern crate isbn;
-extern crate titlecase;
-
 #[macro_use] mod geom;
 mod unit;
 mod color;
@@ -52,6 +27,7 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use failure::{Error, ResultExt};
+use serde_derive::{Serialize, Deserialize};
 use fnv::FnvHashMap;
 use chrono::Local;
 use png::HasParameters;
@@ -93,9 +69,9 @@ pub fn build_context(fb: &Framebuffer) -> Result<Context, Error> {
     let settings = load_toml::<Settings, _>(SETTINGS_PATH)?;
     let path = settings.library_path.join(METADATA_FILENAME);
     let metadata = load_json::<Metadata, _>(path)?;
-    let battery = Box::new(FakeBattery::new()) as Box<Battery>;
-    let frontlight = Box::new(LightLevels::default()) as Box<Frontlight>;
-    let lightsensor = Box::new(0u16) as Box<LightSensor>;
+    let battery = Box::new(FakeBattery::new()) as Box<dyn Battery>;
+    let frontlight = Box::new(LightLevels::default()) as Box<dyn Frontlight>;
+    let lightsensor = Box::new(0u16) as Box<dyn LightSensor>;
     let fonts = Fonts::load()?;
     Ok(Context::new(fb, settings, metadata, PathBuf::from(METADATA_FILENAME),
                     fonts, battery, frontlight, lightsensor))
@@ -232,8 +208,8 @@ pub fn run() -> Result<(), Error> {
         }
     });
 
-    let mut history: Vec<Box<View>> = Vec::new();
-    let mut view: Box<View> = Box::new(Home::new(fb.rect(), &tx, &mut context)?);
+    let mut history: Vec<Box<dyn View>> = Vec::new();
+    let mut view: Box<dyn View> = Box::new(Home::new(fb.rect(), &tx, &mut context)?);
 
     let mut updating = FnvHashMap::default();
 
@@ -336,9 +312,9 @@ pub fn run() -> Result<(), Error> {
                     }
                     let info2 = info.clone();
                     if let Some(r) = Reader::new(fb.rect(), *info, &tx, &mut context) {
-                        let mut next_view = Box::new(r) as Box<View>;
+                        let mut next_view = Box::new(r) as Box<dyn View>;
                         transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
-                        history.push(view as Box<View>);
+                        history.push(view as Box<dyn View>);
                         view = next_view;
                     } else {
                         handle_event(view.as_mut(), &Event::Invalid(info2), &tx, &mut bus, &mut context);
@@ -346,9 +322,9 @@ pub fn run() -> Result<(), Error> {
                 },
                 Event::OpenToc(ref toc, current_page, next_page) => {
                     let r = Reader::from_toc(fb.rect(), toc, current_page, next_page, &tx, &mut context);
-                    let mut next_view = Box::new(r) as Box<View>;
+                    let mut next_view = Box::new(r) as Box<dyn View>;
                     transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
-                    history.push(view as Box<View>);
+                    history.push(view as Box<dyn View>);
                     view = next_view;
                 },
                 Event::Back => {
@@ -376,7 +352,7 @@ pub fn run() -> Result<(), Error> {
                                                                             EntryId::RemovePreset(index))],
                                                     &mut context);
                         tx.send(Event::Render(*preset_menu.rect(), UpdateMode::Gui)).unwrap();
-                        view.children_mut().push(Box::new(preset_menu) as Box<View>);
+                        view.children_mut().push(Box::new(preset_menu) as Box<dyn View>);
                     }
                 },
                 Event::Show(ViewId::Frontlight) => {
@@ -385,7 +361,7 @@ pub fn run() -> Result<(), Error> {
                     }
                     let flw = FrontlightWindow::new(&mut context);
                     tx.send(Event::Render(*flw.rect(), UpdateMode::Gui)).unwrap();
-                    view.children_mut().push(Box::new(flw) as Box<View>);
+                    view.children_mut().push(Box::new(flw) as Box<dyn View>);
                 },
                 Event::Close(ViewId::Frontlight) => {
                     if let Some(index) = locate::<FrontlightWindow>(view.as_ref()) {
@@ -430,7 +406,7 @@ pub fn run() -> Result<(), Error> {
                     };
                     let notif = Notification::new(ViewId::TakeScreenshotNotif,
                                                   msg, &tx, &mut context);
-                    view.children_mut().push(Box::new(notif) as Box<View>);
+                    view.children_mut().push(Box::new(notif) as Box<dyn View>);
                 },
                 Event::Select(EntryId::Quit) => {
                     break 'outer;

@@ -43,7 +43,7 @@ use std::sync::mpsc::Sender;
 use std::collections::VecDeque;
 use std::fmt::{self, Debug};
 use fnv::FnvHashMap;
-use downcast_rs::Downcast;
+use downcast_rs::{Downcast, impl_downcast};
 use crate::font::Fonts;
 use crate::document::TocEntry;
 use crate::settings::SecondColumn;
@@ -74,8 +74,8 @@ pub trait View: Downcast {
     fn render(&self, fb: &mut Framebuffer, fonts: &mut Fonts);
     fn rect(&self) -> &Rectangle;
     fn rect_mut(&mut self) -> &mut Rectangle;
-    fn children(&self) -> &Vec<Box<View>>;
-    fn children_mut(&mut self) -> &mut Vec<Box<View>>;
+    fn children(&self) -> &Vec<Box<dyn View>>;
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>>;
 
     fn resize(&mut self, rect: Rectangle, _hub: &Hub, _context: &mut Context) {
         *self.rect_mut() = rect;
@@ -108,9 +108,9 @@ pub trait View: Downcast {
 
 impl_downcast!(View);
 
-impl Debug for Box<View> {
+impl Debug for Box<dyn View> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Box<View>")
+        write!(f, "Box<dyn View>")
     }
 }
 

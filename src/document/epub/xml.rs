@@ -1,6 +1,7 @@
 use std::char;
 use std::borrow::Cow;
 use fnv::FnvHashMap;
+use lazy_static::lazy_static;
 use entities::ENTITIES;
 use super::dom::{Node, Attributes, text, element, whitespace};
 

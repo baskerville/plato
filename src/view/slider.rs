@@ -14,7 +14,7 @@ const BUTTON_DIAMETER: f32 = 46.0;
 
 pub struct Slider {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     id: SliderId,
     value: f32,
     min_value: f32,
@@ -152,11 +152,11 @@ impl View for Slider {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

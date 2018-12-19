@@ -10,7 +10,7 @@ use crate::device::CURRENT_DEVICE;
 // TODO: use a regular label; active state
 pub struct SortLabel {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     text: String,
 }
 
@@ -63,11 +63,11 @@ impl View for SortLabel {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

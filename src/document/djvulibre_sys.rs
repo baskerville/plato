@@ -1,7 +1,5 @@
 #![allow(unused)]
 
-extern crate libc;
-
 use std::mem;
 
 pub const DDJVU_JOB_OK: JobStatus = 2;

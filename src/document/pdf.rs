@@ -1,5 +1,3 @@
-extern crate libc;
-
 use super::mupdf_sys::*;
 
 use std::ptr;

@@ -9,7 +9,7 @@ use crate::app::Context;
 #[derive(Debug)]
 pub struct LabeledIcon {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     event: Event,
 }
 
@@ -22,14 +22,14 @@ impl LabeledIcon {
                              rect![rect.min.x, rect.min.y,
                                    rect.min.x + side, rect.max.y],
                              Event::Validate);
-        children.push(Box::new(icon) as Box<View>);
+        children.push(Box::new(icon) as Box<dyn View>);
 
         let label = Label::new(rect![rect.min.x + side, rect.min.y,
                                      rect.max.x, rect.max.y],
                                text,
                                Align::Left(0))
                           .event(Some(Event::Validate));
-        children.push(Box::new(label) as Box<View>);
+        children.push(Box::new(label) as Box<dyn View>);
 
         LabeledIcon {
             rect,
@@ -82,11 +82,11 @@ impl View for LabeledIcon {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

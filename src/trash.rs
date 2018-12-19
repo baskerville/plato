@@ -1,10 +1,9 @@
-extern crate crockford;
-
 use std::fs;
 use std::path::PathBuf;
 use std::collections::VecDeque;
-use failure::Error;
+use failure::{Error, format_err};
 use rand::{Rng, thread_rng};
+use serde_derive::{Serialize, Deserialize};
 use crate::metadata::TRASH_NAME;
 use fnv::FnvHashSet;
 use crate::helpers::{load_json, save_json};

@@ -11,7 +11,7 @@ use crate::unit::scale_by_dpi;
 
 pub struct InputField {
     pub rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     id: ViewId,
     text: String,
     partial: String,
@@ -297,11 +297,11 @@ impl View for InputField {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

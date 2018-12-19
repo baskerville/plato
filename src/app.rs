@@ -45,9 +45,9 @@ pub struct Context {
     pub metadata: Metadata,
     pub filename: PathBuf,
     pub fonts: Fonts,
-    pub frontlight: Box<Frontlight>,
-    pub battery: Box<Battery>,
-    pub lightsensor: Box<LightSensor>,
+    pub frontlight: Box<dyn Frontlight>,
+    pub battery: Box<dyn Battery>,
+    pub lightsensor: Box<dyn LightSensor>,
     pub notification_index: u8,
     pub inverted: bool,
     pub monochrome: bool,
@@ -58,8 +58,8 @@ pub struct Context {
 
 impl Context {
     pub fn new(fb: &Framebuffer, settings: Settings, metadata: Metadata,
-               filename: PathBuf, fonts: Fonts, battery: Box<Battery>,
-               frontlight: Box<Frontlight>, lightsensor: Box<LightSensor>) -> Context {
+               filename: PathBuf, fonts: Fonts, battery: Box<dyn Battery>,
+               frontlight: Box<dyn Frontlight>, lightsensor: Box<dyn LightSensor>) -> Context {
         let dims = fb.dims();
         let rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
         Context { display: Display { dims, rotation },
@@ -89,7 +89,7 @@ enum TaskId {
 }
 
 struct HistoryItem {
-    view: Box<View>,
+    view: Box<dyn View>,
     rotation: i8,
 }
 
@@ -124,21 +124,21 @@ fn build_context(fb: &Framebuffer) -> Result<Context, Error> {
 
     let fonts = Fonts::load().context("Can't load fonts.")?;
 
-    let battery = Box::new(KoboBattery::new().context("Can't create battery.")?) as Box<Battery>;
+    let battery = Box::new(KoboBattery::new().context("Can't create battery.")?) as Box<dyn Battery>;
 
     let lightsensor = if CURRENT_DEVICE.has_lightsensor() {
-        Box::new(KoboLightSensor::new().context("Can't create light sensor.")?) as Box<LightSensor>
+        Box::new(KoboLightSensor::new().context("Can't create light sensor.")?) as Box<dyn LightSensor>
     } else {
-        Box::new(0u16) as Box<LightSensor>
+        Box::new(0u16) as Box<dyn LightSensor>
     };
 
     let levels = settings.frontlight_levels;
     let frontlight = if CURRENT_DEVICE.has_natural_light() {
         Box::new(NaturalFrontlight::new(levels.intensity, levels.warmth)
-                                   .context("Can't create natural frontlight.")?) as Box<Frontlight>
+                                   .context("Can't create natural frontlight.")?) as Box<dyn Frontlight>
     } else {
         Box::new(StandardFrontlight::new(levels.intensity)
-                                    .context("Can't create standard frontlight.")?) as Box<Frontlight>
+                                    .context("Can't create standard frontlight.")?) as Box<dyn Frontlight>
     };
 
     Ok(Context::new(fb, settings, metadata, PathBuf::from(METADATA_FILENAME),
@@ -262,7 +262,7 @@ pub fn run() -> Result<(), Error> {
 
     let mut tasks: Vec<Task> = Vec::new();
     let mut history: Vec<HistoryItem> = Vec::new();
-    let mut view: Box<View> = Box::new(Home::new(fb.rect(), &tx, &mut context)?);
+    let mut view: Box<dyn View> = Box::new(Home::new(fb.rect(), &tx, &mut context)?);
 
     let mut updating = FnvHashMap::default();
 
@@ -294,7 +294,7 @@ pub fn run() -> Result<(), Error> {
                             tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
                             schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
                                           PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
-                            view.children_mut().push(Box::new(interm) as Box<View>);
+                            view.children_mut().push(Box::new(interm) as Box<dyn View>);
                         }
                     },
                     DeviceEvent::Button { code: ButtonCode::Light, status: ButtonStatus::Pressed, .. } => {
@@ -312,7 +312,7 @@ pub fn run() -> Result<(), Error> {
                         tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
                         schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
                                       PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
-                        view.children_mut().push(Box::new(interm) as Box<View>);
+                        view.children_mut().push(Box::new(interm) as Box<dyn View>);
                     },
                     DeviceEvent::CoverOff => {
                         context.covered = false;
@@ -341,7 +341,7 @@ pub fn run() -> Result<(), Error> {
                         let notif = Notification::new(ViewId::NetUpNotif,
                                                       format!("Network is up ({}, {}).", ip, essid),
                                                       &tx, &mut context);
-                        view.children_mut().push(Box::new(notif) as Box<View>);
+                        view.children_mut().push(Box::new(notif) as Box<dyn View>);
                     },
                     DeviceEvent::Plug(power_source) => {
                         if context.plugged {
@@ -377,7 +377,7 @@ pub fn run() -> Result<(), Error> {
                                                                 "Share storage via USB?".to_string(),
                                                                 &mut context);
                                 tx.send(Event::Render(*confirm.rect(), UpdateMode::Gui)).unwrap();
-                                view.children_mut().push(Box::new(confirm) as Box<View>);
+                                view.children_mut().push(Box::new(confirm) as Box<dyn View>);
                             },
                         }
 
@@ -466,7 +466,7 @@ pub fn run() -> Result<(), Error> {
                         let notif = Notification::new(ViewId::LowBatteryNotif,
                                                       "The battery capacity is getting low.".to_string(),
                                                       &tx, &mut context);
-                        view.children_mut().push(Box::new(notif) as Box<View>);
+                        view.children_mut().push(Box::new(notif) as Box<dyn View>);
                     }
                 }
             },
@@ -535,7 +535,7 @@ pub fn run() -> Result<(), Error> {
                 }
                 let interm = Intermission::new(fb.rect(), IntermKind::Share, &context);
                 tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
-                view.children_mut().push(Box::new(interm) as Box<View>);
+                view.children_mut().push(Box::new(interm) as Box<dyn View>);
                 tx.send(Event::Share).unwrap();
             },
             Event::Share => {
@@ -602,7 +602,7 @@ pub fn run() -> Result<(), Error> {
                 }
                 let info2 = info.clone();
                 if let Some(r) = Reader::new(fb.rect(), *info, &tx, &mut context) {
-                    let mut next_view = Box::new(r) as Box<View>;
+                    let mut next_view = Box::new(r) as Box<dyn View>;
                     transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
                     history.push(HistoryItem { view, rotation });
                     view = next_view;
@@ -612,7 +612,7 @@ pub fn run() -> Result<(), Error> {
             },
             Event::OpenToc(ref toc, current_page, next_page) => {
                 let r = Reader::from_toc(fb.rect(), toc, current_page, next_page, &tx, &mut context);
-                let mut next_view = Box::new(r) as Box<View>;
+                let mut next_view = Box::new(r) as Box<dyn View>;
                 transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
                 history.push(HistoryItem { view, rotation: context.display.rotation });
                 view = next_view;
@@ -642,7 +642,7 @@ pub fn run() -> Result<(), Error> {
                                                                         EntryId::RemovePreset(index))],
                                                 &mut context);
                     tx.send(Event::Render(*preset_menu.rect(), UpdateMode::Gui)).unwrap();
-                    view.children_mut().push(Box::new(preset_menu) as Box<View>);
+                    view.children_mut().push(Box::new(preset_menu) as Box<dyn View>);
                 }
             },
             Event::Show(ViewId::Frontlight) => {
@@ -651,7 +651,7 @@ pub fn run() -> Result<(), Error> {
                 }
                 let flw = FrontlightWindow::new(&mut context);
                 tx.send(Event::Render(*flw.rect(), UpdateMode::Gui)).unwrap();
-                view.children_mut().push(Box::new(flw) as Box<View>);
+                view.children_mut().push(Box::new(flw) as Box<dyn View>);
             },
             Event::Close(ViewId::Frontlight) => {
                 if let Some(index) = locate::<FrontlightWindow>(view.as_ref()) {
@@ -719,7 +719,7 @@ pub fn run() -> Result<(), Error> {
                 };
                 let notif = Notification::new(ViewId::TakeScreenshotNotif,
                                               msg, &tx, &mut context);
-                view.children_mut().push(Box::new(notif) as Box<View>);
+                view.children_mut().push(Box::new(notif) as Box<dyn View>);
             },
             Event::Select(EntryId::Reboot) | Event::Select(EntryId::Quit) => {
                 break;

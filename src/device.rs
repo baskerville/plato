@@ -1,8 +1,7 @@
-extern crate libc;
-
 use std::env;
 use std::fmt;
 use std::collections::HashMap;
+use lazy_static::lazy_static;
 use crate::unit::scale_by_dpi;
 use crate::input::TouchProto;
 

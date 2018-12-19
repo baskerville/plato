@@ -1,6 +1,3 @@
-extern crate serde_json;
-extern crate toml;
-
 use std::path::{Path, PathBuf, Component};
 use std::fs::{self, File};
 use std::cmp::Ordering;

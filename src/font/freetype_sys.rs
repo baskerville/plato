@@ -1,7 +1,5 @@
 #![allow(unused)]
 
-extern crate libc;
-
 use std::mem;
 
 pub const FT_ERR_OK: FtError = 0;

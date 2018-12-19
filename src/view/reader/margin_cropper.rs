@@ -15,7 +15,7 @@ pub const BUTTON_DIAMETER: f32 = 30.0;
 
 pub struct MarginCropper {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     pixmap: Pixmap,
     frame: Rectangle,
 }
@@ -46,7 +46,7 @@ impl MarginCropper {
                                                       rect.min.x + padding + big_button_diameter,
                                                       rect.max.y - padding],
                                                 Event::Cancel);
-        children.push(Box::new(cancel_button) as Box<View>);
+        children.push(Box::new(cancel_button) as Box<dyn View>);
 
         let validate_button = RoundedButton::new("check_mark-large",
                                                  rect![rect.max.x - padding - big_button_diameter,
@@ -54,7 +54,7 @@ impl MarginCropper {
                                                        rect.max.x - padding,
                                                        rect.max.y - padding],
                                                  Event::Validate);
-        children.push(Box::new(validate_button) as Box<View>);
+        children.push(Box::new(validate_button) as Box<dyn View>);
 
         MarginCropper {
             rect,
@@ -218,11 +218,11 @@ impl View for MarginCropper {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

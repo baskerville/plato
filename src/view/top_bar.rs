@@ -13,7 +13,7 @@ use crate::app::Context;
 #[derive(Debug)]
 pub struct TopBar {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
 }
 
 impl TopBar {
@@ -30,7 +30,7 @@ impl TopBar {
         let root_icon = Icon::new(icon_name,
                                   rect![rect.min, rect.min+side],
                                   root_event);
-        children.push(Box::new(root_icon) as Box<View>);
+        children.push(Box::new(root_icon) as Box<dyn View>);
 
         let mut clock_rect = rect![rect.max - pt!(4*side, side),
                                    rect.max - pt!(3*side, 0)];
@@ -39,8 +39,8 @@ impl TopBar {
                                clock_rect.min.x, rect.max.y];
         let title_label = Label::new(title_rect, title, Align::Center)
                                 .event(Some(Event::ToggleNear(ViewId::TitleMenu, title_rect)));
-        children.push(Box::new(title_label) as Box<View>);
-        children.push(Box::new(clock_label) as Box<View>);
+        children.push(Box::new(title_label) as Box<dyn View>);
+        children.push(Box::new(clock_label) as Box<dyn View>);
 
         let capacity = context.battery.capacity().unwrap_or(0.0);
         let status = context.battery.status().unwrap_or(crate::battery::Status::Discharging);
@@ -48,20 +48,20 @@ impl TopBar {
                                                 rect.max - pt!(2*side, 0)],
                                           capacity,
                                           status);
-        children.push(Box::new(battery_widget) as Box<View>);
+        children.push(Box::new(battery_widget) as Box<dyn View>);
 
         let name = if context.settings.frontlight { "frontlight" } else { "frontlight-disabled" };
         let frontlight_icon = Icon::new(name,
                                         rect![rect.max - pt!(2*side, side),
                                               rect.max - pt!(side, 0)],
                                         Event::Show(ViewId::Frontlight));
-        children.push(Box::new(frontlight_icon) as Box<View>);
+        children.push(Box::new(frontlight_icon) as Box<dyn View>);
 
         let menu_rect = rect![rect.max-side, rect.max];
         let menu_icon = Icon::new("menu",
                                   menu_rect,
                                   Event::ToggleNear(ViewId::MainMenu, menu_rect));
-        children.push(Box::new(menu_icon) as Box<View>);
+        children.push(Box::new(menu_icon) as Box<dyn View>);
 
         TopBar {
             rect,
@@ -133,11 +133,11 @@ impl View for TopBar {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

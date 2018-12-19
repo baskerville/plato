@@ -1,5 +1,6 @@
 use std::f32;
 use chrono::{Local, Timelike};
+use serde::{Serialize, Deserialize};
 use crate::frontlight::LightLevels;
 use crate::geom::circular_distances;
 

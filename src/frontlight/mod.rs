@@ -1,6 +1,7 @@
 mod standard;
 mod natural;
 
+use serde_derive::{Serialize, Deserialize};
 pub use self::standard::StandardFrontlight;
 pub use self::natural::NaturalFrontlight;
 use crate::geom::lerp;

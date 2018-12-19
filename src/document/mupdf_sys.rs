@@ -1,7 +1,5 @@
 #![allow(unused)]
 
-extern crate libc;
-
 use std::mem;
 
 pub const FZ_MAX_COLORS: usize = 32;

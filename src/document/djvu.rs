@@ -1,5 +1,3 @@
-extern crate libc;
-
 use super::djvulibre_sys::*;
 
 use std::ptr;

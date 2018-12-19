@@ -14,7 +14,7 @@ use crate::app::Context;
 
 pub struct Shelf {
     pub rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     pub max_lines: usize,
     second_column: SecondColumn,
 }
@@ -49,12 +49,12 @@ impl Shelf {
                                  info.clone(),
                                  index,
                                  self.second_column);
-            self.children.push(Box::new(book) as Box<View>);
+            self.children.push(Box::new(book) as Box<dyn View>);
             if index < max_lines - 1 {
                 let separator = Filler::new(rect![self.rect.min.x, y_max,
                                                   self.rect.max.x, y_max + thickness],
                                             SEPARATOR_NORMAL);
-                self.children.push(Box::new(separator) as Box<View>);
+                self.children.push(Box::new(separator) as Box<dyn View>);
             }
         }
 
@@ -63,7 +63,7 @@ impl Shelf {
             let filler = Filler::new(rect![self.rect.min.x, y_min,
                                            self.rect.max.x, self.rect.max.y],
                                      WHITE);
-            self.children.push(Box::new(filler) as Box<View>);
+            self.children.push(Box::new(filler) as Box<dyn View>);
         }
 
         self.max_lines = max_lines;
@@ -105,11 +105,11 @@ impl View for Shelf {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

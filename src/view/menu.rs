@@ -15,7 +15,7 @@ use crate::app::Context;
 
 pub struct Menu {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     id: ViewId,
     kind: MenuKind,
     center: Point,
@@ -138,7 +138,7 @@ impl Menu {
                 let rect = rect![x_min + border_thickness, y_pos - small_half(thickness),
                                  x_max - border_thickness, y_pos + big_half(thickness)];
                 let separator = Filler::new(rect, SEPARATOR_NORMAL);
-                children.push(Box::new(separator) as Box<View>);
+                children.push(Box::new(separator) as Box<dyn View>);
             } else {
                 let (y_min, y_max) = if dir.is_positive() {
                     (y_pos, y_pos + entry_height)
@@ -187,7 +187,7 @@ impl Menu {
 
                 let menu_entry = MenuEntry::new(rect, entries[i].clone(), anchor, corner_spec);
 
-                children.push(Box::new(menu_entry) as Box<View>);
+                children.push(Box::new(menu_entry) as Box<dyn View>);
 
                 y_pos += dir * entry_height;
             }
@@ -266,7 +266,7 @@ impl View for Menu {
                 let menu = Menu::new(rect, ViewId::SubMenu(self.sub_id),
                                      MenuKind::SubMenu, entries.clone(), context).root(false);
                 hub.send(Event::Render(*menu.rect(), UpdateMode::Gui)).unwrap();
-                self.children.push(Box::new(menu) as Box<View>);
+                self.children.push(Box::new(menu) as Box<dyn View>);
                 self.sub_id = self.sub_id.wrapping_add(1);
                 true
             },
@@ -357,11 +357,11 @@ impl View for Menu {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 

@@ -1,5 +1,3 @@
-extern crate libc;
-
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::os::unix::io::AsRawFd;

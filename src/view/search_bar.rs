@@ -15,7 +15,7 @@ use crate::font::Fonts;
 #[derive(Debug)]
 pub struct SearchBar {
     pub rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
 }
 
 impl SearchBar {
@@ -30,13 +30,13 @@ impl SearchBar {
                                     Event::Focus(Some(ViewId::SearchInput)))
                                .background(TEXT_BUMP_SMALL[0]);
 
-        children.push(Box::new(search_icon) as Box<View>);
+        children.push(Box::new(search_icon) as Box<dyn View>);
         
         let separator = Filler::new(rect![pt!(rect.min.x + side, rect.min.y),
                                           pt!(rect.min.x + side + thickness, rect.max.y)],
                                     SEPARATOR_NORMAL);
 
-        children.push(Box::new(separator) as Box<View>);
+        children.push(Box::new(separator) as Box<dyn View>);
 
         let input_field = InputField::new(rect![pt!(rect.min.x + side + thickness, rect.min.y),
                                                 pt!(rect.max.x - side - thickness, rect.max.y)],
@@ -45,13 +45,13 @@ impl SearchBar {
                                      .text(text)
                                      .placeholder(placeholder);
 
-        children.push(Box::new(input_field) as Box<View>);
+        children.push(Box::new(input_field) as Box<dyn View>);
 
         let separator = Filler::new(rect![pt!(rect.max.x - side - thickness, rect.min.y),
                                           pt!(rect.max.x - side, rect.max.y)],
                                     SEPARATOR_NORMAL);
 
-        children.push(Box::new(separator) as Box<View>);
+        children.push(Box::new(separator) as Box<dyn View>);
 
         let close_icon = Icon::new("close",
                                    rect![pt!(rect.max.x - side, rect.min.y),
@@ -59,7 +59,7 @@ impl SearchBar {
                                    Event::Close(ViewId::SearchBar))
                               .background(TEXT_BUMP_SMALL[0]);
 
-        children.push(Box::new(close_icon) as Box<View>);
+        children.push(Box::new(close_icon) as Box<dyn View>);
 
         SearchBar {
             rect,
@@ -106,11 +106,11 @@ impl View for SearchBar {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

@@ -1,5 +1,6 @@
 use std::path::Path;
 use fnv::FnvHashMap;
+use lazy_static::lazy_static;
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, Pixmap, UpdateMode};
 use super::{View, Event, Hub, Bus, ViewId, Align};
@@ -38,7 +39,7 @@ lazy_static! {
 
 pub struct Icon {
     pub rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     pub name: String,
     background: u8,
     align: Align,
@@ -164,11 +165,11 @@ impl View for Icon {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

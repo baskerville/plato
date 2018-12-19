@@ -19,7 +19,7 @@ use crate::app::Context;
 #[derive(Debug)]
 pub struct ToolBar {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     reflowable: bool,
 }
 
@@ -51,7 +51,7 @@ impl ToolBar {
                                                      x_offset + side + margin_label_width, rect.min.y + side],
                                                Event::Show(ViewId::MarginWidthMenu),
                                                format!("{} mm", margin_width));
-            children.push(Box::new(margin_icon) as Box<View>);
+            children.push(Box::new(margin_icon) as Box<dyn View>);
             x_offset += side + margin_label_width;
 
             let font_family = reader_info.and_then(|r| r.font_family.clone())
@@ -61,7 +61,7 @@ impl ToolBar {
                                                           x_offset + side + font_family_label_width, rect.min.y + side],
                                                     Event::Show(ViewId::FontFamilyMenu),
                                                     font_family);
-            children.push(Box::new(font_family_icon) as Box<View>);
+            children.push(Box::new(font_family_icon) as Box<dyn View>);
             x_offset += side + font_family_label_width;
 
             let line_height = reader_info.and_then(|r| r.line_height)
@@ -71,13 +71,13 @@ impl ToolBar {
                                                           x_offset + side + line_height_label_width, rect.min.y + side],
                                                     Event::Show(ViewId::LineHeightMenu),
                                                     format!("{:.1} em", line_height));
-            children.push(Box::new(line_height_icon) as Box<View>);
+            children.push(Box::new(line_height_icon) as Box<dyn View>);
 
             // Separator.
             let separator = Filler::new(rect![rect.min.x, rect.min.y + side,
                                               rect.max.x, rect.max.y - side],
                                         SEPARATOR_NORMAL);
-            children.push(Box::new(separator) as Box<View>);
+            children.push(Box::new(separator) as Box<dyn View>);
 
             // Start of second row.
             let font_size = reader_info.and_then(|r| r.font_size)
@@ -87,7 +87,7 @@ impl ToolBar {
             let font_size_icon = Icon::new("font_size",
                                            font_size_rect,
                                            Event::ToggleNear(ViewId::FontSizeMenu, font_size_rect));
-            children.push(Box::new(font_size_icon) as Box<View>);
+            children.push(Box::new(font_size_icon) as Box<dyn View>);
 
             let slider = Slider::new(rect![rect.min.x + side, rect.max.y - side,
                                            rect.max.x - 2 * side, rect.max.y],
@@ -95,14 +95,14 @@ impl ToolBar {
                                      font_size,
                                      reader_settings.font_size / 2.0,
                                      3.0 * reader_settings.font_size / 2.0);
-            children.push(Box::new(slider) as Box<View>);
+            children.push(Box::new(slider) as Box<dyn View>);
         } else {
             // Alternate start of second row.
             let crop_icon = Icon::new("crop",
                                       rect![rect.min.x, rect.max.y - side,
                                             rect.min.x + side, rect.max.y],
                                       Event::Show(ViewId::MarginCropper));
-            children.push(Box::new(crop_icon) as Box<View>);
+            children.push(Box::new(crop_icon) as Box<dyn View>);
 
             let remaining_width = rect.width() as i32 - 3 * side;
             let margin_label_width = (2 * side).min(remaining_width);
@@ -114,7 +114,7 @@ impl ToolBar {
                                            rect.min.x + side + small_padding,
                                            rect.max.y],
                                      WHITE);
-            children.push(Box::new(filler) as Box<View>);
+            children.push(Box::new(filler) as Box<dyn View>);
 
             let margin_width = reader_info.and_then(|r| r.screen_margin_width)
                                           .unwrap_or(0);
@@ -125,14 +125,14 @@ impl ToolBar {
                                                      rect.max.y],
                                                Event::Show(ViewId::MarginWidthMenu),
                                                format!("{} mm", margin_width));
-            children.push(Box::new(margin_icon) as Box<View>);
+            children.push(Box::new(margin_icon) as Box<dyn View>);
 
             let filler = Filler::new(rect![rect.max.x - 2 * side - big_padding,
                                            rect.max.y - side,
                                            rect.max.x - 2 * side,
                                            rect.max.y],
                                      WHITE);
-            children.push(Box::new(filler) as Box<View>);
+            children.push(Box::new(filler) as Box<dyn View>);
 
         }
 
@@ -142,13 +142,13 @@ impl ToolBar {
                                     rect![rect.max.x - 2 * side, rect.max.y - side,
                                           rect.max.x - side, rect.max.y],
                                     Event::Show(ViewId::SearchBar));
-        children.push(Box::new(search_icon) as Box<View>);
+        children.push(Box::new(search_icon) as Box<dyn View>);
 
         let toc_icon = Icon::new("toc",
                                  rect![rect.max.x - side, rect.max.y - side,
                                        rect.max.x, rect.max.y],
                                  Event::Show(ViewId::TableOfContents));
-        children.push(Box::new(toc_icon) as Box<View>);
+        children.push(Box::new(toc_icon) as Box<dyn View>);
 
         ToolBar {
             rect,
@@ -307,11 +307,11 @@ impl View for ToolBar {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

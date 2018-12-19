@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use fnv::FnvHashMap;
+use lazy_static::lazy_static;
 use crate::geom::{Point, Rectangle, Edge};
 use crate::font::{FontFamily, Font, RenderPlan};
 use super::dom::Node;

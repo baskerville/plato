@@ -19,7 +19,7 @@ const EDGE_WIDTH: f32 = 2.0;
 
 pub struct Battery {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     status: Status,
     capacity: f32,
 }
@@ -125,11 +125,11 @@ impl View for Battery {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

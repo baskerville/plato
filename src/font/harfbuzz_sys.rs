@@ -1,7 +1,5 @@
 #![allow(unused)]
 
-extern crate libc;
-
 use std::mem;
 use super::freetype_sys::FtFace;
 

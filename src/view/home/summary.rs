@@ -16,7 +16,7 @@ use crate::geom::{Rectangle, Dir, CycleDir, divide, small_half, big_half};
 #[derive(Debug)]
 pub struct Summary {
     pub rect: Rectangle,
-    pages: Vec<Vec<Box<View>>>,
+    pages: Vec<Vec<Box<dyn View>>>,
     current_page: usize,
 }
 
@@ -255,7 +255,7 @@ impl Summary {
         page
     }
 
-    fn make_children(&self, page: &Page, layout: &Layout, visible_categories: &BTreeSet<String>, selected_categories: &BTreeSet<String>, negated_categories: &BTreeSet<String>) -> Vec<Box<View>> {
+    fn make_children(&self, page: &Page, layout: &Layout, visible_categories: &BTreeSet<String>, selected_categories: &BTreeSet<String>, negated_categories: &BTreeSet<String>) -> Vec<Box<dyn View>> {
         let mut children = vec![];
         let Layout { x_height, padding, max_line_width, max_lines } = *layout;
         let background = TEXT_BUMP_SMALL[0];
@@ -302,7 +302,7 @@ impl Summary {
                                                   status,
                                                   Align::Left(left_padding),
                                                   max_width);
-                        children.push(Box::new(child) as Box<View>);
+                        children.push(Box::new(child) as Box<dyn View>);
                     },
                     Item::Icon { name, .. } => {
                         let dir = if item_index == 0 { CycleDir::Previous } else { CycleDir::Next };
@@ -310,7 +310,7 @@ impl Summary {
                                               Event::Page(dir))
                                          .background(background)
                                          .align(Align::Left(left_padding));
-                        children.push(Box::new(child) as Box<View>);
+                        children.push(Box::new(child) as Box<dyn View>);
                     }
                 }
 
@@ -330,7 +330,7 @@ impl Summary {
             let filler = Filler::new(rect![pt!(self.rect.min.x + x_offset, self.rect.min.y + y_offset),
                                            pt!(self.rect.max.x - big_half(padding), self.rect.min.y + y_offset + height)],
                                      background);
-            children.push(Box::new(filler) as Box<View>);
+            children.push(Box::new(filler) as Box<dyn View>);
         }
 
         if lines_count < max_lines {
@@ -341,31 +341,31 @@ impl Summary {
                                            pt!(self.rect.max.x - big_half(padding),
                                                self.rect.max.y - big_half(baselines[max_lines]))],
                                      background);
-            children.push(Box::new(filler) as Box<View>);
+            children.push(Box::new(filler) as Box<dyn View>);
         }
         
         let filler = Filler::new(rect![self.rect.min,
                                        pt!(self.rect.max.x,
                                            self.rect.min.y + small_half(baselines[0]))],
                                  background);
-        children.push(Box::new(filler) as Box<View>);
+        children.push(Box::new(filler) as Box<dyn View>);
 
         let filler = Filler::new(rect![pt!(self.rect.min.x,
                                            self.rect.min.y + small_half(baselines[0])),
                                        pt!(self.rect.min.x + small_half(padding),
                                            self.rect.max.y - big_half(baselines[max_lines]))],
                                  background);
-        children.push(Box::new(filler) as Box<View>);
+        children.push(Box::new(filler) as Box<dyn View>);
 
         let filler = Filler::new(rect![pt!(self.rect.min.x, self.rect.max.y - big_half(baselines[max_lines])),
                                        self.rect.max],
                                  background);
-        children.push(Box::new(filler) as Box<View>);
+        children.push(Box::new(filler) as Box<dyn View>);
 
         let filler = Filler::new(rect![pt!(self.rect.max.x - big_half(padding), self.rect.min.y + small_half(baselines[0])),
                                        pt!(self.rect.max.x, self.rect.max.y - big_half(baselines[max_lines]))],
                                  background);
-        children.push(Box::new(filler) as Box<View>);
+        children.push(Box::new(filler) as Box<dyn View>);
         children
     }
 }
@@ -411,11 +411,11 @@ impl View for Summary {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.pages[self.current_page]
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.pages[self.current_page]
     }
 }

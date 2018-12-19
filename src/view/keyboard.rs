@@ -1,4 +1,6 @@
 use fnv::FnvHashMap;
+use lazy_static::lazy_static;
+use serde_derive::{Serialize, Deserialize};
 use crate::device::{CURRENT_DEVICE, BAR_SIZES};
 use crate::framebuffer::Framebuffer;
 use crate::gesture::GestureEvent;
@@ -33,7 +35,7 @@ pub struct State {
 
 pub struct Keyboard {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     layout: Layout,
     state: State,
     combine_buffer: String,
@@ -87,14 +89,14 @@ impl Keyboard {
             let ch = layout.outputs[index].row1[i];
             let key = Key::new(rect![min_pt, min_pt + normal_side],
                                KeyKind::Output(ch), padding);
-            children.push(Box::new(key) as Box<View>);
+            children.push(Box::new(key) as Box<dyn View>);
         }
 
         // Row 2
 
         let min_pt = rect.min + pt!(small_half_remaining_width, small_half_remaining_height + normal_side);
         let key = Key::new(rect![min_pt, min_pt + normal_side], KeyKind::Delete(LinearDir::Backward), padding);
-        children.push(Box::new(key) as Box<View>);
+        children.push(Box::new(key) as Box<dyn View>);
 
         for i in 0..9usize {
             let min_pt = rect.min + pt!(small_half_remaining_width + (i + 1) as i32 * normal_side,
@@ -102,18 +104,18 @@ impl Keyboard {
             let ch = layout.outputs[index].row2[i];
             let key = Key::new(rect![min_pt, min_pt + normal_side],
                                KeyKind::Output(ch), padding);
-            children.push(Box::new(key) as Box<View>);
+            children.push(Box::new(key) as Box<dyn View>);
         }
 
         let min_pt = rect.min + pt!(small_half_remaining_width + 10 * normal_side, small_half_remaining_height + normal_side);
         let key = Key::new(rect![min_pt, min_pt + normal_side], KeyKind::Delete(LinearDir::Forward), padding);
-        children.push(Box::new(key) as Box<View>);
+        children.push(Box::new(key) as Box<dyn View>);
 
         // Row 3
 
         let min_pt = rect.min + pt!(small_half_remaining_width, small_half_remaining_height + 2 * normal_side);
         let key = Key::new(rect![min_pt, min_pt + pt!(large_length, normal_side)], KeyKind::Shift, padding);
-        children.push(Box::new(key) as Box<View>);
+        children.push(Box::new(key) as Box<dyn View>);
 
         for i in 0..7usize {
             let min_pt = rect.min + pt!(small_half_remaining_width + (i + 2) as i32 * normal_side,
@@ -121,65 +123,65 @@ impl Keyboard {
             let ch = layout.outputs[index].row3[i];
             let key = Key::new(rect![min_pt, min_pt + normal_side],
                                KeyKind::Output(ch), padding);
-            children.push(Box::new(key) as Box<View>);
+            children.push(Box::new(key) as Box<dyn View>);
         }
 
         let min_pt = rect.min + pt!(small_half_remaining_width + 9 * normal_side, small_half_remaining_height + 2 * normal_side);
         let key = Key::new(rect![min_pt, min_pt + pt!(large_length, normal_side)], KeyKind::Return, padding);
-        children.push(Box::new(key) as Box<View>);
+        children.push(Box::new(key) as Box<dyn View>);
 
         // Row 4
 
         let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side, small_half_remaining_height + 3 * normal_side);
         let key = Key::new(rect![min_pt, min_pt + pt!(small_medium_length, normal_side)], KeyKind::Move(LinearDir::Backward), padding);
-        children.push(Box::new(key) as Box<View>);
+        children.push(Box::new(key) as Box<dyn View>);
 
         let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + small_medium_length, small_half_remaining_height + 3 * normal_side);
         let key = Key::new(rect![min_pt, min_pt + pt!(big_medium_length, normal_side)], KeyKind::Combine, padding);
-        children.push(Box::new(key) as Box<View>);
+        children.push(Box::new(key) as Box<dyn View>);
 
         // Space bar
         let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + 3 * normal_side, small_half_remaining_height + 3 * normal_side);
         let key = Key::new(rect![min_pt, min_pt + pt!(huge_length, normal_side)], KeyKind::Output(' '), padding);
-        children.push(Box::new(key) as Box<View>);
+        children.push(Box::new(key) as Box<dyn View>);
 
         let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + 7 * normal_side, small_half_remaining_height + 3 * normal_side);
         let mut key = Key::new(rect![min_pt, min_pt + pt!(big_medium_length, normal_side)], KeyKind::Alternate, padding);
         if number {
             key.lock();
         }
-        children.push(Box::new(key) as Box<View>);
+        children.push(Box::new(key) as Box<dyn View>);
 
         let min_pt = rect.min + pt!(small_half_remaining_width + small_half_side + 7 * normal_side + big_medium_length, small_half_remaining_height + 3 * normal_side);
         let key = Key::new(rect![min_pt, min_pt + pt!(small_medium_length, normal_side)], KeyKind::Move(LinearDir::Forward), padding);
-        children.push(Box::new(key) as Box<View>);
+        children.push(Box::new(key) as Box<dyn View>);
 
         // Boundary Fillers
         let filler = Filler::new(rect![rect.min,
                                        pt!(rect.max.x - big_half_remaining_width,
                                            rect.min.y + small_half_remaining_height)],
                                  KEYBOARD_BG);
-        children.push(Box::new(filler) as Box<View>);
+        children.push(Box::new(filler) as Box<dyn View>);
 
         let filler = Filler::new(rect![pt!(rect.max.x - big_half_remaining_width,
                                            rect.min.y),
                                        pt!(rect.max.x,
                                            rect.max.y - big_half_remaining_height)],
                                  KEYBOARD_BG);
-        children.push(Box::new(filler) as Box<View>);
+        children.push(Box::new(filler) as Box<dyn View>);
 
         let filler = Filler::new(rect![pt!(rect.min.x + small_half_remaining_width,
                                            rect.max.y - big_half_remaining_height),
                                        rect.max],
                                  KEYBOARD_BG);
-        children.push(Box::new(filler) as Box<View>);
+        children.push(Box::new(filler) as Box<dyn View>);
 
         let filler = Filler::new(rect![pt!(rect.min.x,
                                            rect.min.y + small_half_remaining_height),
                                        pt!(rect.min.x + small_half_remaining_width,
                                            rect.max.y)],
                                  KEYBOARD_BG);
-        children.push(Box::new(filler) as Box<View>);
+        children.push(Box::new(filler) as Box<dyn View>);
 
         // In-between Fillers
         let min_pt = pt!(rect.min.x + small_half_remaining_width,
@@ -187,28 +189,28 @@ impl Keyboard {
         let filler = Filler::new(rect![min_pt, min_pt + pt!(small_half_side,
                                                             normal_side)],
                                  KEYBOARD_BG);
-        children.push(Box::new(filler) as Box<View>);
+        children.push(Box::new(filler) as Box<dyn View>);
 
         let min_pt = pt!(rect.min.x + small_half_remaining_width,
                          rect.max.y - big_half_remaining_height - normal_side);
         let filler = Filler::new(rect![min_pt, min_pt + pt!(small_half_side,
                                                             normal_side)],
                                  KEYBOARD_BG);
-        children.push(Box::new(filler) as Box<View>);
+        children.push(Box::new(filler) as Box<dyn View>);
 
         let min_pt = pt!(rect.max.x - big_half_remaining_width - big_half_side,
                          rect.min.y + small_half_remaining_height);
         let filler = Filler::new(rect![min_pt, min_pt + pt!(big_half_side,
                                                             normal_side)],
                                  KEYBOARD_BG);
-        children.push(Box::new(filler) as Box<View>);
+        children.push(Box::new(filler) as Box<dyn View>);
 
         let min_pt = pt!(rect.max.x - big_half_remaining_width - big_half_side,
                          rect.max.y - big_half_remaining_height - normal_side);
         let filler = Filler::new(rect![min_pt, min_pt + pt!(big_half_side,
                                                             normal_side)],
                                  KEYBOARD_BG);
-        children.push(Box::new(filler) as Box<View>);
+        children.push(Box::new(filler) as Box<dyn View>);
 
         Keyboard {
             rect: *rect,
@@ -473,11 +475,11 @@ impl View for Keyboard {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

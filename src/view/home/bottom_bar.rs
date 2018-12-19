@@ -12,7 +12,7 @@ use crate::font::Fonts;
 #[derive(Debug)]
 pub struct BottomBar {
     rect: Rectangle,
-    children: Vec<Box<View>>,
+    children: Vec<Box<dyn View>>,
     is_prev_disabled: bool,
     is_next_disabled: bool,
 }
@@ -28,12 +28,12 @@ impl BottomBar {
 
         if is_prev_disabled {
             let prev_filler = Filler::new(prev_rect, WHITE);
-            children.push(Box::new(prev_filler) as Box<View>);
+            children.push(Box::new(prev_filler) as Box<dyn View>);
         } else {
             let prev_icon = Icon::new("arrow-left",
                                       prev_rect,
                                       Event::Page(CycleDir::Previous));
-            children.push(Box::new(prev_icon) as Box<View>);
+            children.push(Box::new(prev_icon) as Box<dyn View>);
         }
 
         let (small_half_width, big_half_width) = halves(rect.width() as i32 - 2 * side);
@@ -41,25 +41,25 @@ impl BottomBar {
                                                     rect.min.x + side + small_half_width, rect.max.y],
                                               count,
                                               filter);
-        children.push(Box::new(matches_label) as Box<View>);
+        children.push(Box::new(matches_label) as Box<dyn View>);
 
         let page_label = PageLabel::new(rect![rect.max.x - side - big_half_width, rect.min.y,
                                               rect.max.x - side, rect.max.y],
                                         current_page,
                                         pages_count,
                                         false);
-        children.push(Box::new(page_label) as Box<View>);
+        children.push(Box::new(page_label) as Box<dyn View>);
 
         let next_rect = rect![rect.max - side, rect.max];
 
         if is_next_disabled {
             let next_filler = Filler::new(next_rect, WHITE);
-            children.push(Box::new(next_filler) as Box<View>);
+            children.push(Box::new(next_filler) as Box<dyn View>);
         } else {
             let next_icon = Icon::new("arrow-right",
                                       rect![rect.max - side, rect.max],
                                       Event::Page(CycleDir::Next));
-            children.push(Box::new(next_icon) as Box<View>);
+            children.push(Box::new(next_icon) as Box<dyn View>);
         }
 
         BottomBar {
@@ -88,12 +88,12 @@ impl BottomBar {
             let prev_rect = *self.child(index).rect();
             if is_prev_disabled {
                 let prev_filler = Filler::new(prev_rect, WHITE);
-                self.children[index] = Box::new(prev_filler) as Box<View>;
+                self.children[index] = Box::new(prev_filler) as Box<dyn View>;
             } else {
                 let prev_icon = Icon::new("arrow-left",
                                           prev_rect,
                                           Event::Page(CycleDir::Previous));
-                self.children[index] = Box::new(prev_icon) as Box<View>;
+                self.children[index] = Box::new(prev_icon) as Box<dyn View>;
             }
             self.is_prev_disabled = is_prev_disabled;
             hub.send(Event::Render(prev_rect, UpdateMode::Gui)).unwrap();
@@ -106,12 +106,12 @@ impl BottomBar {
             let next_rect = *self.child(index).rect();
             if is_next_disabled {
                 let next_filler = Filler::new(next_rect, WHITE);
-                self.children[index] = Box::new(next_filler) as Box<View>;
+                self.children[index] = Box::new(next_filler) as Box<dyn View>;
             } else {
                 let next_icon = Icon::new("arrow-right",
                                           next_rect,
                                           Event::Page(CycleDir::Next));
-                self.children[index] = Box::new(next_icon) as Box<View>;
+                self.children[index] = Box::new(next_icon) as Box<dyn View>;
             }
             self.is_next_disabled = is_next_disabled;
             hub.send(Event::Render(next_rect, UpdateMode::Gui)).unwrap();
@@ -152,11 +152,11 @@ impl View for BottomBar {
         &mut self.rect
     }
 
-    fn children(&self) -> &Vec<Box<View>> {
+    fn children(&self) -> &Vec<Box<dyn View>> {
         &self.children
     }
 
-    fn children_mut(&mut self) -> &mut Vec<Box<View>> {
+    fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
     }
 }

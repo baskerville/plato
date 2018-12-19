@@ -1,8 +1,6 @@
-extern crate png;
-
 use std::fs::File;
 use png::HasParameters;
-use failure::{Error, ResultExt};
+use failure::{Error, ResultExt, format_err};
 use super::{Framebuffer, UpdateMode};
 use crate::color::WHITE;
 use crate::geom::{Rectangle, lerp};

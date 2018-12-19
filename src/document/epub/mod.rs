@@ -1,5 +1,3 @@
-extern crate hyphenation;
-
 mod dom;
 pub mod xml;
 mod css;
@@ -15,7 +13,7 @@ use std::collections::BTreeSet;
 use fnv::FnvHashMap;
 use zip::ZipArchive;
 use hyphenation::{Standard, Hyphenator, Iter};
-use failure::Error;
+use failure::{Error, format_err};
 use either::Either;
 use crate::framebuffer::{Framebuffer, Pixmap};
 use crate::helpers::Normalize;
