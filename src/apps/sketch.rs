@@ -21,21 +21,18 @@ use crate::font::Fonts;
 use crate::color::{BLACK, WHITE};
 use crate::app::Context;
 
-const UPDATE_INTERVAL: f64 = 1.0 / 60.0;
-const MAX_TOUCH_SPEED: f32 = 30.0 / UPDATE_INTERVAL as f32;
+const MAX_TOUCH_SPEED: f32 = 1800.0;
 const FILENAME_PATTERN: &str = "sketch-%Y%m%d_%H%M%S.png";
 
 struct TouchState {
     pt: Point,
     time: f64,
     radius: f32,
-    rect: Rectangle,
-    last_update_time: f64,
 }
 
 impl TouchState {
-    fn new(pt: Point, radius: f32, time: f64, rect: Rectangle) -> TouchState {
-        TouchState { pt, rect, time, radius, last_update_time: time }
+    fn new(pt: Point, time: f64, radius: f32) -> TouchState {
+        TouchState { pt, time, radius }
     }
 }
 
@@ -183,7 +180,7 @@ impl Sketch {
 }
 
 #[inline]
-fn draw_segment(pixmap: &mut Pixmap, ts: &mut TouchState, position: Point, time: f64, force_update: bool, pen: &Pen, hub: &Hub) {
+fn draw_segment(pixmap: &mut Pixmap, ts: &mut TouchState, position: Point, time: f64, pen: &Pen, hub: &Hub) {
     let (start_radius, end_radius) = if pen.dynamic {
         if time > ts.time {
             let d = vec2!((position.x - ts.pt.x) as f32,
@@ -204,15 +201,8 @@ fn draw_segment(pixmap: &mut Pixmap, ts: &mut TouchState, position: Point, time:
                                        start_radius.ceil() as i32,
                                        end_radius.ceil() as i32);
 
-    ts.rect.absorb(&rect);
-
     pixmap.draw_segment(ts.pt, position, start_radius, end_radius, pen.color);
-
-    if (time - ts.last_update_time).abs() > UPDATE_INTERVAL || force_update {
-        hub.send(Event::RenderNoWaitRegion(ts.rect, UpdateMode::FastMono)).unwrap();
-        ts.last_update_time = time;
-        ts.rect = Rectangle::from_disk(position, end_radius.ceil() as i32);
-    }
+    hub.send(Event::RenderNoWaitRegion(rect, UpdateMode::FastMono)).unwrap();
 
     ts.pt = position;
     ts.time = time;
@@ -224,19 +214,18 @@ impl View for Sketch {
         match *evt {
             Event::Device(DeviceEvent::Finger { status: FingerStatus::Motion, id, position, time }) => {
                 if let Some(ts) = self.fingers.get_mut(&id) {
-                    draw_segment(&mut self.pixmap, ts, position, time, false, &self.pen, hub);
+                    draw_segment(&mut self.pixmap, ts, position, time, &self.pen, hub);
                 }
                 true
             },
             Event::Device(DeviceEvent::Finger { status: FingerStatus::Down, id, position, time }) => {
                 let radius = self.pen.size as f32 / 2.0;
-                let rect = Rectangle::from_disk(position, radius.ceil() as i32);
-                self.fingers.insert(id, TouchState::new(position, radius, time, rect));
+                self.fingers.insert(id, TouchState::new(position, time, radius));
                 true
             },
             Event::Device(DeviceEvent::Finger { status: FingerStatus::Up, id, position, time }) => {
                 if let Some(ts) = self.fingers.get_mut(&id) {
-                    draw_segment(&mut self.pixmap, ts, position, time, true, &self.pen, hub);
+                    draw_segment(&mut self.pixmap, ts, position, time, &self.pen, hub);
                 }
                 self.fingers.remove(&id);
                 true
