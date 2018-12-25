@@ -11,21 +11,16 @@ unzip plato-VERSION.zip -d SD_ROOT/.adds/plato
 
 ### Launchers
 
-#### KSM
+Pick one launcher:
 
-Install [KSM 09](https://www.mobileread.com/forums/showthread.php?t=293804).
+- [kfmon](https://github.com/niluje/kfmon).
+- [fmon](https://github.com/baskerville/fmon).
+- [KSM 09](https://www.mobileread.com/forums/showthread.php?t=293804).
 
-#### fmon
-
-Install [fmon](https://github.com/baskerville/fmon).
-
-And extract the relevant archive:
+If you choose *kfmon* or *fmon*, you'll need to extract the relevant archive:
 ```sh
 unzip plato-launcher-fmon-VERSION.zip -d SD_ROOT
 ```
-
-*Plato*'s icon should be imported when you eject the card.
-Follow the instruction given on the *fmon* page on how to handle it.
 
 ## Configure
 
