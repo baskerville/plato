@@ -436,16 +436,10 @@ impl Rectangle {
     }
 
     pub fn from_segment(start: Point, end: Point, start_radius: i32, end_radius: i32) -> Rectangle {
-        let (x_min, x_max) = if start.x < end.x {
-            (start.x - start_radius, end.x + end_radius)
-        } else {
-            (end.x - end_radius, start.x + start_radius)
-        };
-        let (y_min, y_max) = if start.y < end.y {
-            (start.y - start_radius, end.y + end_radius)
-        } else {
-            (end.y - end_radius, start.y + start_radius)
-        };
+        let x_min = (start.x - start_radius).min(end.x - end_radius);
+        let x_max = (start.x + start_radius).max(end.x + end_radius);
+        let y_min = (start.y - start_radius).min(end.y - end_radius);
+        let y_max = (start.y + start_radius).max(end.y + end_radius);
         Rectangle {
             min: pt!(x_min, y_min),
             max: pt!(x_max, y_max),
