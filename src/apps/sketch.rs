@@ -21,7 +21,6 @@ use crate::font::Fonts;
 use crate::color::{BLACK, WHITE};
 use crate::app::Context;
 
-const MAX_TOUCH_SPEED: f32 = 1800.0;
 const FILENAME_PATTERN: &str = "sketch-%Y%m%d_%H%M%S.png";
 
 struct TouchState {
@@ -187,7 +186,7 @@ fn draw_segment(pixmap: &mut Pixmap, ts: &mut TouchState, position: Point, time:
                           (position.y - ts.pt.y) as f32).length();
             let speed = d / (time - ts.time) as f32;
             let base_radius = pen.size as f32 / 2.0;
-            let radius = base_radius * (1.0 + 3.0 * speed.min(MAX_TOUCH_SPEED) / MAX_TOUCH_SPEED);
+            let mut radius = base_radius * (1.0 + speed / 600.0);
             (ts.radius, radius)
         } else {
             (ts.radius, ts.radius)
