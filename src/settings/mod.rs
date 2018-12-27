@@ -5,6 +5,8 @@ use fnv::{FnvHashSet, FnvHashMap};
 use serde::{Serialize, Deserialize};
 use crate::frontlight::LightLevels;
 use crate::color::BLACK;
+use crate::device::CURRENT_DEVICE;
+use crate::unit::mm_to_px;
 
 pub use self::preset::{LightPreset, guess_frontlight};
 
@@ -55,22 +57,14 @@ pub struct SketchSettings {
     pub pen: Pen,
 }
 
-impl Default for SketchSettings {
-    fn default() -> Self {
-        SketchSettings {
-            save_path: PathBuf::from("Sketches"),
-            notify_success: true,
-            pen: Pen::default(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct Pen {
     pub size: i32,
     pub dynamic: bool,
     pub color: u8,
+    pub min_speed: f32,
+    pub max_speed: f32,
 }
 
 impl Default for Pen {
@@ -79,6 +73,18 @@ impl Default for Pen {
             size: 2,
             color: BLACK,
             dynamic: true,
+            min_speed: mm_to_px(3.0, CURRENT_DEVICE.dpi),
+            max_speed: mm_to_px(152.4, CURRENT_DEVICE.dpi),
+        }
+    }
+}
+
+impl Default for SketchSettings {
+    fn default() -> Self {
+        SketchSettings {
+            save_path: PathBuf::from("Sketches"),
+            notify_success: true,
+            pen: Pen::default(),
         }
     }
 }
