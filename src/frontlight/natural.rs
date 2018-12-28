@@ -20,10 +20,6 @@ const FRONTLIGHT_GREEN_A: &str = "lm3630a_ledb";
 const FRONTLIGHT_WHITE_B: &str = "lm3630a_ledb";
 const FRONTLIGHT_ORANGE_B: &str = "lm3630a_leda";
 
-// Forma
-const FRONTLIGHT_WHITE_C: &str = "mxc_msp430.0";
-const FRONTLIGHT_ORANGE_C: &str = "tlc5947_bl";
-
 const FRONTLIGHT_VALUE: &str = "brightness";
 const FRONTLIGHT_MAX_VALUE: &str = "max_brightness";
 const FRONTLIGHT_POWER: &str = "bl_power";
@@ -45,9 +41,6 @@ pub static ref FRONTLIGHT_DIRS: FnvHashMap<LightColor, &'static str> =
         [(LightColor::White, FRONTLIGHT_WHITE_A),
          (LightColor::Red, FRONTLIGHT_RED_A),
          (LightColor::Green, FRONTLIGHT_GREEN_A)].iter().cloned().collect()
-    } else if CURRENT_DEVICE.model == Model::Forma {
-        [(LightColor::White, FRONTLIGHT_WHITE_C),
-         (LightColor::Orange, FRONTLIGHT_ORANGE_C)].iter().cloned().collect()
     } else {
         [(LightColor::White, FRONTLIGHT_WHITE_B),
          (LightColor::Orange, FRONTLIGHT_ORANGE_B)].iter().cloned().collect()

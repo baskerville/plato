@@ -61,14 +61,28 @@ impl Default for Device {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum FrontlightKind {
+    Standard,
+    Natural,
+    Premixed,
+}
+
 impl Device {
-    pub fn has_natural_light(&self) -> bool {
+    pub fn frontlight_kind(&self) -> FrontlightKind {
         match self.model {
             Model::AuraONE |
             Model::AuraH2OEdition2 |
-            Model::ClaraHD |
-            Model::Forma => true,
-            _ => false,
+            Model::ClaraHD => FrontlightKind::Natural,
+            Model::Forma => FrontlightKind::Premixed,
+            _ => FrontlightKind::Standard,
+        }
+    }
+
+    pub fn has_natural_light(&self) -> bool {
+        match self.frontlight_kind() {
+            FrontlightKind::Standard => false,
+            _ => true,
         }
     }
 
@@ -94,12 +108,16 @@ impl Device {
         match self.model {
             Model::AuraH2OEdition2 if model_number == "374" => (1, 1),
             Model::AuraH2OEdition2 if model_number == "378" => (0, -1),
+            Model::Forma => (2, -1),
             _ => (2, 1),
         }
     }
 
     pub fn startup_rotation(&self) -> i8 {
-        3
+        match self.model {
+            Model::Forma => 1,
+            _ => 3,
+        }
     }
 
     pub fn transformed_rotation(&self, n: i8) -> i8 {

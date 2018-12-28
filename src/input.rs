@@ -14,22 +14,33 @@ use crate::geom::Point;
 use failure::{Error, ResultExt};
 
 // Event types
-pub const EV_SYN: u16 = 0;
-pub const EV_KEY: u16 = 1;
-pub const EV_ABS: u16 = 3;
+pub const EV_SYN: u16 = 0x00;
+pub const EV_KEY: u16 = 0x01;
+pub const EV_ABS: u16 = 0x03;
+pub const EV_MSC: u16 = 0x04;
 
 // Event codes
-pub const ABS_MT_TRACKING_ID: u16 = 57;
-pub const ABS_MT_POSITION_X: u16 = 53;
-pub const ABS_MT_POSITION_Y: u16 = 54;
-pub const ABS_MT_PRESSURE: u16 = 58;
-pub const ABS_MT_TOUCH_MAJOR: u16 = 48;
-pub const SYN_MT_REPORT: u16 = 2;
-pub const ABS_X: u16 = 0;
-pub const ABS_Y: u16 = 1;
-pub const ABS_PRESSURE: u16 = 24;
-pub const SYN_REPORT: u16 = 0;
+pub const ABS_MT_TRACKING_ID: u16 = 0x39;
+pub const ABS_MT_POSITION_X: u16 = 0x35;
+pub const ABS_MT_POSITION_Y: u16 = 0x36;
+pub const ABS_MT_PRESSURE: u16 = 0x3a;
+pub const ABS_MT_TOUCH_MAJOR: u16 = 0x30;
+pub const SYN_MT_REPORT: u16 = 0x02;
+pub const ABS_X: u16 = 0x00;
+pub const ABS_Y: u16 = 0x01;
+pub const ABS_PRESSURE: u16 = 0x18;
+pub const MSC_RAW: u16 = 0x03;
+pub const SYN_REPORT: u16 = 0x00;
 
+// Event values
+pub const MSC_RAW_GSENSOR_PORTRAIT_DOWN: i32 = 0x17;
+pub const MSC_RAW_GSENSOR_PORTRAIT_UP: i32 = 0x18;
+pub const MSC_RAW_GSENSOR_LANDSCAPE_RIGHT: i32 = 0x19;
+pub const MSC_RAW_GSENSOR_LANDSCAPE_LEFT: i32 = 0x1a;
+// pub const MSC_RAW_GSENSOR_BACK: i32 = 0x1b;
+// pub const MSC_RAW_GSENSOR_FRONT: i32 = 0x1c;
+
+// Key codes
 pub const KEY_POWER: u16 = 116;
 pub const KEY_HOME: u16 = 102;
 pub const KEY_LIGHT: u16 = 90;
@@ -102,7 +113,7 @@ pub enum ButtonCode {
 }
 
 impl ButtonCode {
-    fn from_raw(code: u16) -> ButtonCode {
+    fn from_raw(code: u16, rotation: i8) -> ButtonCode {
         if code == KEY_POWER {
             ButtonCode::Power
         } else if code == KEY_HOME {
@@ -110,9 +121,17 @@ impl ButtonCode {
         } else if code == KEY_LIGHT {
             ButtonCode::Light
         } else if code == KEY_BACKWARD {
-            ButtonCode::Backward
+            if rotation < 2 {
+                ButtonCode::Backward
+            } else {
+                ButtonCode::Forward
+            }
         } else if code == KEY_FORWARD {
-            ButtonCode::Forward
+            if rotation < 2 {
+                ButtonCode::Forward
+            } else {
+                ButtonCode::Backward
+            }
         } else {
             ButtonCode::Raw(code)
         }
@@ -145,6 +164,7 @@ pub enum DeviceEvent {
     },
     Plug(PowerSource),
     Unplug(PowerSource),
+    RotateScreen(i8),
     CoverOn,
     CoverOff,
     NetUp,
@@ -373,10 +393,21 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
             } else {
                 ty.send(DeviceEvent::Button {
                     time: seconds(evt.time),
-                    code: ButtonCode::from_raw(evt.code),
+                    code: ButtonCode::from_raw(evt.code, rotation),
                     status: if evt.value == 1 { ButtonStatus::Pressed } else
                                               { ButtonStatus::Released },
                 }).unwrap();
+            }
+        } else if evt.kind == EV_MSC && evt.code == MSC_RAW {
+            if evt.value >= MSC_RAW_GSENSOR_PORTRAIT_DOWN && evt.value <= MSC_RAW_GSENSOR_LANDSCAPE_LEFT {
+                let next_rotation = match evt.value {
+                    MSC_RAW_GSENSOR_PORTRAIT_DOWN => 3,
+                    MSC_RAW_GSENSOR_PORTRAIT_UP => 1,
+                    MSC_RAW_GSENSOR_LANDSCAPE_RIGHT => 2,
+                    MSC_RAW_GSENSOR_LANDSCAPE_LEFT => 0,
+                    _ => rotation,
+                };
+                ty.send(DeviceEvent::RotateScreen(next_rotation)).unwrap();
             }
         }
     }

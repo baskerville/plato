@@ -1,9 +1,11 @@
 mod standard;
 mod natural;
+mod premixed;
 
 use serde_derive::{Serialize, Deserialize};
 pub use self::standard::StandardFrontlight;
 pub use self::natural::NaturalFrontlight;
+pub use self::premixed::PremixedFrontlight;
 use crate::geom::lerp;
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
@@ -31,6 +33,7 @@ impl LightLevels {
 }
 
 pub trait Frontlight {
+    // value is a percentage.
     fn set_intensity(&mut self, value: f32);
     fn set_warmth(&mut self, value: f32);
     fn levels(&self) -> LightLevels;

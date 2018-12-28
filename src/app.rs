@@ -20,7 +20,7 @@ use crate::gesture::{GestureEvent, gesture_events};
 use crate::helpers::{load_json, save_json, load_toml, save_toml};
 use crate::metadata::{Metadata, METADATA_FILENAME, auto_import};
 use crate::settings::{Settings, SETTINGS_PATH};
-use crate::frontlight::{Frontlight, NaturalFrontlight, StandardFrontlight};
+use crate::frontlight::{Frontlight, StandardFrontlight, NaturalFrontlight, PremixedFrontlight};
 use crate::lightsensor::{LightSensor, KoboLightSensor};
 use crate::battery::{Battery, KoboBattery};
 use crate::geom::Rectangle;
@@ -30,7 +30,7 @@ use crate::view::confirmation::Confirmation;
 use crate::view::intermission::{Intermission, IntermKind};
 use crate::view::notification::Notification;
 use crate::apps::sketch::Sketch;
-use crate::device::CURRENT_DEVICE;
+use crate::device::{CURRENT_DEVICE, FrontlightKind};
 use crate::font::Fonts;
 
 pub const APP_NAME: &str = "Plato";
@@ -135,12 +135,13 @@ fn build_context(fb: &Framebuffer) -> Result<Context, Error> {
     };
 
     let levels = settings.frontlight_levels;
-    let frontlight = if CURRENT_DEVICE.has_natural_light() {
-        Box::new(NaturalFrontlight::new(levels.intensity, levels.warmth)
-                                   .context("Can't create natural frontlight.")?) as Box<dyn Frontlight>
-    } else {
-        Box::new(StandardFrontlight::new(levels.intensity)
-                                    .context("Can't create standard frontlight.")?) as Box<dyn Frontlight>
+    let frontlight = match CURRENT_DEVICE.frontlight_kind() {
+        FrontlightKind::Standard => Box::new(StandardFrontlight::new(levels.intensity)
+                                        .context("Can't create standard frontlight.")?) as Box<dyn Frontlight>,
+        FrontlightKind::Natural => Box::new(NaturalFrontlight::new(levels.intensity, levels.warmth)
+                                        .context("Can't create natural frontlight.")?) as Box<dyn Frontlight>,
+        FrontlightKind::Premixed => Box::new(PremixedFrontlight::new(levels.intensity, levels.warmth)
+                                        .context("Can't create premixed frontlight.")?) as Box<dyn Frontlight>,
     };
 
     Ok(Context::new(fb, settings, metadata, PathBuf::from(METADATA_FILENAME),
@@ -447,6 +448,9 @@ pub fn run() -> Result<(), Error> {
                                 tx.send(Event::BatteryTick).unwrap();
                             }
                         }
+                    },
+                    DeviceEvent::RotateScreen(n) => {
+                        tx.send(Event::Select(EntryId::Rotate(n))).unwrap();
                     },
                     _ => {
                         handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut context);
