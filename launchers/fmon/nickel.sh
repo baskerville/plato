@@ -1,5 +1,7 @@
 #! /bin/sh
 
+cd /
+unset OLDPWD LC_ALL
 export LD_LIBRARY_PATH=/usr/local/Kobo
 
 ( usleep 400000; /etc/init.d/on-animator.sh ) &
@@ -9,3 +11,4 @@ export LD_LIBRARY_PATH=/usr/local/Kobo
 
 /usr/local/Kobo/hindenburg &
 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &
+udevadm trigger &
