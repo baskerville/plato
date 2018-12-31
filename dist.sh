@@ -25,6 +25,7 @@ cp libs/libdjvulibre.so dist/libs/libdjvulibre.so.21
 cp libs/libmupdf.so dist/libs
 cp libs/libmupdfwrapper.so dist/libs
 
+cp -R hyphenation-patterns dist
 cp -R scripts dist
 cp -R icons dist
 cp -R fonts dist
