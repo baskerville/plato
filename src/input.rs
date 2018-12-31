@@ -371,6 +371,10 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 packet_ids.clear();
             }
         } else if evt.kind == EV_KEY {
+            // evt.value can be:
+            // 0 => release,
+            // 1 => press,
+            // 2 => repeat.
             if evt.code == SLEEP_COVER {
                 if evt.value == 1 {
                     ty.send(DeviceEvent::CoverOn).unwrap();
