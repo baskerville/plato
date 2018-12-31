@@ -39,6 +39,9 @@ pub const MSC_RAW_GSENSOR_LANDSCAPE_RIGHT: i32 = 0x19;
 pub const MSC_RAW_GSENSOR_LANDSCAPE_LEFT: i32 = 0x1a;
 // pub const MSC_RAW_GSENSOR_BACK: i32 = 0x1b;
 // pub const MSC_RAW_GSENSOR_FRONT: i32 = 0x1c;
+pub const VAL_RELEASE: i32 = 0;
+pub const VAL_PRESS: i32 = 1;
+pub const VAL_REPEAT: i32 = 2;
 
 // Key codes
 pub const KEY_POWER: u16 = 116;
@@ -100,6 +103,18 @@ pub enum FingerStatus {
 pub enum ButtonStatus {
     Pressed,
     Released,
+    Repeated,
+}
+
+impl ButtonStatus {
+    pub fn try_from_raw(value: i32) -> Option<ButtonStatus> {
+        match value {
+            VAL_RELEASE => Some(ButtonStatus::Released),
+            VAL_PRESS => Some(ButtonStatus::Pressed),
+            VAL_REPEAT => Some(ButtonStatus::Repeated),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -371,14 +386,10 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 packet_ids.clear();
             }
         } else if evt.kind == EV_KEY {
-            // evt.value can be:
-            // 0 => release,
-            // 1 => press,
-            // 2 => repeat.
             if evt.code == SLEEP_COVER {
-                if evt.value == 1 {
+                if evt.value == VAL_PRESS {
                     ty.send(DeviceEvent::CoverOn).unwrap();
-                } else {
+                } else if evt.value == VAL_RELEASE {
                     ty.send(DeviceEvent::CoverOff).unwrap();
                 }
             } else if evt.code == KEY_ROTATE_DISPLAY {
@@ -395,12 +406,13 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                     mirror_y = should_mirror.1;
                 }
             } else {
-                ty.send(DeviceEvent::Button {
-                    time: seconds(evt.time),
-                    code: ButtonCode::from_raw(evt.code, rotation),
-                    status: if evt.value == 1 { ButtonStatus::Pressed } else
-                                              { ButtonStatus::Released },
-                }).unwrap();
+                if let Some(button_status) = ButtonStatus::try_from_raw(evt.value) {
+                    ty.send(DeviceEvent::Button {
+                        time: seconds(evt.time),
+                        code: ButtonCode::from_raw(evt.code, rotation),
+                        status: button_status,
+                    }).unwrap();
+                }
             }
         } else if evt.kind == EV_MSC && evt.code == MSC_RAW {
             if evt.value >= MSC_RAW_GSENSOR_PORTRAIT_DOWN && evt.value <= MSC_RAW_GSENSOR_LANDSCAPE_LEFT {
