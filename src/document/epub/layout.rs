@@ -14,7 +14,6 @@ pub const DEFAULT_HYPH_LANG: &str = "en";
 pub struct RootData {
     pub start_offset: usize,
     pub spine_dir: PathBuf,
-    pub page_rect: Rectangle,
     pub rect: Rectangle,
 }
 

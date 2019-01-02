@@ -402,7 +402,6 @@ impl EpubDocument {
 
         if let Some(body) = root.find("body").as_mut() {
             let mut style = StyleData::default();
-            let page_rect = self.rect();
             let mut rect = self.rect();
 
             rect.shrink(&self.margin);
@@ -426,7 +425,6 @@ impl EpubDocument {
             let root_data = RootData {
                 start_offset,
                 spine_dir,
-                page_rect,
                 rect,
             };
 
