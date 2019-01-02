@@ -4,7 +4,7 @@ use super::{View, Event, Hub, Bus, KeyboardEvent, ViewId, TextKind};
 use super::THICKNESS_MEDIUM;
 use crate::gesture::GestureEvent;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE, FONT_SIZES};
-use crate::geom::{Rectangle, LinearDir, BorderSpec, halves};
+use crate::geom::{Rectangle, Point, LinearDir, BorderSpec, halves};
 use crate::color::{TEXT_NORMAL, BLACK};
 use crate::app::Context;
 use crate::unit::scale_by_dpi;
@@ -168,14 +168,32 @@ impl InputField {
             },
         }
     }
+
+    fn index_from_position(&self, position: Point, fonts: &mut Fonts) -> usize {
+        if self.text.is_empty() {
+            return 0;
+        }
+        let dpi = CURRENT_DEVICE.dpi;
+        let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
+        let padding = font.em() as i32;
+        let max_width = self.rect.width().saturating_sub(2 * padding as u32) as i32;
+        let mut plan = font.plan(&self.text, None, Some(&["-liga".to_string()]));
+        let index = char_position(&self.text, self.cursor).unwrap_or_else(|| self.text.chars().count());
+        let lower_index = font.crop_around(&mut plan, index, max_width as u32);
+        lower_index.saturating_sub(1) + plan.index_from_advance(position.x - self.rect.min.x - padding)
+    }
 }
 
 impl View for InputField {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
-                self.focused = true;
-                bus.push_back(Event::Focus(Some(self.id)));
+                if !self.focused {
+                    self.focused = true;
+                    bus.push_back(Event::Focus(Some(self.id)));
+                } else {
+                    self.cursor = self.index_from_position(center, &mut context.fonts);
+                }
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 true
             },

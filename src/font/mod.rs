@@ -700,10 +700,28 @@ impl RenderPlan {
         }
     }
 
+    pub fn index_from_advance(&self, advance: i32) -> usize {
+        let mut sum = 0;
+        let mut index = 0;
+        while index < self.glyphs.len() {
+            let gad = self.glyph_advance(index);
+            sum += gad;
+            if sum > advance {
+                if sum - advance < advance - sum + gad {
+                    index += 1;
+                }
+                break;
+            }
+            index += 1;
+        }
+        index
+    }
+
     pub fn total_advance(&self, index: usize) -> i32 {
         self.glyphs.iter().take(index).map(|g| g.advance.x).sum()
     }
 
+    #[inline]
     pub fn glyph_advance(&self, index: usize) -> i32 {
         self.glyphs[index].advance.x
     }
