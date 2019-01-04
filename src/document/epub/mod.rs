@@ -14,7 +14,6 @@ use fnv::FnvHashMap;
 use zip::ZipArchive;
 use hyphenation::{Standard, Hyphenator, Iter};
 use failure::{Error, format_err};
-use either::Either;
 use crate::framebuffer::{Framebuffer, Pixmap};
 use crate::helpers::Normalize;
 use crate::font::{FontOpener, FontFamily};
@@ -22,6 +21,7 @@ use crate::document::{Document, Location, TocEntry, BoundedText};
 use crate::document::pdf::PdfOpener;
 use paragraph_breaker::{Item as ParagraphItem, Breakpoint, INFINITE_PENALTY};
 use paragraph_breaker::{total_fit, standard_fit};
+use xi_unicode::LineBreakIterator;
 use crate::settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_LINE_HEIGHT};
 use crate::unit::{mm_to_px, pt_to_px};
 use crate::geom::{Point, Rectangle, Edge};
@@ -33,9 +33,8 @@ use self::layout::{StyleData, InlineMaterial, TextMaterial, ImageMaterial};
 use self::layout::{GlueMaterial, PenaltyMaterial, ChildArtifact, SiblingStyle, LoopContext};
 use self::layout::{RootData, DrawCommand, TextCommand, ImageCommand, FontKind, Fonts};
 use self::layout::{TextAlign, ParagraphElement, TextElement, ImageElement, Display, LineStats};
-use self::layout::{hyph_lang, DEFAULT_HYPH_LANG, HYPHENATION_PATTERNS};
+use self::layout::{hyph_lang, collapse_margins, DEFAULT_HYPH_LANG, HYPHENATION_PATTERNS};
 use self::layout::{EM_SPACE_RATIOS, WORD_SPACE_RATIOS, FONT_SPACES};
-use self::layout::{collapse_margins, SpecialSplitter, SPECIAL_CHARS};
 use self::style::{Stylesheet, specified_values};
 use self::css::{CssParser, RuleKind};
 use self::xml::{XmlParser, decode_entities};
@@ -1132,14 +1131,17 @@ impl EpubDocument {
         let mut hyph_indices = Vec::new();
         let mut glue_drifts = Vec::new();
 
-        if bps.is_empty() && style.text_align == TextAlign::Justify {
-            // Hyphenate.
-            if let Some(dictionary) = hyph_lang(style.language.as_ref()
-                                                     .map_or(DEFAULT_HYPH_LANG, String::as_str))
-                                               .and_then(|lang| HYPHENATION_PATTERNS.get(&lang)) {
-                items = self.hyphenate_paragraph(items, dictionary, &mut hyph_indices);
-                bps = total_fit(&items, &line_lengths, stretch_tolerance, 0);
-            }
+        if bps.is_empty() {
+            let dictionary = if style.text_align == TextAlign::Justify {
+                hyph_lang(style.language.as_ref().map_or(DEFAULT_HYPH_LANG, String::as_str))
+                         .and_then(|lang| HYPHENATION_PATTERNS.get(&lang))
+            } else {
+                None
+            };
+
+            // Insert optional breaks.
+            items = self.insert_breaks(dictionary, items, &mut hyph_indices);
+            bps = total_fit(&items, &line_lengths, stretch_tolerance, 0);
         }
 
         if bps.is_empty() {
@@ -1407,67 +1409,115 @@ impl EpubDocument {
         display_list.push(page);
     }
 
-    fn hyphenate_paragraph(&mut self, items: Vec<ParagraphItem<ParagraphElement>>, dictionary: &Standard, hyph_indices: &mut Vec<[usize; 2]>) -> Vec<ParagraphItem<ParagraphElement>> {
+    #[inline]
+    fn box_from_chunk(&mut self, chunk: &str, index: usize, element: &TextElement) -> ParagraphItem<ParagraphElement> {
+        let offset = element.offset + index;
+        let mut plan = {
+            let font = self.fonts.as_mut().unwrap()
+                           .get_mut(element.font_kind,
+                                    element.font_style,
+                                    element.font_weight);
+            font.set_size(element.font_size, self.dpi);
+            font.plan(chunk, None, element.font_features.as_ref().map(Vec::as_slice))
+        };
+        plan.space_out(element.letter_spacing.max(0) as u32);
+        ParagraphItem::Box {
+            width: plan.width as i32,
+            data: ParagraphElement::Text(TextElement {
+                offset,
+                text: chunk.to_string(),
+                plan,
+                language: element.language.clone(),
+                font_features: element.font_features.clone(),
+                font_kind: element.font_kind,
+                font_style: element.font_style,
+                font_weight: element.font_weight,
+                font_size: element.font_size,
+                vertical_align: element.vertical_align,
+                letter_spacing: element.letter_spacing,
+                color: element.color,
+                uri: element.uri.clone(),
+            }),
+        }
+    }
+
+    fn insert_breaks(&mut self, dictionary: Option<&Standard>, items: Vec<ParagraphItem<ParagraphElement>>, hyph_indices: &mut Vec<[usize; 2]>) -> Vec<ParagraphItem<ParagraphElement>> {
         let mut hyph_items = Vec::with_capacity(items.len());
 
         for itm in items {
             match itm {
                 ParagraphItem::Box { data: ParagraphElement::Text(ref element), .. } => {
                     let text = &element.text;
-                    let mut index = 0;
-                    let start_index = hyph_items.len();
-                    let hyphenated = dictionary.hyphenate(text);
-                    let segments = if text.contains(|c| SPECIAL_CHARS.contains(c)) {
-                        Either::Left(SpecialSplitter::new(text))
+                    let mut start_index = 0;
+                    let hyphen_width = if dictionary.is_some() {
+                        let font = self.fonts.as_mut().unwrap()
+                                       .get_mut(element.font_kind, element.font_style, element.font_weight);
+                        font.set_size(element.font_size, self.dpi);
+                        font.plan("-", None, element.font_features.as_ref().map(Vec::as_slice)).width as i32
                     } else {
-                        Either::Right(hyphenated.iter().segments())
+                        0
                     };
-                    for chunk in segments {
-                        let offset = element.offset + index;
-                        let mut plan = {
-                            let mut font = self.fonts.as_mut().unwrap()
-                                               .get_mut(element.font_kind,
-                                                        element.font_style,
-                                                        element.font_weight);
-                            font.set_size(element.font_size, self.dpi);
-                            font.plan(chunk, None, element.font_features.as_ref().map(Vec::as_slice))
-                        };
-                        plan.space_out(element.letter_spacing.max(0) as u32);
-                        hyph_items.push(ParagraphItem::Box {
-                            width: plan.width as i32,
-                            data: ParagraphElement::Text(TextElement {
-                                offset,
-                                text: chunk.to_string(),
-                                plan,
-                                language: element.language.clone(),
-                                font_features: element.font_features.clone(),
-                                font_kind: element.font_kind,
-                                font_style: element.font_style,
-                                font_weight: element.font_weight,
-                                font_size: element.font_size,
-                                vertical_align: element.vertical_align,
-                                letter_spacing: element.letter_spacing,
-                                color: element.color,
-                                uri: element.uri.clone(),
-                            }),
-                        });
-                        index += chunk.len();
-                        if index < text.len() {
-                            let width = if chunk.ends_with(char::is_alphanumeric) {
-                                let mut font = self.fonts.as_mut().unwrap()
-                                                   .get_mut(element.font_kind, element.font_style, element.font_weight);
-                                font.set_size(element.font_size, self.dpi);
-                                font.plan("-", None, element.font_features.as_ref().map(Vec::as_slice)).width as i32
-                            } else {
-                                0
-                            };
-                            hyph_items.push(ParagraphItem::Penalty { width, penalty: HYPHEN_PENALTY, flagged: true });
+                    for (end_index, is_hardbreak) in LineBreakIterator::new(text) {
+                        let chunk = &text[start_index..end_index];
+                        // Hyphenate.
+                        if let Some(dict) = dictionary {
+                            let mut index_before = chunk.find(|c: char| c.is_alphabetic()).unwrap_or_else(|| chunk.len());
+                            if index_before > 0 {
+                                    let subelem = self.box_from_chunk(&chunk[0..index_before],
+                                                                      start_index,
+                                                                      &element);
+                                    hyph_items.push(subelem);
+
+                            }
+
+                            let mut index_after = chunk[index_before..].find(|c: char| !c.is_alphabetic())
+                                                                       .map(|i| index_before + i)
+                                                                       .unwrap_or_else(|| chunk.len());
+                            while index_before < index_after {
+                                let mut index = 0;
+                                let subchunk = &chunk[index_before..index_after];
+                                let len_before = hyph_items.len();
+                                for segment in dict.hyphenate(subchunk).iter().segments() {
+
+                                    let subelem = self.box_from_chunk(segment,
+                                                                      start_index + index_before + index,
+                                                                      &element);
+                                    hyph_items.push(subelem);
+                                    index += segment.len();
+                                    if index < subchunk.len() {
+                                        hyph_items.push(ParagraphItem::Penalty { width: hyphen_width, penalty: HYPHEN_PENALTY, flagged: true });
+                                    }
+                                }
+                                let len_after = hyph_items.len();
+                                if len_after > 1 + len_before {
+                                    hyph_indices.push([len_before, len_after]);
+                                }
+                                index_before = chunk[index_after..].find(|c: char| c.is_alphabetic())
+                                                                   .map(|i| index_after + i)
+                                                                   .unwrap_or(chunk.len());
+                                if index_before > index_after {
+                                    let subelem = self.box_from_chunk(&chunk[index_after..index_before],
+                                                                      start_index + index_after,
+                                                                      &element);
+                                    hyph_items.push(subelem);
+                                }
+
+                                index_after = chunk[index_before..].find(|c: char| !c.is_alphabetic())
+                                                                   .map(|i| index_before + i)
+                                                                   .unwrap_or(chunk.len());
+                            }
+                        } else {
+                            let subelem = self.box_from_chunk(chunk, start_index, &element);
+                            hyph_items.push(subelem);
                         }
+                        if !is_hardbreak {
+                            let penalty = if chunk.ends_with('-') { HYPHEN_PENALTY } else { 0 };
+                            let flagged = penalty > 0;
+                            hyph_items.push(ParagraphItem::Penalty { width: 0, penalty, flagged });
+                        }
+                        start_index = end_index;
                     }
-                    let end_index = hyph_items.len();
-                    if end_index - start_index > 1 {
-                        hyph_indices.push([start_index, end_index]);
-                    }
+
                 },
                 _ => { hyph_items.push(itm) },
             }
