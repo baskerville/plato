@@ -26,7 +26,7 @@ lazy_static! {
                      "delete-backward", "delete-forward", "move-backward", "move-forward",
                      "close",  "check_mark-small", "check_mark","check_mark-large",
                      "bullet", "arrow-left", "arrow-right", "double_angle-left", "double_angle-right",
-                     "angle-down", "plus", "minus", "crop", "toc", "font_family", "font_size",
+                     "angle-down", "angle-up", "plus", "minus", "crop", "toc", "font_family", "font_size",
                      "line_height", "margin", "plug", "ellipsis"].iter().cloned() {
             let path = dir.join(&format!("{}.svg", name));
             let doc = PdfOpener::new().and_then(|o| o.open(path)).unwrap();
@@ -111,6 +111,9 @@ impl View for Icon {
                     },
                     Event::Show(ViewId::SearchBar) | Event::Focus(Some(ViewId::SearchInput)) => {
                         bus.push_back(Event::ToggleNear(ViewId::SearchMenu, self.rect));
+                    },
+                    Event::History(dir, false) => {
+                        bus.push_back(Event::History(dir, true));
                     },
                     _ => (),
                 }

@@ -36,6 +36,8 @@ pub mod keyboard;
 pub mod key;
 pub mod home;
 pub mod reader;
+pub mod sketch;
+pub mod calculator;
 
 use std::time::Duration;
 use std::path::PathBuf;
@@ -52,8 +54,9 @@ use crate::geom::{LinearDir, CycleDir, Rectangle, Boundary};
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::gesture::GestureEvent;
-use crate::view::key::KeyKind;
-use crate::view::intermission::IntermKind;
+use self::calculator::LineOrigin;
+use self::key::KeyKind;
+use self::intermission::IntermKind;
 use crate::app::Context;
 
 pub const THICKNESS_SMALL: f32 = 1.0;
@@ -167,7 +170,7 @@ fn render_aux(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &m
         *above = true;
     }
 
-    if *above && view.rect().overlaps(rect) {
+    if *above && (view.len() == 0 || view.is_background()) && view.rect().overlaps(rect) {
         if wait {
             updating.retain(|tok, urect| {
                 !view.rect().overlaps(urect) || fb.wait(*tok).is_err()
@@ -184,7 +187,7 @@ fn render_aux(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &m
 
 // When a floating window is destroyed, it leaves a crack underneath.
 // Each view intersecting the crack's rectangle needs to be redrawn.
-pub fn fill_crack(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
+pub fn expose(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
     if (view.len() == 0 || view.is_background()) && view.rect().overlaps(rect) {
         updating.retain(|tok, urect| {
             !view.rect().overlaps(urect) || fb.wait(*tok).is_err()
@@ -194,7 +197,7 @@ pub fn fill_crack(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts
     }
 
     for i in 0..view.len() {
-        fill_crack(view.child(i), rect, fb, fonts, updating);
+        expose(view.child(i), rect, fb, fonts, updating);
     }
 }
 
@@ -235,6 +238,8 @@ pub enum Event {
     ToggleCategoryMenu(Rectangle, String),
     TogglePresetMenu(Rectangle, usize),
     SubMenu(Rectangle, Vec<EntryKind>),
+    ProcessLine(LineOrigin, String),
+    History(CycleDir, bool),
     Toggle(ViewId),
     Show(ViewId),
     Close(ViewId),
@@ -247,6 +252,7 @@ pub enum Event {
     ToggleFrontlight,
     Load(PathBuf),
     LoadPreset(usize),
+    Scroll(i32),
     Save,
     Guess,
     CheckBattery,
@@ -263,7 +269,8 @@ pub enum Event {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum AppId {
-    Sketch
+    Sketch,
+    Calculator,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -299,6 +306,7 @@ pub enum ViewId {
     RenameCategory,
     RenameCategoryInput,
     SearchInput,
+    CalculatorInput,
     SearchBar,
     Keyboard,
     ConfirmShare,

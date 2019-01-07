@@ -3,4 +3,4 @@
 - Pocket articles.
 - Complex/fuzzy search queries?
 - Input field completions bar.
-- Applications: Terminal, Calculator, Browser.
+- Applications: Terminal, Browser.

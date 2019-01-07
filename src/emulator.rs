@@ -16,7 +16,6 @@ mod frontlight;
 mod lightsensor;
 mod symbolic_path;
 mod trash;
-mod apps;
 mod app;
 
 use std::mem;
@@ -40,13 +39,15 @@ use sdl2::rect::Rect as SdlRect;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::view::{View, Event, ViewId, EntryId, AppId, EntryKind};
-use crate::view::{render, render_no_wait, render_no_wait_region, handle_event, fill_crack};
+use crate::view::{render, render_no_wait, render_no_wait_region, handle_event, expose};
 use crate::view::home::Home;
 use crate::view::reader::Reader;
 use crate::view::notification::Notification;
 use crate::view::frontlight::FrontlightWindow;
 use crate::view::keyboard::Keyboard;
 use crate::view::menu::{Menu, MenuKind};
+use crate::view::sketch::Sketch;
+use crate::view::calculator::Calculator;
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
 use crate::helpers::{load_json, save_json, load_toml, save_toml};
 use crate::metadata::{Metadata, METADATA_FILENAME};
@@ -57,7 +58,6 @@ use crate::device::CURRENT_DEVICE;
 use crate::battery::{Battery, FakeBattery};
 use crate::frontlight::{Frontlight, LightLevels};
 use crate::lightsensor::LightSensor;
-use crate::apps::sketch::Sketch;
 use crate::font::Fonts;
 use crate::app::Context;
 
@@ -66,7 +66,7 @@ const DEFAULT_ROTATION: i8 = 1;
 
 const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
-pub fn build_context(fb: &Framebuffer) -> Result<Context, Error> {
+pub fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let settings = load_toml::<Settings, _>(SETTINGS_PATH)?;
     let path = settings.library_path.join(METADATA_FILENAME);
     let metadata = load_json::<Metadata, _>(path)?;
@@ -135,10 +135,10 @@ impl Framebuffer for WindowCanvas {
 
     fn update(&mut self, _rect: &Rectangle, _mode: UpdateMode) -> Result<u32, Error> {
         self.present();
-        Ok(1)
+        Ok(Local::now().timestamp_subsec_millis())
     }
 
-    fn wait(&self, _: u32) -> Result<i32, Error> {
+    fn wait(&self, _tok: u32) -> Result<i32, Error> {
         Ok(1)
     }
 
@@ -198,7 +198,7 @@ pub fn run() -> Result<(), Error> {
     let mut fb = window.into_canvas().software().build().unwrap();
     fb.set_blend_mode(BlendMode::Blend);
 
-    let mut context = build_context(&fb)?;
+    let mut context = build_context(Box::new(fb))?;
 
     let (tx, rx) = mpsc::channel();
     let (ty, ry) = mpsc::channel();
@@ -220,7 +220,7 @@ pub fn run() -> Result<(), Error> {
     });
 
     let mut history: Vec<Box<dyn View>> = Vec::new();
-    let mut view: Box<dyn View> = Box::new(Home::new(fb.rect(), &tx, &mut context)?);
+    let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &tx, &mut context)?);
 
     let mut updating = FnvHashMap::default();
 
@@ -235,8 +235,8 @@ pub fn run() -> Result<(), Error> {
 
     println!("{} is running on a Kobo {}.", APP_NAME,
                                             CURRENT_DEVICE.model);
-    println!("The framebuffer resolution is {} by {}.", fb.rect().width(),
-                                                        fb.rect().height());
+    println!("The framebuffer resolution is {} by {}.", context.fb.rect().width(),
+                                                        context.fb.rect().height());
 
     let mut bus = VecDeque::with_capacity(4);
 
@@ -244,7 +244,13 @@ pub fn run() -> Result<(), Error> {
         if let Some(sdl_evt) = sdl_context.event_pump().unwrap().wait_event_timeout(20) {
             match sdl_evt {
                 SdlEvent::Quit { .. } |
-                SdlEvent::KeyDown { keycode: Some(Keycode::Escape), .. } => break,
+                SdlEvent::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                    view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut context);
+                    while let Some(mut view) = history.pop() {
+                        view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut context);
+                    }
+                    break;
+                },
                 SdlEvent::KeyDown { scancode: Some(scancode), .. } => {
                     if let Some(kb_idx) = locate::<Keyboard>(view.as_ref()) {
                         let index = match scancode {
@@ -294,26 +300,26 @@ pub fn run() -> Result<(), Error> {
         while let Ok(evt) = rx.recv_timeout(Duration::from_millis(20)) {
             match evt {
                 Event::Render(mut rect, mode) => {
-                    render(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
-                    if let Ok(tok) = fb.update(&rect, mode) {
+                    render(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
+                    if let Ok(tok) = context.fb.update(&rect, mode) {
                         updating.insert(tok, rect);
                     }
                 },
                 Event::RenderNoWait(mut rect, mode) => {
-                    render_no_wait(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
-                    if let Ok(tok) = fb.update(&rect, mode) {
+                    render_no_wait(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
+                    if let Ok(tok) = context.fb.update(&rect, mode) {
                         updating.insert(tok, rect);
                     }
                 },
                 Event::RenderNoWaitRegion(mut rect, mode) => {
-                    render_no_wait_region(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
-                    if let Ok(tok) = fb.update(&rect, mode) {
+                    render_no_wait_region(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
+                    if let Ok(tok) = context.fb.update(&rect, mode) {
                         updating.insert(tok, rect);
                     }
                 },
                 Event::Expose(mut rect, mode) => {
-                    fill_crack(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
-                    if let Ok(tok) = fb.update(&rect, mode) {
+                    expose(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
+                    if let Ok(tok) = context.fb.update(&rect, mode) {
                         updating.insert(tok, rect);
                     }
                 },
@@ -321,14 +327,14 @@ pub fn run() -> Result<(), Error> {
                     let rotation = context.display.rotation;
                     if let Some(n) = info.reader.as_ref().and_then(|r| r.rotation) {
                         if n != rotation {
-                            if let Ok(dims) = fb.set_rotation(n) {
+                            if let Ok(dims) = context.fb.set_rotation(n) {
                                 context.display.rotation = n;
                                 context.display.dims = dims;
                             }
                         }
                     }
                     let info2 = info.clone();
-                    if let Some(r) = Reader::new(fb.rect(), *info, &tx, &mut context) {
+                    if let Some(r) = Reader::new(context.fb.rect(), *info, &tx, &mut context) {
                         let mut next_view = Box::new(r) as Box<dyn View>;
                         transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
                         history.push(view as Box<dyn View>);
@@ -338,7 +344,7 @@ pub fn run() -> Result<(), Error> {
                     }
                 },
                 Event::OpenToc(ref toc, current_page, next_page) => {
-                    let r = Reader::from_toc(fb.rect(), toc, current_page, next_page, &tx, &mut context);
+                    let r = Reader::from_toc(context.fb.rect(), toc, current_page, next_page, &tx, &mut context);
                     let mut next_view = Box::new(r) as Box<dyn View>;
                     transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
                     history.push(view as Box<dyn View>);
@@ -346,23 +352,24 @@ pub fn run() -> Result<(), Error> {
                 },
                 Event::Select(EntryId::Launch(app_id)) => {
                     view.children_mut().retain(|child| !child.is::<Menu>());
-                    match app_id {
+                    let mut next_view: Box<View> = match app_id {
                         AppId::Sketch => {
-                            let v = Sketch::new(fb.rect(), &tx, &mut context);
-                            let mut next_view = Box::new(v) as Box<View>;
-                            transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
-                            history.push(view as Box<View>);
-                            view = next_view;
+                            Box::new(Sketch::new(context.fb.rect(), &tx, &mut context))
                         },
-                        _ => (),
-                    }
+                        AppId::Calculator => {
+                            Box::new(Calculator::new(context.fb.rect(), &tx, &mut context)?)
+                        },
+                    };
+                    transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
+                    history.push(view as Box<View>);
+                    view = next_view;
                 },
                 Event::Back => {
                     if let Some(v) = history.pop() {
                         view = v;
                         if view.is::<Home>() {
                             if context.display.rotation % 2 != 1 {
-                                if let Ok(dims) = fb.set_rotation(DEFAULT_ROTATION) {
+                                if let Ok(dims) = context.fb.set_rotation(DEFAULT_ROTATION) {
                                     context.display.rotation = DEFAULT_ROTATION;
                                     context.display.dims = dims;
                                 }
@@ -408,8 +415,8 @@ pub fn run() -> Result<(), Error> {
                     }
                 },
                 Event::Select(EntryId::Rotate(n)) if n != context.display.rotation => {
-                    updating.retain(|tok, _| fb.wait(*tok).is_err());
-                    if let Ok(dims) = fb.set_rotation(n) {
+                    updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                    if let Ok(dims) = context.fb.set_rotation(n) {
                         context.display.rotation = n;
                         let fb_rect = Rectangle::from(dims);
                         if context.display.dims != dims {
@@ -419,18 +426,18 @@ pub fn run() -> Result<(), Error> {
                     }
                 },
                 Event::Select(EntryId::ToggleInverted) => {
-                    fb.toggle_inverted();
+                    context.fb.toggle_inverted();
                     context.inverted = !context.inverted;
-                    tx.send(Event::Render(fb.rect(), UpdateMode::Gui)).unwrap();
+                    tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).unwrap();
                 },
                 Event::Select(EntryId::ToggleMonochrome) => {
-                    fb.toggle_monochrome();
+                    context.fb.toggle_monochrome();
                     context.monochrome = !context.monochrome;
-                    tx.send(Event::Render(fb.rect(), UpdateMode::Gui)).unwrap();
+                    tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).unwrap();
                 },
                 Event::Select(EntryId::TakeScreenshot) => {
                     let name = Local::now().format("screenshot-%Y%m%d_%H%M%S.png");
-                    let msg = match fb.save(&name.to_string()) {
+                    let msg = match context.fb.save(&name.to_string()) {
                         Err(e) => format!("Couldn't take screenshot: {}).", e),
                         Ok(_) => format!("Saved {}.", name),
                     };

@@ -72,6 +72,9 @@ impl View for LabeledIcon {
         self.children[1].resize(rect![rect.min.x + side, rect.min.y,
                                      rect.max.x, rect.max.y],
                                 hub, context);
+        if let Event::ToggleNear(_, ref mut event_rect) = self.event {
+            *event_rect = rect;
+        }
         self.rect = rect;
     }
 

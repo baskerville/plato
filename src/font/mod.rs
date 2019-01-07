@@ -155,16 +155,17 @@ impl FontFamily {
 }
 
 pub struct Fonts {
-    sans_serif: FontFamily,
-    serif: FontFamily,
-    keyboard: Font,
-    display: Font,
+    pub sans_serif: FontFamily,
+    pub serif: FontFamily,
+    pub monospace: FontFamily,
+    pub keyboard: Font,
+    pub display: Font,
 }
 
 impl Fonts {
     pub fn load() -> Result<Fonts, Error> {
         let opener = FontOpener::new()?;
-        Ok(Fonts {
+        let mut fonts = Fonts {
             sans_serif: FontFamily {
                 regular: opener.open("fonts/NotoSans-Regular.ttf")?,
                 italic: opener.open("fonts/NotoSans-Italic.ttf")?,
@@ -177,9 +178,18 @@ impl Fonts {
                 bold: opener.open("fonts/NotoSerif-Bold.ttf")?,
                 bold_italic: opener.open("fonts/NotoSerif-BoldItalic.ttf")?,
             },
+            monospace: FontFamily {
+                regular: opener.open("fonts/SourceCodeVariable-Roman.otf")?,
+                italic: opener.open("fonts/SourceCodeVariable-Italic.otf")?,
+                bold: opener.open("fonts/SourceCodeVariable-Roman.otf")?,
+                bold_italic: opener.open("fonts/SourceCodeVariable-Italic.otf")?,
+            },
             keyboard: opener.open("fonts/VarelaRound-Regular.ttf")?,
             display: opener.open("fonts/Cormorant-Regular.ttf")?,
-        })
+        };
+        fonts.monospace.bold.set_variations(&["wght=600"]);
+        fonts.monospace.bold_italic.set_variations(&["wght=600"]);
+        Ok(fonts)
     }
 }
 
@@ -195,6 +205,7 @@ bitflags! {
 pub enum Family {
     SansSerif,
     Serif,
+    Monospace,
     Keyboard,
     Display,
 }
@@ -225,6 +236,10 @@ pub fn font_from_style<'a>(fonts: &'a mut Fonts, style: &Style, dpi: u16) -> &'a
         },
         Family::Serif => {
             let family = &mut fonts.serif;
+            font_from_variant(family, style.variant)
+        },
+        Family::Monospace => {
+            let family = &mut fonts.monospace;
             font_from_variant(family, style.variant)
         },
         Family::Keyboard => &mut fonts.keyboard,

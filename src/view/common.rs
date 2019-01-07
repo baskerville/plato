@@ -66,7 +66,9 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
                                                            n == context.display.rotation))
                            .collect::<Vec<EntryKind>>();
         let apps = vec![EntryKind::Command("Sketch".to_string(),
-                                           EntryId::Launch(AppId::Sketch))];
+                                           EntryId::Launch(AppId::Sketch)),
+                        EntryKind::Command("Calculator".to_string(),
+                                           EntryId::Launch(AppId::Calculator))];
 
         let mut entries = vec![EntryKind::CheckBox("Invert Colors".to_string(),
                                                    EntryId::ToggleInverted,

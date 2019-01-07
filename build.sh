@@ -14,7 +14,7 @@ case "$method" in
 		echo "Downloading ${archive}."
 		release_url=$(wget -q -O - "$info_url" | grep -Eo "https[^\"]+files[^\"]+${archive}")
 		wget -q "$release_url"
-		unzip "$archive" 'libs/*' 'hyphenation-patterns/*'
+		unzip "$archive" 'libs/*' 'bin/*' 'hyphenation-patterns/*'
 		rm "$archive"
 		cd libs
 		

@@ -106,9 +106,15 @@ impl InputField {
         self
     }
 
-    pub fn set_text(&mut self, text: &str) {
+    pub fn set_text(&mut self, text: &str, move_cursor: bool) {
         self.text = text.to_string();
-        self.cursor = self.text.len();
+        if move_cursor {
+            self.cursor = self.text.len();
+        }
+    }
+
+    pub fn text_before_cursor(&self) -> &str {
+        &self.text[..self.cursor]
     }
 
     fn char_move(&mut self, dir: LinearDir) {

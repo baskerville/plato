@@ -10,10 +10,12 @@ use fnv::FnvHashMap;
 use chrono::Local;
 use crate::framebuffer::{Framebuffer, KoboFramebuffer, Display, UpdateMode};
 use crate::view::{View, Event, EntryId, EntryKind, ViewId, AppId};
-use crate::view::{render, render_no_wait, render_no_wait_region, handle_event, fill_crack};
+use crate::view::{render, render_no_wait, render_no_wait_region, handle_event, expose};
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
 use crate::view::frontlight::FrontlightWindow;
 use crate::view::menu::{Menu, MenuKind};
+use crate::view::sketch::Sketch;
+use crate::view::calculator::Calculator;
 use crate::input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus};
 use crate::input::{raw_events, device_events, usb_events, display_rotate_event};
 use crate::gesture::{GestureEvent, gesture_events};
@@ -29,7 +31,6 @@ use crate::view::reader::Reader;
 use crate::view::confirmation::Confirmation;
 use crate::view::intermission::{Intermission, IntermKind};
 use crate::view::notification::Notification;
-use crate::apps::sketch::Sketch;
 use crate::device::{CURRENT_DEVICE, FrontlightKind};
 use crate::font::Fonts;
 
@@ -41,6 +42,7 @@ const SUSPEND_WAIT_DELAY: Duration = Duration::from_secs(15);
 const PREPARE_SUSPEND_WAIT_DELAY: Duration = Duration::from_secs(3);
 
 pub struct Context {
+    pub fb: Box<dyn Framebuffer>,
     pub display: Display,
     pub settings: Settings,
     pub metadata: Metadata,
@@ -58,12 +60,12 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(fb: &Framebuffer, settings: Settings, metadata: Metadata,
+    pub fn new(fb: Box<dyn Framebuffer>, settings: Settings, metadata: Metadata,
                filename: PathBuf, fonts: Fonts, battery: Box<dyn Battery>,
                frontlight: Box<dyn Frontlight>, lightsensor: Box<dyn LightSensor>) -> Context {
         let dims = fb.dims();
         let rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
-        Context { display: Display { dims, rotation },
+        Context { fb, display: Display { dims, rotation },
                   settings, metadata, filename, fonts,
                   battery, frontlight, lightsensor, notification_index: 0,
                   inverted: false, monochrome: false, plugged: false,
@@ -95,7 +97,7 @@ struct HistoryItem {
     monochrome: bool,
 }
 
-fn build_context(fb: &Framebuffer) -> Result<Context, Error> {
+fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let path = Path::new(SETTINGS_PATH);
     let settings = load_toml::<Settings, _>(path);
 
@@ -186,7 +188,7 @@ fn resume(id: TaskId, tasks: &mut Vec<Task>, view: &mut View, hub: &Sender<Event
     }
 }
 
-fn power_off(history: &mut Vec<HistoryItem>, fb: &mut Framebuffer, updating: &mut FnvHashMap<u32, Rectangle>, context: &mut Context) {
+fn power_off(history: &mut Vec<HistoryItem>, updating: &mut FnvHashMap<u32, Rectangle>, context: &mut Context) {
     let (tx, _rx) = mpsc::channel();
     while let Some(mut item) = history.pop() {
         item.view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), context);
@@ -194,10 +196,10 @@ fn power_off(history: &mut Vec<HistoryItem>, fb: &mut Framebuffer, updating: &mu
     let _ = File::create("poweroff").map_err(|e| {
         eprintln!("Couldn't create the poweroff file: {}", e);
     }).ok();
-    let interm = Intermission::new(fb.rect(), IntermKind::PowerOff, context);
-    updating.retain(|tok, _| fb.wait(*tok).is_err());
-    interm.render(fb, *interm.rect(), &mut context.fonts);
-    fb.update(interm.rect(), UpdateMode::Full).ok();
+    let interm = Intermission::new(context.fb.rect(), IntermKind::PowerOff, context);
+    updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+    interm.render(context.fb.as_mut(), *interm.rect(), &mut context.fonts);
+    context.fb.update(interm.rect(), UpdateMode::Full).ok();
 }
 
 pub fn run() -> Result<(), Error> {
@@ -208,7 +210,7 @@ pub fn run() -> Result<(), Error> {
         fb.set_rotation(startup_rotation).ok();
     }
 
-    let mut context = build_context(&fb).context("Can't build context.")?;
+    let mut context = build_context(Box::new(fb)).context("Can't build context.")?;
 
     let paths = vec!["/dev/input/event0".to_string(),
                      "/dev/input/event1".to_string()];
@@ -265,14 +267,14 @@ pub fn run() -> Result<(), Error> {
 
     let mut tasks: Vec<Task> = Vec::new();
     let mut history: Vec<HistoryItem> = Vec::new();
-    let mut view: Box<dyn View> = Box::new(Home::new(fb.rect(), &tx, &mut context)?);
+    let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &tx, &mut context)?);
 
     let mut updating = FnvHashMap::default();
 
     println!("{} is running on a Kobo {}.", APP_NAME,
                                             CURRENT_DEVICE.model);
-    println!("The framebuffer resolution is {} by {}.", fb.rect().width(),
-                                                        fb.rect().height());
+    println!("The framebuffer resolution is {} by {}.", context.fb.rect().width(),
+                                                        context.fb.rect().height());
 
     let mut bus = VecDeque::with_capacity(4);
 
@@ -293,7 +295,7 @@ pub fn run() -> Result<(), Error> {
                         } else if tasks.iter().any(|task| task.id == TaskId::Suspend) {
                             resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut context);
                         } else {
-                            let interm = Intermission::new(fb.rect(), IntermKind::Suspend, &context);
+                            let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
                             tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
                             schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
                                           PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
@@ -311,7 +313,7 @@ pub fn run() -> Result<(), Error> {
                             continue;
                         }
 
-                        let interm = Intermission::new(fb.rect(), IntermKind::Suspend, &context);
+                        let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
                         tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
                         schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
                                       PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
@@ -466,7 +468,7 @@ pub fn run() -> Result<(), Error> {
                 }
                 if let Ok(v) = context.battery.capacity() {
                     if v < context.settings.battery.power_off {
-                        power_off(&mut history, &mut fb, &mut updating, &mut context);
+                        power_off(&mut history, &mut updating, &mut context);
                         break;
                     } else if v < context.settings.battery.warn {
                         let notif = Notification::new(ViewId::LowBatteryNotif,
@@ -478,7 +480,7 @@ pub fn run() -> Result<(), Error> {
             },
             Event::PrepareSuspend => {
                 tasks.retain(|task| task.id != TaskId::PrepareSuspend);
-                updating.retain(|tok, _| fb.wait(*tok).is_err());
+                updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                 let path = Path::new(SETTINGS_PATH);
                 save_toml(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {}", e)).ok();
                 let path = context.settings.library_path.join(&context.filename);
@@ -516,8 +518,8 @@ pub fn run() -> Result<(), Error> {
                 while let Some(mut item) = history.pop() {
                     item.view.handle_event(&Event::Back, &tx, &mut bus, &mut context);
                     if item.rotation != context.display.rotation {
-                        updating.retain(|tok, _| fb.wait(*tok).is_err());
-                        if let Ok(dims) = fb.set_rotation(item.rotation) {
+                        updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                        if let Ok(dims) = context.fb.set_rotation(item.rotation) {
                             raw_sender.send(display_rotate_event(item.rotation)).unwrap();
                             context.display.rotation = item.rotation;
                             context.display.dims = dims;
@@ -539,7 +541,7 @@ pub fn run() -> Result<(), Error> {
                             .status()
                             .ok();
                 }
-                let interm = Intermission::new(fb.rect(), IntermKind::Share, &context);
+                let interm = Intermission::new(context.fb.rect(), IntermKind::Share, &context);
                 tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
                 view.children_mut().push(Box::new(interm) as Box<dyn View>);
                 tx.send(Event::Share).unwrap();
@@ -555,7 +557,7 @@ pub fn run() -> Result<(), Error> {
             Event::Gesture(ge) => {
                 match ge {
                     GestureEvent::HoldButton(ButtonCode::Power) => {
-                        power_off(&mut history, &mut fb, &mut updating, &mut context);
+                        power_off(&mut history, &mut updating, &mut context);
                         break;
                     }
                     _ => {
@@ -577,26 +579,26 @@ pub fn run() -> Result<(), Error> {
                 view.handle_event(&Event::ToggleFrontlight, &tx, &mut bus, &mut context);
             },
             Event::Render(mut rect, mode) => {
-                render(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
-                if let Ok(tok) = fb.update(&rect, mode) {
+                render(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
+                if let Ok(tok) = context.fb.update(&rect, mode) {
                     updating.insert(tok, rect);
                 }
             },
             Event::RenderNoWait(mut rect, mode) => {
-                render_no_wait(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
-                if let Ok(tok) = fb.update(&rect, mode) {
+                render_no_wait(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
+                if let Ok(tok) = context.fb.update(&rect, mode) {
                     updating.insert(tok, rect);
                 }
             },
             Event::RenderNoWaitRegion(mut rect, mode) => {
-                render_no_wait_region(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
-                if let Ok(tok) = fb.update(&rect, mode) {
+                render_no_wait_region(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
+                if let Ok(tok) = context.fb.update(&rect, mode) {
                     updating.insert(tok, rect);
                 }
             },
             Event::Expose(mut rect, mode) => {
-                fill_crack(view.as_ref(), &mut rect, &mut fb, &mut context.fonts, &mut updating);
-                if let Ok(tok) = fb.update(&rect, mode) {
+                expose(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
+                if let Ok(tok) = context.fb.update(&rect, mode) {
                     updating.insert(tok, rect);
                 }
             },
@@ -604,8 +606,8 @@ pub fn run() -> Result<(), Error> {
                 let rotation = context.display.rotation;
                 if let Some(n) = info.reader.as_ref().and_then(|r| r.rotation) {
                     if n != rotation {
-                        updating.retain(|tok, _| fb.wait(*tok).is_err());
-                        if let Ok(dims) = fb.set_rotation(n) {
+                        updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                        if let Ok(dims) = context.fb.set_rotation(n) {
                             raw_sender.send(display_rotate_event(n)).unwrap();
                             context.display.rotation = n;
                             context.display.dims = dims;
@@ -613,13 +615,13 @@ pub fn run() -> Result<(), Error> {
                     }
                 }
                 let info2 = info.clone();
-                if let Some(r) = Reader::new(fb.rect(), *info, &tx, &mut context) {
+                if let Some(r) = Reader::new(context.fb.rect(), *info, &tx, &mut context) {
                     let mut next_view = Box::new(r) as Box<dyn View>;
                     transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
                     history.push(HistoryItem {
                         view,
                         rotation,
-                        monochrome: fb.monochrome()
+                        monochrome: context.fb.monochrome()
                     });
                     view = next_view;
                 } else {
@@ -627,51 +629,51 @@ pub fn run() -> Result<(), Error> {
                 }
             },
             Event::OpenToc(ref toc, current_page, next_page) => {
-                let r = Reader::from_toc(fb.rect(), toc, current_page, next_page, &tx, &mut context);
+                let r = Reader::from_toc(context.fb.rect(), toc, current_page, next_page, &tx, &mut context);
                 let mut next_view = Box::new(r) as Box<dyn View>;
                 transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
                 history.push(HistoryItem {
                     view,
                     rotation: context.display.rotation,
-                    monochrome: fb.monochrome(),
+                    monochrome: context.fb.monochrome(),
                 });
                 view = next_view;
             },
             Event::Select(EntryId::Launch(app_id)) => {
                 view.children_mut().retain(|child| !child.is::<Menu>());
-                match app_id {
+                let monochrome = context.fb.monochrome();
+                let mut next_view: Box<View> = match app_id {
                     AppId::Sketch => {
-                        let monochrome = fb.monochrome();
-                        fb.set_monochrome(true);
+                        context.fb.set_monochrome(true);
                         if context.display.rotation != startup_rotation {
-                            updating.retain(|tok, _| fb.wait(*tok).is_err());
-                            if let Ok(dims) = fb.set_rotation(startup_rotation) {
+                            updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                            if let Ok(dims) = context.fb.set_rotation(startup_rotation) {
                                 raw_sender.send(display_rotate_event(startup_rotation)).unwrap();
                                 context.display.rotation = startup_rotation;
                                 context.display.dims = dims;
                             }
                         }
-                        let v = Sketch::new(fb.rect(), &tx, &mut context);
-                        let mut next_view = Box::new(v) as Box<View>;
-                        transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
-                        history.push(HistoryItem {
-                            view,
-                            rotation: context.display.rotation,
-                            monochrome
-                        });
-                        view = next_view;
+                        Box::new(Sketch::new(context.fb.rect(), &tx, &mut context))
                     },
-                }
+                    AppId::Calculator => Box::new(Calculator::new(context.fb.rect(), &tx, &mut context)?),
+                };
+                transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
+                history.push(HistoryItem {
+                    view,
+                    rotation: context.display.rotation,
+                    monochrome
+                });
+                view = next_view;
             },
             Event::Back => {
                 if let Some(item) = history.pop() {
                     view = item.view;
-                    if item.monochrome != fb.monochrome() {
-                        fb.set_monochrome(item.monochrome);
+                    if item.monochrome != context.fb.monochrome() {
+                        context.fb.set_monochrome(item.monochrome);
                     }
                     if item.rotation != context.display.rotation {
-                        updating.retain(|tok, _| fb.wait(*tok).is_err());
-                        if let Ok(dims) = fb.set_rotation(item.rotation) {
+                        updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                        if let Ok(dims) = context.fb.set_rotation(item.rotation) {
                             raw_sender.send(display_rotate_event(item.rotation)).unwrap();
                             context.display.rotation = item.rotation;
                             context.display.dims = dims;
@@ -717,14 +719,14 @@ pub fn run() -> Result<(), Error> {
                 }
             },
             Event::Select(EntryId::ToggleInverted) => {
-                fb.toggle_inverted();
+                context.fb.toggle_inverted();
                 context.inverted = !context.inverted;
-                tx.send(Event::Render(fb.rect(), UpdateMode::Gui)).unwrap();
+                tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).unwrap();
             },
             Event::Select(EntryId::ToggleMonochrome) => {
-                fb.toggle_monochrome();
+                context.fb.toggle_monochrome();
                 context.monochrome = !context.monochrome;
-                tx.send(Event::Render(fb.rect(), UpdateMode::Gui)).unwrap();
+                tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).unwrap();
             },
             Event::Select(EntryId::ToggleIntermissionImage(ref kind, ref path)) => {
                 let key = kind.key();
@@ -735,8 +737,8 @@ pub fn run() -> Result<(), Error> {
                 }
             },
             Event::Select(EntryId::Rotate(n)) if n != context.display.rotation => {
-                updating.retain(|tok, _| fb.wait(*tok).is_err());
-                if let Ok(dims) = fb.set_rotation(n) {
+                updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                if let Ok(dims) = context.fb.set_rotation(n) {
                     raw_sender.send(display_rotate_event(n)).unwrap();
                     context.display.rotation = n;
                     let fb_rect = Rectangle::from(dims);
@@ -744,7 +746,7 @@ pub fn run() -> Result<(), Error> {
                         context.display.dims = dims;
                         view.resize(fb_rect, &tx, &mut context);
                     } else {
-                        tx.send(Event::Render(fb.rect(), UpdateMode::Full)).unwrap();
+                        tx.send(Event::Render(context.fb.rect(), UpdateMode::Full)).unwrap();
                     }
                 }
             },
@@ -762,7 +764,7 @@ pub fn run() -> Result<(), Error> {
             },
             Event::Select(EntryId::TakeScreenshot) => {
                 let name = Local::now().format("screenshot-%Y%m%d_%H%M%S.png");
-                let msg = match fb.save(&name.to_string()) {
+                let msg = match context.fb.save(&name.to_string()) {
                     Err(e) => format!("Couldn't take screenshot: {}).", e),
                     Ok(_) => format!("Saved {}.", name),
                 };
@@ -790,7 +792,7 @@ pub fn run() -> Result<(), Error> {
     }
 
     if context.display.rotation != initial_rotation {
-        fb.set_rotation(initial_rotation).ok();
+        context.fb.set_rotation(initial_rotation).ok();
     }
 
     if context.settings.frontlight {

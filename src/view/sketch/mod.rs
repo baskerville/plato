@@ -284,7 +284,7 @@ impl View for Sketch {
                 hub.send(Event::Back).unwrap();
                 true
             },
-            _ => true,
+            _ => false,
         }
     }
 
