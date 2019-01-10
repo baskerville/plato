@@ -7,11 +7,12 @@ Documentation: [GUIDE](doc/GUIDE.md), [MANUAL](doc/MANUAL.md) and [BUILD](doc/BU
 ## Supported devices
 
 - *Forma*.
-- *Aura ONE* (FW 4.10.11655).
-- *Glo HD* (FW 4.7.10413 and 3.19.5761).
-- *Aura H₂O*.
 - *Aura H₂O Edition 2*.
 - *Aura Edition 2*.
+- *Aura ONE* (FW 4.10.11655).
+- *Glo HD* (FW 4.12.12111).
+- *Aura H₂O*.
+- *Aura* (FW 4.12.12111).
 - *Glo*.
 - *Touch C*.
 
