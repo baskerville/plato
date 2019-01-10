@@ -457,6 +457,19 @@ impl EpubDocument {
 
         let props = specified_values(node, loop_context.parent, loop_context.sibling, stylesheet);
 
+        style.display = props.get("display").and_then(|value| parse_display(value))
+                             .unwrap_or(Display::Block);
+
+        if style.display == Display::None {
+            return ChildArtifact {
+                sibling_style: SiblingStyle {
+                    padding_bottom: 0,
+                    margin_bottom: 0,
+                },
+                rects: Vec::new(),
+            }
+        }
+
         style.language = props.get("lang").cloned()
                               .or_else(|| parent_style.language.clone());
 
@@ -669,6 +682,10 @@ impl EpubDocument {
 
                 style.display = props.get("display").and_then(|value| parse_display(value))
                                      .unwrap_or(Display::Inline);
+
+                if style.display == Display::None {
+                    return;
+                }
 
                 style.font_size = props.get("font-size")
                                        .and_then(|value| parse_font_size(value, parent_style.font_size, self.font_size))

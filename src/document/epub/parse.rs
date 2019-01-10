@@ -158,6 +158,7 @@ pub fn parse_display(value: &str) -> Option<Display> {
     match value {
         "block" => Some(Display::Block),
         "inline" => Some(Display::Inline),
+        "none" => Some(Display::None),
         _ => None,
     }
 }

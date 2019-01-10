@@ -46,6 +46,7 @@ pub struct StyleData {
 pub enum Display {
     Block,
     Inline,
+    None,
 }
 
 #[derive(Debug, Clone)]
