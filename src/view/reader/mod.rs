@@ -1047,8 +1047,10 @@ impl Reader {
             let mut doc = self.doc.lock().unwrap();
             let mut index = 0;
 
-            let top_bar = TopBar::new(rect![self.rect.min.x, self.rect.min.y,
-                                            self.rect.max.x, small_height as i32 - small_thickness],
+            let top_bar = TopBar::new(rect![self.rect.min.x,
+                                            self.rect.min.y,
+                                            self.rect.max.x,
+                                            self.rect.min.y + small_height as i32 - small_thickness],
                                       Event::Back,
                                       self.info.title(),
                                       context);
@@ -1057,9 +1059,9 @@ impl Reader {
             index += 1;
 
             let separator = Filler::new(rect![self.rect.min.x,
-                                              small_height as i32 - small_thickness,
+                                              self.rect.min.y + small_height as i32 - small_thickness,
                                               self.rect.max.x,
-                                              small_height as i32 + big_thickness],
+                                              self.rect.min.y + small_height as i32 + big_thickness],
                                         BLACK);
             self.children.insert(index, Box::new(separator) as Box<dyn View>);
             index += 1;
