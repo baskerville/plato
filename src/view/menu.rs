@@ -4,7 +4,7 @@ use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use crate::geom::{Point, Rectangle, CornerSpec, BorderSpec, small_half, big_half};
 use crate::gesture::GestureEvent;
 use crate::unit::scale_by_dpi;
-use crate::color::{BLACK, WHITE, SEPARATOR_NORMAL};
+use crate::color::{BLACK, WHITE, SEPARATOR_NORMAL, SEPARATOR_STRONG};
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use super::filler::Filler;
 use super::menu_entry::MenuEntry;
@@ -47,6 +47,8 @@ impl Menu {
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let border_thickness = scale_by_dpi(THICKNESS_LARGE, dpi) as i32;
         let border_radius = scale_by_dpi(BORDER_RADIUS_MEDIUM - THICKNESS_LARGE, dpi) as i32;
+
+        let sep_color = if context.fb.monochrome() { SEPARATOR_STRONG } else { SEPARATOR_NORMAL };
         let font = font_from_style(&mut context.fonts, &NORMAL_STYLE, dpi);
         let entry_height = font.x_heights.0 as i32 * 5;
         let padding = 4 * font.em() as i32;
@@ -137,7 +139,7 @@ impl Menu {
             if entries[i].is_separator() {
                 let rect = rect![x_min + border_thickness, y_pos - small_half(thickness),
                                  x_max - border_thickness, y_pos + big_half(thickness)];
-                let separator = Filler::new(rect, SEPARATOR_NORMAL);
+                let separator = Filler::new(rect, sep_color);
                 children.push(Box::new(separator) as Box<dyn View>);
             } else {
                 let (y_min, y_max) = if dir.is_positive() {
