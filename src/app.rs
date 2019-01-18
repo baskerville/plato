@@ -52,8 +52,6 @@ pub struct Context {
     pub battery: Box<dyn Battery>,
     pub lightsensor: Box<dyn LightSensor>,
     pub notification_index: u8,
-    pub inverted: bool,
-    pub monochrome: bool,
     pub plugged: bool,
     pub covered: bool,
     pub shared: bool,
@@ -68,8 +66,7 @@ impl Context {
         Context { fb, display: Display { dims, rotation },
                   settings, metadata, filename, fonts,
                   battery, frontlight, lightsensor, notification_index: 0,
-                  inverted: false, monochrome: false, plugged: false,
-                  covered: false, shared: false }
+                  plugged: false, covered: false, shared: false }
     }
 }
 
@@ -712,12 +709,10 @@ pub fn run() -> Result<(), Error> {
             },
             Event::Select(EntryId::ToggleInverted) => {
                 context.fb.toggle_inverted();
-                context.inverted = !context.inverted;
                 tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).unwrap();
             },
             Event::Select(EntryId::ToggleMonochrome) => {
                 context.fb.toggle_monochrome();
-                context.monochrome = !context.monochrome;
                 tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).unwrap();
             },
             Event::Select(EntryId::ToggleIntermissionImage(ref kind, ref path)) => {

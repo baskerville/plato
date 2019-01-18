@@ -427,12 +427,10 @@ pub fn run() -> Result<(), Error> {
                 },
                 Event::Select(EntryId::ToggleInverted) => {
                     context.fb.toggle_inverted();
-                    context.inverted = !context.inverted;
                     tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).unwrap();
                 },
                 Event::Select(EntryId::ToggleMonochrome) => {
                     context.fb.toggle_monochrome();
-                    context.monochrome = !context.monochrome;
                     tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).unwrap();
                 },
                 Event::Select(EntryId::TakeScreenshot) => {
