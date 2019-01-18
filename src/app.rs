@@ -645,14 +645,6 @@ pub fn run() -> Result<(), Error> {
                 let mut next_view: Box<View> = match app_id {
                     AppId::Sketch => {
                         context.fb.set_monochrome(true);
-                        if context.display.rotation != startup_rotation {
-                            updating.retain(|tok, _| context.fb.wait(*tok).is_err());
-                            if let Ok(dims) = context.fb.set_rotation(startup_rotation) {
-                                raw_sender.send(display_rotate_event(startup_rotation)).unwrap();
-                                context.display.rotation = startup_rotation;
-                                context.display.dims = dims;
-                            }
-                        }
                         Box::new(Sketch::new(context.fb.rect(), &tx, &mut context))
                     },
                     AppId::Calculator => Box::new(Calculator::new(context.fb.rect(), &tx, &mut context)?),
