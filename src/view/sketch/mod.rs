@@ -22,6 +22,8 @@ use crate::color::{BLACK, WHITE};
 use crate::app::Context;
 
 const FILENAME_PATTERN: &str = "sketch-%Y%m%d_%H%M%S.png";
+// https://oeis.org/A000041
+const PEN_SIZES: [i32; 12] = [1, 2, 3, 5, 7, 11, 15, 22, 30, 42, 56, 77];
 
 struct TouchState {
     pt: Point,
@@ -98,30 +100,37 @@ impl Sketch {
 
             loadables.sort_by(|a, b| b.cmp(a));
 
-            let mut sizes = (1..=8).map(|s| {
-                EntryKind::RadioButton(s.to_string(),
-                                       EntryId::SetPenSize(s),
-                                       self.pen.size == s)
-            }).collect::<Vec<EntryKind>>();
-            sizes.insert(0, EntryKind::Separator);
-            sizes.insert(0, EntryKind::CheckBox("Dynamic".to_string(),
-                                                EntryId::TogglePenDynamism,
-                                                self.pen.dynamic));
+            let mut sizes = vec![
+                EntryKind::CheckBox("Dynamic".to_string(),
+                                    EntryId::TogglePenDynamism,
+                                    self.pen.dynamic),
+                EntryKind::Separator,
+            ];
 
-            let mut colors = (1..=14).map(|i| {
+            for s in PEN_SIZES.iter() {
+                sizes.push(EntryKind::RadioButton(s.to_string(),
+                                                  EntryId::SetPenSize(*s),
+                                                  self.pen.size == *s));
+            }
+
+            let mut colors = vec![
+                EntryKind::RadioButton("White".to_string(),
+                                       EntryId::SetPenColor(WHITE),
+                                       self.pen.color == WHITE),
+                EntryKind::RadioButton("Black".to_string(),
+                                       EntryId::SetPenColor(BLACK),
+                                       self.pen.color == BLACK),
+            ];
+
+            for i in 1..=14 {
                 let c = i * 17;
-                EntryKind::RadioButton(format!("Gray {:02}", i),
-                                       EntryId::SetPenColor(c),
-                                       self.pen.color == c)
-            }).collect::<Vec<EntryKind>>();
-
-            colors.insert(0, EntryKind::RadioButton("Black".to_string(),
-                                                    EntryId::SetPenColor(BLACK),
-                                                    self.pen.color == BLACK));
-
-            colors.push(EntryKind::RadioButton("White".to_string(),
-                                               EntryId::SetPenColor(WHITE),
-                                               self.pen.color == WHITE));
+                if i % 7 == 1 {
+                    colors.push(EntryKind::Separator);
+                }
+                colors.push(EntryKind::RadioButton(format!("Gray {:02}", i),
+                                                   EntryId::SetPenColor(c),
+                                                   self.pen.color == c));
+            }
 
             let mut entries = vec![
                 EntryKind::SubMenu("Size".to_string(), sizes),
@@ -179,14 +188,14 @@ impl Sketch {
 }
 
 #[inline]
-fn draw_segment(pixmap: &mut Pixmap, ts: &mut TouchState, position: Point, time: f64, pen: &Pen, hub: &Hub) {
+fn draw_segment(pixmap: &mut Pixmap, ts: &mut TouchState, position: Point, time: f64, pen: &Pen, fb_rect: &Rectangle, hub: &Hub) {
     let (start_radius, end_radius) = if pen.dynamic {
         if time > ts.time {
             let d = vec2!((position.x - ts.pt.x) as f32,
                           (position.y - ts.pt.y) as f32).length();
             let speed = d / (time - ts.time) as f32;
             let base_radius = pen.size as f32 / 2.0;
-            let radius = base_radius * (1.0 + 3.0 * speed.max(pen.min_speed).min(pen.max_speed) / (pen.max_speed - pen.min_speed));
+            let radius = base_radius + (1.0 + base_radius.sqrt()) * speed.max(pen.min_speed).min(pen.max_speed) / (pen.max_speed - pen.min_speed);
             (ts.radius, radius)
         } else {
             (ts.radius, ts.radius)
@@ -201,7 +210,10 @@ fn draw_segment(pixmap: &mut Pixmap, ts: &mut TouchState, position: Point, time:
                                        end_radius.ceil() as i32);
 
     pixmap.draw_segment(ts.pt, position, start_radius, end_radius, pen.color);
-    hub.send(Event::RenderNoWaitRegion(rect, UpdateMode::FastMono)).unwrap();
+
+    if let Some(render_rect) = rect.intersection(fb_rect) {
+        hub.send(Event::RenderNoWaitRegion(render_rect, UpdateMode::FastMono)).unwrap();
+    }
 
     ts.pt = position;
     ts.time = time;
@@ -213,7 +225,7 @@ impl View for Sketch {
         match *evt {
             Event::Device(DeviceEvent::Finger { status: FingerStatus::Motion, id, position, time }) => {
                 if let Some(ts) = self.fingers.get_mut(&id) {
-                    draw_segment(&mut self.pixmap, ts, position, time, &self.pen, hub);
+                    draw_segment(&mut self.pixmap, ts, position, time, &self.pen, &self.rect, hub);
                 }
                 true
             },
@@ -224,7 +236,7 @@ impl View for Sketch {
             },
             Event::Device(DeviceEvent::Finger { status: FingerStatus::Up, id, position, time }) => {
                 if let Some(ts) = self.fingers.get_mut(&id) {
-                    draw_segment(&mut self.pixmap, ts, position, time, &self.pen, hub);
+                    draw_segment(&mut self.pixmap, ts, position, time, &self.pen, &self.rect, hub);
                 }
                 self.fingers.remove(&id);
                 true
@@ -289,11 +301,7 @@ impl View for Sketch {
     }
 
     fn render(&self, fb: &mut Framebuffer, rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
-        if let Some(render_rect) = rect.intersection(&self.rect) {
-            let pt = render_rect.min - self.rect.min;
-            fb.draw_framed_pixmap_halftone(&self.pixmap, &self.random, &render_rect, pt);
-            return render_rect;
-        }
+        fb.draw_framed_pixmap_halftone(&self.pixmap, &self.random, &rect, rect.min);
         rect
     }
 
