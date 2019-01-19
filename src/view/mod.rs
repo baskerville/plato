@@ -100,6 +100,10 @@ pub trait View: Downcast {
         false
     }
 
+    fn might_rotate(&self) -> bool {
+        true
+    }
+
     fn is_background(&self) -> bool {
         false
     }

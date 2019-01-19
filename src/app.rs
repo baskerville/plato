@@ -449,7 +449,9 @@ pub fn run() -> Result<(), Error> {
                         }
                     },
                     DeviceEvent::RotateScreen(n) => {
-                        tx.send(Event::Select(EntryId::Rotate(n))).unwrap();
+                        if view.might_rotate() {
+                            tx.send(Event::Select(EntryId::Rotate(n))).unwrap();
+                        }
                     },
                     _ => {
                         handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut context);

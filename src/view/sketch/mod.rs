@@ -305,6 +305,10 @@ impl View for Sketch {
         rect
     }
 
+    fn might_rotate(&self) -> bool {
+        false
+    }
+
     fn is_background(&self) -> bool {
         true
     }
