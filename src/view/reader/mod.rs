@@ -497,6 +497,7 @@ impl Reader {
 
     fn go_to_neighbor(&mut self, dir: CycleDir, hub: &Hub, context: &mut Context) {
         let current_page = self.current_page;
+        let top_offset = self.view_port.top_offset;
         let loc = {
             let neighloc = if dir == CycleDir::Previous {
                 match self.view_port.zoom_mode {
@@ -561,49 +562,52 @@ impl Reader {
             let mut doc = self.doc.lock().unwrap();
             doc.resolve_location(neighloc)
         };
-        if let Some(location) = loc {
-            if let Some(ref mut s) = self.search {
-                s.current_page = s.highlights.range(..location+1).count().saturating_sub(1);
-            }
+        match loc {
+            Some(location) if location != current_page || self.view_port.top_offset != top_offset => {
+                if let Some(ref mut s) = self.search {
+                    s.current_page = s.highlights.range(..location+1).count().saturating_sub(1);
+                }
 
-            self.current_page = location;
-            self.update(None, hub);
-            self.update_bottom_bar(hub);
+                self.current_page = location;
+                self.update(None, hub);
+                self.update_bottom_bar(hub);
 
-            if self.search.is_some() {
-                self.update_results_bar(hub);
-            }
-        } else {
-            match dir {
-                CycleDir::Next => {
-                    self.finished = true;
-                    let action = if self.ephemeral {
-                        FinishedAction::Notify
-                    } else {
-                        context.settings.reader.finished
-                    };
-                    match action {
-                        FinishedAction::Notify => {
-                            let notif = Notification::new(ViewId::BoundaryNotif,
-                                                          "No next page.".to_string(),
-                                                          hub,
-                                                          context);
-                            self.children.push(Box::new(notif) as Box<dyn View>);
-                        },
-                        FinishedAction::Close => {
-                            self.quit(context);
-                            hub.send(Event::Back).unwrap();
-                        },
-                    }
-                },
-                CycleDir::Previous => {
-                    let notif = Notification::new(ViewId::BoundaryNotif,
-                                                  "No previous page.".to_string(),
-                                                  hub,
-                                                  context);
-                    self.children.push(Box::new(notif) as Box<dyn View>);
-                },
-            }
+                if self.search.is_some() {
+                    self.update_results_bar(hub);
+                }
+            },
+            _ => {
+                match dir {
+                    CycleDir::Next => {
+                        self.finished = true;
+                        let action = if self.ephemeral {
+                            FinishedAction::Notify
+                        } else {
+                            context.settings.reader.finished
+                        };
+                        match action {
+                            FinishedAction::Notify => {
+                                let notif = Notification::new(ViewId::BoundaryNotif,
+                                                              "No next page.".to_string(),
+                                                              hub,
+                                                              context);
+                                self.children.push(Box::new(notif) as Box<dyn View>);
+                            },
+                            FinishedAction::Close => {
+                                self.quit(context);
+                                hub.send(Event::Back).unwrap();
+                            },
+                        }
+                    },
+                    CycleDir::Previous => {
+                        let notif = Notification::new(ViewId::BoundaryNotif,
+                                                      "No previous page.".to_string(),
+                                                      hub,
+                                                      context);
+                        self.children.push(Box::new(notif) as Box<dyn View>);
+                    },
+                }
+            },
         }
     }
 
