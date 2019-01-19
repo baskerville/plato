@@ -1759,7 +1759,12 @@ impl View for Reader {
                                 self.go_to_page(index.saturating_sub(1), true, hub);
                             }
                         } else {
-                            println!("Unrecognized URI: {}.", link.text);
+                            let mut doc = self.doc.lock().unwrap();
+                            if let Some(location) = doc.resolve_location(Location::Uri(self.current_page, &link.text)) {
+                                hub.send(Event::GoTo(location)).unwrap();
+                            } else {
+                                println!("Can't resolve URI: {}.", link.text);
+                            }
                         }
                         return true;
                     }

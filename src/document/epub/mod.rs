@@ -197,7 +197,8 @@ impl EpubDocument {
 
     fn vertebra_coordinates_from_name(&self, name: &str) -> (usize, usize) {
         self.vertebra_coordinates_with(|index, _| {
-            self.spine[index].path == name
+            let path = &self.spine[index].path;
+            path == name || Path::new(path).ends_with(name)
         })
     }
 
@@ -293,12 +294,12 @@ impl EpubDocument {
         let frag_index_opt = uri.find('#');
         let name = &uri[..frag_index_opt.unwrap_or_else(|| uri.len())];
 
-        let (_, start_offset) = self.vertebra_coordinates_from_name(name);
+        let (index, start_offset) = self.vertebra_coordinates_from_name(name);
 
         if frag_index_opt.is_some() {
             let mut text = String::new();
             {
-                let mut zf = self.archive.by_name(name).ok()?;
+                let mut zf = self.archive.by_name(&self.spine[index].path).ok()?;
                 zf.read_to_string(&mut text).ok()?;
             }
             let root = XmlParser::new(&text).parse();
