@@ -421,6 +421,7 @@ impl Home {
                 }
             }
 
+            hub.send(Event::Focus(None)).unwrap();
             hub.send(Event::Expose(kb_rect, UpdateMode::Gui)).unwrap();
         } else {
             if !enable {
@@ -496,7 +497,6 @@ impl Home {
 
             if let Some(ViewId::SearchInput) = self.focus {
                 self.toggle_keyboard(false, false, Some(ViewId::SearchInput), hub, context);
-                self.focus = None;
             }
 
             self.children.drain(index - 1 .. index + 1);
@@ -539,7 +539,6 @@ impl Home {
                 self.toggle_keyboard(true, false, Some(ViewId::SearchInput), hub, context);
             }
 
-            self.focus = Some(ViewId::SearchInput);
             hub.send(Event::Focus(Some(ViewId::SearchInput))).unwrap();
 
             self.resize_summary(0, false, hub, context);
@@ -578,7 +577,6 @@ impl Home {
             self.children.remove(index);
             if let Some(ViewId::GoToPageInput) = self.focus {
                 self.toggle_keyboard(false, true, Some(ViewId::GoToPageInput), hub, context);
-                self.focus = None;
             }
         } else {
             if let Some(false) = enable {
@@ -590,7 +588,6 @@ impl Home {
                                              4, context);
             hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).unwrap();
             hub.send(Event::Focus(Some(ViewId::GoToPageInput))).unwrap();
-            self.focus = Some(ViewId::GoToPageInput);
             self.children.push(Box::new(go_to_page) as Box<dyn View>);
         }
     }
@@ -1123,8 +1120,10 @@ impl View for Home {
             },
             Event::Focus(v) => {
                 self.focus = v;
-                self.toggle_keyboard(true, true, v, hub, context);
-                false // let the event reach every input view
+                if v.is_some() {
+                    self.toggle_keyboard(true, true, v, hub, context);
+                }
+                true
             },
             Event::Show(ViewId::Keyboard) => {
                 self.toggle_keyboard(true, true, None, hub, context);

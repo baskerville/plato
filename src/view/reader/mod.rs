@@ -873,15 +873,12 @@ impl Reader {
                 rect.absorb(self.child(index+1).rect());
             }
 
-            hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
-
             if index == 1 {
                 self.children.drain(index - 1 .. index + 2);
             } else {
                 self.children.drain(index - 1 .. index + 1);
             }
 
-            self.focus = None;
 
             if index > 3 {
                 let delta_y = rect.height() as i32;
@@ -890,6 +887,9 @@ impl Reader {
                     shift(self.child_mut(i), pt!(0, delta_y));
                 }
             }
+
+            hub.send(Event::Focus(None)).unwrap();
+            hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
         } else {
             if !enable {
                 return;
@@ -1029,7 +1029,6 @@ impl Reader {
 
             if let Some(bottom_index) = locate::<BottomBar>(self) {
                 self.children.drain(top_index..bottom_index+1);
-                self.focus = None;
                 hub.send(Event::Focus(None)).unwrap();
                 hub.send(Event::Expose(self.rect, UpdateMode::Gui)).unwrap();
             }
@@ -1165,7 +1164,6 @@ impl Reader {
 
             if self.focus.map(|focus_id| focus_id == input_id).unwrap_or(false) {
                 self.toggle_keyboard(false, None, hub, context);
-                hub.send(Event::Focus(None)).unwrap();
             }
         } else {
             if let Some(false) = enable {
@@ -1176,7 +1174,6 @@ impl Reader {
             hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).unwrap();
             hub.send(Event::Focus(Some(input_id))).unwrap();
 
-            self.focus = Some(input_id);
             self.children.push(Box::new(go_to_page) as Box<dyn View>);
         }
     }

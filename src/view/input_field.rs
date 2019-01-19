@@ -195,12 +195,11 @@ impl View for InputField {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 if !self.focused {
-                    self.focused = true;
-                    bus.push_back(Event::Focus(Some(self.id)));
+                    hub.send(Event::Focus(Some(self.id))).unwrap();
                 } else {
                     self.cursor = self.index_from_position(center, &mut context.fonts);
+                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 }
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 true
             },
             Event::Focus(id_opt) => {
