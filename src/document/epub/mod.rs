@@ -197,8 +197,7 @@ impl EpubDocument {
 
     fn vertebra_coordinates_from_name(&self, name: &str) -> (usize, usize) {
         self.vertebra_coordinates_with(|index, _| {
-            let path = &self.spine[index].path;
-            path == name || Path::new(path).ends_with(name)
+            self.spine[index].path == name
         })
     }
 
@@ -299,7 +298,7 @@ impl EpubDocument {
         if frag_index_opt.is_some() {
             let mut text = String::new();
             {
-                let mut zf = self.archive.by_name(&self.spine[index].path).ok()?;
+                let mut zf = self.archive.by_name(name).ok()?;
                 zf.read_to_string(&mut text).ok()?;
             }
             let root = XmlParser::new(&text).parse();
@@ -1822,14 +1821,17 @@ impl Document for EpubDocument {
                 }
             },
             Location::Uri(offset, uri) => {
-                // TODO: Cache URIs in self.cache.uris and prevent duplicate work?
                 let mut cache = FnvHashMap::default();
                 let normalized_uri: String = {
+                    let (index, _) = self.vertebra_coordinates(offset);
+                    let path = &self.spine[index].path;
                     if uri.starts_with('#') {
-                        let (index, _) = self.vertebra_coordinates(offset);
-                        format!("{}{}", &self.spine[index].path, uri)
+                        format!("{}{}", path, uri)
                     } else {
-                        uri.to_string()
+                        let parent = Path::new(path).parent()
+                                          .unwrap_or_else(|| Path::new(""));
+                        parent.join(uri).normalize()
+                              .to_string_lossy().into_owned()
                     }
                 };
                 self.resolve_link(&normalized_uri, &mut cache)
