@@ -591,13 +591,16 @@ impl EpubDocument {
 
         let last_y = position.y;
 
-        if node.id().is_some() {
-            display_list.last_mut().unwrap()
-                        .push(DrawCommand::Marker(root_data.start_offset + node.offset()));
-        }
+        let has_blocks = node.children().and_then(|children| {
+            children.iter().skip_while(|child| child.is_whitespace())
+                    .next().map(|child| child.is_block())
+        });
 
-        if node.children().and_then(|children| children.iter().skip_while(|child| child.is_whitespace())
-                                                       .next().map(|child| child.is_block())) == Some(true) {
+        if has_blocks == Some(true) || has_blocks == None {
+            if node.id().is_some() {
+                display_list.last_mut().unwrap()
+                            .push(DrawCommand::Marker(root_data.start_offset + node.offset()));
+            }
             if let Some(children) = node.children() {
                 let mut loop_context = LoopContext::default();
                 loop_context.is_first = true;
@@ -623,6 +626,9 @@ impl EpubDocument {
         } else {
             let mut inlines = Vec::new();
             let mut markers = Vec::new();
+            if node.id().is_some() {
+                markers.push(node.offset());
+            }
             let mut sibling = None;
             if let Some(children) = node.children() {
                 for child in children {
