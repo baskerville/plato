@@ -293,7 +293,7 @@ impl EpubDocument {
         let frag_index_opt = uri.find('#');
         let name = &uri[..frag_index_opt.unwrap_or_else(|| uri.len())];
 
-        let (index, start_offset) = self.vertebra_coordinates_from_name(name);
+        let (_, start_offset) = self.vertebra_coordinates_from_name(name);
 
         if frag_index_opt.is_some() {
             let mut text = String::new();
@@ -848,10 +848,10 @@ impl EpubDocument {
         let mut items = Vec::new();
         let font_size = (parent_style.font_size * 64.0) as u32;
         let space_plan = {
-            let mut font = self.fonts.as_mut().unwrap()
-                               .get_mut(parent_style.font_kind,
-                                        parent_style.font_style,
-                                        parent_style.font_weight);
+            let font = self.fonts.as_mut().unwrap()
+                           .get_mut(parent_style.font_kind,
+                                    parent_style.font_style,
+                                    parent_style.font_weight);
             font.set_size(font_size, self.dpi);
             font.plan(" 0.", None, None)
         };
@@ -925,10 +925,10 @@ impl EpubDocument {
                             if !buf.is_empty() {
                                 let local_offset = offset + i - buf.len() + 1;
                                 let mut plan = {
-                                    let mut font = self.fonts.as_mut().unwrap()
-                                                       .get_mut(style.font_kind,
-                                                                style.font_style,
-                                                                style.font_weight);
+                                    let font = self.fonts.as_mut().unwrap()
+                                                   .get_mut(style.font_kind,
+                                                            style.font_style,
+                                                            style.font_weight);
                                     font.set_size(font_size, self.dpi);
                                     font.plan(&buf, None, style.font_features.as_ref().map(Vec::as_slice))
                                 };
@@ -1048,10 +1048,10 @@ impl EpubDocument {
                         let local_offset = offset + text.char_indices().last().map(|(i, _)| i).unwrap_or(text.len() - 1) - buf.len() + 1;
                         let font_size = (style.font_size * 64.0) as u32;
                         let mut plan = {
-                            let mut font = self.fonts.as_mut().unwrap()
-                                               .get_mut(style.font_kind,
-                                                        style.font_style,
-                                                        style.font_weight);
+                            let font = self.fonts.as_mut().unwrap()
+                                           .get_mut(style.font_kind,
+                                                    style.font_style,
+                                                    style.font_weight);
                             font.set_size(font_size, self.dpi);
                             font.plan(&buf, None, style.font_features.as_ref().map(Vec::as_slice))
                         };
@@ -1130,8 +1130,8 @@ impl EpubDocument {
             10.0
         };
         let (ascender, descender) = {
-            let mut fonts = self.fonts.as_mut().unwrap();
-            let mut font = fonts.get_mut(style.font_kind, style.font_style, style.font_weight);
+            let fonts = self.fonts.as_mut().unwrap();
+            let font = fonts.get_mut(style.font_kind, style.font_style, style.font_weight);
             font.set_size((style.font_size * 64.0) as u32, self.dpi);
             (font.ascender(), font.descender())
         };
@@ -1179,7 +1179,8 @@ impl EpubDocument {
                     if *width > max_width {
                         match data {
                             ParagraphElement::Text(TextElement { plan, font_kind, font_style, font_weight, font_size, .. }) => {
-                                let mut font = self.fonts.as_mut().unwrap().get_mut(*font_kind, *font_style, *font_weight);
+                                let font = self.fonts.as_mut().unwrap()
+                                               .get_mut(*font_kind, *font_style, *font_weight);
                                 font.set_size(*font_size, self.dpi);
                                 font.crop_right(plan, max_width as u32);
                                 *width = plan.width as i32;
@@ -1384,7 +1385,8 @@ impl EpubDocument {
                 if width > 0 {
                     let font_size = (style.font_size * 64.0) as u32;
                     let plan = {
-                        let mut font = self.fonts.as_mut().unwrap().get_mut(style.font_kind, style.font_style, style.font_weight);
+                        let font = self.fonts.as_mut().unwrap()
+                                       .get_mut(style.font_kind, style.font_style, style.font_weight);
                         font.set_size(font_size, self.dpi);
                         font.plan("-", None, style.font_features.as_ref().map(Vec::as_slice))
                     };
@@ -1566,7 +1568,8 @@ impl EpubDocument {
                 if let ParagraphElement::Text(TextElement { ref text, ref mut plan, font_size, font_kind,
                                                             font_style, font_weight, letter_spacing, ref font_features, .. }) = merged_element {
                     *plan = {
-                        let mut font = self.fonts.as_mut().unwrap().get_mut(font_kind, font_style, font_weight);
+                        let font = self.fonts.as_mut().unwrap()
+                                       .get_mut(font_kind, font_style, font_weight);
                         font.set_size(font_size, self.dpi);
                         font.plan(text, None, font_features.as_ref().map(Vec::as_slice))
                     };
@@ -1624,7 +1627,8 @@ impl EpubDocument {
                     if let ParagraphElement::Text(TextElement { ref text, ref mut plan, font_size, font_kind,
                                                                 font_style, font_weight, letter_spacing, ref font_features, .. }) = merged_element {
                         *plan = {
-                            let mut font = self.fonts.as_mut().unwrap().get_mut(font_kind, font_style, font_weight);
+                            let font = self.fonts.as_mut().unwrap()
+                                           .get_mut(font_kind, font_style, font_weight);
                             font.set_size(font_size, self.dpi);
                             font.plan(text, None, font_features.as_ref().map(Vec::as_slice))
                         };
@@ -1655,7 +1659,8 @@ impl EpubDocument {
         for dc in page {
             match dc {
                 DrawCommand::Text(TextCommand { position, plan, font_kind, font_style, font_weight, font_size, color, .. }) => {
-                    let mut font = self.fonts.as_mut().unwrap().get_mut(*font_kind, *font_style, *font_weight);
+                    let font = self.fonts.as_mut().unwrap()
+                                   .get_mut(*font_kind, *font_style, *font_weight);
                     font.set_size(*font_size, self.dpi);
                     font.render(&mut fb, *color, plan, *position);
                 },

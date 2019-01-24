@@ -42,13 +42,13 @@ impl CodeArea {
                          min_y + added_lines * line_height];
         self.data.push(line);
         self.render(context.fb.as_mut(), rect, &mut context.fonts);
-        context.fb.update(&rect, UpdateMode::Gui);
+        context.fb.update(&rect, UpdateMode::Gui).ok();
     }
 
     pub fn set_data(&mut self, data: Vec<Line>, context: &mut Context) {
         self.data = data;
         self.render(context.fb.as_mut(), self.rect, &mut context.fonts);
-        context.fb.update(&self.rect, UpdateMode::Gui);
+        context.fb.update(&self.rect, UpdateMode::Gui).ok();
     }
 
     pub fn update(&mut self, font_size: f32, margin_width: i32) {

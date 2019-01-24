@@ -103,7 +103,7 @@ impl Calculator {
 
         if Path::new(LIB_PATH).exists() {
             if let Some(stdin) = process.stdin.as_mut() {
-                writeln!(stdin, ")get '{}'", LIB_PATH);
+                writeln!(stdin, ")get '{}'", LIB_PATH).ok();
             }
         }
 
@@ -309,7 +309,7 @@ impl Calculator {
             font.set_size((64.0 * self.font_size) as u32, dpi);
             font.ascender() - font.descender()
         };
-        let mut delta_lines = (dy as f32 / line_height as f32).round() as i32;
+        let delta_lines = (dy as f32 / line_height as f32).round() as i32;
 
         self.scroll(delta_lines, context);
     }
@@ -487,7 +487,7 @@ impl View for Calculator {
                     input_bar.set_text("", true, hub);
                 }
                 if let Some(stdin) = self.process.stdin.as_mut() {
-                    writeln!(stdin, "{}", line);
+                    writeln!(stdin, "{}", line).ok();
                 }
                 true
             },
@@ -523,7 +523,7 @@ impl View for Calculator {
                 true
             },
             Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
-                hub.send(Event::Render(self.rect, UpdateMode::Full));
+                hub.send(Event::Render(self.rect, UpdateMode::Full)).unwrap();
                 true
             },
             Event::ToggleNear(ViewId::MainMenu, rect) => {

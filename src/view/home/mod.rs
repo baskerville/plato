@@ -1,4 +1,3 @@
-mod sort_label;
 mod matches_label;
 mod summary;
 mod category;
@@ -878,39 +877,6 @@ impl Home {
         for info in &mut context.metadata {
             if paths.remove(&info.file.path) {
                 info.categories.extend(categs.clone());
-                if paths.is_empty() {
-                    break;
-                }
-            }
-        }
-
-        self.refresh_visibles(true, false, hub, context);
-    }
-
-    fn remove_matches_category(&mut self, categ: &str, hub: &Hub, context: &mut Context) {
-        self.history_push(false, context);
-
-        let mut paths: FnvHashSet<PathBuf> = self.visible_books.drain(..)
-                                                 .map(|info| info.file.path).collect();
-
-        self.selected_categories = self.selected_categories.iter().filter_map(|c| {
-            if c == categ || c.is_descendant_of(categ) {
-                None
-            } else {
-                Some(c.clone())
-            }
-        }).collect();
-
-
-        for info in &mut context.metadata {
-            if paths.remove(&info.file.path) {
-                info.categories = info.categories.iter().filter_map(|c| {
-                    if c == categ || c.is_descendant_of(categ) {
-                        None
-                    } else {
-                        Some(c.clone())
-                    }
-                }).collect();
                 if paths.is_empty() {
                     break;
                 }

@@ -1397,12 +1397,12 @@ impl Reader {
                 return;
             }
 
-            let mut entries = vec![EntryKind::RadioButton("Forward".to_string(),
-                                                          EntryId::SearchDirection(LinearDir::Forward),
-                                                          self.search_direction == LinearDir::Forward),
-                                   EntryKind::RadioButton("Backward".to_string(),
-                                                          EntryId::SearchDirection(LinearDir::Backward),
-                                                          self.search_direction == LinearDir::Backward)];
+            let entries = vec![EntryKind::RadioButton("Forward".to_string(),
+                                                      EntryId::SearchDirection(LinearDir::Forward),
+                                                      self.search_direction == LinearDir::Forward),
+                               EntryKind::RadioButton("Backward".to_string(),
+                                                      EntryId::SearchDirection(LinearDir::Backward),
+                                                      self.search_direction == LinearDir::Backward)];
 
             let kind = if locate::<SearchBar>(self).is_some() {
                 MenuKind::Contextual
@@ -1913,7 +1913,7 @@ impl View for Reader {
             Event::Submit(ViewId::GoToPageInput, ref text) => {
                 let re = Regex::new(r#"^([-+"])?(.+)$"#).unwrap();
                 if let Some(caps) = re.captures(text) {
-                    if let Ok(mut number) = caps[2].parse::<f64>() {
+                    if let Ok(number) = caps[2].parse::<f64>() {
                         let location = if !self.synthetic {
                             let mut index = number.max(0.0) as usize;
                             match caps.get(1).map(|m| m.as_str()) {
@@ -2309,10 +2309,10 @@ impl View for Reader {
                     } as i32;
 
                     let y_max = self.children[index+1].rect().min.y;
-                    let mut bar_rect = rect![rect.min.x,
-                                             y_max - bar_height + thickness,
-                                             rect.max.x,
-                                             y_max];
+                    let bar_rect = rect![rect.min.x,
+                                         y_max - bar_height + thickness,
+                                         rect.max.x,
+                                         y_max];
                     self.children[index].resize(bar_rect, hub, context);
                     let y_max = self.children[index].rect().min.y;
                     let sp_rect = rect![rect.min.x,

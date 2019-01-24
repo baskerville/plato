@@ -1,11 +1,9 @@
-use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::Framebuffer;
-use crate::view::{View, Event, Hub, Bus, ViewId, THICKNESS_MEDIUM};
+use crate::view::{View, Event, Hub, Bus, ViewId};
 use crate::view::filler::Filler;
 use crate::view::labeled_icon::LabeledIcon;
 use crate::gesture::GestureEvent;
 use crate::input::DeviceEvent;
-use crate::unit::scale_by_dpi;
 use crate::geom::{Rectangle, divide};
 use crate::font::Fonts;
 use crate::color::WHITE;
@@ -20,8 +18,6 @@ pub struct BottomBar {
 impl BottomBar {
     pub fn new(rect: Rectangle, margin_width: i32, font_size: f32) -> BottomBar {
         let mut children = Vec::new();
-        let dpi = CURRENT_DEVICE.dpi;
-        let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let labelled_icon_width = 5 * rect.height() as i32 / 2;
         let paddings = divide(rect.width() as i32 - 2 * labelled_icon_width, 3);
 
@@ -96,8 +92,6 @@ impl View for BottomBar {
     }
 
     fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
-        let dpi = CURRENT_DEVICE.dpi;
-        let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let labelled_icon_width = 5 * rect.height() as i32 / 2;
         let paddings = divide(rect.width() as i32 - 2 * labelled_icon_width, 3);
 
