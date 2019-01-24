@@ -209,16 +209,19 @@ impl Calculator {
         let mut screen_lines = 0;
 
         while screen_lines <= lines_count && current_line < self.data.len() {
-            screen_lines += (self.data[current_line].content[current_column..].len() as f32 / columns_count as f32).ceil().max(1.0) as usize;
+            screen_lines += (self.data[current_line].content[current_column..].chars().count() as f32 /
+                             columns_count as f32).ceil().max(1.0) as usize;
             current_line += 1;
             current_column = 0;
         }
 
         if screen_lines <= lines_count {
-            let added_lines = (line.content.len() as f32 / columns_count as f32).ceil().max(1.0) as usize;
+            let added_lines = (line.content.chars().count() as f32 /
+                               columns_count as f32).ceil().max(1.0) as usize;
             if screen_lines + added_lines > lines_count {
                 let filled_pages = ((screen_lines + added_lines) as f32 / lines_count as f32).ceil() as usize;
-                let current_column = columns_count * ((filled_pages - 1) * lines_count - screen_lines);
+                let chars_count = columns_count * ((filled_pages - 1) * lines_count - screen_lines);
+                let current_column = line.content.char_indices().nth(chars_count).map_or(0, |v| v.0);
                 self.location = (self.data.len(), current_column);
 
                 if let Some(code_area) = self.children[2].downcast_mut::<CodeArea>() {
@@ -257,12 +260,14 @@ impl Calculator {
         let (mut current_line, mut current_column) = self.location;
 
         if delta_lines < 0 {
-            let lines_before = (self.data[current_line].content[..current_column].len() / columns_count) as i32;
+            let lines_before = (self.data[current_line].content[..current_column].chars().count() /
+                                columns_count) as i32;
             delta_lines += lines_before;
             if delta_lines < 0 && current_line > 0 {
                 current_line -= 1;
                 loop {
-                    let lines_before = (self.data[current_line].content.len() as f32 / columns_count as f32).ceil().max(1.0) as i32;
+                    let lines_before = (self.data[current_line].content.chars().count() as f32 /
+                                        columns_count as f32).ceil().max(1.0) as i32;
                     delta_lines += lines_before;
                     if delta_lines >= 0 || current_line == 0 {
                         break;
@@ -271,10 +276,13 @@ impl Calculator {
                 }
             }
 
-            self.location = (current_line, delta_lines.max(0) as usize * columns_count);
+            let chars_count = delta_lines.max(0) as usize * columns_count;
+            let current_column = self.data[current_line].content.char_indices().nth(chars_count).map_or(0, |v| v.0);
+            self.location = (current_line, current_column);
         } else {
             loop {
-                let lines_after = (self.data[current_line].content[current_column..].len() as f32 / columns_count as f32).ceil().max(1.0) as i32;
+                let lines_after = (self.data[current_line].content[current_column..].chars().count() as f32 /
+                                   columns_count as f32).ceil().max(1.0) as i32;
                 delta_lines -= lines_after;
                 if delta_lines < 0  || current_line == self.data.len() - 1 {
                     break;
@@ -283,7 +291,10 @@ impl Calculator {
                 current_column = 0;
             }
 
-            current_column += ((self.data[current_line].content[current_column..].len() as f32 / columns_count as f32).ceil().max(1.0) as i32 + delta_lines.min(-1)) as usize * columns_count;
+            let chars_count = ((self.data[current_line].content[current_column..].chars().count() as f32 /
+                                columns_count as f32).ceil().max(1.0) as i32 + delta_lines.min(-1)) as usize * columns_count;
+            current_column += self.data[current_line].content[current_column..]
+                                  .char_indices().nth(chars_count).map_or(0, |v| v.0);
 
             self.location = (current_line, current_column);
         }
@@ -319,10 +330,13 @@ impl Calculator {
         while screen_lines < lines_count && current_line < self.data.len() {
             let mut line = Line { content: self.data[current_line].content[current_column..].to_string(),
                                   origin: self.data[current_line].origin };
-            screen_lines += (line.content.len() as f32 / columns_count as f32).ceil().max(1.0) as usize;
+            screen_lines += (line.content.chars().count() as f32 /
+                             columns_count as f32).ceil().max(1.0) as usize;
             if screen_lines > lines_count {
                 let delta = screen_lines - lines_count;
-                let column_cut = columns_count * ((line.content.len() as f32 / columns_count as f32).ceil().max(1.0) as usize - delta);
+                let chars_count = columns_count * ((line.content.chars().count() as f32 /
+                                                    columns_count as f32).ceil().max(1.0) as usize - delta);
+                let column_cut = line.content.char_indices().nth(chars_count).map_or(0, |v| v.0);
                 line.content = line.content[..column_cut].to_string();
             }
             data.push(line);
