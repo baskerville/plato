@@ -1,8 +1,8 @@
 mod harfbuzz_sys;
 mod freetype_sys;
 
-use crate::font::harfbuzz_sys::*;
-use crate::font::freetype_sys::*;
+use self::harfbuzz_sys::*;
+use self::freetype_sys::*;
 
 use std::str;
 use std::ptr;
@@ -75,6 +75,132 @@ pub const MD_SIZE: Style = Style {
     variant: Variant::REGULAR,
     size: FONT_SIZES[0],
 };
+
+#[link(name="mupdf")]
+extern {
+    // Extracted from mupdf via `head -n 1 generated/resources/fonts/noto/*`
+    pub static _binary_DroidSansFallback_ttf: [libc::c_uchar; 3556308];
+    pub static _binary_NotoEmoji_Regular_ttf: [libc::c_uchar; 418804];
+    pub static _binary_NotoKufiArabic_Regular_ttf: [libc::c_uchar; 62996];
+    pub static _binary_NotoNaskhArabic_Regular_ttf: [libc::c_uchar; 136084];
+    pub static _binary_NotoNastaliqUrdu_Regular_ttf: [libc::c_uchar; 497204];
+    pub static _binary_NotoSans_Regular_otf: [libc::c_uchar; 232644];
+    pub static _binary_NotoSansAdlam_Regular_otf: [libc::c_uchar; 30084];
+    pub static _binary_NotoSansAhom_Regular_otf: [libc::c_uchar; 13852];
+    pub static _binary_NotoSansAnatolianHieroglyphs_Regular_otf: [libc::c_uchar; 134908];
+    pub static _binary_NotoSansArabic_Regular_otf: [libc::c_uchar; 121308];
+    pub static _binary_NotoSansAvestan_Regular_otf: [libc::c_uchar; 9380];
+    pub static _binary_NotoSansBamum_Regular_otf: [libc::c_uchar; 104656];
+    pub static _binary_NotoSansBassaVah_Regular_otf: [libc::c_uchar; 6332];
+    pub static _binary_NotoSansBatak_Regular_otf: [libc::c_uchar; 11184];
+    pub static _binary_NotoSansBengali_Regular_otf: [libc::c_uchar; 79944];
+    pub static _binary_NotoSansBhaiksuki_Regular_otf: [libc::c_uchar; 100344];
+    pub static _binary_NotoSansBrahmi_Regular_otf: [libc::c_uchar; 27528];
+    pub static _binary_NotoSansBuginese_Regular_otf: [libc::c_uchar; 6312];
+    pub static _binary_NotoSansBuhid_Regular_otf: [libc::c_uchar; 5100];
+    pub static _binary_NotoSansCanadianAboriginal_Regular_otf: [libc::c_uchar; 38508];
+    pub static _binary_NotoSansCarian_Regular_otf: [libc::c_uchar; 5684];
+    pub static _binary_NotoSansChakma_Regular_otf: [libc::c_uchar; 28492];
+    pub static _binary_NotoSansCham_Regular_otf: [libc::c_uchar; 21380];
+    pub static _binary_NotoSansCherokee_Regular_otf: [libc::c_uchar; 56872];
+    pub static _binary_NotoSansCoptic_Regular_otf: [libc::c_uchar; 21620];
+    pub static _binary_NotoSansCuneiform_Regular_otf: [libc::c_uchar; 416856];
+    pub static _binary_NotoSansCypriot_Regular_otf: [libc::c_uchar; 7116];
+    pub static _binary_NotoSansDeseret_Regular_otf: [libc::c_uchar; 8972];
+    pub static _binary_NotoSansDevanagari_Regular_otf: [libc::c_uchar; 115204];
+    pub static _binary_NotoSansEgyptianHieroglyphs_Regular_otf: [libc::c_uchar; 364888];
+    pub static _binary_NotoSansElbasan_Regular_otf: [libc::c_uchar; 8788];
+    pub static _binary_NotoSansGlagolitic_Regular_otf: [libc::c_uchar; 17384];
+    pub static _binary_NotoSansGothic_Regular_otf: [libc::c_uchar; 5572];
+    pub static _binary_NotoSansHanunoo_Regular_otf: [libc::c_uchar; 6668];
+    pub static _binary_NotoSansHatran_Regular_otf: [libc::c_uchar; 4388];
+    pub static _binary_NotoSansImperialAramaic_Regular_otf: [libc::c_uchar; 5516];
+    pub static _binary_NotoSansInscriptionalPahlavi_Regular_otf: [libc::c_uchar; 5536];
+    pub static _binary_NotoSansInscriptionalParthian_Regular_otf: [libc::c_uchar; 6864];
+    pub static _binary_NotoSansJavanese_Regular_ttf: [libc::c_uchar; 40468];
+    pub static _binary_NotoSansKaithi_Regular_otf: [libc::c_uchar; 39768];
+    pub static _binary_NotoSansKayahLi_Regular_otf: [libc::c_uchar; 7184];
+    pub static _binary_NotoSansKharoshthi_Regular_otf: [libc::c_uchar; 19396];
+    pub static _binary_NotoSansLepcha_Regular_otf: [libc::c_uchar; 18948];
+    pub static _binary_NotoSansLimbu_Regular_otf: [libc::c_uchar; 10140];
+    pub static _binary_NotoSansLinearA_Regular_otf: [libc::c_uchar; 33916];
+    pub static _binary_NotoSansLinearB_Regular_otf: [libc::c_uchar; 36860];
+    pub static _binary_NotoSansLisu_Regular_otf: [libc::c_uchar; 5472];
+    pub static _binary_NotoSansLycian_Regular_otf: [libc::c_uchar; 4180];
+    pub static _binary_NotoSansLydian_Regular_otf: [libc::c_uchar; 4164];
+    pub static _binary_NotoSansMalayalam_Regular_otf: [libc::c_uchar; 48048];
+    pub static _binary_NotoSansMandaic_Regular_otf: [libc::c_uchar; 13228];
+    pub static _binary_NotoSansManichaean_Regular_otf: [libc::c_uchar; 16608];
+    pub static _binary_NotoSansMarchen_Regular_otf: [libc::c_uchar; 63992];
+    pub static _binary_NotoSansMeeteiMayek_Regular_otf: [libc::c_uchar; 12112];
+    pub static _binary_NotoSansMendeKikakui_Regular_otf: [libc::c_uchar; 19800];
+    pub static _binary_NotoSansMeroitic_Regular_otf: [libc::c_uchar; 20064];
+    pub static _binary_NotoSansMiao_Regular_otf: [libc::c_uchar; 22908];
+    pub static _binary_NotoSansMongolian_Regular_ttf: [libc::c_uchar; 135484];
+    pub static _binary_NotoSansMro_Regular_otf: [libc::c_uchar; 5680];
+    pub static _binary_NotoSansMultani_Regular_otf: [libc::c_uchar; 7808];
+    pub static _binary_NotoSansNKo_Regular_otf: [libc::c_uchar; 13492];
+    pub static _binary_NotoSansNabataean_Regular_otf: [libc::c_uchar; 6624];
+    pub static _binary_NotoSansNewTaiLue_Regular_otf: [libc::c_uchar; 11240];
+    pub static _binary_NotoSansNewa_Regular_otf: [libc::c_uchar; 66132];
+    pub static _binary_NotoSansOgham_Regular_otf: [libc::c_uchar; 3796];
+    pub static _binary_NotoSansOlChiki_Regular_otf: [libc::c_uchar; 6916];
+    pub static _binary_NotoSansOldItalic_Regular_otf: [libc::c_uchar; 4716];
+    pub static _binary_NotoSansOldNorthArabian_Regular_otf: [libc::c_uchar; 6276];
+    pub static _binary_NotoSansOldPermic_Regular_otf: [libc::c_uchar; 8628];
+    pub static _binary_NotoSansOldPersian_Regular_otf: [libc::c_uchar; 9864];
+    pub static _binary_NotoSansOldSouthArabian_Regular_otf: [libc::c_uchar; 4424];
+    pub static _binary_NotoSansOldTurkic_Regular_otf: [libc::c_uchar; 6992];
+    pub static _binary_NotoSansOriya_Regular_ttf: [libc::c_uchar; 103684];
+    pub static _binary_NotoSansOsage_Regular_otf: [libc::c_uchar; 9384];
+    pub static _binary_NotoSansOsmanya_Regular_otf: [libc::c_uchar; 6864];
+    pub static _binary_NotoSansPahawhHmong_Regular_otf: [libc::c_uchar; 13228];
+    pub static _binary_NotoSansPalmyrene_Regular_otf: [libc::c_uchar; 8604];
+    pub static _binary_NotoSansPauCinHau_Regular_otf: [libc::c_uchar; 8204];
+    pub static _binary_NotoSansPhagsPa_Regular_otf: [libc::c_uchar; 24324];
+    pub static _binary_NotoSansPhoenician_Regular_otf: [libc::c_uchar; 5340];
+    pub static _binary_NotoSansRejang_Regular_otf: [libc::c_uchar; 6564];
+    pub static _binary_NotoSansRunic_Regular_otf: [libc::c_uchar; 7304];
+    pub static _binary_NotoSansSamaritan_Regular_otf: [libc::c_uchar; 9160];
+    pub static _binary_NotoSansSaurashtra_Regular_otf: [libc::c_uchar; 16128];
+    pub static _binary_NotoSansSharada_Regular_otf: [libc::c_uchar; 27752];
+    pub static _binary_NotoSansShavian_Regular_otf: [libc::c_uchar; 5560];
+    pub static _binary_NotoSansSoraSompeng_Regular_otf: [libc::c_uchar; 6388];
+    pub static _binary_NotoSansSundanese_Regular_otf: [libc::c_uchar; 9416];
+    pub static _binary_NotoSansSylotiNagri_Regular_otf: [libc::c_uchar; 13124];
+    pub static _binary_NotoSansSymbols_Regular_otf: [libc::c_uchar; 107728];
+    pub static _binary_NotoSansSymbols2_Regular_otf: [libc::c_uchar; 319912];
+    pub static _binary_NotoSansSyriacEastern_Regular_ttf: [libc::c_uchar; 50164];
+    pub static _binary_NotoSansSyriacEstrangela_Regular_ttf: [libc::c_uchar; 46396];
+    pub static _binary_NotoSansSyriacWestern_Regular_ttf: [libc::c_uchar; 52380];
+    pub static _binary_NotoSansTagalog_Regular_otf: [libc::c_uchar; 5612];
+    pub static _binary_NotoSansTagbanwa_Regular_otf: [libc::c_uchar; 5800];
+    pub static _binary_NotoSansTaiLe_Regular_otf: [libc::c_uchar; 8704];
+    pub static _binary_NotoSansTaiTham_Regular_ttf: [libc::c_uchar; 51040];
+    pub static _binary_NotoSansTaiViet_Regular_otf: [libc::c_uchar; 12420];
+    pub static _binary_NotoSansThaana_Regular_ttf: [libc::c_uchar; 15284];
+    pub static _binary_NotoSansTibetan_Regular_ttf: [libc::c_uchar; 422408];
+    pub static _binary_NotoSansTifinagh_Regular_otf: [libc::c_uchar; 11516];
+    pub static _binary_NotoSansUgaritic_Regular_otf: [libc::c_uchar; 5412];
+    pub static _binary_NotoSansVai_Regular_otf: [libc::c_uchar; 24884];
+    pub static _binary_NotoSansYi_Regular_otf: [libc::c_uchar; 93272];
+    pub static _binary_NotoSerif_Regular_otf: [libc::c_uchar; 289080];
+    pub static _binary_NotoSerifArmenian_Regular_otf: [libc::c_uchar; 13628];
+    pub static _binary_NotoSerifBalinese_Regular_otf: [libc::c_uchar; 32620];
+    pub static _binary_NotoSerifEthiopic_Regular_otf: [libc::c_uchar; 112600];
+    pub static _binary_NotoSerifGeorgian_Regular_otf: [libc::c_uchar; 22304];
+    pub static _binary_NotoSerifGujarati_Regular_otf: [libc::c_uchar; 63308];
+    pub static _binary_NotoSerifGurmukhi_Regular_otf: [libc::c_uchar; 27584];
+    pub static _binary_NotoSerifHebrew_Regular_otf: [libc::c_uchar; 15280];
+    pub static _binary_NotoSerifKannada_Regular_otf: [libc::c_uchar; 78420];
+    pub static _binary_NotoSerifKhmer_Regular_otf: [libc::c_uchar; 40688];
+    pub static _binary_NotoSerifLao_Regular_otf: [libc::c_uchar; 16016];
+    pub static _binary_NotoSerifMyanmar_Regular_otf: [libc::c_uchar; 137544];
+    pub static _binary_NotoSerifSinhala_Regular_otf: [libc::c_uchar; 74676];
+    pub static _binary_NotoSerifTamil_Regular_otf: [libc::c_uchar; 30984];
+    pub static _binary_NotoSerifTelugu_Regular_ttf: [libc::c_uchar; 157544];
+    pub static _binary_NotoSerifThai_Regular_otf: [libc::c_uchar; 17280];
+}
 
 pub const SLIDER_VALUE: Style = MD_SIZE;
 
@@ -249,6 +375,155 @@ pub fn font_from_style<'a>(fonts: &'a mut Fonts, style: &Style, dpi: u16) -> &'a
     font
 }
 
+#[inline]
+unsafe fn font_data_from_script(script: HbScript) -> &'static [libc::c_uchar] {
+    // Extracted from mupdf in source/fitz/noto.c
+    match script {
+	HB_SCRIPT_HANGUL |
+	HB_SCRIPT_HIRAGANA |
+	HB_SCRIPT_KATAKANA |
+	HB_SCRIPT_BOPOMOFO |
+	HB_SCRIPT_HAN => &_binary_DroidSansFallback_ttf,
+
+	HB_SCRIPT_ARABIC => &_binary_NotoNaskhArabic_Regular_ttf,
+	HB_SCRIPT_SYRIAC => &_binary_NotoSansSyriacWestern_Regular_ttf,
+	HB_SCRIPT_MEROITIC_CURSIVE |
+	HB_SCRIPT_MEROITIC_HIEROGLYPHS => &_binary_NotoSansMeroitic_Regular_otf,
+
+	HB_SCRIPT_ADLAM => &_binary_NotoSansAdlam_Regular_otf,
+	HB_SCRIPT_AHOM => &_binary_NotoSansAhom_Regular_otf,
+	HB_SCRIPT_ANATOLIAN_HIEROGLYPHS => &_binary_NotoSansAnatolianHieroglyphs_Regular_otf,
+	HB_SCRIPT_ARMENIAN => &_binary_NotoSerifArmenian_Regular_otf,
+	HB_SCRIPT_AVESTAN => &_binary_NotoSansAvestan_Regular_otf,
+	HB_SCRIPT_BALINESE => &_binary_NotoSerifBalinese_Regular_otf,
+	HB_SCRIPT_BAMUM => &_binary_NotoSansBamum_Regular_otf,
+	HB_SCRIPT_BASSA_VAH => &_binary_NotoSansBassaVah_Regular_otf,
+	HB_SCRIPT_BATAK => &_binary_NotoSansBatak_Regular_otf,
+	HB_SCRIPT_BENGALI => &_binary_NotoSansBengali_Regular_otf,
+	HB_SCRIPT_BHAIKSUKI => &_binary_NotoSansBhaiksuki_Regular_otf,
+	HB_SCRIPT_BRAHMI => &_binary_NotoSansBrahmi_Regular_otf,
+	HB_SCRIPT_BUGINESE => &_binary_NotoSansBuginese_Regular_otf,
+	HB_SCRIPT_BUHID => &_binary_NotoSansBuhid_Regular_otf,
+	HB_SCRIPT_CANADIAN_SYLLABICS => &_binary_NotoSansCanadianAboriginal_Regular_otf,
+	HB_SCRIPT_CARIAN => &_binary_NotoSansCarian_Regular_otf,
+	HB_SCRIPT_CHAKMA => &_binary_NotoSansChakma_Regular_otf,
+	HB_SCRIPT_CHAM => &_binary_NotoSansCham_Regular_otf,
+	HB_SCRIPT_CHEROKEE => &_binary_NotoSansCherokee_Regular_otf,
+	HB_SCRIPT_COPTIC => &_binary_NotoSansCoptic_Regular_otf,
+	HB_SCRIPT_CUNEIFORM => &_binary_NotoSansCuneiform_Regular_otf,
+	HB_SCRIPT_CYPRIOT => &_binary_NotoSansCypriot_Regular_otf,
+	HB_SCRIPT_DESERET => &_binary_NotoSansDeseret_Regular_otf,
+	HB_SCRIPT_DEVANAGARI => &_binary_NotoSansDevanagari_Regular_otf,
+	HB_SCRIPT_EGYPTIAN_HIEROGLYPHS => &_binary_NotoSansEgyptianHieroglyphs_Regular_otf,
+	HB_SCRIPT_ELBASAN => &_binary_NotoSansElbasan_Regular_otf,
+	HB_SCRIPT_ETHIOPIC => &_binary_NotoSerifEthiopic_Regular_otf,
+	HB_SCRIPT_GEORGIAN => &_binary_NotoSerifGeorgian_Regular_otf,
+	HB_SCRIPT_GLAGOLITIC => &_binary_NotoSansGlagolitic_Regular_otf,
+	HB_SCRIPT_GOTHIC => &_binary_NotoSansGothic_Regular_otf,
+	HB_SCRIPT_GUJARATI => &_binary_NotoSerifGujarati_Regular_otf,
+	HB_SCRIPT_GURMUKHI => &_binary_NotoSerifGurmukhi_Regular_otf,
+	HB_SCRIPT_HANUNOO => &_binary_NotoSansHanunoo_Regular_otf,
+	HB_SCRIPT_HATRAN => &_binary_NotoSansHatran_Regular_otf,
+	HB_SCRIPT_HEBREW => &_binary_NotoSerifHebrew_Regular_otf,
+	HB_SCRIPT_IMPERIAL_ARAMAIC => &_binary_NotoSansImperialAramaic_Regular_otf,
+	HB_SCRIPT_INSCRIPTIONAL_PAHLAVI => &_binary_NotoSansInscriptionalPahlavi_Regular_otf,
+	HB_SCRIPT_INSCRIPTIONAL_PARTHIAN => &_binary_NotoSansInscriptionalParthian_Regular_otf,
+	HB_SCRIPT_JAVANESE => &_binary_NotoSansJavanese_Regular_ttf,
+	HB_SCRIPT_KAITHI => &_binary_NotoSansKaithi_Regular_otf,
+	HB_SCRIPT_KANNADA => &_binary_NotoSerifKannada_Regular_otf,
+	HB_SCRIPT_KAYAH_LI => &_binary_NotoSansKayahLi_Regular_otf,
+	HB_SCRIPT_KHAROSHTHI => &_binary_NotoSansKharoshthi_Regular_otf,
+	HB_SCRIPT_KHMER => &_binary_NotoSerifKhmer_Regular_otf,
+	HB_SCRIPT_LAO => &_binary_NotoSerifLao_Regular_otf,
+	HB_SCRIPT_LEPCHA => &_binary_NotoSansLepcha_Regular_otf,
+	HB_SCRIPT_LIMBU => &_binary_NotoSansLimbu_Regular_otf,
+	HB_SCRIPT_LINEAR_A => &_binary_NotoSansLinearA_Regular_otf,
+	HB_SCRIPT_LINEAR_B => &_binary_NotoSansLinearB_Regular_otf,
+	HB_SCRIPT_LISU => &_binary_NotoSansLisu_Regular_otf,
+	HB_SCRIPT_LYCIAN => &_binary_NotoSansLycian_Regular_otf,
+	HB_SCRIPT_LYDIAN => &_binary_NotoSansLydian_Regular_otf,
+	HB_SCRIPT_MALAYALAM => &_binary_NotoSansMalayalam_Regular_otf,
+	HB_SCRIPT_MANDAIC => &_binary_NotoSansMandaic_Regular_otf,
+	HB_SCRIPT_MANICHAEAN => &_binary_NotoSansManichaean_Regular_otf,
+	HB_SCRIPT_MARCHEN => &_binary_NotoSansMarchen_Regular_otf,
+	HB_SCRIPT_MEETEI_MAYEK => &_binary_NotoSansMeeteiMayek_Regular_otf,
+	HB_SCRIPT_MENDE_KIKAKUI => &_binary_NotoSansMendeKikakui_Regular_otf,
+	HB_SCRIPT_MIAO => &_binary_NotoSansMiao_Regular_otf,
+	HB_SCRIPT_MONGOLIAN => &_binary_NotoSansMongolian_Regular_ttf,
+	HB_SCRIPT_MRO => &_binary_NotoSansMro_Regular_otf,
+	HB_SCRIPT_MULTANI => &_binary_NotoSansMultani_Regular_otf,
+	HB_SCRIPT_MYANMAR => &_binary_NotoSerifMyanmar_Regular_otf,
+	HB_SCRIPT_NABATAEAN => &_binary_NotoSansNabataean_Regular_otf,
+	HB_SCRIPT_NEWA => &_binary_NotoSansNewa_Regular_otf,
+	HB_SCRIPT_NEW_TAI_LUE => &_binary_NotoSansNewTaiLue_Regular_otf,
+	HB_SCRIPT_NKO => &_binary_NotoSansNKo_Regular_otf,
+	HB_SCRIPT_OGHAM => &_binary_NotoSansOgham_Regular_otf,
+	HB_SCRIPT_OLD_ITALIC => &_binary_NotoSansOldItalic_Regular_otf,
+	HB_SCRIPT_OLD_NORTH_ARABIAN => &_binary_NotoSansOldNorthArabian_Regular_otf,
+	HB_SCRIPT_OLD_PERMIC => &_binary_NotoSansOldPermic_Regular_otf,
+	HB_SCRIPT_OLD_PERSIAN => &_binary_NotoSansOldPersian_Regular_otf,
+	HB_SCRIPT_OLD_SOUTH_ARABIAN => &_binary_NotoSansOldSouthArabian_Regular_otf,
+	HB_SCRIPT_OLD_TURKIC => &_binary_NotoSansOldTurkic_Regular_otf,
+	HB_SCRIPT_OL_CHIKI => &_binary_NotoSansOlChiki_Regular_otf,
+	HB_SCRIPT_ORIYA => &_binary_NotoSansOriya_Regular_ttf,
+	HB_SCRIPT_OSAGE => &_binary_NotoSansOsage_Regular_otf,
+	HB_SCRIPT_OSMANYA => &_binary_NotoSansOsmanya_Regular_otf,
+	HB_SCRIPT_PAHAWH_HMONG => &_binary_NotoSansPahawhHmong_Regular_otf,
+	HB_SCRIPT_PALMYRENE => &_binary_NotoSansPalmyrene_Regular_otf,
+	HB_SCRIPT_PAU_CIN_HAU => &_binary_NotoSansPauCinHau_Regular_otf,
+	HB_SCRIPT_PHAGS_PA => &_binary_NotoSansPhagsPa_Regular_otf,
+	HB_SCRIPT_PHOENICIAN => &_binary_NotoSansPhoenician_Regular_otf,
+	HB_SCRIPT_REJANG => &_binary_NotoSansRejang_Regular_otf,
+	HB_SCRIPT_RUNIC => &_binary_NotoSansRunic_Regular_otf,
+	HB_SCRIPT_SAMARITAN => &_binary_NotoSansSamaritan_Regular_otf,
+	HB_SCRIPT_SAURASHTRA => &_binary_NotoSansSaurashtra_Regular_otf,
+	HB_SCRIPT_SHARADA => &_binary_NotoSansSharada_Regular_otf,
+	HB_SCRIPT_SHAVIAN => &_binary_NotoSansShavian_Regular_otf,
+	HB_SCRIPT_SINHALA => &_binary_NotoSerifSinhala_Regular_otf,
+	HB_SCRIPT_SORA_SOMPENG => &_binary_NotoSansSoraSompeng_Regular_otf,
+	HB_SCRIPT_SUNDANESE => &_binary_NotoSansSundanese_Regular_otf,
+	HB_SCRIPT_SYLOTI_NAGRI => &_binary_NotoSansSylotiNagri_Regular_otf,
+	HB_SCRIPT_TAGALOG => &_binary_NotoSansTagalog_Regular_otf,
+	HB_SCRIPT_TAGBANWA => &_binary_NotoSansTagbanwa_Regular_otf,
+	HB_SCRIPT_TAI_LE => &_binary_NotoSansTaiLe_Regular_otf,
+	HB_SCRIPT_TAI_THAM => &_binary_NotoSansTaiTham_Regular_ttf,
+	HB_SCRIPT_TAI_VIET => &_binary_NotoSansTaiViet_Regular_otf,
+	HB_SCRIPT_TAMIL => &_binary_NotoSerifTamil_Regular_otf,
+	HB_SCRIPT_TELUGU => &_binary_NotoSerifTelugu_Regular_ttf,
+	HB_SCRIPT_THAANA => &_binary_NotoSansThaana_Regular_ttf,
+	HB_SCRIPT_THAI => &_binary_NotoSerifThai_Regular_otf,
+	HB_SCRIPT_TIBETAN => &_binary_NotoSansTibetan_Regular_ttf,
+	HB_SCRIPT_TIFINAGH => &_binary_NotoSansTifinagh_Regular_otf,
+	HB_SCRIPT_UGARITIC => &_binary_NotoSansUgaritic_Regular_otf,
+	HB_SCRIPT_VAI => &_binary_NotoSansVai_Regular_otf,
+	HB_SCRIPT_YI => &_binary_NotoSansYi_Regular_otf,
+	HB_SCRIPT_BRAILLE |
+	HB_SYMBOL_GEOMETRIC |
+	HB_SYMBOL_ARROW |
+	HB_SYMBOL_GAME_CHESS => &_binary_NotoSansSymbols2_Regular_otf,
+	HB_SYMBOL_EMOTICON => &_binary_NotoEmoji_Regular_ttf,
+	HB_SYMBOL_GRAPHIC_FORM => &_binary_DroidSansFallback_ttf,
+        _ => &_binary_NotoSansSymbols_Regular_otf,
+    }
+}
+
+#[inline]
+fn script_from_code(code: u32) -> HbScript {
+    match code {
+        0x2190 ... 0x21FF |
+        0x2900 ... 0x297F => HB_SYMBOL_ARROW,
+        0x2654 ... 0x265F => HB_SYMBOL_GAME_CHESS,
+        0x2500 ... 0x257F => HB_SYMBOL_GRAPHIC_FORM,
+        0x25A0 ... 0x25EF |
+        0x25F8 ... 0x25FF |
+        0x26AA ... 0x26AC |
+        0x2B12 ... 0x2B2F |
+        0x2B53 ... 0x2B54 => HB_SYMBOL_GEOMETRIC,
+        0x1F600 ... 0x1F64F => HB_SYMBOL_EMOTICON,
+        _ => HB_SCRIPT_UNKNOWN,
+    }
+}
+
 pub struct FontLibrary(*mut FtLibrary);
 
 pub struct FontOpener(Rc<FontLibrary>);
@@ -264,22 +539,6 @@ pub struct Font {
     // lowercase and uppercase x heights
     pub x_heights: (u32, u32),
     space_codepoint: u32,
-}
-
-impl RenderPlan {
-    pub fn space_out(&mut self, letter_spacing: u32) {
-        if letter_spacing == 0 {
-            return;
-        }
-
-        if let Some((_, start)) = self.glyphs.split_last_mut() {
-            let len = start.len() as u32;
-            for glyph in start {
-                glyph.advance.x += letter_spacing as i32;
-            }
-            self.width += len * letter_spacing;
-        }
-    }
 }
 
 impl FontOpener {
@@ -476,14 +735,66 @@ impl Font {
         found
     }
 
+    #[inline]
+    unsafe fn patch(&mut self, txt: &str, features: &[HbFeature], render_plan: &mut RenderPlan, missing_glyphs: Vec<(usize, usize)>, buf: *mut HbBuffer) {
+        let mut drift = 0;
+        for (mut start, mut end) in missing_glyphs.into_iter() {
+            start = (start as i32 + drift).max(0) as usize;
+            end = (end as i32 + drift).max(0) as usize;
+            hb_buffer_clear_contents(buf);
+            let start_index = render_plan.glyphs[start].cluster;
+            let end_index = render_plan.glyphs.get(end).map(|g| g.cluster)
+                                       .unwrap_or_else(|| txt.len());
+            let chunk = &txt[start_index..end_index];
+            hb_buffer_add_utf8(buf, chunk.as_ptr() as *const libc::c_char,
+                               chunk.len() as libc::c_int, 0, -1);
+            hb_buffer_guess_segment_properties(buf);
+            let mut script = hb_buffer_get_script(buf);
+            if script == HB_SCRIPT_INVALID || script == HB_SCRIPT_UNKNOWN {
+                if let Some(c) = chunk.chars().next() {
+                    script = script_from_code(u32::from(c));
+                }
+            }
+            let font_data = font_data_from_script(script);
+            let mut face = ptr::null_mut();
+            FT_New_Memory_Face((self.lib).0, font_data.as_ptr() as *const FtByte,
+                               font_data.len() as libc::c_long, 0, &mut face);
+            FT_Set_Pixel_Sizes(face, (*(*self.face).size).metrics.x_ppem as libc::c_uint, 0);
+            let font = hb_ft_font_create(face, ptr::null());
+            hb_shape(font, buf, features.as_ptr(), features.len() as libc::c_uint);
+            let len = hb_buffer_get_length(buf) as usize;
+            let info = hb_buffer_get_glyph_infos(buf, ptr::null_mut());
+            let pos = hb_buffer_get_glyph_positions(buf, ptr::null_mut());
+            let mut glyphs = Vec::with_capacity(len);
+
+            for i in 0..len {
+                let pos_i = &*pos.add(i);
+                let info_i = &*info.add(i);
+                render_plan.width += (pos_i.x_advance >> 6) as u32;
+                glyphs.push(GlyphPlan {
+                    codepoint: info_i.codepoint,
+                    cluster: start_index + info_i.cluster as usize,
+                    advance: pt!(pos_i.x_advance >> 6, pos_i.y_advance >> 6),
+                    offset: pt!(pos_i.x_offset >> 6, -pos_i.y_offset >> 6),
+                });
+                render_plan.scripts.insert(start+i, script);
+            }
+
+            render_plan.glyphs.splice(start..end, glyphs.into_iter());
+            drift += len as i32 - (end - start) as i32;
+
+            hb_font_destroy(font);
+            FT_Done_Face(face);
+        }
+    }
+
     pub fn plan(&mut self, txt: &str, max_width: Option<u32>, features: Option<&[String]>) -> RenderPlan {
         unsafe {
             let buf = hb_buffer_create();
-            hb_buffer_add_utf8(buf,
-                               txt.as_ptr() as *const libc::c_char,
-                               txt.len() as libc::c_int,
-                               0,
-                               -1);
+            hb_buffer_add_utf8(buf, txt.as_ptr() as *const libc::c_char,
+                               txt.len() as libc::c_int, 0, -1);
+
+            // If the direction is RTL, the clusters are given in reverse order.
             hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
             hb_buffer_guess_segment_properties(buf);
 
@@ -503,28 +814,46 @@ impl Font {
 
             hb_shape(self.font, buf, features_vec.as_ptr(), features_vec.len() as libc::c_uint);
  
-            let len = hb_buffer_get_length(buf);
+            let len = hb_buffer_get_length(buf) as usize;
             let info = hb_buffer_get_glyph_infos(buf, ptr::null_mut());
             let pos = hb_buffer_get_glyph_positions(buf, ptr::null_mut());
             let mut render_plan = RenderPlan::default();
+            let mut missing_glyphs = Vec::new();
 
             for i in 0..len {
-                let pos_i = &*pos.offset(i as isize);
-                let info_i = &*info.offset(i as isize);
-                render_plan.width += (pos_i.x_advance >> 6) as u32;
+                let pos_i = &*pos.add(i);
+                let info_i = &*info.add(i);
+                if info_i.codepoint == 0 {
+                    if let Some((start, end)) = missing_glyphs.pop() {
+                        if i == end {
+                            missing_glyphs.push((start, end+1));
+                        } else {
+                            missing_glyphs.push((start, end));
+                            missing_glyphs.push((i, i+1));
+                        }
+                    } else {
+                        missing_glyphs.push((i, i+1));
+                    }
+                } else {
+                    render_plan.width += (pos_i.x_advance >> 6) as u32;
+                }
                 let glyph = GlyphPlan {
                     codepoint: info_i.codepoint,
+                    cluster: info_i.cluster as usize,
                     advance: pt!(pos_i.x_advance >> 6, pos_i.y_advance >> 6),
                     offset: pt!(pos_i.x_offset >> 6, -pos_i.y_offset >> 6),
                 };
                 render_plan.glyphs.push(glyph);
             }
 
+            self.patch(txt, &features_vec, &mut render_plan, missing_glyphs, buf);
+
+            hb_buffer_destroy(buf);
+
             if let Some(mw) = max_width {
                 self.crop_right(&mut render_plan, mw);
             }
 
-            hb_buffer_destroy(buf);
             render_plan
         }
     }
@@ -534,6 +863,7 @@ impl Font {
         if render_plan.width <= max_width {
             return;
         }
+
         render_plan.width += self.ellipsis.width;
         while let Some(gp) = render_plan.glyphs.pop() {
             render_plan.width -= gp.advance.x as u32;
@@ -541,6 +871,9 @@ impl Font {
                 break;
             }
         }
+
+        let len = render_plan.glyphs.len();
+        render_plan.scripts.retain(|&k, _| k < len);
         render_plan.glyphs.extend_from_slice(&self.ellipsis.glyphs[..]);
     }
 
@@ -600,6 +933,11 @@ impl Font {
                                  .chain(render_plan.glyphs[lower_index as usize..].iter()).cloned().collect();
         }
 
+        render_plan.scripts.retain(|&k, _| k >= lower_index.max(0) as usize && k <= upper_index);
+        if lower_index > 0 {
+            render_plan.scripts = render_plan.scripts.drain()
+                                             .map(|(k, v)| (k - lower_index as usize + 1, v)).collect();
+        }
         render_plan.width = width;
 
         if lower_index < 0 {
@@ -640,11 +978,28 @@ impl Font {
     pub fn render(&mut self, fb: &mut Framebuffer, color: u8, render_plan: &RenderPlan, origin: Point) {
         unsafe {
             let mut pos = origin;
-            for glyph in &render_plan.glyphs {
-                FT_Load_Glyph(self.face, glyph.codepoint, FT_LOAD_RENDER | FT_LOAD_NO_HINTING);
-                let glyph_slot = (*self.face).glyph;
+            let mut fallback_faces = FnvHashMap::default();
+
+            for (index, glyph) in render_plan.glyphs.iter().enumerate() {
+                let face = if let Some(script) = render_plan.scripts.get(&index) {
+                    *fallback_faces.entry(script).or_insert_with(|| {
+                        let font_data = font_data_from_script(*script);
+                        let mut face = ptr::null_mut();
+                        FT_New_Memory_Face((self.lib).0, font_data.as_ptr() as *const FtByte,
+                                           font_data.len() as libc::c_long, 0, &mut face);
+                        FT_Set_Pixel_Sizes(face, (*(*self.face).size).metrics.x_ppem as libc::c_uint, 0);
+                        face
+                    })
+                } else {
+                    self.face
+                };
+
+                FT_Load_Glyph(face, glyph.codepoint, FT_LOAD_RENDER | FT_LOAD_NO_HINTING);
+
+                let glyph_slot = (*face).glyph;
                 let top_left = pos + glyph.offset + pt!((*glyph_slot).bitmap_left, -(*glyph_slot).bitmap_top);
                 let bitmap = &(*glyph_slot).bitmap;
+
                 for y in 0..bitmap.rows {
                     for x in 0..bitmap.width {
                         let blackness = *bitmap.buffer.offset((bitmap.pitch * y + x) as isize);
@@ -653,7 +1008,13 @@ impl Font {
                         fb.set_blended_pixel(pt.x as u32, pt.y as u32, color, alpha);
                     }
                 }
+
                 pos += glyph.advance;
+            }
+
+            let fallback_faces: BTreeSet<*mut FtFace> = fallback_faces.into_iter().map(|(_, v)| v).collect();
+            for face in fallback_faces.into_iter() {
+                FT_Done_Face(face);
             }
         }
     }
@@ -692,8 +1053,9 @@ impl Font {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct GlyphPlan {
+struct GlyphPlan {
     codepoint: u32,
+    cluster: usize,
     offset: Point,
     advance: Point,
 }
@@ -701,16 +1063,49 @@ pub struct GlyphPlan {
 #[derive(Debug, Clone)]
 pub struct RenderPlan {
     pub width: u32,
+    scripts: FnvHashMap<usize, HbScript>,
     glyphs: Vec<GlyphPlan>,
 }
 
+impl Default for RenderPlan {
+    fn default() -> RenderPlan {
+        RenderPlan {
+            width: 0,
+            scripts: FnvHashMap::default(),
+            glyphs: vec![],
+        }
+    }
+}
+
 impl RenderPlan {
+    pub fn space_out(&mut self, letter_spacing: u32) {
+        if letter_spacing == 0 {
+            return;
+        }
+
+        if let Some((_, start)) = self.glyphs.split_last_mut() {
+            let len = start.len() as u32;
+            for glyph in start {
+                glyph.advance.x += letter_spacing as i32;
+            }
+            self.width += len * letter_spacing;
+        }
+    }
+
     pub fn split_off(&mut self, index: usize, width: u32) -> RenderPlan {
-        let next_width = self.width - width;
+        let mut next_scripts = FnvHashMap::default();
+        if !self.scripts.is_empty() {
+            for i in index..self.glyphs.len() {
+                self.scripts.remove_entry(&i)
+                    .map(|(k, v)| next_scripts.insert(k - index, v));
+            }
+        }
         let next_glyphs = self.glyphs.split_off(index);
+        let next_width = self.width - width;
         self.width = width;
         RenderPlan {
             width: next_width,
+            scripts: next_scripts,
             glyphs: next_glyphs,
         }
     }
@@ -742,15 +1137,6 @@ impl RenderPlan {
     }
 }
 
-impl Default for RenderPlan {
-    fn default() -> RenderPlan {
-        RenderPlan {
-            width: 0,
-            glyphs: vec![],
-        }
-    }
-}
-
 impl Drop for FontLibrary {
     fn drop(&mut self) {
         unsafe { FT_Done_FreeType(self.0); }
@@ -768,6 +1154,7 @@ impl Drop for Font {
     }
 }
 
+#[inline]
 fn tag(c1: u8, c2: u8, c3: u8, c4: u8) -> u32 {
     ((c1 as u32) << 24) | ((c2 as u32) << 16) | ((c3 as u32) << 8) | c4 as u32
 }

@@ -43,6 +43,7 @@ extern {
     pub fn FT_New_Memory_Face(lib: *mut FtLibrary, buf: *const FtByte, len: libc::c_long, idx: libc::c_long, face: *mut *mut FtFace) -> FtError;
     pub fn FT_Done_Face(face: *mut FtFace) -> FtError;
     pub fn FT_Set_Char_Size(face: *mut FtFace, sx: FtF26Dot6, sy: FtF26Dot6, rx: libc::c_uint, ry: libc::c_uint) -> FtError;
+    pub fn FT_Set_Pixel_Sizes(face: *mut FtFace, sx: libc::c_uint, sy: libc::c_uint) -> FtError;
     pub fn FT_Load_Glyph(face: *const FtFace, idx: libc::c_uint, flags: i32) -> FtError;
     pub fn FT_Load_Char(face: *const FtFace, code: libc::c_ulong, flags: i32) -> FtError;
     pub fn FT_Get_Char_Index(face: *const FtFace, code: libc::c_ulong) -> libc::c_uint;
@@ -174,7 +175,7 @@ pub struct FtBitmap {
 #[repr(C)]
 #[derive(Debug)]
 pub struct FtGlyphMetrics {
-    pub width: FtPos,
+    width: FtPos,
     pub height: FtPos,
 
     hori_bearing_x: FtPos,
