@@ -286,12 +286,13 @@ impl DjvuDocument {
                 let raw = miniexp_to_name(miniexp_nth(0, exp));
                 CStr::from_ptr(raw).to_bytes()
             };
-            if grain == kind && miniexp_stringp(miniexp_nth(5, exp)) == 1 {
+            let has_text = miniexp_stringp(miniexp_nth(5, exp)) == 1;
+            if grain == kind && has_text {
                 let raw = miniexp_to_str(miniexp_nth(5, exp));
                 let c_str = CStr::from_ptr(raw);
                 let text = c_str.to_string_lossy().into_owned();
                 data.push(BoundedText { rect, text });
-            } else {
+            } else if !has_text {
                 for i in 5..len {
                     Self::walk_text(miniexp_nth(i, exp), height, kind, data);
                 }
