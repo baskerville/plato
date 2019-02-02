@@ -21,7 +21,7 @@ DISK=/dev/mmcblk
 PARTITION=${DISK}0p3
 MOUNT_ARGS="noatime,nodiratime,shortname=mixed,utf8"
 
-dosfsck -a -w "$PARTITION" > dosfsck.log 2>&1
+dosfsck -a -w "$PARTITION"
 
 mount -o "$MOUNT_ARGS" -t vfat "$PARTITION" /mnt/onboard
 
