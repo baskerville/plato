@@ -989,6 +989,11 @@ impl Boundary {
         self.min.x < rect.max.x && rect.min.x < self.max.x &&
         self.min.y < rect.max.y && rect.min.y < self.max.y
     }
+
+    pub fn contains(&self, rect: &Boundary) -> bool {
+        rect.min.x >= self.min.x && rect.max.x <= self.max.x &&
+        rect.min.y >= self.min.y && rect.max.y <= self.max.y
+    }
 }
 
 #[macro_export]

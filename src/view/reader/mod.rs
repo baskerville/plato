@@ -149,7 +149,7 @@ fn find_cut(frame: &Rectangle, y_pos: i32, scale: f32, dir: LinearDir, lines: &[
     let mut rect_a: Option<Boundary> = None;
 
     for line in lines {
-        if frame_u.overlaps(&line.rect) && y_pos_u >= line.rect.min.y && y_pos_u < line.rect.max.y {
+        if frame_u.overlaps(&line.rect) && !line.rect.contains(&frame_u) && y_pos_u >= line.rect.min.y && y_pos_u < line.rect.max.y {
             rect_a = Some(line.rect);
             break;
         }
@@ -498,6 +498,7 @@ impl Reader {
     fn go_to_neighbor(&mut self, dir: CycleDir, hub: &Hub, context: &mut Context) {
         let current_page = self.current_page;
         let top_offset = self.view_port.top_offset;
+
         let loc = {
             let neighloc = if dir == CycleDir::Previous {
                 match self.view_port.zoom_mode {
