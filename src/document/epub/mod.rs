@@ -979,7 +979,7 @@ impl EpubDocument {
                                    continue;
                             }
 
-                            let mut width = if let Some(index) = FONT_SPACES.find(c) {
+                            let mut width = if let Some(index) = FONT_SPACES.chars().position(|x| x == c) {
                                 space_plan.glyph_advance(index)
                             } else if let Some(ratio) = WORD_SPACE_RATIOS.get(&c) {
                                 (space_plan.glyph_advance(0) as f32 * ratio) as i32
