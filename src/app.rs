@@ -1,5 +1,5 @@
 use std::thread;
-use std::fs::{self, File};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::process::Command;
@@ -190,16 +190,20 @@ fn power_off(history: &mut Vec<HistoryItem>, updating: &mut FnvHashMap<u32, Rect
     while let Some(mut item) = history.pop() {
         item.view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), context);
     }
-    let _ = File::create("poweroff").map_err(|e| {
-        eprintln!("Couldn't create the poweroff file: {}", e);
-    }).ok();
     let interm = Intermission::new(context.fb.rect(), IntermKind::PowerOff, context);
     updating.retain(|tok, _| context.fb.wait(*tok).is_err());
     interm.render(context.fb.as_mut(), *interm.rect(), &mut context.fonts);
     context.fb.update(interm.rect(), UpdateMode::Full).ok();
 }
 
+enum ExitStatus {
+    Quit,
+    Reboot,
+    PowerOff,
+}
+
 pub fn run() -> Result<(), Error> {
+    let mut exit_status = ExitStatus::Quit;
     let mut fb = KoboFramebuffer::new("/dev/fb0").context("Can't create framebuffer.")?;
     let initial_rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
     let startup_rotation = CURRENT_DEVICE.startup_rotation();
@@ -468,6 +472,7 @@ pub fn run() -> Result<(), Error> {
                 if let Ok(v) = context.battery.capacity() {
                     if v < context.settings.battery.power_off {
                         power_off(&mut history, &mut updating, &mut context);
+                        exit_status = ExitStatus::PowerOff;
                         break;
                     } else if v < context.settings.battery.warn {
                         let notif = Notification::new(ViewId::LowBatteryNotif,
@@ -557,6 +562,7 @@ pub fn run() -> Result<(), Error> {
                 match ge {
                     GestureEvent::HoldButton(ButtonCode::Power) => {
                         power_off(&mut history, &mut updating, &mut context);
+                        exit_status = ExitStatus::PowerOff;
                         break;
                     }
                     _ => {
@@ -761,13 +767,18 @@ pub fn run() -> Result<(), Error> {
                                               msg, &tx, &mut context);
                 view.children_mut().push(Box::new(notif) as Box<dyn View>);
             },
-            Event::Select(EntryId::Reboot) | Event::Select(EntryId::Quit) => {
+            Event::Select(EntryId::Reboot) => {
+                exit_status = ExitStatus::Reboot;
+                break;
+            },
+            Event::Select(EntryId::Quit) => {
                 break;
             },
             Event::Select(EntryId::StartNickel) => {
                 fs::remove_file("bootlock").map_err(|e| {
                     eprintln!("Couldn't remove the bootlock file: {}", e);
                 }).ok();
+                exit_status = ExitStatus::Reboot;
                 break;
             },
             _ => {
@@ -793,6 +804,18 @@ pub fn run() -> Result<(), Error> {
 
     let path = Path::new(SETTINGS_PATH);
     save_toml(&context.settings, path).context("Can't save settings.")?;
+
+    match exit_status {
+        ExitStatus::Reboot => {
+            Command::new("sync").status().ok();
+            Command::new("reboot").status().ok();
+        },
+        ExitStatus::PowerOff => {
+            Command::new("sync").status().ok();
+            Command::new("poweroff").status().ok();
+        },
+        _ => (),
+    }
 
     Ok(())
 }

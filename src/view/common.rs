@@ -85,12 +85,11 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
                                                   EntryId::TakeScreenshot),
                                EntryKind::Separator,
                                EntryKind::SubMenu("Applications".to_string(), apps),
-                               EntryKind::Separator];
+                               EntryKind::Separator,
+                               EntryKind::Command("Reboot".to_string(), EntryId::Reboot)];
+
         if env::var("PLATO_STANDALONE").is_ok() {
-            entries.extend_from_slice(&[EntryKind::Command("Start Nickel".to_string(),
-                                                           EntryId::StartNickel),
-                                        EntryKind::Command("Reboot".to_string(),
-                                                           EntryId::Reboot)]);
+            entries.push(EntryKind::Command("Start Nickel".to_string(), EntryId::StartNickel));
         } else {
             entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
         }

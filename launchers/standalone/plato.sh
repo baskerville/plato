@@ -53,10 +53,4 @@ if [ $? -ne 0 ] ; then
 fi
 
 sync
-
-if [ -e poweroff ] ; then
-	rm poweroff
-	poweroff
-else
-	reboot
-fi
+reboot
