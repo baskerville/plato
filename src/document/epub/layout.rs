@@ -478,10 +478,14 @@ pub static ref HYPHENATION_PATTERNS: FnvHashMap<Language, Standard> = {
 };
 
 pub static ref EM_SPACE_RATIOS: FnvHashMap<char, f32> = [
-    // Em space.
-    ('\u{2003}', 1.0),
+    // En quad.
+    ('\u{2000}', 0.5),
+    // Em quad.
+    ('\u{2001}', 1.0),
     // En space.
     ('\u{2002}', 0.5),
+    // Em space.
+    ('\u{2003}', 1.0),
     // Three-per-em space.
     ('\u{2004}', 0.33),
     // Four-per-em space.
