@@ -89,6 +89,7 @@ pub const HB_SYMBOL_GRAPHIC_FORM: HbTag = hb_tag!('Z','s','g','f');
 pub const HB_SYMBOL_GEOMETRIC: HbTag = hb_tag!('Z','s','g','g');
 pub const HB_SYMBOL_ARROW: HbTag = hb_tag!('Z','s','a','a');
 pub const HB_SYMBOL_GAME_CHESS: HbTag = hb_tag!('Z','s','g','c');
+pub const HB_SYMBOL_DINGBAT: HbTag = hb_tag!('Z','s','d','d');
 pub const HB_SYMBOL_EMOTICON: HbTag = hb_tag!('Z','s','e','e');
 
 pub const HB_SCRIPT_ARABIC: HbTag = hb_tag!('A','r','a','b');

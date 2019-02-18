@@ -500,6 +500,7 @@ unsafe fn font_data_from_script(script: HbScript) -> &'static [libc::c_uchar] {
 	HB_SCRIPT_BRAILLE |
 	HB_SYMBOL_GEOMETRIC |
 	HB_SYMBOL_ARROW |
+	HB_SYMBOL_DINGBAT |
 	HB_SYMBOL_GAME_CHESS => &_binary_NotoSansSymbols2_Regular_otf,
 	HB_SYMBOL_EMOTICON => &_binary_NotoEmoji_Regular_ttf,
 	HB_SYMBOL_GRAPHIC_FORM => &_binary_DroidSansFallback_ttf,
@@ -519,6 +520,7 @@ fn script_from_code(code: u32) -> HbScript {
         0x26AA ... 0x26AC |
         0x2B12 ... 0x2B2F |
         0x2B53 ... 0x2B54 => HB_SYMBOL_GEOMETRIC,
+        0x2722 ... 0x274B => HB_SYMBOL_DINGBAT,
         0x1F600 ... 0x1F64F => HB_SYMBOL_EMOTICON,
         _ => HB_SCRIPT_UNKNOWN,
     }
