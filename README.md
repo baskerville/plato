@@ -7,6 +7,7 @@ Documentation: [GUIDE](doc/GUIDE.md), [MANUAL](doc/MANUAL.md) and [BUILD](doc/BU
 ## Supported devices
 
 - *Forma*.
+- *Clara HD*.
 - *Aura H₂O Edition 2*.
 - *Aura Edition 2*.
 - *Aura ONE* (FW 4.10.11655).
