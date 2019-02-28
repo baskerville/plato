@@ -7,7 +7,7 @@ use crate::view::page_label::PageLabel;
 use crate::gesture::GestureEvent;
 use crate::input::DeviceEvent;
 use crate::geom::{Rectangle, CycleDir, halves};
-use crate::document::{Document, Neighbors, chapter_at};
+use crate::document::{Document, Neighbors};
 use crate::color::WHITE;
 use crate::font::Fonts;
 use crate::app::Context;
@@ -45,7 +45,7 @@ impl BottomBar {
         let chapter_rect = rect![pt!(rect.min.x + side, rect.min.y),
                                  pt!(rect.min.x + side + small_half_width, rect.max.y)];
 
-        let chapter = doc.toc().as_ref().and_then(|t| chapter_at(t, current_page, neighbors.next_page))
+        let chapter = doc.toc().as_ref().and_then(|toc| doc.chapter(current_page, toc))
                                .map(|c| c.title.clone())
                                .unwrap_or_default();
         let chapter_label = Label::new(chapter_rect,

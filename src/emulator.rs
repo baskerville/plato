@@ -343,8 +343,8 @@ pub fn run() -> Result<(), Error> {
                         handle_event(view.as_mut(), &Event::Invalid(info2), &tx, &mut bus, &mut context);
                     }
                 },
-                Event::OpenToc(ref toc, current_page, next_page) => {
-                    let r = Reader::from_toc(context.fb.rect(), toc, current_page, next_page, &tx, &mut context);
+                Event::OpenToc(ref toc, chap_index) => {
+                    let r = Reader::from_toc(context.fb.rect(), toc, chap_index, &tx, &mut context);
                     let mut next_view = Box::new(r) as Box<dyn View>;
                     transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
                     history.push(view as Box<dyn View>);

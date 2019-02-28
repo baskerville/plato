@@ -47,7 +47,7 @@ use std::fmt::{self, Debug};
 use fnv::FnvHashMap;
 use downcast_rs::{Downcast, impl_downcast};
 use crate::font::Fonts;
-use crate::document::TocEntry;
+use crate::document::{Location, TocEntry};
 use crate::settings::SecondColumn;
 use crate::metadata::{Info, ZoomMode, SortMethod, PageScheme, Margin};
 use crate::geom::{LinearDir, CycleDir, Rectangle, Boundary};
@@ -216,7 +216,7 @@ pub enum Event {
     Keyboard(KeyboardEvent),
     Key(KeyKind),
     Open(Box<Info>),
-    OpenToc(Vec<TocEntry>, usize, Option<usize>),
+    OpenToc(Vec<TocEntry>, usize),
     LoadPixmap(usize),
     Update(UpdateMode),
     Invalid(Box<Info>),
@@ -224,6 +224,7 @@ pub enum Event {
     Page(CycleDir),
     ResultsPage(CycleDir),
     GoTo(usize),
+    GoToLocation(Location),
     ResultsGoTo(usize),
     CropMargins(Box<Margin>),
     Chapter(CycleDir),

@@ -11,9 +11,10 @@ use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
 use failure::Error;
 use super::{Document, Location, BoundedText, TocEntry};
+use super::{chapter, chapter_relative};
+use crate::geom::{Boundary, CycleDir};
 use crate::unit::pt_to_px;
 use crate::framebuffer::Pixmap;
-use crate::geom::Boundary;
 
 impl Into<Boundary> for FzRect {
     fn into(self) -> Boundary {
@@ -127,20 +128,22 @@ impl PdfDocument {
         }
     }
 
-    fn walk_toc(outline: *mut FzOutline) -> Vec<TocEntry> {
+    fn walk_toc(outline: *mut FzOutline, index: &mut usize) -> Vec<TocEntry> {
         unsafe {
             let mut vec = Vec::new();
             let mut cur = outline;
             while !cur.is_null() {
                 let title = CStr::from_ptr((*cur).title).to_string_lossy().into_owned();
                 // TODO: handle page == -1
-                let location = (*cur).page as usize;
+                let location = Location::Exact((*cur).page as usize);
+                let current_index = *index;
+                *index += 1;
                 let children = if !(*cur).down.is_null() {
-                    Self::walk_toc((*cur).down)
+                    Self::walk_toc((*cur).down, index)
                 } else {
                     Vec::new()
                 };
-                vec.push(TocEntry { title, location, children });
+                vec.push(TocEntry { title, location, index: current_index, children });
                 cur = (*cur).next;
             }
             vec
@@ -172,11 +175,20 @@ impl Document for PdfDocument {
             if outline.is_null() {
                 None
             } else {
-                let toc = Self::walk_toc(outline);
+                let mut index = 0;
+                let toc = Self::walk_toc(outline, &mut index);
                 fz_drop_outline(self.ctx.0, outline);
                 Some(toc)
             }
         }
+    }
+
+    fn chapter<'a>(&mut self, offset: usize, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
+        chapter(offset, toc)
+    }
+
+    fn chapter_relative<'a>(&mut self, offset: usize, dir: CycleDir, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
+        chapter_relative(offset, dir, toc)
     }
 
     fn metadata(&self, key: &str) -> Option<String> {

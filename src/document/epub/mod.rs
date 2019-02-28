@@ -17,14 +17,14 @@ use failure::{Error, format_err};
 use crate::framebuffer::{Framebuffer, Pixmap};
 use crate::helpers::Normalize;
 use crate::font::{FontOpener, FontFamily};
-use crate::document::{Document, Location, TocEntry, BoundedText};
+use crate::document::{Document, Location, TocEntry, BoundedText, chapter_from_uri};
 use crate::document::pdf::PdfOpener;
 use paragraph_breaker::{Item as ParagraphItem, Breakpoint, INFINITE_PENALTY};
 use paragraph_breaker::{total_fit, standard_fit};
 use xi_unicode::LineBreakIterator;
 use crate::settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_LINE_HEIGHT};
 use crate::unit::{mm_to_px, pt_to_px};
-use crate::geom::{Point, Rectangle, Edge};
+use crate::geom::{Point, Rectangle, Edge, CycleDir};
 use self::parse::{parse_display, parse_edge, parse_text_align, parse_text_indent, parse_width, parse_height, parse_inline_material};
 use self::parse::{parse_font_kind, parse_font_style, parse_font_weight, parse_font_size, parse_font_features, parse_font_variant, parse_letter_spacing};
 use self::parse::{parse_line_height, parse_vertical_align, parse_color};
@@ -224,7 +224,7 @@ impl EpubDocument {
         rect![0, 0, width as i32, height as i32]
     }
 
-    fn walk_toc(&mut self, node: &Node, toc_dir: &Path, cache: &mut UriCache) -> Vec<TocEntry> {
+    fn walk_toc(&mut self, node: &Node, toc_dir: &Path, index: &mut usize, cache: &mut UriCache) -> Vec<TocEntry> {
         let mut entries = Vec::new();
         // TODO: Take `playOrder` into account?
 
@@ -242,12 +242,14 @@ impl EpubDocument {
                         content.attr("src").map(String::from)
                     }).unwrap_or_default();
 
-                    let loc = toc_dir.join(&rel_uri).normalize().to_str().and_then(|uri| {
-                        cache.get(uri).cloned().or_else(|| self.resolve_link(uri, cache))
-                    });
+                    let loc = toc_dir.join(&rel_uri).normalize().to_str()
+                                     .map(|uri| Location::Uri(uri.to_string()));
+
+                    let current_index = *index;
+                    *index += 1;
 
                     let sub_entries = if child.children().map(|c| c.len() > 2) == Some(true) {
-                        self.walk_toc(child, toc_dir, cache)
+                        self.walk_toc(child, toc_dir, index, cache)
                     } else {
                         Vec::new()
                     };
@@ -256,6 +258,7 @@ impl EpubDocument {
                         entries.push(TocEntry {
                             title,
                             location,
+                            index: current_index,
                             children: sub_entries,
                         });
                     }
@@ -293,7 +296,7 @@ impl EpubDocument {
         let frag_index_opt = uri.find('#');
         let name = &uri[..frag_index_opt.unwrap_or_else(|| uri.len())];
 
-        let (_, start_offset) = self.vertebra_coordinates_from_name(name);
+        let (index, start_offset) = self.vertebra_coordinates_from_name(name);
 
         if frag_index_opt.is_some() {
             let mut text = String::new();
@@ -305,8 +308,12 @@ impl EpubDocument {
             self.cache_uris(&root, name, start_offset, cache);
             cache.get(uri).cloned()
         } else {
-            cache.insert(uri.to_string(), start_offset);
-            Some(start_offset)
+            let page_index = self.page_index(start_offset, index, start_offset)?;
+            let offset = self.cache.get(&index)
+                             .and_then(|display_list| display_list[page_index].first())
+                             .map(|dc| dc.offset())?;
+            cache.insert(uri.to_string(), offset);
+            Some(offset)
         }
     }
 
@@ -1718,6 +1725,75 @@ impl EpubDocument {
         result
     }
 
+    fn chapter_aux<'a>(&mut self, toc: &'a [TocEntry], offset: usize, next_offset: usize, path: &str, chap_before: &mut Option<&'a TocEntry>, offset_before: &mut usize, chap_after: &mut Option<&'a TocEntry>, offset_after: &mut usize) {
+        for entry in toc {
+            if let Location::Uri(ref uri) = entry.location {
+                if uri.starts_with(path) {
+                    if let Some(entry_offset) = self.resolve_location(entry.location.clone()) {
+                        if entry_offset < offset && (chap_before.is_none() || entry_offset > *offset_before) {
+                            *chap_before = Some(entry);
+                            *offset_before = entry_offset;
+                        }
+                        if entry_offset >= offset && entry_offset < next_offset && (chap_after.is_none() || entry_offset < *offset_after) {
+                            *chap_after = Some(entry);
+                            *offset_after = entry_offset;
+                        }
+                    }
+                }
+            }
+            self.chapter_aux(&entry.children, offset, next_offset, path,
+                             chap_before, offset_before, chap_after, offset_after);
+        }
+    }
+
+    fn previous_chapter<'a>(&mut self, chap: Option<&TocEntry>, start_offset: usize, end_offset: usize, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
+        for entry in toc.iter().rev() {
+            let result = self.previous_chapter(chap, start_offset, end_offset, &entry.children);
+            if result.is_some() {
+                return result;
+            }
+
+            if let Some(chap) = chap {
+                if entry.index < chap.index {
+                    let entry_offset = self.resolve_location(entry.location.clone())?;
+                    if entry_offset < start_offset || entry_offset >= end_offset {
+                        return Some(entry)
+                    }
+                }
+            } else {
+                let entry_offset = self.resolve_location(entry.location.clone())?;
+                if entry_offset < start_offset {
+                    return Some(entry);
+                }
+            }
+        }
+        None
+    }
+
+    fn next_chapter<'a>(&mut self, chap: Option<&TocEntry>, start_offset: usize, end_offset: usize, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
+        for entry in toc {
+            if let Some(chap) = chap {
+                if entry.index > chap.index {
+                    let entry_offset = self.resolve_location(entry.location.clone())?;
+                    if entry_offset < start_offset || entry_offset >= end_offset {
+                        return Some(entry)
+                    }
+                }
+            } else {
+                let entry_offset = self.resolve_location(entry.location.clone())?;
+                if entry_offset >= end_offset {
+                    return Some(entry);
+                }
+            }
+
+            let result = self.next_chapter(chap, start_offset, end_offset, &entry.children);
+            if result.is_some() {
+                return result;
+            }
+        }
+        None
+    }
+
     pub fn series(&self) -> Option<String> {
         self.metadata_by_name("calibre:series")
     }
@@ -1765,7 +1841,8 @@ impl Document for EpubDocument {
                 .to_string_lossy().into_owned()
         })?;
 
-        let toc_dir = Path::new(&name).parent()?;
+        let toc_dir = Path::new(&name).parent()
+                           .unwrap_or_else(|| Path::new(""));
 
         let mut text = String::new();
         if let Ok(mut zf) = self.archive.by_name(&name) {
@@ -1777,8 +1854,45 @@ impl Document for EpubDocument {
         let root = XmlParser::new(&text).parse();
         root.find("navMap").map(|map| {
             let mut cache = FnvHashMap::default();
-            self.walk_toc(&map, &toc_dir, &mut cache)
+            let mut index = 0;
+            self.walk_toc(&map, &toc_dir, &mut index, &mut cache)
         })
+    }
+
+    fn chapter<'a>(&mut self, offset: usize, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
+        let next_offset = self.resolve_location(Location::Next(offset))
+                              .unwrap_or(usize::max_value());
+        let (index, _) = self.vertebra_coordinates(offset);
+        let path = self.spine[index].path.clone();
+        let mut chap_before = None;
+        let mut chap_after = None;
+        let mut offset_before = 0;
+        let mut offset_after = usize::max_value();
+        self.chapter_aux(toc, offset, next_offset, &path,
+                         &mut chap_before, &mut offset_before,
+                         &mut chap_after, &mut offset_after);
+        if chap_after.is_none() && chap_before.is_none() {
+            for i in (0..index).rev() {
+                let chap = chapter_from_uri(&self.spine[i].path, toc);
+                if chap.is_some() {
+                    return chap;
+                }
+            }
+            None
+        } else {
+            chap_after.or(chap_before)
+        }
+    }
+
+    fn chapter_relative<'a>(&mut self, offset: usize, dir: CycleDir, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
+        let next_offset = self.resolve_location(Location::Next(offset))
+                              .unwrap_or(usize::max_value());
+        let chap = self.chapter(offset, toc);
+
+        match dir {
+            CycleDir::Previous => self.previous_chapter(chap, offset, next_offset, toc),
+            CycleDir::Next => self.next_chapter(chap, offset, next_offset, toc),
+        }
     }
 
     fn resolve_location(&mut self, loc: Location) -> Option<usize> {
@@ -1831,7 +1945,7 @@ impl Document for EpubDocument {
                         .and_then(|display_list| display_list.first().and_then(|page| page.first()).map(|dc| dc.offset()))
                 }
             },
-            Location::Uri(offset, uri) => {
+            Location::LocalUri(offset, ref uri) => {
                 let mut cache = FnvHashMap::default();
                 let normalized_uri: String = {
                     let (index, _) = self.vertebra_coordinates(offset);
@@ -1846,6 +1960,10 @@ impl Document for EpubDocument {
                     }
                 };
                 self.resolve_link(&normalized_uri, &mut cache)
+            },
+            Location::Uri(ref uri) => {
+                let mut cache = FnvHashMap::default();
+                self.resolve_link(uri, &mut cache)
             },
         }
     }

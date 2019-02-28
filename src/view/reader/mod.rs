@@ -37,7 +37,7 @@ use crate::settings::{guess_frontlight, FinishedAction, DEFAULT_FONT_FAMILY};
 use crate::frontlight::LightLevels;
 use crate::gesture::GestureEvent;
 use crate::document::{Document, DocumentOpener, Location, BoundedText, Neighbors, BYTES_PER_PAGE};
-use crate::document::{TocEntry, toc_as_html, chapter_at, chapter_relative};
+use crate::document::{TocEntry, toc_as_html, chapter_from_index};
 use crate::document::pdf::PdfOpener;
 use crate::metadata::{Info, FileInfo, ReaderInfo, ZoomMode, PageScheme, Margin, CroppingMargins, make_query};
 use crate::geom::{Point, Rectangle, Boundary, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, Axis, halves};
@@ -287,8 +287,8 @@ impl Reader {
         })
     }
 
-    pub fn from_toc(rect: Rectangle, toc: &[TocEntry], mut current_page: usize, next_page: Option<usize>, hub: &Hub, context: &mut Context) -> Reader {
-        let html = toc_as_html(toc, current_page, next_page);
+    pub fn from_toc(rect: Rectangle, toc: &[TocEntry], chap_index: usize, hub: &Hub, context: &mut Context) -> Reader {
+        let html = toc_as_html(toc, chap_index);
 
         let info = Info {
             title: "Table of Contents".to_string(),
@@ -308,17 +308,23 @@ impl Reader {
         doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
         let pages_count = doc.pages_count();
 
-        current_page = chapter_at(toc, current_page, next_page).and_then(|chap| {
-            let link_uri = format!("@{}", chap.location);
+        let mut current_page = 0;
+
+        if let Some(chap) = chapter_from_index(chap_index, toc) {
+            let link_uri = match chap.location {
+                Location::Uri(ref uri) => format!("@{}", uri),
+                Location::Exact(offset) => format!("@{}", offset),
+                _ => "#".to_string(),
+            };
             let mut loc = Location::Exact(0);
-            while let Some((links, l)) = doc.links(loc) {
+            while let Some((links, offset)) = doc.links(loc) {
                 if links.iter().any(|link| link.text == link_uri) {
-                    return Some(l)
+                    current_page = offset;
+                    break;
                 }
-                loc = Location::Next(l);
+                loc = Location::Next(offset);
             }
-            None
-        }).unwrap_or(0);
+        }
 
         hub.send(Event::Update(UpdateMode::Partial)).unwrap();
 
@@ -398,12 +404,24 @@ impl Reader {
 
     fn go_to_chapter(&mut self, dir: CycleDir, hub: &Hub) {
         let current_page = self.current_page;
-        let chap = {
+        let loc = {
             let mut doc = self.doc.lock().unwrap();
-            let next_page = doc.resolve_location(Location::Next(current_page));
-            doc.toc().and_then(|toc| chapter_relative(&toc, current_page, next_page, dir))
+            if let Some(toc) = doc.toc() {
+                let chap_offset = if dir == CycleDir::Previous {
+                   doc.chapter(current_page, &toc)
+                      .and_then(|chap| doc.resolve_location(chap.location.clone()))
+                      .and_then(|chap_offset| if chap_offset < current_page { Some(chap_offset) } else { None })
+                } else {
+                    None
+                };
+                chap_offset.or_else(||
+                    doc.chapter_relative(current_page, dir, &toc)
+                       .and_then(|rel_chap| doc.resolve_location(rel_chap.location.clone())))
+            } else {
+                None
+            }
         };
-        if let Some(location) = chap {
+        if let Some(location) = loc {
             self.go_to_page(location, true, hub);
         }
     }
@@ -661,7 +679,7 @@ impl Reader {
             };
             bottom_bar.update_page_label(self.current_page, self.pages_count, hub);
             bottom_bar.update_icons(&neighbors, hub);
-            let chapter = doc.toc().as_ref().and_then(|t| chapter_at(t, current_page, neighbors.next_page))
+            let chapter = doc.toc().as_ref().and_then(|toc| doc.chapter(current_page, toc))
                                    .map(|c| c.title.clone())
                                    .unwrap_or_default();
             bottom_bar.update_chapter(chapter, hub);
@@ -1749,12 +1767,19 @@ impl View for Reader {
                 if dmin < dmax {
                     if let Some(link) = nearest_link.take() {
                         let pdf_page = Regex::new(r"^#(\d+)(?:,-?\d+,-?\d+)?$").unwrap();
-                        let toc_page = Regex::new(r"^@(\d+)$").unwrap();
+                        let toc_page = Regex::new(r"^@(.+)$").unwrap();
                         if let Some(caps) = toc_page.captures(&link.text) {
-                            if let Ok(location) = caps[1].parse::<usize>() {
+                            let loc_opt = if caps[1].chars().all(|c| c.is_digit(10)) {
+                                caps[1].parse::<usize>()
+                                       .map(|offset| Location::Exact(offset))
+                                       .ok()
+                            } else {
+                                Some(Location::Uri(caps[1].to_string()))
+                            };
+                            if let Some(location) = loc_opt {
                                 self.quit(context);
                                 hub.send(Event::Back).unwrap();
-                                hub.send(Event::GoTo(location)).unwrap();
+                                hub.send(Event::GoToLocation(location)).unwrap();
                             }
                         } else if let Some(caps) = pdf_page.captures(&link.text) {
                             if let Ok(index) = caps[1].parse::<usize>() {
@@ -1762,7 +1787,8 @@ impl View for Reader {
                             }
                         } else {
                             let mut doc = self.doc.lock().unwrap();
-                            if let Some(location) = doc.resolve_location(Location::Uri(self.current_page, &link.text)) {
+                            let loc = Location::LocalUri(self.current_page, link.text.clone());
+                            if let Some(location) = doc.resolve_location(loc) {
                                 hub.send(Event::GoTo(location)).unwrap();
                             } else {
                                 println!("Can't resolve URI: {}.", link.text);
@@ -1967,6 +1993,16 @@ impl View for Reader {
                 self.go_to_page(location, true, hub);
                 true
             },
+            Event::GoToLocation(ref location) => {
+                let offset_opt = {
+                    let mut doc = self.doc.lock().unwrap();
+                    doc.resolve_location(location.clone())
+                };
+                if let Some(offset) = offset_opt {
+                    self.go_to_page(offset, true, hub);
+                }
+                true
+            },
             Event::Chapter(dir) => {
                 self.go_to_chapter(dir, hub);
                 true
@@ -2061,9 +2097,13 @@ impl View for Reader {
                     self.toggle_bars(Some(false), hub, context);
                 }
                 let mut doc = self.doc.lock().unwrap();
-                if doc.has_toc() {
-                    let next_page = doc.resolve_location(Location::Next(self.current_page));
-                    hub.send(Event::OpenToc(doc.toc().unwrap(), self.current_page, next_page)).unwrap();
+                if let Some(toc) = doc.toc() {
+                    if !toc.is_empty() {
+                        let chap_index = doc.chapter(self.current_page, &toc)
+                                            .map(|chap| chap.index)
+                                            .unwrap_or(usize::max_value());
+                        hub.send(Event::OpenToc(toc, chap_index)).unwrap();
+                    }
                 }
                 true
             },

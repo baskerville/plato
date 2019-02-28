@@ -6,8 +6,9 @@ use std::path::Path;
 use std::ffi::{CStr, CString};
 use std::os::unix::ffi::OsStrExt;
 use super::{Document, Location, BoundedText, TocEntry};
+use super::{chapter, chapter_relative};
 use crate::framebuffer::Pixmap;
-use crate::geom::Rectangle;
+use crate::geom::{Rectangle, CycleDir};
 
 impl Into<DjvuRect> for Rectangle {
     fn into(self) -> DjvuRect {
@@ -124,11 +125,20 @@ impl Document for DjvuDocument {
             if exp == MINIEXP_NIL {
                 None
             } else {
-                let toc = Self::walk_toc(exp);
+                let mut index = 0;
+                let toc = Self::walk_toc(exp, &mut index);
                 ddjvu_miniexp_release(self.doc, exp);
                 Some(toc)
             }
         }
+    }
+
+    fn chapter<'a>(&mut self, offset: usize, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
+        chapter(offset, toc)
+    }
+
+    fn chapter_relative<'a>(&mut self, offset: usize, dir: CycleDir, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
+        chapter_relative(offset, dir, toc)
     }
 
     fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
@@ -300,7 +310,7 @@ impl DjvuDocument {
         }
     }
 
-    fn walk_toc(exp: *mut MiniExp) -> Vec<TocEntry> {
+    fn walk_toc(exp: *mut MiniExp, index: &mut usize) -> Vec<TocEntry> {
         unsafe {
             let mut vec = Vec::new();
             let len = miniexp_length(exp);
@@ -319,13 +329,16 @@ impl DjvuDocument {
                 let digits = bytes.iter().map(|v| *v as u8 as char)
                                          .filter(|c| c.is_digit(10))
                                          .collect::<String>();
-                let location = digits.parse::<usize>().unwrap_or(1).saturating_sub(1);
+                let location = Location::Exact(digits.parse::<usize>()
+                                                     .unwrap_or(1).saturating_sub(1));
+                let current_index = *index;
+                *index += 1;
                 let children = if miniexp_length(itm) > 2 {
-                    Self::walk_toc(itm)
+                    Self::walk_toc(itm, index)
                 } else {
                     Vec::new()
                 };
-                vec.push(TocEntry { title, location, children });
+                vec.push(TocEntry { title, location, index: current_index, children });
             }
             vec
         }
