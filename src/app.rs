@@ -25,7 +25,7 @@ use crate::settings::{Settings, SETTINGS_PATH};
 use crate::frontlight::{Frontlight, StandardFrontlight, NaturalFrontlight, PremixedFrontlight};
 use crate::lightsensor::{LightSensor, KoboLightSensor};
 use crate::battery::{Battery, KoboBattery};
-use crate::geom::Rectangle;
+use crate::geom::{Rectangle, Edge};
 use crate::view::home::Home;
 use crate::view::reader::Reader;
 use crate::view::confirmation::Confirmation;
@@ -564,7 +564,17 @@ pub fn run() -> Result<(), Error> {
                         power_off(&mut history, &mut updating, &mut context);
                         exit_status = ExitStatus::PowerOff;
                         break;
-                    }
+                    },
+                    GestureEvent::MultiTap(points) => {
+                        let mut rect = context.fb.rect();
+                        let w = rect.width() as i32;
+                        let h = rect.height() as i32;
+                        let m = w.min(h);
+                        rect.shrink(&Edge::uniform(m / 12));
+                        if (points[0].dist2(points[1]) >= rect.diag2()) {
+                            tx.send(Event::Select(EntryId::TakeScreenshot)).unwrap();
+                        }
+                    },
                     _ => {
                         handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut context);
                     },

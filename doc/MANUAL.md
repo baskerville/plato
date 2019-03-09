@@ -71,6 +71,8 @@ Hold the next/previous page icon to go the next/previous chapter.
 
 # Home & Reader
 
+Tap two diagonally opposite corners to take a screenshot.
+
 ## Menus
 
 You can select a menu entry *without closing the menu* by holding it.

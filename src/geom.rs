@@ -453,6 +453,10 @@ impl Rectangle {
         }
     }
 
+    pub fn diag2(&self) -> u32 {
+        self.min.dist2(self.max)
+    }
+
     pub fn includes(&self, pt: Point) -> bool {
         self.min.x <= pt.x && pt.x < self.max.x &&
         self.min.y <= pt.y && pt.y < self.max.y
