@@ -44,7 +44,9 @@ fi
 export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"
 export PLATO_STANDALONE=1
 
-LIBC_FATAL_STDERR_=1 ./plato > info.log 2>&1
+[ -e info.log ] && [ $(stat -c '%s' info.log) -gt $((1<<18)) ] && mv info.log archive.log
+
+LIBC_FATAL_STDERR_=1 ./plato >> info.log 2>&1
 
 # Deactivate ourselves if we crashed
 if [ $? -ne 0 ] ; then
