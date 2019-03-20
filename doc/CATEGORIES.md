@@ -1,4 +1,6 @@
-The categories of a book are imported from its directory relative to the library path (`a/b/c` becomes `a.b.c`) and from the `dc:subject` tags.
+The categories of a book might come from:
+- Its directory relative to the library path: `a/b/c` becomes `a.b.c`.
+- The `dc:subject` tag for ePUBs.
 
 They are stored in `.metadata.json` in the `categories` array of each entry.
 

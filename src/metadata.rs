@@ -6,13 +6,14 @@ use fnv::{FnvHashMap, FnvHashSet};
 use chrono::{Local, DateTime};
 use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
+use regex::Regex;
+use failure::{Error, ResultExt};
 use crate::document::Document;
 use crate::document::epub::EpubDocument;
 use crate::helpers::simple_date_format;
-use regex::Regex;
+use crate::settings::{ImportSettings, CategoryProvider};
 use crate::document::file_kind;
 use crate::symbolic_path;
-use failure::{Error, ResultExt};
 
 pub const METADATA_FILENAME: &str = ".metadata.json";
 pub const IMPORTED_MD_FILENAME: &str = ".metadata-imported.json";
@@ -478,30 +479,33 @@ lazy_static! {
     ].iter().cloned().collect();
 }
 
-pub fn auto_import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String>, traverse_hidden: bool) -> Result<Metadata, Error> {
-    let mut imported_metadata = import(dir, metadata, allowed_kinds, traverse_hidden)?;
-    extract_metadata(dir, &mut imported_metadata);
+pub fn auto_import(dir: &Path, metadata: &Metadata, settings: &ImportSettings) -> Result<Metadata, Error> {
+    let mut imported_metadata = import(dir, metadata, settings)?;
+    extract_metadata(dir, &mut imported_metadata, settings);
     Ok(imported_metadata)
 }
 
-pub fn import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String>, traverse_hidden: bool) -> Result<Metadata, Error> {
-    let files = find_files(dir, dir, traverse_hidden)?;
+pub fn import(dir: &Path, metadata: &Metadata, settings: &ImportSettings) -> Result<Metadata, Error> {
+    let files = find_files(dir, dir, settings.traverse_hidden)?;
     let known: FnvHashSet<PathBuf> = metadata.iter()
                                              .map(|info| info.file.path.clone())
                                              .collect();
     let mut metadata = Vec::new();
+    let path_as_category = settings.category_providers.contains(&CategoryProvider::Path);
 
     for file_info in &files {
-        if !known.contains(&file_info.path) && allowed_kinds.contains(&file_info.kind) {
+        if !known.contains(&file_info.path) && settings.allowed_kinds.contains(&file_info.kind) {
             println!("{}", file_info.path.display());
             let mut info = Info::default();
             info.file = file_info.clone();
-            if let Some(p) = info.file.path.parent() {
-                let categ = p.to_string_lossy()
-                             .replace(symbolic_path::PATH_SEPARATOR, "")
-                             .replace(path::MAIN_SEPARATOR, &symbolic_path::PATH_SEPARATOR.to_string());
-                if !categ.is_empty() {
-                    info.categories = [categ].iter().cloned().collect();
+            if path_as_category {
+                if let Some(p) = info.file.path.parent() {
+                    let categ = p.to_string_lossy()
+                                 .replace(symbolic_path::PATH_SEPARATOR, "")
+                                 .replace(path::MAIN_SEPARATOR, &symbolic_path::PATH_SEPARATOR.to_string());
+                    if !categ.is_empty() {
+                        info.categories = [categ].iter().cloned().collect();
+                    }
                 }
             }
             metadata.push(info);
@@ -511,7 +515,9 @@ pub fn import(dir: &Path, metadata: &Metadata, allowed_kinds: &FnvHashSet<String
     Ok(metadata)
 }
 
-pub fn extract_metadata(dir: &Path, metadata: &mut Metadata) {
+pub fn extract_metadata(dir: &Path, metadata: &mut Metadata, settings: &ImportSettings) {
+    let subjects_as_categories = settings.category_providers.contains(&CategoryProvider::Subject);
+
     for info in metadata {
         if !info.title.is_empty() || info.file.kind != "epub" {
             continue;
@@ -532,7 +538,9 @@ pub fn extract_metadata(dir: &Path, metadata: &mut Metadata) {
             if info.language == "en" || info.language == "en-US" {
                 info.language.clear();
             }
-            info.categories.append(&mut doc.categories());
+            if subjects_as_categories {
+                info.categories.append(&mut doc.categories());
+            }
             println!("{}", info.label());
         }
     }

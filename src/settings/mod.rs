@@ -41,6 +41,23 @@ pub struct Settings {
     pub frontlight_levels: LightLevels,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CategoryProvider {
+    Path,
+    Subject,
+}
+
+impl CategoryProvider {
+    pub fn from_str(s: &str) -> Option<CategoryProvider> {
+        match s {
+            "path" => Some(CategoryProvider::Path),
+            "subject" => Some(CategoryProvider::Subject),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct ImportSettings {
@@ -48,6 +65,7 @@ pub struct ImportSettings {
     pub startup_trigger: bool,
     pub traverse_hidden: bool,
     pub allowed_kinds: FnvHashSet<String>,
+    pub category_providers: FnvHashSet<CategoryProvider>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -188,6 +206,7 @@ impl Default for ImportSettings {
             traverse_hidden: false,
             allowed_kinds: ["pdf", "djvu", "epub",
                             "fb2", "cbz"].iter().map(|k| k.to_string()).collect(),
+            category_providers: [CategoryProvider::Path].iter().cloned().collect(),
         }
     }
 }

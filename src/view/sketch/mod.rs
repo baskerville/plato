@@ -16,7 +16,7 @@ use crate::view::common::{locate_by_id};
 use crate::view::{View, Event, Hub, Bus, EntryKind, EntryId, ViewId};
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
 use crate::metadata::import;
-use crate::settings::Pen;
+use crate::settings::{ImportSettings, Pen};
 use crate::font::Fonts;
 use crate::color::{BLACK, WHITE};
 use crate::app::Context;
@@ -174,11 +174,13 @@ impl Sketch {
 
     fn quit(&self, context: &mut Context) {
         if let Ok(suffix) = self.save_path.strip_prefix(&context.settings.library_path) {
-            let allowed_kinds = ["png".to_string()].iter().cloned().collect();
+            let import_settings = ImportSettings {
+                allowed_kinds: ["png".to_string()].iter().cloned().collect(),
+                .. Default::default()
+            };
             let imported_metadata = import(&context.settings.library_path,
                                            &context.metadata,
-                                           &allowed_kinds,
-                                           false);
+                                           &import_settings);
             if let Ok(mut imported_metadata) = imported_metadata {
                 imported_metadata.retain(|info| info.file.path.starts_with(&suffix));
                 context.metadata.append(&mut imported_metadata);

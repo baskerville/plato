@@ -23,7 +23,7 @@ use regex::Regex;
 use getopts::Options;
 use titlecase::titlecase;
 use crate::helpers::{load_json, save_json};
-use crate::settings::{ImportSettings, EpubEngine};
+use crate::settings::{ImportSettings, CategoryProvider, EpubEngine};
 use crate::metadata::{Info, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
 use crate::metadata::{import, extract_metadata};
 use crate::document::epub::xml::decode_entities;
@@ -46,13 +46,14 @@ pub fn run() -> Result<(), Error> {
     opts.optflag("Z", "initialize", "Initialize a database.");
     opts.optflag("t", "traverse-hidden", "Traverse hidden directories.");
     opts.optopt("a", "allowed-kinds", "Comma separated list of allowed kinds.", "ALLOWED_KINDS");
+    opts.optopt("c", "category-providers", "Comma separated list of category providers.", "CATEGORY_PROVIDERS");
     opts.optopt("i", "input", "Input file name.", "INPUT_NAME");
     opts.optopt("o", "output", "Output file name.", "OUTPUT_NAME");
 
     let matches = opts.parse(&args).context("Failed to parse the command line arguments.")?;
 
     if matches.opt_present("h") {
-        println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-C|-N|-Z|-Y [-t] [-a ALLOWED_KINDS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
+        println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-C|-N|-Z|-Y [-t] [-a ALLOWED_KINDS] [-c CATEGORY_PROVIDERS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
         return Ok(());
     }
 
@@ -66,7 +67,14 @@ pub fn run() -> Result<(), Error> {
 
     let input_path = library_path.join(&input_name);
     let output_path = library_path.join(&output_name);
-    let traverse_hidden = matches.opt_present("t");
+    let mut import_settings = ImportSettings::default();
+    import_settings.traverse_hidden = matches.opt_present("t");
+    if let Some(allowed_kinds) = matches.opt_str("a").map(|v| v.split(',').map(|k| k.to_string()).collect()) {
+        import_settings.allowed_kinds = allowed_kinds;
+    }
+    if let Some(category_providers) = matches.opt_str("c").map(|v| v.split(',').filter_map(|k| CategoryProvider::from_str(k)).collect()) {
+        import_settings.category_providers = category_providers;
+    }
 
     if matches.opt_present("Z") {
         if input_path.exists() {
@@ -76,9 +84,7 @@ pub fn run() -> Result<(), Error> {
         }
     } else if matches.opt_present("I") {
         let metadata = load_json(input_path)?;
-        let allowed_kinds = matches.opt_str("a").map(|v| v.split(',').map(|k| k.to_string()).collect())
-                                   .unwrap_or_else(|| ImportSettings::default().allowed_kinds);
-        let metadata = import(library_path, &metadata, &allowed_kinds, traverse_hidden)?;
+        let metadata = import(library_path, &metadata, &import_settings)?;
         save_json(&metadata, output_path)?;
     } else {
         let mut metadata = load_json(&output_path)?;
@@ -92,7 +98,7 @@ pub fn run() -> Result<(), Error> {
         }
 
         if matches.opt_present("M") {
-            extract_metadata(library_path, &mut metadata);
+            extract_metadata(library_path, &mut metadata, &import_settings);
         }
 
         if matches.opt_present("C") {

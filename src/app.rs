@@ -111,15 +111,13 @@ fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
                                  .map_err(|e| eprintln!("Can't load metadata: {}", e))
                                  .or_else(|_| auto_import(&settings.library_path,
                                                           &Vec::new(),
-                                                          &settings.import.allowed_kinds,
-                                                          settings.import.traverse_hidden))
+                                                          &settings.import))
                                  .unwrap_or_default();
 
     if settings.import.startup_trigger {
         let imported_metadata = auto_import(&settings.library_path,
                                             &metadata,
-                                            &settings.import.allowed_kinds,
-                                            settings.import.traverse_hidden);
+                                            &settings.import);
         metadata.append(&mut imported_metadata.unwrap_or_default());
     }
 
@@ -430,8 +428,7 @@ pub fn run() -> Result<(), Error> {
                             if context.settings.import.unshare_trigger {
                                 let metadata = auto_import(&context.settings.library_path,
                                                            &context.metadata,
-                                                           &context.settings.import.allowed_kinds,
-                                                           context.settings.import.traverse_hidden);
+                                                           &context.settings.import);
                                 context.metadata.append(&mut metadata.unwrap_or_default());
                             }
                             view.handle_event(&Event::Reseed, &tx, &mut bus, &mut context);
