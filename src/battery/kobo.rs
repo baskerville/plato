@@ -29,14 +29,14 @@ impl Battery for KoboBattery {
         let mut buf = String::new();
         self.capacity.seek(SeekFrom::Start(0))?;
         self.capacity.read_to_string(&mut buf)?;
-        Ok(buf.trim_right().parse::<f32>().unwrap_or(0.0))
+        Ok(buf.trim_end().parse::<f32>().unwrap_or(0.0))
     }
 
     fn status(&mut self) -> Result<Status, Error> {
         let mut buf = String::new();
         self.status.seek(SeekFrom::Start(0))?;
         self.status.read_to_string(&mut buf)?;
-        match buf.trim_right() {
+        match buf.trim_end() {
             "Discharging" => Ok(Status::Discharging),
             "Charging" => Ok(Status::Charging),
             "Not charging" | "Full" => Ok(Status::Charged),

@@ -21,7 +21,7 @@ impl LightSensor for KoboLightSensor {
         let mut buf = String::new();
         self.0.seek(SeekFrom::Start(0))?;
         self.0.read_to_string(&mut buf)?;
-        let value = buf.trim_right().parse()?;
+        let value = buf.trim_end().parse()?;
         Ok(value)
     }
 }

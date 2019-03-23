@@ -337,10 +337,10 @@ pub fn run() -> Result<(), Error> {
                             continue;
                         }
                         let ip = Command::new("scripts/ip.sh").output()
-                                         .map(|o| String::from_utf8_lossy(&o.stdout).trim_right().to_string())
+                                         .map(|o| String::from_utf8_lossy(&o.stdout).trim_end().to_string())
                                          .unwrap_or_default();
                         let essid = Command::new("scripts/essid.sh").output()
-                                            .map(|o| String::from_utf8_lossy(&o.stdout).trim_right().to_string())
+                                            .map(|o| String::from_utf8_lossy(&o.stdout).trim_end().to_string())
                                             .unwrap_or_default();
                         let notif = Notification::new(ViewId::NetUpNotif,
                                                       format!("Network is up ({}, {}).", ip, essid),
@@ -568,7 +568,7 @@ pub fn run() -> Result<(), Error> {
                         let h = rect.height() as i32;
                         let m = w.min(h);
                         rect.shrink(&Edge::uniform(m / 12));
-                        if (points[0].dist2(points[1]) >= rect.diag2()) {
+                        if points[0].dist2(points[1]) >= rect.diag2() {
                             tx.send(Event::Select(EntryId::TakeScreenshot)).unwrap();
                         }
                     },

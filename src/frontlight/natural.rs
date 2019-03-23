@@ -66,7 +66,7 @@ impl NaturalFrontlight {
             let mut buf = String::new();
             let mut file = File::open(dir.join(FRONTLIGHT_MAX_VALUE))?;
             file.read_to_string(&mut buf)?;
-            maxima.insert(*light, buf.trim_right().parse()?);
+            maxima.insert(*light, buf.trim_end().parse()?);
             let file = OpenOptions::new().write(true).open(dir.join(FRONTLIGHT_VALUE))?;
             values.insert(*light, file);
             let file = OpenOptions::new().write(true).open(dir.join(FRONTLIGHT_POWER))?;

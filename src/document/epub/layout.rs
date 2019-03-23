@@ -463,7 +463,7 @@ pub static ref HYPHENATION_PATTERNS: FnvHashMap<Language, Standard> = {
         if let Ok(mut patterns) = Standard::from_path(*lang, path) {
             let path = base.with_extension("bounds");
             if let Ok(pair) = fs::read_to_string(path) {
-                let bounds = pair.trim_right().split(' ')
+                let bounds = pair.trim_end().split(' ')
                                  .filter_map(|s| s.parse().ok())
                                  .collect::<Vec<usize>>();
                 if bounds.len() == 2 {
