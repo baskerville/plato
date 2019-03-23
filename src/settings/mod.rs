@@ -177,7 +177,7 @@ pub enum FinishedAction {
 impl Default for HomeSettings {
     fn default() -> Self {
         HomeSettings {
-            summary_size: 1,
+            summary_size: 2,
             second_column: SecondColumn::Progress,
         }
     }
