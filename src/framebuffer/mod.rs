@@ -148,10 +148,12 @@ pub trait Framebuffer {
                 let py = y - rect.min.y + pt.y;
                 let addr = (y * pixmap.width as i32 + x) as usize;
                 let raw_color = pixmap.data[addr] as f32;
-                let color = if raw_color <= gray {
+                let color = if raw_color < gray {
                     (gray * (raw_color / gray).powf(exponent)) as u8
-                } else {
+                } else if raw_color > gray {
                     (gray + rem_gray * ((raw_color - gray) / rem_gray).powf(inv_exponent)) as u8
+                } else {
+                    gray as u8
                 };
                 self.set_pixel(px as u32, py as u32, color);
             }
