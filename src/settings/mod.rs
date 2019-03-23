@@ -28,6 +28,7 @@ pub struct Settings {
     pub library_path: PathBuf,
     pub frontlight: bool,
     pub wifi: bool,
+    pub auto_suspend: u8,
     #[serde(skip_serializing_if = "FnvHashMap::is_empty")]
     pub intermission_images: FnvHashMap<String, PathBuf>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -226,6 +227,7 @@ impl Default for Settings {
             library_path: PathBuf::from("/mnt/onboard"),
             frontlight: true,
             wifi: false,
+            auto_suspend: 15,
             intermission_images: FnvHashMap::default(),
             home: HomeSettings::default(),
             reader: ReaderSettings::default(),

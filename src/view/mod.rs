@@ -261,6 +261,7 @@ pub enum Event {
     Save,
     Guess,
     CheckBattery,
+    MightSuspend,
     PrepareSuspend,
     Suspend,
     Share,

@@ -183,6 +183,7 @@ pub enum DeviceEvent {
     CoverOn,
     CoverOff,
     NetUp,
+    UserActivity,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -304,6 +305,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
     let mut id = 0;
     let mut position = Point::default();
     let mut pressure = 0;
+    let mut last_activity = -60;
     let Display { mut dims, mut rotation } = display;
     let mut fingers: FnvHashMap<i32, Point> = FnvHashMap::default();
     let mut packet_ids: FnvHashSet<i32> = FnvHashSet::default();
@@ -343,6 +345,12 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 pressure = evt.value;
             }
         } else if evt.kind == EV_SYN {
+            // The absolute value accounts for the wrapping around that might occur,
+            // since `tv_sec` can't grow forever.
+            if (evt.time.tv_sec - last_activity).abs() >= 60 {
+                last_activity = evt.time.tv_sec;
+                ty.send(DeviceEvent::UserActivity);
+            }
             if evt.code == SYN_MT_REPORT || (proto == TouchProto::Single && evt.code == SYN_REPORT) {
                 if let Some(&p) = fingers.get(&id) {
                     if pressure > 0 {

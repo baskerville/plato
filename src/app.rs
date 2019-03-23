@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::process::Command;
 use std::collections::VecDeque;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use failure::{Error, ResultExt};
 use fnv::FnvHashMap;
 use chrono::Local;
@@ -38,6 +38,7 @@ pub const APP_NAME: &str = "Plato";
 
 const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 const BATTERY_REFRESH_INTERVAL: Duration = Duration::from_secs(299);
+const AUTO_SUSPEND_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 const SUSPEND_WAIT_DELAY: Duration = Duration::from_secs(15);
 const PREPARE_SUSPEND_WAIT_DELAY: Duration = Duration::from_secs(3);
 
@@ -202,6 +203,7 @@ enum ExitStatus {
 }
 
 pub fn run() -> Result<(), Error> {
+    let mut inactive_since = Instant::now();
     let mut exit_status = ExitStatus::Quit;
     let mut fb = KoboFramebuffer::new("/dev/fb0").context("Can't create framebuffer.")?;
     let initial_rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
@@ -249,6 +251,16 @@ pub fn run() -> Result<(), Error> {
             tx5.send(Event::BatteryTick).unwrap();
         }
     });
+
+    if context.settings.auto_suspend > 0 {
+        let tx6 = tx.clone();
+        thread::spawn(move || {
+            loop {
+                thread::sleep(AUTO_SUSPEND_REFRESH_INTERVAL);
+                tx6.send(Event::MightSuspend).unwrap();
+            }
+        });
+    }
 
     if context.settings.wifi {
         Command::new("scripts/wifi-enable.sh").status().ok();
@@ -383,6 +395,7 @@ pub fn run() -> Result<(), Error> {
                                                                 &mut context);
                                 tx.send(Event::Render(*confirm.rect(), UpdateMode::Gui)).unwrap();
                                 view.children_mut().push(Box::new(confirm) as Box<dyn View>);
+                                inactive_since = Instant::now();
                             },
                         }
 
@@ -455,6 +468,9 @@ pub fn run() -> Result<(), Error> {
                             tx.send(Event::Select(EntryId::Rotate(n))).unwrap();
                         }
                     },
+                    DeviceEvent::UserActivity if context.settings.auto_suspend > 0 => {
+                        inactive_since = Instant::now();
+                    },
                     _ => {
                         handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut context);
                     }
@@ -510,6 +526,7 @@ pub fn run() -> Result<(), Error> {
                 Command::new("scripts/resume.sh")
                         .status()
                         .ok();
+                inactive_since = Instant::now();
             },
             Event::PrepareShare => {
                 if context.shared {
@@ -789,6 +806,21 @@ pub fn run() -> Result<(), Error> {
                 }).ok();
                 exit_status = ExitStatus::Reboot;
                 break;
+            },
+            Event::MightSuspend if context.settings.auto_suspend > 0 => {
+                if context.shared || tasks.iter().any(|task| task.id == TaskId::PrepareSuspend ||
+                                                             task.id == TaskId::Suspend) {
+                    inactive_since = Instant::now();
+                    continue;
+                }
+                let seconds = 60 * context.settings.auto_suspend as u64;
+                if inactive_since.elapsed() > Duration::from_secs(seconds) {
+                    let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
+                    tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
+                    schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
+                                  PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
+                    view.children_mut().push(Box::new(interm) as Box<dyn View>);
+                }
             },
             _ => {
                 handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut context);
