@@ -166,6 +166,10 @@ pub struct ReaderInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub line_height: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub contrast_exponent: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contrast_gray: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub first_page: Option<usize>,
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     pub bookmarks: BTreeSet<usize>,
@@ -199,6 +203,8 @@ impl Default for ReaderInfo {
             font_family: None,
             font_size: None,
             line_height: None,
+            contrast_exponent: None,
+            contrast_gray: None,
             first_page: None,
             bookmarks: BTreeSet::new(),
         }

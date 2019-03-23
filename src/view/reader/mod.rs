@@ -4,6 +4,7 @@ mod results_bar;
 mod margin_cropper;
 mod results_label;
 
+use std::f32;
 use std::thread;
 use std::cmp::Ordering;
 use std::sync::{Arc, Mutex, mpsc};
@@ -61,6 +62,7 @@ pub struct Reader {
     current_page: usize,
     pages_count: usize,
     view_port: ViewPort,
+    contrast: Contrast,
     synthetic: bool,
     page_turns: usize,
     refresh_every: u8,
@@ -82,6 +84,21 @@ impl Default for ViewPort {
             zoom_mode: ZoomMode::FitToPage,
             top_offset: 0,
             margin_width: 0,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Contrast {
+    exponent: f32,
+    gray: f32,
+}
+
+impl Default for Contrast {
+    fn default() -> Contrast {
+        Contrast {
+            exponent: 1.0,
+            gray: 128.0,
         }
     }
 }
@@ -206,6 +223,7 @@ impl Reader {
                                      .unwrap_or(settings.reader.margin_width));
 
             let mut view_port = ViewPort::default();
+            let mut contrast = Contrast::default();
             let pages_count = doc.pages_count();
             let current_page;
 
@@ -231,6 +249,14 @@ impl Reader {
                 if !doc.is_reflowable() {
                     view_port.margin_width = mm_to_px(r.screen_margin_width.unwrap_or(0) as f32,
                                                       CURRENT_DEVICE.dpi) as i32;
+                }
+
+                if let Some(exponent) = r.contrast_exponent {
+                    contrast.exponent = exponent;
+                }
+
+                if let Some(gray) = r.contrast_gray {
+                    contrast.gray = gray;
                 }
 
                 if let Some(ref font_family) = r.font_family {
@@ -280,6 +306,7 @@ impl Reader {
                 synthetic,
                 page_turns: 0,
                 refresh_every: settings.reader.refresh_every,
+                contrast,
                 ephemeral: false,
                 reflowable,
                 finished: false,
@@ -345,6 +372,7 @@ impl Reader {
             synthetic: false,
             page_turns: 0,
             refresh_every: context.settings.reader.refresh_every,
+            contrast: Contrast::default(),
             ephemeral: true,
             reflowable: true,
             finished: false,
@@ -698,11 +726,14 @@ impl Reader {
                 let font_size = self.info.reader.as_ref()
                                     .and_then(|r| r.font_size)
                                     .unwrap_or(settings.reader.font_size);
-                tool_bar.update_slider(font_size, hub);
+                tool_bar.update_font_size_slider(font_size, hub);
                 let line_height = self.info.reader.as_ref()
                                       .and_then(|r| r.line_height)
                                       .unwrap_or(settings.reader.line_height);
                 tool_bar.update_line_height(line_height, hub);
+            } else {
+                tool_bar.update_contrast_exponent_slider(self.contrast.exponent, hub);
+                tool_bar.update_contrast_gray_slider(self.contrast.gray, hub);
             }
             let reflowable = self.reflowable;
             let margin_width = self.info.reader.as_ref()
@@ -988,7 +1019,7 @@ impl Reader {
             let dpi = CURRENT_DEVICE.dpi;
             let (_, height) = context.display.dims;
             let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
-            let tb_height = if self.reflowable { 2 * big_height } else { big_height };
+            let tb_height = 2 * big_height;
 
             let sp_rect = *self.child(2).rect() - pt!(0, tb_height as i32);
 
@@ -1122,7 +1153,7 @@ impl Reader {
                 self.children.insert(index, Box::new(search_bar) as Box<dyn View>);
                 index += 1;
             } else {
-                let tb_height = if self.reflowable { 2 * big_height } else { big_height };
+                let tb_height = 2 * big_height;
                 let separator = Filler::new(rect![self.rect.min.x,
                                                   self.rect.max.y - (small_height + tb_height) as i32 - small_thickness,
                                                   self.rect.max.x,
@@ -1311,6 +1342,56 @@ impl Reader {
             let line_height_menu = Menu::new(rect, ViewId::LineHeightMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*line_height_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(line_height_menu) as Box<dyn View>);
+        }
+    }
+
+    fn toggle_contrast_exponent_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+        if let Some(index) = locate_by_id(self, ViewId::ContrastExponentMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let entries = (0..=8).map(|x| {
+                let e = 1.0 + x as f32 / 2.0;
+                EntryKind::RadioButton(format!("{:.1}", e),
+                                       EntryId::SetContrastExponent(x),
+                                       (e - self.contrast.exponent).abs() < f32::EPSILON)
+            }).collect();
+            let contrast_exponent_menu = Menu::new(rect, ViewId::ContrastExponentMenu, MenuKind::DropDown, entries, context);
+            hub.send(Event::Render(*contrast_exponent_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(contrast_exponent_menu) as Box<dyn View>);
+        }
+    }
+
+    fn toggle_contrast_gray_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+        if let Some(index) = locate_by_id(self, ViewId::ContrastGrayMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let entries = (0..=8).map(|x| {
+                let g = (x as f32 * 32.0).min(255.0);
+                EntryKind::RadioButton(format!("{:.1}", g),
+                                       EntryId::SetContrastGray(x),
+                                       (g - self.contrast.gray).abs() < f32::EPSILON)
+            }).collect();
+            let contrast_gray_menu = Menu::new(rect, ViewId::ContrastGrayMenu, MenuKind::DropDown, entries, context);
+            hub.send(Event::Render(*contrast_gray_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(contrast_gray_menu) as Box<dyn View>);
         }
     }
 
@@ -1645,6 +1726,24 @@ impl Reader {
         self.update(None, hub);
     }
 
+    fn set_contrast_exponent(&mut self, exponent: f32, hub: &Hub, context: &mut Context) {
+        if let Some(ref mut r) = self.info.reader {
+            r.contrast_exponent = Some(exponent);
+        }
+        self.contrast.exponent = exponent;
+        self.update(None, hub);
+        self.update_tool_bar(hub, context);
+    }
+
+    fn set_contrast_gray(&mut self, gray: f32, hub: &Hub, context: &mut Context) {
+        if let Some(ref mut r) = self.info.reader {
+            r.contrast_gray = Some(gray);
+        }
+        self.contrast.gray = gray;
+        self.update(None, hub);
+        self.update_tool_bar(hub, context);
+    }
+
     fn set_zoom_mode(&mut self, zoom_mode: ZoomMode, hub: &Hub) {
         if self.view_port.zoom_mode == zoom_mode {
             return;
@@ -1700,6 +1799,17 @@ impl Reader {
                 r.top_offset = Some(self.view_port.top_offset);
             }
             r.rotation = Some(context.display.rotation);
+            if (self.contrast.exponent - 1.0).abs() > f32::EPSILON {
+                r.contrast_exponent = Some(self.contrast.exponent);
+                if (self.contrast.gray - 128.0).abs() > f32::EPSILON {
+                    r.contrast_gray = Some(self.contrast.gray);
+                } else {
+                    r.contrast_gray = None;
+                }
+            } else {
+                r.contrast_exponent = None;
+                r.contrast_gray = None;
+            }
         }
 
         for i in &mut context.metadata {
@@ -2032,6 +2142,14 @@ impl View for Reader {
                 self.set_font_size(font_size, hub, context);
                 true
             },
+            Event::Slider(SliderId::ContrastExponent, exponent, FingerStatus::Up) => {
+                self.set_contrast_exponent(exponent, hub, context);
+                true
+            },
+            Event::Slider(SliderId::ContrastGray, gray, FingerStatus::Up) => {
+                self.set_contrast_gray(gray, hub, context);
+                true
+            },
             Event::ToggleNear(ViewId::TitleMenu, rect) => {
                 self.toggle_title_menu(rect, None, hub, context);
                 true
@@ -2070,6 +2188,14 @@ impl View for Reader {
             },
             Event::ToggleNear(ViewId::LineHeightMenu, rect) => {
                 self.toggle_line_height_menu(rect, None, hub, context);
+                true
+            },
+            Event::ToggleNear(ViewId::ContrastExponentMenu, rect) => {
+                self.toggle_contrast_exponent_menu(rect, None, hub, context);
+                true
+            },
+            Event::ToggleNear(ViewId::ContrastGrayMenu, rect) => {
+                self.toggle_contrast_gray_menu(rect, None, hub, context);
                 true
             },
             Event::ToggleNear(ViewId::PageMenu, rect) => {
@@ -2204,6 +2330,16 @@ impl View for Reader {
                 self.set_line_height(line_height, hub, context);
                 true
             },
+            Event::Select(EntryId::SetContrastExponent(v)) => {
+                let exponent = 1.0 + v as f32 / 2.0;
+                self.set_contrast_exponent(exponent, hub, context);
+                true
+            },
+            Event::Select(EntryId::SetContrastGray(v)) => {
+                let gray = (v as f32 * 32.0).min(255.0);
+                self.set_contrast_gray(gray, hub, context);
+                true
+            },
             Event::Select(EntryId::ToggleFirstPage) => {
                 if let Some(ref mut r) = self.info.reader {
                     if r.first_page.unwrap_or(0) == self.current_page {
@@ -2260,7 +2396,7 @@ impl View for Reader {
 
         for chunk in &self.chunks {
             let Resource { ref pixmap, scale, .. } = *self.cache.get(&chunk.location).unwrap();
-            fb.draw_framed_pixmap(pixmap, &chunk.frame, chunk.position);
+            fb.draw_framed_pixmap_contrast(pixmap, &chunk.frame, chunk.position, self.contrast.exponent, self.contrast.gray);
 
             if let Some(rects) = self.search.as_ref().and_then(|s| s.highlights.get(&chunk.location)) {
                 for r in rects {
@@ -2342,7 +2478,7 @@ impl View for Reader {
 
                 while index > 2 {
                     let bar_height = if self.children[index].is::<ToolBar>() {
-                        if self.reflowable { 2 * big_height } else { big_height }
+                        2 * big_height
                     } else if self.children[index].is::<Keyboard>() {
                         3 * big_height
                     } else {

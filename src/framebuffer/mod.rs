@@ -2,6 +2,7 @@ mod mxcfb_sys;
 mod kobo;
 mod image;
 
+use std::f32;
 use failure::Error;
 use crate::geom::{Point, Rectangle, surface_area, nearest_segment_point, lerp};
 use crate::geom::{CornerSpec, BorderSpec, ColorSource, Vec2};
@@ -129,6 +130,29 @@ pub trait Framebuffer {
                 let py = y - rect.min.y + pt.y;
                 let addr = (y * pixmap.width as i32 + x) as usize;
                 let color = pixmap.data[addr];
+                self.set_pixel(px as u32, py as u32, color);
+            }
+        }
+    }
+
+    fn draw_framed_pixmap_contrast(&mut self, pixmap: &Pixmap, rect: &Rectangle, pt: Point, exponent: f32, gray: f32) {
+        if (exponent - 1.0).abs() < f32::EPSILON {
+            self.draw_framed_pixmap(pixmap, rect, pt);
+            return;
+        }
+        let rem_gray = 255.0 - gray;
+        let inv_exponent = 1.0 / exponent;
+        for y in rect.min.y..rect.max.y {
+            for x in rect.min.x..rect.max.x {
+                let px = x - rect.min.x + pt.x;
+                let py = y - rect.min.y + pt.y;
+                let addr = (y * pixmap.width as i32 + x) as usize;
+                let raw_color = pixmap.data[addr] as f32;
+                let color = if raw_color <= gray {
+                    (gray * (raw_color / gray).powf(exponent)) as u8
+                } else {
+                    (gray + rem_gray * ((raw_color - gray) / rem_gray).powf(inv_exponent)) as u8
+                };
                 self.set_pixel(px as u32, py as u32, color);
             }
         }

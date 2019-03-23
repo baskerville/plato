@@ -291,6 +291,8 @@ pub enum ViewId {
     FontSizeMenu,
     FontFamilyMenu,
     MarginWidthMenu,
+    ContrastExponentMenu,
+    ContrastGrayMenu,
     LineHeightMenu,
     CategoryMenu,
     BookMenu,
@@ -334,6 +336,8 @@ pub enum SliderId {
     FontSize,
     LightIntensity,
     LightWarmth,
+    ContrastExponent,
+    ContrastGray,
 }
 
 impl SliderId {
@@ -342,6 +346,8 @@ impl SliderId {
             SliderId::LightIntensity => "Intensity".to_string(),
             SliderId::LightWarmth => "Warmth".to_string(),
             SliderId::FontSize => "Font Size".to_string(),
+            SliderId::ContrastExponent => "Contrast Exponent".to_string(),
+            SliderId::ContrastGray => "Contrast Gray".to_string(),
         }
     }
 }
@@ -416,6 +422,8 @@ pub enum EntryId {
     SetFontSize(i32),
     SetMarginWidth(i32),
     SetLineHeight(i32),
+    SetContrastExponent(i32),
+    SetContrastGray(i32),
     ToggleInverted,
     ToggleMonochrome,
     ToggleWifi,

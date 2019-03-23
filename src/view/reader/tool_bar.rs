@@ -2,7 +2,6 @@ use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::Framebuffer;
 use crate::settings::ReaderSettings;
 use crate::view::{View, Event, Hub, Bus, SliderId, ViewId, THICKNESS_MEDIUM};
-use crate::view::common::locate;
 use crate::view::filler::Filler;
 use crate::view::slider::Slider;
 use crate::view::icon::Icon;
@@ -28,11 +27,7 @@ impl ToolBar {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
-        let side = if reflowable {
-            (rect.height() as i32 + thickness) / 2 - thickness
-        } else {
-            rect.height() as i32
-        };
+        let side = (rect.height() as i32 + thickness) / 2 - thickness;
 
         if reflowable {
             let mut remaining_width = rect.width() as i32 - 3 * side;
@@ -97,7 +92,59 @@ impl ToolBar {
                                      3.0 * reader_settings.font_size / 2.0);
             children.push(Box::new(slider) as Box<dyn View>);
         } else {
-            // Alternate start of second row.
+            let remaining_width = rect.width() as i32 - 2 * side;
+            let slider_width = remaining_width / 2;
+            // First row.
+            let contrast_icon_rect = rect![rect.min.x, rect.min.y,
+                                           rect.min.x + side, rect.min.y + side];
+            let contrast_icon = Icon::new("contrast",
+                                          contrast_icon_rect,
+                                          Event::ToggleNear(ViewId::ContrastExponentMenu, contrast_icon_rect));
+            children.push(Box::new(contrast_icon) as Box<dyn View>);
+
+            let contrast_exponent = reader_info.and_then(|r| r.contrast_exponent)
+                                               .unwrap_or(1.0);
+            let slider = Slider::new(rect![rect.min.x + side, rect.min.y,
+                                           rect.min.x + side + slider_width, rect.min.y + side],
+                                     SliderId::ContrastExponent,
+                                     contrast_exponent,
+                                     1.0,
+                                     5.0);
+            children.push(Box::new(slider) as Box<dyn View>);
+
+            let gray_icon_rect = rect![rect.min.x + side + slider_width, rect.min.y,
+                                       rect.min.x + 2 * side + slider_width, rect.min.y + side];
+            let gray_icon = Icon::new("gray",
+                                      gray_icon_rect,
+                                      Event::ToggleNear(ViewId::ContrastGrayMenu, gray_icon_rect));
+            children.push(Box::new(gray_icon) as Box<dyn View>);
+
+            let contrast_gray = reader_info.and_then(|r| r.contrast_gray)
+                                           .unwrap_or(128.0);
+            let slider = Slider::new(rect![rect.min.x + 2 * side + slider_width, rect.min.y,
+                                           rect.max.x - side / 3, rect.min.y + side],
+                                     SliderId::ContrastGray,
+                                     contrast_gray,
+                                     0.0,
+                                     255.0);
+            children.push(Box::new(slider) as Box<dyn View>);
+
+            let filler = Filler::new(rect![rect.max.x - side / 3,
+                                           rect.min.y,
+                                           rect.max.x,
+                                           rect.min.y + side],
+                                     WHITE);
+            children.push(Box::new(filler) as Box<dyn View>);
+
+
+            // Separator.
+            let separator = Filler::new(rect![rect.min.x, rect.min.y + side,
+                                              rect.max.x, rect.max.y - side],
+                                        SEPARATOR_NORMAL);
+            children.push(Box::new(separator) as Box<dyn View>);
+
+
+            // Start of second row.
             let crop_icon = Icon::new("crop",
                                       rect![rect.min.x, rect.max.y - side,
                                             rect.min.x + side, rect.max.y],
@@ -158,7 +205,7 @@ impl ToolBar {
     }
 
     pub fn update_margin_width(&mut self, margin_width: i32, hub: &Hub) {
-        let index = if self.reflowable { 0 } else { 2 };
+        let index = if self.reflowable { 0 } else { 8 };
         if let Some(labeled_icon) = self.children[index].downcast_mut::<LabeledIcon>() {
             labeled_icon.update(format!("{} mm", margin_width), hub);
         }
@@ -176,11 +223,19 @@ impl ToolBar {
         }
     }
 
-    pub fn update_slider(&mut self, font_size: f32, hub: &Hub) {
-        if let Some(index) = locate::<Slider>(self) {
-            let slider = self.children[index].as_mut().downcast_mut::<Slider>().unwrap();
-            slider.update(font_size, hub);
-        }
+    pub fn update_font_size_slider(&mut self, font_size: f32, hub: &Hub) {
+        let slider = self.children[5].as_mut().downcast_mut::<Slider>().unwrap();
+        slider.update(font_size, hub);
+    }
+
+    pub fn update_contrast_exponent_slider(&mut self, exponent: f32, hub: &Hub) {
+        let slider = self.children[1].as_mut().downcast_mut::<Slider>().unwrap();
+        slider.update(exponent, hub);
+    }
+
+    pub fn update_contrast_gray_slider(&mut self, gray: f32, hub: &Hub) {
+        let slider = self.children[3].as_mut().downcast_mut::<Slider>().unwrap();
+        slider.update(gray, hub);
     }
 }
 
@@ -202,12 +257,7 @@ impl View for ToolBar {
     fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
-
-        let side = if self.reflowable {
-            (rect.height() as i32 + thickness) / 2 - thickness
-        } else {
-            rect.height() as i32
-        };
+        let side = (rect.height() as i32 + thickness) / 2 - thickness;
 
         let mut index = 0;
 
@@ -255,7 +305,46 @@ impl View for ToolBar {
                                         hub, context);
             index += 1;
         } else {
-            // Alternate start of second row.
+            let remaining_width = rect.width() as i32 - 2 * side;
+            let slider_width = remaining_width / 2;
+
+            // First row.
+            let contrast_icon_rect = rect![rect.min.x, rect.min.y,
+                                           rect.min.x + side, rect.min.y + side];
+
+            self.children[index].resize(contrast_icon_rect, hub, context);
+            index += 1;
+
+            self.children[index].resize(rect![rect.min.x + side, rect.min.y,
+                                              rect.min.x + side + slider_width, rect.min.y + side],
+                                        hub, context);
+            index += 1;
+
+            let gray_icon_rect = rect![rect.min.x + side + slider_width, rect.min.y,
+                                       rect.min.x + 2 * side + slider_width, rect.min.y + side];
+
+            self.children[index].resize(gray_icon_rect, hub, context);
+            index += 1;
+
+            self.children[index].resize(rect![rect.min.x + 2 * side + slider_width, rect.min.y,
+                                              rect.max.x - side / 3, rect.min.y + side],
+                                        hub, context);
+            index += 1;
+
+            self.children[index].resize(rect![rect.max.x - side / 3,
+                                              rect.min.y,
+                                              rect.max.x,
+                                              rect.min.y + side],
+                                        hub, context);
+            index += 1;
+
+            // Separator.
+            self.children[index].resize(rect![rect.min.x, rect.min.y + side,
+                                              rect.max.x, rect.max.y - side],
+                                        hub, context);
+            index += 1;
+
+            // Start of second row.
             self.children[index].resize(rect![rect.min.x, rect.max.y - side,
                                               rect.min.x + side, rect.max.y],
                                         hub, context);
