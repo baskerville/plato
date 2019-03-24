@@ -1,12 +1,12 @@
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::Framebuffer;
 use crate::settings::ReaderSettings;
+use crate::metadata::{ReaderInfo, DEFAULT_CONTRAST_EXPONENT, DEFAULT_CONTRAST_GRAY};
 use crate::view::{View, Event, Hub, Bus, SliderId, ViewId, THICKNESS_MEDIUM};
 use crate::view::filler::Filler;
 use crate::view::slider::Slider;
 use crate::view::icon::Icon;
 use crate::view::labeled_icon::LabeledIcon;
-use crate::metadata::ReaderInfo;
 use crate::gesture::GestureEvent;
 use crate::input::DeviceEvent;
 use crate::unit::scale_by_dpi;
@@ -103,7 +103,7 @@ impl ToolBar {
             children.push(Box::new(contrast_icon) as Box<dyn View>);
 
             let contrast_exponent = reader_info.and_then(|r| r.contrast_exponent)
-                                               .unwrap_or(1.0);
+                                               .unwrap_or(DEFAULT_CONTRAST_EXPONENT);
             let slider = Slider::new(rect![rect.min.x + side, rect.min.y,
                                            rect.min.x + side + slider_width, rect.min.y + side],
                                      SliderId::ContrastExponent,
@@ -120,7 +120,7 @@ impl ToolBar {
             children.push(Box::new(gray_icon) as Box<dyn View>);
 
             let contrast_gray = reader_info.and_then(|r| r.contrast_gray)
-                                           .unwrap_or(128.0);
+                                           .unwrap_or(DEFAULT_CONTRAST_GRAY);
             let slider = Slider::new(rect![rect.min.x + 2 * side + slider_width, rect.min.y,
                                            rect.max.x - side / 3, rect.min.y + side],
                                      SliderId::ContrastGray,

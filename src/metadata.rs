@@ -20,6 +20,9 @@ pub const IMPORTED_MD_FILENAME: &str = ".metadata-imported.json";
 pub const MATCHES_MD_FILENAME: &str = ".metadata-matches-%Y%m%d_%H%M%S.json";
 pub const TRASH_NAME: &str = ".trash";
 
+pub const DEFAULT_CONTRAST_EXPONENT: f32 = 1.0;
+pub const DEFAULT_CONTRAST_GRAY: f32 = 224.0;
+
 pub type Metadata = Vec<Info>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

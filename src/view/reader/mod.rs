@@ -41,6 +41,7 @@ use crate::document::{Document, DocumentOpener, Location, BoundedText, Neighbors
 use crate::document::{TocEntry, toc_as_html, chapter_from_index};
 use crate::document::pdf::PdfOpener;
 use crate::metadata::{Info, FileInfo, ReaderInfo, ZoomMode, PageScheme, Margin, CroppingMargins, make_query};
+use crate::metadata::{DEFAULT_CONTRAST_EXPONENT, DEFAULT_CONTRAST_GRAY};
 use crate::geom::{Point, Rectangle, Boundary, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, Axis, halves};
 use crate::color::{BLACK, WHITE};
 use crate::app::Context;
@@ -97,8 +98,8 @@ struct Contrast {
 impl Default for Contrast {
     fn default() -> Contrast {
         Contrast {
-            exponent: 1.0,
-            gray: 128.0,
+            exponent: DEFAULT_CONTRAST_EXPONENT,
+            gray: DEFAULT_CONTRAST_GRAY,
         }
     }
 }
@@ -1383,8 +1384,8 @@ impl Reader {
                 return;
             }
 
-            let entries = (0..=8).map(|x| {
-                let g = (x as f32 * 32.0).min(255.0);
+            let entries = (1..=6).map(|x| {
+                let g = ((1 << 8) - (1 << (8 - x))) as f32;
                 EntryKind::RadioButton(format!("{:.1}", g),
                                        EntryId::SetContrastGray(x),
                                        (g - self.contrast.gray).abs() < f32::EPSILON)
@@ -1799,9 +1800,9 @@ impl Reader {
                 r.top_offset = Some(self.view_port.top_offset);
             }
             r.rotation = Some(context.display.rotation);
-            if (self.contrast.exponent - 1.0).abs() > f32::EPSILON {
+            if (self.contrast.exponent - DEFAULT_CONTRAST_EXPONENT).abs() > f32::EPSILON {
                 r.contrast_exponent = Some(self.contrast.exponent);
-                if (self.contrast.gray - 128.0).abs() > f32::EPSILON {
+                if (self.contrast.gray - DEFAULT_CONTRAST_GRAY).abs() > f32::EPSILON {
                     r.contrast_gray = Some(self.contrast.gray);
                 } else {
                     r.contrast_gray = None;
@@ -2336,7 +2337,7 @@ impl View for Reader {
                 true
             },
             Event::Select(EntryId::SetContrastGray(v)) => {
-                let gray = (v as f32 * 32.0).min(255.0);
+                let gray = ((1 << 8) - (1 << (8 - v))) as f32;
                 self.set_contrast_gray(gray, hub, context);
                 true
             },
