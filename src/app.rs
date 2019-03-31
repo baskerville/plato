@@ -183,8 +183,9 @@ fn resume(id: TaskId, tasks: &mut Vec<Task>, view: &mut View, hub: &Sender<Event
     }
 }
 
-fn power_off(history: &mut Vec<HistoryItem>, updating: &mut FnvHashMap<u32, Rectangle>, context: &mut Context) {
+fn power_off(view: &mut View, history: &mut Vec<HistoryItem>, updating: &mut FnvHashMap<u32, Rectangle>, context: &mut Context) {
     let (tx, _rx) = mpsc::channel();
+    view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), context);
     while let Some(mut item) = history.pop() {
         item.view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), context);
     }
@@ -468,7 +469,7 @@ pub fn run() -> Result<(), Error> {
                 }
                 if let Ok(v) = context.battery.capacity() {
                     if v < context.settings.battery.power_off {
-                        power_off(&mut history, &mut updating, &mut context);
+                        power_off(view.as_mut(), &mut history, &mut updating, &mut context);
                         exit_status = ExitStatus::PowerOff;
                         break;
                     } else if v < context.settings.battery.warn {
@@ -516,6 +517,7 @@ pub fn run() -> Result<(), Error> {
                 }
 
                 tasks.clear();
+                view.handle_event(&Event::Back, &tx, &mut bus, &mut context);
                 while let Some(mut item) = history.pop() {
                     item.view.handle_event(&Event::Back, &tx, &mut bus, &mut context);
                     if item.rotation != context.display.rotation {
@@ -558,7 +560,7 @@ pub fn run() -> Result<(), Error> {
             Event::Gesture(ge) => {
                 match ge {
                     GestureEvent::HoldButton(ButtonCode::Power) => {
-                        power_off(&mut history, &mut updating, &mut context);
+                        power_off(view.as_mut(), &mut history, &mut updating, &mut context);
                         exit_status = ExitStatus::PowerOff;
                         break;
                     },
