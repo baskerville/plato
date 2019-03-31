@@ -37,12 +37,13 @@ impl PageLabel {
         if self.synthetic {
             let current_page = self.current_page as f64 / BYTES_PER_PAGE;
             let pages_count = self.pages_count as f64 / BYTES_PER_PAGE;
-            format!("Page {:.1} of {:.1}", current_page, pages_count)
+            let percent = 100.0 * current_page / pages_count;
+            format!("Pag {:.0}/{:.0} - {:.0}%", current_page, pages_count, percent)
         } else {
             if self.pages_count == 0 {
                 "No pages".to_string()
             } else {
-                format!("Page {} of {}", self.current_page + 1, self.pages_count)
+                format!("Pag {}/{}", self.current_page + 1, self.pages_count)
             }
         }
     }
