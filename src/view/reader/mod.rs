@@ -1308,7 +1308,7 @@ impl Reader {
             let font_size = self.info.reader.as_ref().and_then(|r| r.font_size)
                                 .unwrap_or(context.settings.reader.font_size);
             let entries = (0..=20).map(|v| {
-                let fs = 10.0 + v as f32 / 10.0;
+                let fs = font_size - 1.0 + v as f32 / 10.0;
                 EntryKind::RadioButton(format!("{:.1}", fs),
                                        EntryId::SetFontSize(v),
                                        (fs - font_size).abs() < 0.05)
@@ -2318,7 +2318,9 @@ impl View for Reader {
                 true
             },
             Event::Select(EntryId::SetFontSize(v)) => {
-                let font_size = 10.0 + v as f32 / 10.0;
+                let font_size = self.info.reader.as_ref().and_then(|r| r.font_size)
+                                .unwrap_or(context.settings.reader.font_size);
+                let font_size = font_size - 1.0 + v as f32 / 10.0;
                 self.set_font_size(font_size, hub, context);
                 true
             },
