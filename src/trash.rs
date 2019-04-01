@@ -70,10 +70,11 @@ pub fn trash(paths: &FnvHashSet<PathBuf>, context: &mut Context) -> Result<(), E
         }
 
         let src = library_path.join(path);
-        let size = src.metadata()?.len();
-
-        entries.push(TrashEntry { name, path: path.clone(), size });
-        fs::rename(src, dest)?;
+        if src.exists() {
+            let size = src.metadata()?.len();
+            entries.push(TrashEntry { name, path: path.clone(), size });
+            fs::rename(src, dest)?;
+        }
     }
 
     contents.push_front(entries);
