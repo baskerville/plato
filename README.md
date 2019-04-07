@@ -10,8 +10,8 @@ Documentation: [GUIDE](doc/GUIDE.md), [MANUAL](doc/MANUAL.md) and [BUILD](doc/BU
 - *Clara HD*.
 - *Aura H₂O Edition 2*.
 - *Aura Edition 2*.
-- *Aura ONE* (FW 4.10.11655).
-- *Glo HD* (FW 4.12.12111).
+- *Aura ONE* (FW 4.13.12638).
+- *Glo HD* (FW 4.13.12638).
 - *Aura H₂O*.
 - *Aura* (FW 4.12.12111).
 - *Glo*.
