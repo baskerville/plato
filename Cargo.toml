@@ -18,6 +18,11 @@ name = "plato-emulator"
 path = "src/emulator.rs"
 required-features = ["emulator"]
 
+[[bin]]
+name = "article_fetcher"
+path = "src/fetcher.rs"
+required-features = ["fetcher"]
+
 [dependencies]
 bitflags = "1.0.4"
 downcast-rs = "1.0.3"
@@ -51,6 +56,8 @@ optional = true
 
 [dependencies.reqwest]
 version = "0.9.13"
+features = ["rustls-tls"]
+default-features = false
 optional = true
 
 [dependencies.chrono]
@@ -61,6 +68,15 @@ version = "0.4.6"
 version = "0.32.2"
 optional = true
 
+[dependencies.crossbeam-channel]
+version = "0.3.8"
+optional = true
+
+[dependencies.signal-hook]
+version = "0.1.8"
+optional = true
+
 [features]
 importer = ["reqwest", "getopts"]
 emulator = ["sdl2"]
+fetcher = ["reqwest", "crossbeam-channel", "signal-hook"]

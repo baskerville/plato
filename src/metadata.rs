@@ -243,6 +243,13 @@ pub enum Status {
     Finished,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SimpleStatus {
+    New,
+    Reading,
+    Finished,
+}
+
 impl Info {
     pub fn status(&self) -> Status {
         if let Some(ref r) = self.reader {
@@ -253,6 +260,18 @@ impl Info {
             }
         } else {
             Status::New
+        }
+    }
+
+    pub fn simple_status(&self) -> SimpleStatus {
+        if let Some(ref r) = self.reader {
+            if r.finished {
+                SimpleStatus::Finished
+            } else {
+                SimpleStatus::Reading
+            }
+        } else {
+            SimpleStatus::New
         }
     }
 
@@ -357,6 +376,7 @@ pub fn make_query(text: &str) -> Option<Regex> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
 pub enum SortMethod {
     Opened,
     Added,

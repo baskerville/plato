@@ -6,21 +6,22 @@ mod book;
 mod bottom_bar;
 
 use std::f32;
+use std::thread;
 use std::sync::mpsc;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::collections::{BTreeSet, VecDeque};
+use std::process::{Command, Child, Stdio};
+use std::io::{BufRead, BufReader};
 use glob::glob;
 use regex::Regex;
-use fnv::FnvHashSet;
-use failure::Error;
-use crate::metadata::{Metadata, SortMethod, sort, make_query};
-use crate::settings::SecondColumn;
+use serde_json::Value as JsonValue;
+use fnv::{FnvHashSet, FnvHashMap};
+use failure::{Error, format_err};
 use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::metadata::{Info, Metadata, SortMethod, SimpleStatus, sort, make_query};
 use crate::view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
+use crate::settings::{Hook, SecondColumn};
 use crate::view::filler::Filler;
-use super::top_bar::TopBar;
-use self::summary::Summary;
-use self::shelf::Shelf;
 use crate::view::common::{shift, locate, locate_by_id};
 use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
 use crate::view::keyboard::{Keyboard, DEFAULT_LAYOUT};
@@ -30,7 +31,6 @@ use crate::view::menu_entry::MenuEntry;
 use crate::view::search_bar::SearchBar;
 use crate::view::notification::Notification;
 use crate::view::intermission::IntermKind;
-use self::bottom_bar::BottomBar;
 use crate::gesture::GestureEvent;
 use crate::input::{DeviceEvent, ButtonCode, ButtonStatus};
 use crate::device::{CURRENT_DEVICE, BAR_SIZES};
@@ -42,6 +42,10 @@ use crate::app::Context;
 use crate::color::BLACK;
 use crate::geom::{Rectangle, CycleDir, halves};
 use crate::font::Fonts;
+use super::top_bar::TopBar;
+use self::bottom_bar::BottomBar;
+use self::summary::Summary;
+use self::shelf::Shelf;
 
 const HISTORY_SIZE: usize = 8;
 
@@ -57,11 +61,13 @@ pub struct Home {
     target_path: Option<PathBuf>,
     target_category: Option<String>,
     sort_method: SortMethod,
+    status_filter: Option<SimpleStatus>,
     reverse_order: bool,
     visible_books: Metadata,
     visible_categories: BTreeSet<String>,
     selected_categories: BTreeSet<String>,
     negated_categories: BTreeSet<String>,
+    background_fetchers: FnvHashMap<String, Fetcher>,
     history: VecDeque<HistoryEntry>,
 }
 
@@ -69,6 +75,13 @@ pub struct Home {
 struct HistoryEntry {
     metadata: Metadata,
     restore_books: bool,
+}
+
+#[derive(Debug)]
+struct Fetcher {
+    process: Option<Child>,
+    sort_method: Option<SortMethod>,
+    second_column: Option<SecondColumn>,
 }
 
 impl Home {
@@ -171,11 +184,13 @@ impl Home {
             target_path: None,
             target_category: None,
             sort_method,
+            status_filter: None,
             reverse_order,
             visible_books,
             visible_categories,
             selected_categories,
             negated_categories,
+            background_fetchers: FnvHashMap::default(),
             history: VecDeque::new(),
         })
     }
@@ -183,6 +198,7 @@ impl Home {
     fn refresh_visibles(&mut self, update: bool, reset_page: bool, hub: &Hub, context: &mut Context) {
         self.visible_books = context.metadata.iter().filter(|info| {
             info.is_match(&self.query) &&
+            (self.status_filter.is_none() || info.simple_status() == self.status_filter.unwrap()) &&
             (self.selected_categories.is_subset(&info.categories) ||
              self.selected_categories.iter()
                                      .all(|s| info.categories
@@ -239,9 +255,27 @@ impl Home {
         }
     }
 
-    fn toggle_select_category(&mut self, categ: &str) {
+    fn toggle_select_category(&mut self, categ: &str, hub: &Hub, context: &mut Context) {
         if self.selected_categories.contains(categ) {
             self.selected_categories.remove(categ);
+
+            self.background_fetchers.retain(|name, fetcher| {
+                if name == categ {
+                    if let Some(process) = fetcher.process.as_mut() {
+                        unsafe { libc::kill(process.id() as libc::pid_t, libc::SIGTERM) };
+                        process.wait().ok();
+                    }
+                    if let Some(sort_method) = fetcher.sort_method {
+                        hub.send(Event::Select(EntryId::Sort(sort_method))).unwrap();
+                    }
+                    if let Some(second_column) = fetcher.second_column {
+                        hub.send(Event::Select(EntryId::SecondColumn(second_column))).unwrap();
+                    }
+                    false
+                } else {
+                    true
+                }
+            });
         } else {
             self.selected_categories = self.selected_categories.iter().filter_map(|s| {
                 if s.is_descendant_of(categ) || categ.is_descendant_of(s) {
@@ -250,6 +284,7 @@ impl Home {
                     Some(s.clone())
                 }
             }).collect();
+
             self.negated_categories = self.negated_categories.iter().filter_map(|n| {
                 if n == categ || categ.is_descendant_of(n) {
                     None
@@ -257,8 +292,83 @@ impl Home {
                     Some(n.clone())
                 }
             }).collect();
+
             self.selected_categories.insert(categ.to_string());
+
+            for hook in &context.settings.home.hooks {
+                if hook.name == categ {
+                    self.insert_fetcher(hook, hub, context);
+                }
+            }
         }
+    }
+
+    fn insert_fetcher(&mut self, hook: &Hook, hub: &Hub, context: &Context) {
+        let mut sort_method = hook.sort_method;
+        let mut second_column = hook.second_column;
+        if let Some(sort_method) = sort_method.replace(self.sort_method) {
+            hub.send(Event::Select(EntryId::Sort(sort_method))).unwrap();
+        }
+        if let Some(second_column) = second_column.replace(context.settings.home.second_column) {
+            hub.send(Event::Select(EntryId::SecondColumn(second_column))).unwrap();
+        }
+        let process = hook.program.as_ref().and_then(|p| {
+            self.spawn_child(&hook.name, p, context.online, hub)
+                .map_err(|e| eprintln!("Can't spawn child: {}.", e)).ok()
+        });
+        self.background_fetchers.insert(hook.name.clone(),
+                                        Fetcher { process, sort_method, second_column });
+    }
+
+    fn spawn_child(&mut self, name: &str, program: &PathBuf, online: bool, hub: &Hub) -> Result<Child, Error> {
+        let parent = program.parent()
+                            .unwrap_or_else(|| Path::new(""));
+        let path = program.canonicalize()?;
+        let mut process = Command::new(path)
+                                 .current_dir(parent)
+                                 .arg(name)
+                                 .arg(online.to_string())
+                                 .stdout(Stdio::piped())
+                                 .spawn()?;
+        let stdout = process.stdout.take()
+                            .ok_or_else(|| format_err!("Can't take stdout."))?;
+        let hub2 = hub.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line_res in reader.lines() {
+                if let Ok(line) = line_res {
+                    if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
+                        match event.get("type").and_then(|v| v.as_str()) {
+                            Some("notify") => {
+                                if let Some(msg) = event.get("message").and_then(|v| v.as_str()) {
+                                    hub2.send(Event::Notify(msg.to_string())).unwrap();
+                                }
+                            },
+                            Some("addDocument") => {
+                                if let Some(info) = event.get("info").map(|v| v.to_string())
+                                                         .and_then(|v| serde_json::from_str(&v).ok()) {
+                                    hub2.send(Event::AddDocument(Box::new(info))).unwrap();
+                                }
+                            },
+                            Some("removeDocument") => {
+                                if let Some(path) = event.get("path").and_then(|v| v.as_str()) {
+                                    hub2.send(Event::RemoveDocument(PathBuf::from(path))).unwrap();
+                                }
+                            },
+                            Some("setWifi") => {
+                                if let Some(enable) = event.get("enable").and_then(|v| v.as_bool()) {
+                                    hub2.send(Event::SetWifi(enable)).unwrap();
+                                }
+                            },
+                            _ => (),
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+        });
+        Ok(process)
     }
 
     fn toggle_negate_category(&mut self, categ: &str) {
@@ -382,6 +492,7 @@ impl Home {
         if let Some(index) = locate::<BottomBar>(self) {
             let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
             let filter = self.query.is_some() ||
+                         self.status_filter.is_some() ||
                          !self.selected_categories.is_empty() ||
                          !self.negated_categories.is_empty();
             bottom_bar.update_matches_label(self.visible_books.len(), filter, hub);
@@ -754,6 +865,20 @@ impl Home {
             }
 
             entries.push(EntryKind::Separator);
+            let hooks: Vec<EntryKind> =
+                context.settings.home.hooks.iter()
+                       .map(|v| EntryKind::Command(v.name.clone(),
+                                                   EntryId::ToggleSelectCategory(v.name.clone()))).collect();
+            if !hooks.is_empty() {
+                entries.push(EntryKind::SubMenu("Hooks".to_string(), hooks));
+            }
+            let status_filter = self.status_filter;
+            entries.push(EntryKind::SubMenu("Show".to_string(),
+                vec![EntryKind::RadioButton("All".to_string(), EntryId::StatusFilter(None), status_filter == None),
+                     EntryKind::Separator,
+                     EntryKind::RadioButton("Reading".to_string(), EntryId::StatusFilter(Some(SimpleStatus::Reading)), status_filter == Some(SimpleStatus::Reading)),
+                     EntryKind::RadioButton("New".to_string(), EntryId::StatusFilter(Some(SimpleStatus::New)), status_filter == Some(SimpleStatus::New)),
+                     EntryKind::RadioButton("Finished".to_string(), EntryId::StatusFilter(Some(SimpleStatus::Finished)), status_filter == Some(SimpleStatus::Finished))]));
             let second_column = context.settings.home.second_column;
             entries.push(EntryKind::SubMenu("Second Column".to_string(),
                 vec![EntryKind::RadioButton("Progress".to_string(), EntryId::SecondColumn(SecondColumn::Progress), second_column == SecondColumn::Progress),
@@ -961,7 +1086,17 @@ impl Home {
         self.refresh_visibles(true, false, hub, context);
     }
 
-    fn remove(&mut self, path: &PathBuf, hub: &Hub, context: &mut Context) {
+    fn add_document(&mut self, mut info: Info, hub: &Hub, context: &mut Context) {
+        if let Ok(path) = info.file.path.strip_prefix(&context.settings.library_path) {
+            info.file.path = path.to_path_buf();
+            context.metadata.push(info);
+            // TODO: Only update bars and shelves once.
+            self.refresh_visibles(true, false, hub, context);
+            self.sort(false, hub, context);
+        }
+    }
+
+    fn remove_document(&mut self, path: &PathBuf, hub: &Hub, context: &mut Context) {
         let paths: FnvHashSet<PathBuf> = [path.clone()].iter().cloned().collect();
         if trash(&paths, context).map_err(|e| eprintln!("Can't trash {}: {}", path.display(), e)).is_ok() {
             self.history_push(true, context);
@@ -1175,8 +1310,14 @@ impl View for Home {
                 self.load_metadata(filename, hub, context);
                 true
             },
-            Event::Select(EntryId::Remove(ref path)) => {
-                self.remove(path, hub, context);
+            Event::AddDocument(ref info) => {
+                let info2 = info.clone();
+                self.add_document(*info2, hub, context);
+                true
+            },
+            Event::Select(EntryId::Remove(ref path)) |
+            Event::RemoveDocument(ref path) => {
+                self.remove_document(path, hub, context);
                 true
             },
             Event::Select(EntryId::RemoveBookCategory(ref path, ref categ)) => {
@@ -1230,6 +1371,13 @@ impl View for Home {
                 self.update_second_column(hub, context);
                 true
             },
+            Event::Select(EntryId::StatusFilter(status_filter)) => {
+                if self.status_filter != status_filter {
+                    self.status_filter = status_filter;
+                    self.refresh_visibles(true, true, hub, context);
+                }
+                true
+            },
             Event::Submit(ViewId::ExportAsInput, ref text) => {
                 if !text.is_empty() {
                     self.export_matches(text, context);
@@ -1279,8 +1427,9 @@ impl View for Home {
                 self.resize_summary(delta_y, true, hub, context);
                 true
             },
-            Event::ToggleSelectCategory(ref categ) => {
-                self.toggle_select_category(categ);
+            Event::ToggleSelectCategory(ref categ) |
+            Event::Select(EntryId::ToggleSelectCategory(ref categ)) => {
+                self.toggle_select_category(categ, hub, context);
                 self.refresh_visibles(true, true, hub, context);
                 true
             },
@@ -1316,6 +1465,14 @@ impl View for Home {
             },
             Event::Device(DeviceEvent::Button { code: ButtonCode::Forward, status: ButtonStatus::Pressed, .. }) => {
                 self.go_to_neighbor(CycleDir::Next, hub, context);
+                true
+            },
+            Event::Device(DeviceEvent::NetUp) => {
+                for (_, fetcher) in &self.background_fetchers {
+                    if let Some(process) = fetcher.process.as_ref() {
+                        unsafe { libc::kill(process.id() as libc::pid_t, libc::SIGUSR1) };
+                    }
+                }
                 true
             },
             Event::ToggleFrontlight => {

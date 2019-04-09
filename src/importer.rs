@@ -29,7 +29,7 @@ use crate::metadata::{import, extract_metadata};
 use crate::document::epub::xml::decode_entities;
 use crate::document::{DocumentOpener, asciify};
 
-pub fn run() -> Result<(), Error> {
+fn run() -> Result<(), Error> {
     let args: Vec<String> = env::args().skip(1).collect();
 
     let mut opts = Options::new();

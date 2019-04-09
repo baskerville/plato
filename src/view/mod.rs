@@ -49,7 +49,7 @@ use downcast_rs::{Downcast, impl_downcast};
 use crate::font::Fonts;
 use crate::document::{Location, TocEntry};
 use crate::settings::SecondColumn;
-use crate::metadata::{Info, ZoomMode, SortMethod, PageScheme, Margin};
+use crate::metadata::{Info, ZoomMode, SortMethod, SimpleStatus, PageScheme, Margin};
 use crate::geom::{LinearDir, CycleDir, Rectangle, Boundary};
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
@@ -215,12 +215,15 @@ pub enum Event {
     Gesture(GestureEvent),
     Keyboard(KeyboardEvent),
     Key(KeyKind),
+    AddDocument(Box<Info>),
+    RemoveDocument(PathBuf),
     Open(Box<Info>),
     OpenToc(Vec<TocEntry>, usize),
     LoadPixmap(usize),
     Update(UpdateMode),
     Invalid(Box<Info>),
     Remove(Box<Info>),
+    Notify(String),
     Page(CycleDir),
     ResultsPage(CycleDir),
     GoTo(usize),
@@ -261,6 +264,7 @@ pub enum Event {
     Save,
     Guess,
     CheckBattery,
+    SetWifi(bool),
     MightSuspend,
     PrepareSuspend,
     Suspend,
@@ -321,6 +325,7 @@ pub enum ViewId {
     MarginCropper,
     TopBottomBars,
     TableOfContents,
+    MessageNotif,
     BoundaryNotif,
     TakeScreenshotNotif,
     SaveSketchNotif,
@@ -400,12 +405,14 @@ pub enum EntryKind {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EntryId {
     Sort(SortMethod),
+    StatusFilter(Option<SimpleStatus>),
     ReverseOrder,
     EmptyTrash,
     Remove(PathBuf),
     RenameCategory(String),
     RemoveCategory(String),
     AddMatchesCategories,
+    ToggleSelectCategory(String),
     AddBookCategories(PathBuf),
     RemoveBookCategory(PathBuf, String),
     ToggleIntermissionImage(IntermKind, PathBuf),

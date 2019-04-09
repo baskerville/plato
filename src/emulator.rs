@@ -443,6 +443,41 @@ pub fn run() -> Result<(), Error> {
                                                   msg, &tx, &mut context);
                     view.children_mut().push(Box::new(notif) as Box<dyn View>);
                 },
+                Event::Notify(msg) => {
+                    let notif = Notification::new(ViewId::MessageNotif,
+                                                  msg, &tx, &mut context);
+                    view.children_mut().push(Box::new(notif) as Box<dyn View>);
+                },
+                Event::AddDocument(..) | Event::RemoveDocument(..) => {
+                    if view.is::<Home>() {
+                        view.handle_event(&evt, &tx, &mut bus, &mut context);
+                    } else {
+                        let (tx, _rx) = mpsc::channel();
+                        history[0].handle_event(&evt, &tx, &mut VecDeque::new(), &mut context);
+                    };
+                },
+                Event::SetWifi(enable) => {
+                    if context.settings.wifi != enable {
+                        context.settings.wifi = enable;
+                        if enable {
+                            let tx2 = tx.clone();
+                            thread::spawn(move || {
+                                thread::sleep(Duration::from_secs(2));
+                                tx2.send(Event::Device(DeviceEvent::NetUp)).unwrap();
+                            });
+                        } else {
+                            context.online = false;
+                        }
+                    }
+                },
+                Event::Device(DeviceEvent::NetUp) => {
+                    if view.is::<Home>() {
+                        view.handle_event(&evt, &tx, &mut bus, &mut context);
+                    } else {
+                        let (tx, _rx) = mpsc::channel();
+                        history[0].handle_event(&evt, &tx, &mut VecDeque::new(), &mut context);
+                    };
+                },
                 Event::Select(EntryId::Quit) => {
                     break 'outer;
                 },

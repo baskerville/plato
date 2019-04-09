@@ -56,6 +56,7 @@ pub struct Context {
     pub plugged: bool,
     pub covered: bool,
     pub shared: bool,
+    pub online: bool,
 }
 
 impl Context {
@@ -67,7 +68,7 @@ impl Context {
         Context { fb, display: Display { dims, rotation },
                   settings, metadata, filename, fonts,
                   battery, frontlight, lightsensor, notification_index: 0,
-                  plugged: false, covered: false, shared: false }
+                  plugged: false, covered: false, shared: false, online: false }
     }
 }
 
@@ -194,6 +195,23 @@ fn power_off(view: &mut View, history: &mut Vec<HistoryItem>, updating: &mut Fnv
     updating.retain(|tok, _| context.fb.wait(*tok).is_err());
     interm.render(context.fb.as_mut(), *interm.rect(), &mut context.fonts);
     context.fb.update(interm.rect(), UpdateMode::Full).ok();
+}
+
+fn set_wifi(enable: bool, context: &mut Context) {
+    if context.settings.wifi == enable {
+        return;
+    }
+    context.settings.wifi = enable;
+    if context.settings.wifi {
+        Command::new("scripts/wifi-enable.sh")
+                .status()
+                .ok();
+    } else {
+        Command::new("scripts/wifi-disable.sh")
+                .status()
+                .ok();
+        context.online = false;
+    }
 }
 
 enum ExitStatus {
@@ -358,7 +376,14 @@ pub fn run() -> Result<(), Error> {
                         let notif = Notification::new(ViewId::NetUpNotif,
                                                       format!("Network is up ({}, {}).", ip, essid),
                                                       &tx, &mut context);
+                        context.online = true;
                         view.children_mut().push(Box::new(notif) as Box<dyn View>);
+                        if view.is::<Home>() {
+                            view.handle_event(&evt, &tx, &mut bus, &mut context);
+                        } else {
+                            let (tx, _rx) = mpsc::channel();
+                            history[0].view.handle_event(&evt, &tx, &mut VecDeque::new(), &mut context);
+                        };
                     },
                     DeviceEvent::Plug(power_source) => {
                         if context.plugged {
@@ -512,6 +537,7 @@ pub fn run() -> Result<(), Error> {
                     Command::new("scripts/wifi-disable.sh")
                             .status()
                             .ok();
+                    context.online = false;
                 }
                 // https://github.com/koreader/koreader/commit/71afe36
                 schedule_task(TaskId::Suspend, Event::Suspend,
@@ -560,6 +586,7 @@ pub fn run() -> Result<(), Error> {
                     Command::new("scripts/wifi-disable.sh")
                             .status()
                             .ok();
+                    context.online = false;
                 }
                 let interm = Intermission::new(context.fb.rect(), IntermKind::Share, &context);
                 tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
@@ -771,17 +798,11 @@ pub fn run() -> Result<(), Error> {
                     }
                 }
             },
+            Event::SetWifi(enable) => {
+                set_wifi(enable, &mut context);
+            },
             Event::Select(EntryId::ToggleWifi) => {
-                context.settings.wifi = !context.settings.wifi;
-                if context.settings.wifi {
-                    Command::new("scripts/wifi-enable.sh")
-                            .status()
-                            .ok();
-                } else {
-                    Command::new("scripts/wifi-disable.sh")
-                            .status()
-                            .ok();
-                }
+                set_wifi(!context.settings.wifi, &mut context);
             },
             Event::Select(EntryId::TakeScreenshot) => {
                 let name = Local::now().format("screenshot-%Y%m%d_%H%M%S.png");
@@ -790,6 +811,19 @@ pub fn run() -> Result<(), Error> {
                     Ok(_) => format!("Saved {}.", name),
                 };
                 let notif = Notification::new(ViewId::TakeScreenshotNotif,
+                                              msg, &tx, &mut context);
+                view.children_mut().push(Box::new(notif) as Box<dyn View>);
+            },
+            Event::AddDocument(..) | Event::RemoveDocument(..) => {
+                if view.is::<Home>() {
+                    view.handle_event(&evt, &tx, &mut bus, &mut context);
+                } else {
+                    let (tx, _rx) = mpsc::channel();
+                    history[0].view.handle_event(&evt, &tx, &mut VecDeque::new(), &mut context);
+                };
+            },
+            Event::Notify(msg) => {
+                let notif = Notification::new(ViewId::MessageNotif,
                                               msg, &tx, &mut context);
                 view.children_mut().push(Box::new(notif) as Box<dyn View>);
             },

@@ -2,7 +2,6 @@ mod input_bar;
 mod bottom_bar;
 mod code_area;
 
-use std::env;
 use std::thread;
 use std::path::Path;
 use std::sync::mpsc;
@@ -31,7 +30,9 @@ use crate::font::Fonts;
 use crate::color::BLACK;
 use crate::app::Context;
 
-const LIB_PATH: &str = "bin/lib.ivy";
+const APP_DIR: &str = "bin/ivy";
+const APP_NAME: &str = "ivy";
+const LIB_NAME: &str = "lib.ivy";
 
 pub struct Calculator {
     rect: Rectangle,
@@ -66,8 +67,9 @@ pub enum LineOrigin {
 
 impl Calculator {
     pub fn new(rect: Rectangle, hub: &Hub, context: &mut Context) -> Result<Calculator, Error> {
-        let mut process = Command::new("ivy")
-                                 .env("PATH", env::current_dir()?.join("bin"))
+        let path = Path::new(APP_DIR).join(APP_NAME).canonicalize()?;
+        let mut process = Command::new(path)
+                                 .current_dir(APP_DIR)
                                  .stdin(Stdio::piped())
                                  .stdout(Stdio::piped())
                                  .stderr(Stdio::piped())
@@ -101,9 +103,9 @@ impl Calculator {
             }
         });
 
-        if Path::new(LIB_PATH).exists() {
+        if Path::new(APP_DIR).join(LIB_NAME).exists() {
             if let Some(stdin) = process.stdin.as_mut() {
-                writeln!(stdin, ")get '{}'", LIB_PATH).ok();
+                writeln!(stdin, ")get '{}'", LIB_NAME).ok();
             }
         }
 
@@ -471,7 +473,7 @@ impl Calculator {
     }
 
     fn quit(&mut self, context: &mut Context) {
-        self.process.kill().map_err(|e| eprintln!("Can't kill child process: {}.", e)).ok();
+        unsafe { libc::kill(self.process.id() as libc::pid_t, libc::SIGTERM) };
         self.process.wait().map_err(|e| eprintln!("Can't wait child process: {}.", e)).ok();
         context.settings.calculator.font_size = self.font_size;
         context.settings.calculator.margin_width = self.margin_width;

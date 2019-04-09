@@ -3,6 +3,7 @@ mod preset;
 use std::path::PathBuf;
 use fnv::{FnvHashSet, FnvHashMap};
 use serde::{Serialize, Deserialize};
+use crate::metadata::SortMethod;
 use crate::frontlight::LightLevels;
 use crate::color::BLACK;
 use crate::device::CURRENT_DEVICE;
@@ -136,9 +137,30 @@ pub enum SecondColumn {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
+pub struct Hook {
+    pub name: String,
+    pub program: Option<PathBuf>,
+    pub sort_method: Option<SortMethod>,
+    pub second_column: Option<SecondColumn>,
+}
+
+impl Default for Hook {
+    fn default() -> Self {
+        Hook {
+            name: "Unnamed".to_string(),
+            program: None,
+            sort_method: None,
+            second_column: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
 pub struct HomeSettings {
     pub summary_size: u8,
     pub second_column: SecondColumn,
+    pub hooks: Vec<Hook>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -180,6 +202,7 @@ impl Default for HomeSettings {
         HomeSettings {
             summary_size: 2,
             second_column: SecondColumn::Progress,
+            hooks: Vec::new(),
         }
     }
 }

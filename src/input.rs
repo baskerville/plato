@@ -349,7 +349,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
             // since `tv_sec` can't grow forever.
             if (evt.time.tv_sec - last_activity).abs() >= 60 {
                 last_activity = evt.time.tv_sec;
-                ty.send(DeviceEvent::UserActivity);
+                ty.send(DeviceEvent::UserActivity).unwrap();
             }
             if evt.code == SYN_MT_REPORT || (proto == TouchProto::Single && evt.code == SYN_REPORT) {
                 if let Some(&p) = fingers.get(&id) {
