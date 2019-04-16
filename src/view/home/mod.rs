@@ -728,7 +728,8 @@ impl Home {
 
             let loadables: Vec<PathBuf> = context.settings.library_path.join(".metadata*.json").to_str().and_then(|s| {
                 glob(s).ok().map(|paths| {
-                    paths.filter_map(|x| x.ok().and_then(|p| p.file_name().map(PathBuf::from))).collect()
+                    paths.filter_map(|x| x.ok().and_then(|p| p.file_name().map(PathBuf::from))
+                                                              .filter(|p| *p != context.filename)).collect()
                 })
             }).unwrap_or_default();
 
