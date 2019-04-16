@@ -500,10 +500,14 @@ unsafe fn font_data_from_script(script: HbScript) -> &'static [libc::c_uchar] {
 	HB_SCRIPT_BRAILLE |
 	HB_SYMBOL_GEOMETRIC |
 	HB_SYMBOL_ARROW |
+	HB_SYMBOL_TECHNICAL |
 	HB_SYMBOL_DINGBAT |
-	HB_SYMBOL_GAME_CHESS => &_binary_NotoSansSymbols2_Regular_otf,
+	HB_SYMBOL_GAME_CHESS |
+	HB_SYMBOL_GAME_DOMINO |
+	HB_SYMBOL_GAME_PLAYING_CARD => &_binary_NotoSansSymbols2_Regular_otf,
 	HB_SYMBOL_EMOTICON => &_binary_NotoEmoji_Regular_ttf,
-	HB_SYMBOL_GRAPHIC_FORM => &_binary_DroidSansFallback_ttf,
+	HB_SYMBOL_GRAPHIC_FORM |
+	HB_PUNCTUATION_BRACKET_CJK => &_binary_DroidSansFallback_ttf,
         _ => &_binary_NotoSansSymbols_Regular_otf,
     }
 }
@@ -512,15 +516,38 @@ unsafe fn font_data_from_script(script: HbScript) -> &'static [libc::c_uchar] {
 fn script_from_code(code: u32) -> HbScript {
     match code {
         0x2190 ... 0x21FF |
+        0x2B00 ... 0x2B0D |
+        0x2B4D ... 0x2B4F |
+        0x2B5A ... 0x2B73 |
+        0x2B76 ... 0x2B95 |
+        0x2B98 ... 0x2BB9 |
+        0x2BEC ... 0x2BEF |
         0x2900 ... 0x297F => HB_SYMBOL_ARROW,
+        0x2318 | 0x231A | 0x231B |
+        0x232B | 0x2324 ... 0x2328 |
+        0x2394 | 0x23CE | 0x23CF |
+        0x23E9 | 0x23EA | 0x23ED ... 0x23EF |
+        0x23F1 ... 0x23FE |
+        0x2BBD ... 0x2BBF => HB_SYMBOL_TECHNICAL,
         0x2654 ... 0x265F => HB_SYMBOL_GAME_CHESS,
+        0x1F030 ... 0x1F093 => HB_SYMBOL_GAME_DOMINO,
+        0x1F0A0 ... 0x1F0F5 => HB_SYMBOL_GAME_PLAYING_CARD,
         0x2500 ... 0x257F => HB_SYMBOL_GRAPHIC_FORM,
         0x25A0 ... 0x25EF |
         0x25F8 ... 0x25FF |
         0x26AA ... 0x26AC |
         0x2B12 ... 0x2B2F |
-        0x2B53 ... 0x2B54 => HB_SYMBOL_GEOMETRIC,
-        0x2722 ... 0x274B => HB_SYMBOL_DINGBAT,
+        0x2B53 ... 0x2B54 |
+        0x2BC0 ... 0x2BD1 => HB_SYMBOL_GEOMETRIC,
+        0x2722 ... 0x274B |
+        0x274D | 0x274F | 0x2750 ... 0x2753 |
+        0x2756 ... 0x2775 | 0x2794 |
+        0x2798 ... 0x27AF |
+        0x27B1 ... 0x27BE => HB_SYMBOL_DINGBAT,
+        0x3008 ... 0x3011 |
+        0x3014 ... 0x301B |
+        0xFF5F ... 0xFF60 |
+        0xFF62 ... 0xFF63 => HB_PUNCTUATION_BRACKET_CJK,
         0x1F600 ... 0x1F64F => HB_SYMBOL_EMOTICON,
         _ => HB_SCRIPT_UNKNOWN,
     }
