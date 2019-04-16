@@ -1946,6 +1946,9 @@ impl Document for EpubDocument {
                 }
             },
             Location::LocalUri(offset, ref uri) => {
+                if uri.starts_with("http://") || uri.starts_with("https://") {
+                    return None;
+                }
                 let mut cache = FnvHashMap::default();
                 let normalized_uri: String = {
                     let (index, _) = self.vertebra_coordinates(offset);
@@ -1962,6 +1965,9 @@ impl Document for EpubDocument {
                 self.resolve_link(&normalized_uri, &mut cache)
             },
             Location::Uri(ref uri) => {
+                if uri.starts_with("http://") || uri.starts_with("https://") {
+                    return None;
+                }
                 let mut cache = FnvHashMap::default();
                 self.resolve_link(uri, &mut cache)
             },
