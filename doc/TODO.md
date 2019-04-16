@@ -1,6 +1,6 @@
 - Dictionary.
+- ePUB renderer: tables, floats, RTL.
 - Metadata view.
-- Pocket articles.
 - Complex/fuzzy search queries?
 - Input field completions bar.
 - Applications: Terminal, Browser.
