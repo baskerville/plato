@@ -146,11 +146,13 @@ pub trait HumanSize {
     fn human_size(&self) -> String;
 }
 
+const SIZE_BASE: f32 = 1024.0;
+
 impl HumanSize for u64 {
     fn human_size(&self) -> String {
         let value = *self as f32;
-        let level = (value.log(1024f32).floor() as usize).min(3);
-        let factor = value / (1024f32).powi(level as i32);
+        let level = (value.max(1.0).log(SIZE_BASE).floor() as usize).min(3);
+        let factor = value / (SIZE_BASE).powi(level as i32);
         let precision = level.saturating_sub(1 + factor.log(10.0).floor() as usize);
         format!("{0:.1$} {2}", factor, precision, ['B', 'K', 'M', 'G'][level])
     }
