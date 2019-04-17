@@ -85,16 +85,10 @@ pub const HB_SCRIPT_INHERITED: HbTag = hb_tag!('Z','i','n','h');
 pub const HB_SCRIPT_UNKNOWN: HbTag = hb_tag!('Z','z','z','z');
 pub const HB_SCRIPT_INVALID: HbTag = 0;
 
-pub const HB_SYMBOL_GRAPHIC_FORM: HbTag = hb_tag!('Z','s','g','f');
-pub const HB_SYMBOL_GEOMETRIC: HbTag = hb_tag!('Z','s','g','g');
-pub const HB_SYMBOL_ARROW: HbTag = hb_tag!('Z','s','a','a');
-pub const HB_SYMBOL_TECHNICAL: HbTag = hb_tag!('Z','s','t','t');
-pub const HB_SYMBOL_GAME_CHESS: HbTag = hb_tag!('Z','s','g','c');
-pub const HB_SYMBOL_GAME_DOMINO: HbTag = hb_tag!('Z','s','g','d');
-pub const HB_SYMBOL_GAME_PLAYING_CARD: HbTag = hb_tag!('Z','s','g','p');
-pub const HB_SYMBOL_DINGBAT: HbTag = hb_tag!('Z','s','d','d');
-pub const HB_SYMBOL_EMOTICON: HbTag = hb_tag!('Z','s','e','e');
-pub const HB_PUNCTUATION_BRACKET_CJK: HbTag = hb_tag!('Z','p','b','c');
+// Custom *scripts*.
+pub const HB_SYMBOL_MISC_ONE: HbTag = hb_tag!('Z','s','m','o');
+pub const HB_SYMBOL_MISC_TWO: HbTag = hb_tag!('Z','s','m','t');
+pub const HB_SYMBOL_EMOJI: HbTag = hb_tag!('Z','s','e','j');
 
 pub const HB_SCRIPT_ARABIC: HbTag = hb_tag!('A','r','a','b');
 pub const HB_SCRIPT_ARMENIAN: HbTag = hb_tag!('A','r','m','n');
