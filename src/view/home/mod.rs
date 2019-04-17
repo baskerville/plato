@@ -1167,10 +1167,7 @@ impl Home {
             self.sort(false, hub, context);
         }
 
-        if self.status_filter.is_some() ||
-           context.settings.home.second_column == SecondColumn::Progress {
-            self.refresh_visibles(true, false, hub, context);
-        }
+        self.refresh_visibles(true, false, hub, context);
     }
 
     fn set_reverse_order(&mut self, value: bool, hub: &Hub, context: &mut Context) {
