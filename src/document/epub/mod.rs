@@ -1369,7 +1369,7 @@ impl EpubDocument {
                         position.x += width;
                         last_x_position = position.x;
                     },
-                    ParagraphItem::Glue { width, stretch, shrink } => {
+                    ParagraphItem::Glue { width, stretch, shrink } if ratio.is_finite() => {
                         let amplitude = if ratio.is_sign_positive() { stretch } else { shrink };
                         let exact_width = width as f32 + ratio * amplitude as f32 + drift;
                         let approx_width = if epsilon.is_sign_positive() {
