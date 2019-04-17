@@ -16,10 +16,12 @@ The `name` key is the name of the category that will trigger the hook. The
 The *Hooks* sub-menu of the matches menu can be used to trigger a hook when the
 corresponding category isn't in the summary bar. Otherwise, you can just tap
 the category name in the summary bar. When the hook is triggered, the
-associated `program` is spawned.
+associated `program` is spawned. It will receive the category name and online
+status (*true* or *false*) as arguments.
 
-The spawned `program` can send events to *Plato* through its standard output.
+A fetcher can send events to *Plato* through its standard output.
 Each event is a JSON object with a required `type` key:
+
 ```
 // Display a notification message.
 {"type": "notify", "message": STRING}
@@ -31,6 +33,8 @@ Each event is a JSON object with a required `type` key:
 // Enable or disable the WiFi.
 {"type": "setWifi", "enable": BOOL}
 ```
+
+On *Plato*'s side, the events are read line by line, one event per line.
 
 When the network becomes operational, *Plato* will send the `SIGUSR1` signal to
 all the fetchers.
