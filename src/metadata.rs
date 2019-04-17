@@ -1,4 +1,5 @@
 use std::fs;
+use std::fmt;
 use std::path::{self, Path, PathBuf};
 use std::collections::BTreeSet;
 use std::cmp::Ordering;
@@ -248,6 +249,12 @@ pub enum SimpleStatus {
     New,
     Reading,
     Finished,
+}
+
+impl fmt::Display for SimpleStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
 }
 
 impl Info {

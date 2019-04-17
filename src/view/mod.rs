@@ -415,6 +415,7 @@ pub enum EntryId {
     ToggleSelectCategory(String),
     AddBookCategories(PathBuf),
     RemoveBookCategory(PathBuf, String),
+    SetStatus(PathBuf, SimpleStatus),
     ToggleIntermissionImage(IntermKind, PathBuf),
     RemoveMatches,
     RemovePreset(usize),

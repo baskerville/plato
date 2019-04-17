@@ -18,7 +18,7 @@ use serde_json::Value as JsonValue;
 use fnv::{FnvHashSet, FnvHashMap};
 use failure::{Error, format_err};
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::metadata::{Info, Metadata, SortMethod, SimpleStatus, sort, make_query};
+use crate::metadata::{Info, ReaderInfo, Metadata, SortMethod, SimpleStatus, sort, make_query};
 use crate::view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
 use crate::settings::{Hook, SecondColumn};
 use crate::view::filler::Filler;
@@ -775,6 +775,19 @@ impl Home {
                 entries.push(EntryKind::SubMenu("Remove Category".to_string(), categories));
             }
 
+            entries.push(EntryKind::Separator);
+
+            let submenu: &[SimpleStatus] = match info.simple_status() {
+                SimpleStatus::Reading => &[SimpleStatus::New, SimpleStatus::Finished],
+                SimpleStatus::New => &[SimpleStatus::Finished],
+                SimpleStatus::Finished => &[SimpleStatus::New],
+            };
+
+            let submenu = submenu.iter().map(|s| EntryKind::Command(s.to_string(),
+                                                                    EntryId::SetStatus(path.clone(), *s)))
+                                 .collect();
+            entries.push(EntryKind::SubMenu("Mark As".to_string(), submenu));
+
             {
                 let images = &context.settings.intermission_images;
                 let submenu = [IntermKind::Suspend,
@@ -786,7 +799,6 @@ impl Home {
                                }).collect::<Vec<EntryKind>>();
 
 
-                entries.push(EntryKind::Separator);
                 entries.push(EntryKind::SubMenu("Set As".to_string(), submenu))
             }
 
@@ -1136,6 +1148,31 @@ impl Home {
         self.refresh_visibles(true, false, hub, context);
     }
 
+    fn set_status(&mut self, path: &PathBuf, status: SimpleStatus, hub: &Hub, context: &mut Context) {
+        self.history_push(false, context);
+
+        for info in &mut context.metadata {
+            if info.file.path == *path {
+                if status == SimpleStatus::New {
+                    info.reader = None;
+                } else {
+                    info.reader.as_mut().map(|info| info.finished = true);
+                }
+                break;
+            }
+        }
+
+        if self.sort_method == SortMethod::Progress ||
+           self.sort_method == SortMethod::Opened {
+            self.sort(false, hub, context);
+        }
+
+        if self.status_filter.is_some() ||
+           context.settings.home.second_column == SecondColumn::Progress {
+            self.refresh_visibles(true, false, hub, context);
+        }
+    }
+
     fn set_reverse_order(&mut self, value: bool, hub: &Hub, context: &mut Context) {
         self.reverse_order = value;
         self.sort(true, hub, context);
@@ -1356,6 +1393,10 @@ impl View for Home {
             },
             Event::Select(EntryId::RemoveCategory(ref categ)) => {
                 self.remove_category(categ, hub, context);
+                true
+            },
+            Event::Select(EntryId::SetStatus(ref path, status)) => {
+                self.set_status(path, status, hub, context);
                 true
             },
             Event::Select(EntryId::EmptyTrash) => {
