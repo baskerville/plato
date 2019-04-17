@@ -18,7 +18,7 @@ use serde_json::Value as JsonValue;
 use fnv::{FnvHashSet, FnvHashMap};
 use failure::{Error, format_err};
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::metadata::{Info, ReaderInfo, Metadata, SortMethod, SimpleStatus, sort, make_query};
+use crate::metadata::{Info, Metadata, SortMethod, SimpleStatus, sort, make_query};
 use crate::view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
 use crate::settings::{Hook, SecondColumn};
 use crate::view::filler::Filler;
