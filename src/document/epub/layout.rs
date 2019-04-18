@@ -4,6 +4,7 @@ use fnv::FnvHashMap;
 use lazy_static::lazy_static;
 use crate::geom::{Point, Rectangle, Edge};
 use crate::font::{FontFamily, Font, RenderPlan};
+pub use crate::metadata::TextAlign;
 use super::dom::Node;
 use hyphenation::{Standard, Language, Load};
 use crate::color::BLACK;
@@ -236,15 +237,6 @@ impl Fonts {
             FontKind::Fantasy => &mut self.fantasy,
         }
     }
-}
-
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum TextAlign {
-    Left,
-    Right,
-    Center,
-    Justify,
 }
 
 #[derive(Debug, Clone)]

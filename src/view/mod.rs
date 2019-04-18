@@ -49,7 +49,7 @@ use downcast_rs::{Downcast, impl_downcast};
 use crate::font::Fonts;
 use crate::document::{Location, TocEntry};
 use crate::settings::SecondColumn;
-use crate::metadata::{Info, ZoomMode, SortMethod, SimpleStatus, PageScheme, Margin};
+use crate::metadata::{Info, ZoomMode, SortMethod, TextAlign, SimpleStatus, PageScheme, Margin};
 use crate::geom::{LinearDir, CycleDir, Rectangle, Boundary};
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
@@ -294,6 +294,7 @@ pub enum ViewId {
     ClockMenu,
     Frontlight,
     FontSizeMenu,
+    TextAlignMenu,
     FontFamilyMenu,
     MarginWidthMenu,
     ContrastExponentMenu,
@@ -429,6 +430,7 @@ pub enum EntryId {
     SearchDirection(LinearDir),
     SetFontFamily(String),
     SetFontSize(i32),
+    SetTextAlign(TextAlign),
     SetMarginWidth(i32),
     SetLineHeight(i32),
     SetContrastExponent(i32),

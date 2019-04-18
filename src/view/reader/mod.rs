@@ -34,13 +34,15 @@ use crate::view::search_bar::SearchBar;
 use crate::view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::notification::Notification;
-use crate::settings::{guess_frontlight, FinishedAction, DEFAULT_FONT_FAMILY};
+use crate::settings::{guess_frontlight, FinishedAction};
+use crate::settings::{DEFAULT_FONT_FAMILY, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT, DEFAULT_MARGIN_WIDTH};
 use crate::frontlight::LightLevels;
 use crate::gesture::GestureEvent;
 use crate::document::{Document, DocumentOpener, Location, BoundedText, Neighbors, BYTES_PER_PAGE};
 use crate::document::{TocEntry, toc_as_html, chapter_from_index};
 use crate::document::pdf::PdfOpener;
-use crate::metadata::{Info, FileInfo, ReaderInfo, ZoomMode, PageScheme, Margin, CroppingMargins, make_query};
+use crate::metadata::{Info, FileInfo, ReaderInfo, TextAlign, ZoomMode, PageScheme};
+use crate::metadata::{Margin, CroppingMargins, make_query};
 use crate::metadata::{DEFAULT_CONTRAST_EXPONENT, DEFAULT_CONTRAST_GRAY};
 use crate::geom::{Point, Rectangle, Boundary, CornerSpec, BorderSpec, Dir, CycleDir, LinearDir, Axis, halves};
 use crate::color::{BLACK, WHITE};
@@ -220,8 +222,34 @@ impl Reader {
             let first_location = doc.resolve_location(Location::Exact(0))?;
 
             doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
-            doc.set_margin_width(info.reader.as_ref().and_then(|r| r.margin_width)
-                                     .unwrap_or(settings.reader.margin_width));
+
+            let margin_width = info.reader.as_ref().and_then(|r| r.margin_width)
+                                   .unwrap_or(settings.reader.margin_width);
+
+            if margin_width != DEFAULT_MARGIN_WIDTH {
+                doc.set_margin_width(margin_width);
+            }
+
+            let font_family = info.reader.as_ref().and_then(|r| r.font_family.as_ref())
+                                  .unwrap_or(&settings.reader.font_family);
+
+            if font_family != DEFAULT_FONT_FAMILY {
+                doc.set_font_family(font_family, &settings.reader.font_path);
+            }
+
+            let line_height = info.reader.as_ref().and_then(|r| r.line_height)
+                                  .unwrap_or(settings.reader.line_height);
+
+            if (line_height - DEFAULT_LINE_HEIGHT).abs() > f32::EPSILON {
+                doc.set_line_height(line_height);
+            }
+
+            let text_align = info.reader.as_ref().and_then(|r| r.text_align)
+                                 .unwrap_or(settings.reader.text_align);
+
+            if text_align != DEFAULT_TEXT_ALIGN {
+                doc.set_text_align(text_align);
+            }
 
             let mut view_port = ViewPort::default();
             let mut contrast = Contrast::default();
@@ -259,14 +287,6 @@ impl Reader {
                 if let Some(gray) = r.contrast_gray {
                     contrast.gray = gray;
                 }
-
-                if let Some(ref font_family) = r.font_family {
-                    doc.set_font_family(font_family, &settings.reader.font_path);
-                }
-
-                if let Some(line_height) = r.line_height {
-                    doc.set_line_height(line_height);
-                }
             } else {
                 current_page = first_location;
 
@@ -275,12 +295,6 @@ impl Reader {
                     pages_count,
                     .. Default::default()
                 });
-
-                if settings.reader.font_family != DEFAULT_FONT_FAMILY {
-                    doc.set_font_family(&settings.reader.font_family, &settings.reader.font_path);
-                }
-
-                doc.set_line_height(settings.reader.line_height);
             }
 
             let synthetic = doc.has_synthetic_page_numbers();
@@ -728,6 +742,10 @@ impl Reader {
                                     .and_then(|r| r.font_size)
                                     .unwrap_or(settings.reader.font_size);
                 tool_bar.update_font_size_slider(font_size, hub);
+                let text_align = self.info.reader.as_ref()
+                                    .and_then(|r| r.text_align)
+                                    .unwrap_or(settings.reader.text_align);
+                tool_bar.update_text_align_icon(text_align, hub);
                 let line_height = self.info.reader.as_ref()
                                       .and_then(|r| r.line_height)
                                       .unwrap_or(settings.reader.line_height);
@@ -1319,6 +1337,33 @@ impl Reader {
         }
     }
 
+    fn toggle_text_align_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+        if let Some(index) = locate_by_id(self, ViewId::TextAlignMenu) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            self.children.remove(index);
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let text_align = self.info.reader.as_ref().and_then(|r| r.text_align)
+                                .unwrap_or(context.settings.reader.text_align);
+            let choices = [TextAlign::Justify, TextAlign::Left, TextAlign::Right, TextAlign::Center];
+            let entries = choices.iter().map(|v| {
+                EntryKind::RadioButton(v.to_string(),
+                                       EntryId::SetTextAlign(*v),
+                                       text_align == *v)
+            }).collect();
+            let text_align_menu = Menu::new(rect, ViewId::TextAlignMenu, MenuKind::Contextual, entries, context);
+            hub.send(Event::Render(*text_align_menu.rect(), UpdateMode::Gui)).unwrap();
+            self.children.push(Box::new(text_align_menu) as Box<dyn View>);
+        }
+    }
+
     fn toggle_line_height_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::LineHeightMenu) {
             if let Some(true) = enable {
@@ -1614,6 +1659,31 @@ impl Reader {
                 let ratio = doc.pages_count() / self.pages_count;
                 self.pages_count = doc.pages_count();
                 self.current_page = (ratio * self.current_page).min(self.pages_count - 1);
+            }
+        }
+
+        self.cache.clear();
+        self.update(None, hub);
+        self.update_tool_bar(hub, context);
+        self.update_bottom_bar(hub);
+    }
+
+    fn set_text_align(&mut self, text_align: TextAlign, hub: &Hub, context: &mut Context) {
+        if Arc::strong_count(&self.doc) > 1 {
+            return;
+        }
+
+        if let Some(ref mut r) = self.info.reader {
+            r.text_align = Some(text_align);
+        }
+
+        {
+            let mut doc = self.doc.lock().unwrap();
+            doc.set_text_align(text_align);
+
+            if !self.synthetic {
+                self.pages_count = doc.pages_count();
+                self.current_page = self.current_page.min(self.pages_count - 1);
             }
         }
 
@@ -2183,6 +2253,10 @@ impl View for Reader {
                 self.toggle_font_size_menu(rect, None, hub, context);
                 true
             },
+            Event::ToggleNear(ViewId::TextAlignMenu, rect) => {
+                self.toggle_text_align_menu(rect, None, hub, context);
+                true
+            },
             Event::ToggleNear(ViewId::MarginWidthMenu, rect) => {
                 self.toggle_margin_width_menu(rect, None, hub, context);
                 true
@@ -2315,6 +2389,10 @@ impl View for Reader {
             },
             Event::Select(EntryId::SetFontFamily(ref font_family)) => {
                 self.set_font_family(font_family, hub, context);
+                true
+            },
+            Event::Select(EntryId::SetTextAlign(text_align)) => {
+                self.set_text_align(text_align, hub, context);
                 true
             },
             Event::Select(EntryId::SetFontSize(v)) => {

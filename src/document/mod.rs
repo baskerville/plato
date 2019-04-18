@@ -17,6 +17,7 @@ use self::pdf::PdfOpener;
 use self::epub::EpubDocument;
 use crate::geom::{Boundary, CycleDir};
 use crate::settings::EpubEngine;
+use crate::metadata::TextAlign;
 use crate::framebuffer::Pixmap;
 
 pub const BYTES_PER_PAGE: f64 = 2048.0;
@@ -65,6 +66,7 @@ pub trait Document: Send+Sync {
     fn layout(&mut self, width: u32, height: u32, font_size: f32, dpi: u16);
     fn set_font_family(&mut self, family_name: &str, search_path: &str);
     fn set_margin_width(&mut self, width: i32);
+    fn set_text_align(&mut self, text_align: TextAlign);
     fn set_line_height(&mut self, line_height: f32);
 
     fn title(&self) -> Option<String>;

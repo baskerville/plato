@@ -143,6 +143,32 @@ impl CroppingMargins {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum TextAlign {
+    Justify,
+    Left,
+    Right,
+    Center,
+}
+
+impl TextAlign {
+    pub fn icon_name(&self) -> &str {
+        match self {
+            TextAlign::Justify => "align-justify",
+            TextAlign::Left => "align-left",
+            TextAlign::Right => "align-right",
+            TextAlign::Center => "align-center",
+        }
+    }
+}
+
+impl fmt::Display for TextAlign {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReaderInfo {
@@ -167,6 +193,8 @@ pub struct ReaderInfo {
     pub font_family: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub font_size: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_align: Option<TextAlign>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub line_height: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -206,6 +234,7 @@ impl Default for ReaderInfo {
             screen_margin_width: None,
             font_family: None,
             font_size: None,
+            text_align: None,
             line_height: None,
             contrast_exponent: None,
             contrast_gray: None,

@@ -24,10 +24,11 @@ lazy_static! {
         for name in ["home", "search", "back", "frontlight", "frontlight-disabled", "menu",
                      "angle-left", "angle-right", "angle-left-small", "angle-right-small",
                      "delete-backward", "delete-forward", "move-backward", "move-forward",
-                     "close",  "check_mark-small", "check_mark","check_mark-large",
-                     "bullet", "arrow-left", "arrow-right", "double_angle-left", "double_angle-right",
-                     "angle-down", "angle-up", "plus", "minus", "crop", "toc", "font_family", "font_size",
-                     "line_height", "margin", "plug", "ellipsis", "contrast", "gray"].iter().cloned() {
+                     "close",  "check_mark-small", "check_mark","check_mark-large", "bullet",
+                     "arrow-left", "arrow-right", "double_angle-left", "double_angle-right",
+                     "angle-down", "angle-up", "plus", "minus", "crop", "toc", "font_family",
+                     "font_size", "line_height", "align-justify", "align-left", "align-right",
+                     "align-center", "margin", "plug", "ellipsis", "contrast", "gray"].iter().cloned() {
             let path = dir.join(&format!("{}.svg", name));
             let doc = PdfOpener::new().and_then(|o| o.open(path)).unwrap();
             let pixmap = doc.page(0).and_then(|p| p.pixmap(scale)).unwrap();

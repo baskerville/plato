@@ -12,6 +12,7 @@ use std::os::unix::ffi::OsStrExt;
 use failure::Error;
 use super::{Document, Location, BoundedText, TocEntry};
 use super::{chapter, chapter_relative};
+use crate::metadata::TextAlign;
 use crate::geom::{Boundary, CycleDir};
 use crate::unit::pt_to_px;
 use crate::framebuffer::Pixmap;
@@ -239,6 +240,9 @@ impl Document for PdfDocument {
                                height as libc::c_float,
                                em as libc::c_float);
         }
+    }
+
+    fn set_text_align(&mut self, _text_align: TextAlign) {
     }
 
     fn set_font_family(&mut self, _family_name: &str, _search_path: &str) {

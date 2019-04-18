@@ -7,6 +7,7 @@ use std::ffi::{CStr, CString};
 use std::os::unix::ffi::OsStrExt;
 use super::{Document, Location, BoundedText, TocEntry};
 use super::{chapter, chapter_relative};
+use crate::metadata::TextAlign;
 use crate::framebuffer::Pixmap;
 use crate::geom::{Rectangle, CycleDir};
 
@@ -229,6 +230,9 @@ impl Document for DjvuDocument {
     }
 
     fn layout(&mut self, _width: u32, _height: u32, _font_size: f32, _dpi: u16) {
+    }
+
+    fn set_text_align(&mut self, _text_align: TextAlign) {
     }
 
     fn set_font_family(&mut self, _family_name: &str, _search_path: &str) {

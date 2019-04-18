@@ -22,9 +22,9 @@ use crate::document::pdf::PdfOpener;
 use paragraph_breaker::{Item as ParagraphItem, Breakpoint, INFINITE_PENALTY};
 use paragraph_breaker::{total_fit, standard_fit};
 use xi_unicode::LineBreakIterator;
-use crate::settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_LINE_HEIGHT};
 use crate::unit::{mm_to_px, pt_to_px};
 use crate::geom::{Point, Rectangle, Edge, CycleDir};
+use crate::settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT};
 use self::parse::{parse_display, parse_edge, parse_text_align, parse_text_indent, parse_width, parse_height, parse_inline_material};
 use self::parse::{parse_font_kind, parse_font_style, parse_font_weight, parse_font_size, parse_font_features, parse_font_variant, parse_letter_spacing};
 use self::parse::{parse_line_height, parse_vertical_align, parse_color};
@@ -62,6 +62,8 @@ pub struct EpubDocument {
     margin: Edge,
     // Font size in points.
     font_size: f32,
+    // Text alignment.
+    text_align: TextAlign,
     // Line height in ems.
     line_height: f32,
     // Page dimensions in pixels.
@@ -153,6 +155,7 @@ impl EpubDocument {
             ignore_document_css: false,
             margin,
             font_size: DEFAULT_FONT_SIZE,
+            text_align: DEFAULT_TEXT_ALIGN,
             line_height,
             dims: (DEFAULT_WIDTH, DEFAULT_HEIGHT),
             dpi: DEFAULT_DPI,
@@ -403,9 +406,7 @@ impl EpubDocument {
         let mut display_list = Vec::new();
 
         if let Some(body) = root.find("body").as_mut() {
-            let mut style = StyleData::default();
             let mut rect = self.rect();
-
             rect.shrink(&self.margin);
 
             let language = self.metadata("dc:language").or_else(|| {
@@ -414,12 +415,16 @@ impl EpubDocument {
                     .map(String::from)
             });
 
-            style.language = language;
-            style.font_size = self.font_size;
-            style.line_height = pt_to_px(self.line_height * self.font_size, self.dpi).round() as i32;
-            style.start_x = rect.min.x;
-            style.end_x = rect.max.x;
-            style.width = style.end_x - style.start_x;
+            let style = StyleData {
+                language,
+                font_size: self.font_size,
+                line_height: pt_to_px(self.line_height * self.font_size, self.dpi).round() as i32,
+                text_align: self.text_align,
+                start_x: rect.min.x,
+                end_x: rect.max.x,
+                width: rect.max.x - rect.min.x,
+                .. Default::default()
+            };
 
             let loop_context = LoopContext::default();
             let mut position = pt!(rect.min.x, rect.min.y);
@@ -2038,6 +2043,11 @@ impl Document for EpubDocument {
         self.dims = (width, height);
         self.dpi = dpi;
         self.font_size = font_size;
+        self.cache.clear();
+    }
+
+    fn set_text_align(&mut self, text_align: TextAlign) {
+        self.text_align = text_align;
         self.cache.clear();
     }
 

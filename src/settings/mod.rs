@@ -3,7 +3,7 @@ mod preset;
 use std::path::PathBuf;
 use fnv::{FnvHashSet, FnvHashMap};
 use serde::{Serialize, Deserialize};
-use crate::metadata::SortMethod;
+use crate::metadata::{SortMethod, TextAlign};
 use crate::frontlight::LightLevels;
 use crate::color::BLACK;
 use crate::device::CURRENT_DEVICE;
@@ -13,15 +13,16 @@ pub use self::preset::{LightPreset, guess_frontlight};
 
 pub const SETTINGS_PATH: &str = "Settings.toml";
 pub const DEFAULT_FONT_PATH: &str = "/mnt/onboard/fonts";
-// Default font size in points
+// Default font size in points.
 pub const DEFAULT_FONT_SIZE: f32 = 11.0;
-// Default margin width in millimeters
+// Default margin width in millimeters.
 pub const DEFAULT_MARGIN_WIDTH: i32 = 8;
-// Default line height in ems
+// Default line height in ems.
 pub const DEFAULT_LINE_HEIGHT: f32 = 1.2;
-// Default font family name
+// Default font family name.
 pub const DEFAULT_FONT_FAMILY: &str = "Libertinus Serif";
-
+// Default text alignment.
+pub const DEFAULT_TEXT_ALIGN: TextAlign = TextAlign::Left;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
@@ -172,6 +173,7 @@ pub struct ReaderSettings {
     pub font_path: String,
     pub font_family: String,
     pub font_size: f32,
+    pub text_align: TextAlign,
     pub margin_width: i32,
     pub line_height: f32,
 }
@@ -216,6 +218,7 @@ impl Default for ReaderSettings {
             font_path: DEFAULT_FONT_PATH.to_string(),
             font_family: DEFAULT_FONT_FAMILY.to_string(),
             font_size: DEFAULT_FONT_SIZE,
+            text_align: DEFAULT_TEXT_ALIGN,
             margin_width: DEFAULT_MARGIN_WIDTH,
             line_height: DEFAULT_LINE_HEIGHT,
         }
