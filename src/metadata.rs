@@ -546,7 +546,7 @@ lazy_static! {
 
 pub fn auto_import(dir: &Path, metadata: &Metadata, settings: &ImportSettings) -> Result<Metadata, Error> {
     let mut imported_metadata = import(dir, metadata, settings)?;
-    extract_metadata(dir, &mut imported_metadata, settings);
+    extract_metadata_from_epub(dir, &mut imported_metadata, settings);
     Ok(imported_metadata)
 }
 
@@ -580,7 +580,7 @@ pub fn import(dir: &Path, metadata: &Metadata, settings: &ImportSettings) -> Res
     Ok(metadata)
 }
 
-pub fn extract_metadata(dir: &Path, metadata: &mut Metadata, settings: &ImportSettings) {
+pub fn extract_metadata_from_epub(dir: &Path, metadata: &mut Metadata, settings: &ImportSettings) {
     let subjects_as_categories = settings.category_providers.contains(&CategoryProvider::Subject);
 
     for info in metadata {
@@ -606,6 +606,59 @@ pub fn extract_metadata(dir: &Path, metadata: &mut Metadata, settings: &ImportSe
             if subjects_as_categories {
                 info.categories.append(&mut doc.categories());
             }
+            println!("{}", info.label());
+        }
+    }
+}
+
+pub fn extract_metadata_from_filename(metadata: &mut Metadata) {
+    for info in metadata {
+        if !info.title.is_empty() {
+            continue;
+        }
+
+        if let Some(filename) = info.file.path.file_name().and_then(|v| v.to_str()) {
+            let mut start_index = 0;
+
+            if filename.starts_with('(') {
+                start_index += 1;
+                if let Some(index) = filename[start_index..].find(')') {
+                    info.series = filename[start_index..start_index+index].trim_end().to_string();
+                    start_index += index + 1;
+                }
+            }
+
+            if let Some(index) = filename[start_index..].find('-') {
+                info.author = filename[start_index..start_index+index].trim().to_string();
+                start_index += index + 1;
+            }
+
+            let title_start = start_index;
+
+            if let Some(index) = filename[start_index..].find('_') {
+                info.title = filename[start_index..start_index+index].trim_start().to_string();
+                start_index += index + 1;
+            }
+
+            if let Some(index) = filename[start_index..].find('-') {
+                if title_start == start_index {
+                    info.title = filename[start_index..start_index+index].trim_start().to_string();
+                } else {
+                    info.subtitle = filename[start_index..start_index+index].trim_start().to_string();
+                }
+                start_index += index + 1;
+            }
+
+            if let Some(index) = filename[start_index..].find('(') {
+                info.publisher = filename[start_index..start_index+index].trim_end().to_string();
+                start_index += index + 1;
+            }
+
+            if let Some(index) = filename[start_index..].find(')') {
+                info.year = filename[start_index..start_index+index].to_string();
+                start_index += index + 1;
+            }
+
             println!("{}", info.label());
         }
     }

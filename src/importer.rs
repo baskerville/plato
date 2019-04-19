@@ -25,7 +25,7 @@ use titlecase::titlecase;
 use crate::helpers::{load_json, save_json};
 use crate::settings::{ImportSettings, CategoryProvider, EpubEngine};
 use crate::metadata::{Info, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
-use crate::metadata::{import, extract_metadata};
+use crate::metadata::{import, extract_metadata_from_epub,extract_metadata_from_filename};
 use crate::document::epub::xml::decode_entities;
 use crate::document::{DocumentOpener, asciify};
 
@@ -39,7 +39,8 @@ fn run() -> Result<(), Error> {
     opts.optflag("S", "extract-isbn", "Try to extract identifiers from books.");
     opts.optflag("R", "retrieve-metadata", "Try to retrieve missing metadata.");
     opts.optflag("s", "strict", "Only use the ISBN when retreiving metadata.");
-    opts.optflag("M", "extract-metadata", "Try to extract metadata from ePUBs.");
+    opts.optflag("M", "extract-metadata-epub", "Extract metadata from ePUBs.");
+    opts.optflag("F", "extract-metadata-filename", "Extract metadata from filenames.");
     opts.optflag("C", "consolidate", "Consolidate an existing database.");
     opts.optflag("N", "rename", "Rename files based on their info.");
     opts.optflag("Y", "synchronize", "Synchronize libraries.");
@@ -53,7 +54,7 @@ fn run() -> Result<(), Error> {
     let matches = opts.parse(&args).context("Failed to parse the command line arguments.")?;
 
     if matches.opt_present("h") {
-        println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-C|-N|-Z|-Y [-t] [-a ALLOWED_KINDS] [-c CATEGORY_PROVIDERS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
+        println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-F|-C|-N|-Z|-Y [-t] [-a ALLOWED_KINDS] [-c CATEGORY_PROVIDERS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
         return Ok(());
     }
 
@@ -98,7 +99,11 @@ fn run() -> Result<(), Error> {
         }
 
         if matches.opt_present("M") {
-            extract_metadata(library_path, &mut metadata, &import_settings);
+            extract_metadata_from_epub(library_path, &mut metadata, &import_settings);
+        }
+
+        if matches.opt_present("F") {
+            extract_metadata_from_filename(&mut metadata);
         }
 
         if matches.opt_present("C") {
