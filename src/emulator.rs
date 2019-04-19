@@ -50,7 +50,7 @@ use crate::view::sketch::Sketch;
 use crate::view::calculator::Calculator;
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
 use crate::helpers::{load_json, save_json, load_toml, save_toml};
-use crate::metadata::{Metadata, METADATA_FILENAME};
+use crate::metadata::{Metadata, METADATA_FILENAME, auto_import};
 use crate::settings::{Settings, SETTINGS_PATH};
 use crate::geom::Rectangle;
 use crate::gesture::gesture_events;
@@ -69,7 +69,13 @@ const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 pub fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let settings = load_toml::<Settings, _>(SETTINGS_PATH)?;
     let path = settings.library_path.join(METADATA_FILENAME);
-    let metadata = load_json::<Metadata, _>(path)?;
+    let mut metadata = load_json::<Metadata, _>(path)?;
+    if settings.import.startup_trigger {
+        let imported_metadata = auto_import(&settings.library_path,
+                                            &metadata,
+                                            &settings.import);
+        metadata.append(&mut imported_metadata.unwrap_or_default());
+    }
     let battery = Box::new(FakeBattery::new()) as Box<dyn Battery>;
     let frontlight = Box::new(LightLevels::default()) as Box<dyn Frontlight>;
     let lightsensor = Box::new(0u16) as Box<dyn LightSensor>;
