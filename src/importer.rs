@@ -197,7 +197,7 @@ pub fn retriever_lookup_by_isbn(info: &mut Info, strict: bool) {
 }
 
 #[inline]
-pub fn retriever_amazon(info: &mut Info, _: bool) {
+pub fn retriever_amazon(info: &mut Info, _strict: bool) {
     let url = format!("https://www.amazon.com/s/?field-isbn={}", info.isbn);
 
     if let Ok(mut resp) = reqwest::get(&url) {
@@ -230,8 +230,8 @@ pub fn consolidate(metadata: &mut Metadata) {
             if let Some(index) = info.title.find(':') {
                 let cur_title = info.title.clone();
                 let (title, subtitle) = cur_title.split_at(index);
-                info.title = title.trim_right().to_string();
-                info.subtitle = subtitle[1..].trim_left().to_string();
+                info.title = title.trim_end().to_string();
+                info.subtitle = subtitle[1..].trim_start().to_string();
             }
         }
 
