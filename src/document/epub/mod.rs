@@ -31,7 +31,7 @@ use self::parse::{parse_line_height, parse_vertical_align, parse_color};
 use self::dom::{Node, ElementData, TextData};
 use self::layout::{StyleData, InlineMaterial, TextMaterial, ImageMaterial};
 use self::layout::{GlueMaterial, PenaltyMaterial, ChildArtifact, SiblingStyle, LoopContext};
-use self::layout::{RootData, DrawCommand, TextCommand, ImageCommand, FontKind, Fonts};
+use self::layout::{RootData, DrawState, DrawCommand, TextCommand, ImageCommand, FontKind, Fonts};
 use self::layout::{TextAlign, ParagraphElement, TextElement, ImageElement, Display, LineStats};
 use self::layout::{hyph_lang, collapse_margins, DEFAULT_HYPH_LANG, HYPHENATION_PATTERNS};
 use self::layout::{EM_SPACE_RATIOS, WORD_SPACE_RATIOS, FONT_SPACES};
@@ -427,7 +427,10 @@ impl EpubDocument {
             };
 
             let loop_context = LoopContext::default();
-            let mut position = pt!(rect.min.x, rect.min.y);
+            let mut draw_state = DrawState {
+                position: pt!(rect.min.x, rect.min.y),
+                .. Default::default()
+            };
 
             let root_data = RootData {
                 start_offset,
@@ -437,31 +440,67 @@ impl EpubDocument {
 
             display_list.push(Vec::new());
 
-            self.build_display_list_rec(body, &style, &loop_context, &stylesheet, &root_data, &mut position, &mut display_list);
+            self.build_display_list_rec(body, &style, &loop_context, &stylesheet, &root_data, &mut draw_state, &mut display_list);
 
             display_list.retain(|page| !page.is_empty());
 
             if display_list.is_empty() {
                 display_list.push(vec![DrawCommand::Marker(start_offset + body.offset())]);
             }
-
         }
 
         display_list
     }
 
-    fn build_display_list_rec(&mut self, node: &Node, parent_style: &StyleData, loop_context: &LoopContext, stylesheet: &Stylesheet, root_data: &RootData, position: &mut Point, display_list: &mut Vec<Page>) -> ChildArtifact {
+    fn compute_column_widths(&mut self, node: &Node, parent_style: &StyleData, loop_context: &LoopContext, stylesheet: &Stylesheet, root_data: &RootData, draw_state: &mut DrawState) {
+        if node.tag_name() == Some("tr") {
+            if let Some(children) = node.children() {
+                let mut index = 0;
+                for child in children.iter().filter(|c| c.is_element()) {
+                    let colspan = child.attr("colspan")
+                                       .and_then(|v| v.parse().ok())
+                                       .unwrap_or(1);
+                    let mut display_list = Vec::new();
+                    display_list.push(Vec::new());
+                    let artifact = self.build_display_list_rec(child, parent_style, loop_context, stylesheet, root_data, draw_state, &mut display_list);
+                    let horiz_padding = artifact.sibling_style.padding.left +
+                                        artifact.sibling_style.padding.right;
+                    let min_width = display_list.into_iter()
+                                                .flatten()
+                                                .filter_map(|dc| dc.rect())
+                                                .map(|r| r.width() as i32 + horiz_padding)
+                                                .max().unwrap_or(0);
+                    let max_width = artifact.rects.into_iter()
+                                            .filter_map(|v| v.map(|r| r.width() as i32 + horiz_padding))
+                                            .max().unwrap_or(0);
+                    if colspan == 1 {
+                        if let Some(cw) = draw_state.min_column_widths.get_mut(index) {
+                            *cw = (*cw).max(min_width);
+                        } else {
+                            draw_state.min_column_widths.push(min_width);
+                        }
+                        if let Some(cw) = draw_state.max_column_widths.get_mut(index) {
+                            *cw = (*cw).max(max_width);
+                        } else {
+                            draw_state.max_column_widths.push(max_width);
+                        }
+                    }
+
+                    index += colspan;
+                }
+            }
+        } else if let Some(children) = node.children() {
+            for child in children.iter().filter(|c| c.is_element()) {
+                self.compute_column_widths(child, parent_style, loop_context, stylesheet, root_data, draw_state);
+            }
+        }
+    }
+
+    fn build_display_list_rec(&mut self, node: &Node, parent_style: &StyleData, loop_context: &LoopContext, stylesheet: &Stylesheet, root_data: &RootData, draw_state: &mut DrawState, display_list: &mut Vec<Page>) -> ChildArtifact {
         // TODO: border, background, text-transform, tab-size.
         let mut style = StyleData::default();
-        let mut rects = Vec::new();
-
-        style.font_style = parent_style.font_style;
-        style.line_height = parent_style.line_height;
-        style.retain_whitespace = parent_style.retain_whitespace;
-
-        if node.tag_name() == Some("pre") {
-            style.retain_whitespace = true;
-        }
+        let mut rects: Vec<Option<Rectangle>> = Vec::new();
+        rects.push(None);
 
         let props = specified_values(node, loop_context.parent, loop_context.sibling, stylesheet);
 
@@ -471,11 +510,30 @@ impl EpubDocument {
         if style.display == Display::None {
             return ChildArtifact {
                 sibling_style: SiblingStyle {
-                    padding_bottom: 0,
-                    margin_bottom: 0,
+                    padding: Edge::default(),
+                    margin: Edge::default(),
                 },
                 rects: Vec::new(),
             }
+        }
+
+        style.font_style = parent_style.font_style;
+        style.line_height = parent_style.line_height;
+        style.retain_whitespace = parent_style.retain_whitespace;
+
+        match node.tag_name() {
+            Some("pre") => style.retain_whitespace = true,
+            Some("table") => {
+                let position = draw_state.position;
+                draw_state.column_widths.clear();
+                draw_state.min_column_widths.clear();
+                draw_state.max_column_widths.clear();
+                draw_state.center_table = style.display == Display::InlineTable &&
+                                          parent_style.text_align == TextAlign::Center;
+                self.compute_column_widths(node, parent_style, loop_context, stylesheet, root_data, draw_state);
+                draw_state.position = position;
+            },
+            _ => (),
         }
 
         style.language = props.get("lang").cloned()
@@ -519,6 +577,8 @@ impl EpubDocument {
                                  .unwrap_or(parent_style.text_indent);
 
         style.text_align = props.get("text-align")
+                                .map(String::as_str)
+                                .or_else(|| node.attr("align"))
                                 .and_then(|value| parse_text_align(value))
                                 .unwrap_or(parent_style.text_align);
 
@@ -541,7 +601,7 @@ impl EpubDocument {
                                       style.font_size, self.font_size, parent_style.width, self.dpi);
 
             // Collapse the bottom margin of the previous sibling with the current top margin
-            style.margin.top = collapse_margins(loop_context.sibling_style.margin_bottom, style.margin.top);
+            style.margin.top = collapse_margins(loop_context.sibling_style.margin.bottom, style.margin.top);
 
             // Collapse the top margin of the first child and its parent.
             if loop_context.is_first {
@@ -555,8 +615,14 @@ impl EpubDocument {
                                        style.font_size, self.font_size, parent_style.width, self.dpi);
         }
 
+        style.width = props.get("width")
+                           .and_then(|value| parse_width(value, style.font_size, self.font_size,
+                                                         parent_style.width, self.dpi))
+                           .unwrap_or(0);
+
         style.height = props.get("height")
-                            .and_then(|value| parse_height(value, style.font_size, self.font_size, parent_style.width, self.dpi))
+                            .and_then(|value| parse_height(value, style.font_size, self.font_size,
+                                                           parent_style.width, self.dpi))
                             .unwrap_or(0);
 
         style.start_x = parent_style.start_x + style.margin.left + style.padding.left;
@@ -572,8 +638,7 @@ impl EpubDocument {
                 style.margin.left = (style.margin.left as f32 * ratio).round() as i32;
                 style.padding.left = (style.padding.left as f32 * ratio).round() as i32;
                 style.margin.right = (style.margin.right as f32 * ratio).round() as i32;
-                // TODO: Make sure that this is always > 0.
-                style.padding.right = remaining_space - (style.margin.left + style.padding.left + style.margin.right);
+                style.padding.right = (style.padding.right as f32 * ratio).round() as i32;
                 style.start_x = parent_style.start_x + style.margin.left + style.padding.left;
                 style.end_x = parent_style.end_x - style.margin.right - style.padding.right;
                 width = style.width;
@@ -592,90 +657,214 @@ impl EpubDocument {
 
         if props.get("page-break-before").map(String::as_str) == Some("always") {
             display_list.push(Vec::new());
-            position.y = root_data.rect.min.y;
+            draw_state.position.y = root_data.rect.min.y;
         }
 
-        position.y += style.padding.top;
-
-        let last_y = position.y;
+        draw_state.position.y += style.padding.top;
 
         let has_blocks = node.children().and_then(|children| {
             children.iter().skip_while(|child| child.is_whitespace())
                     .next().map(|child| child.is_block())
         });
 
-        if has_blocks == Some(true) || has_blocks == None {
+        if has_blocks == Some(true) {
             if node.id().is_some() {
                 display_list.last_mut().unwrap()
                             .push(DrawCommand::Marker(root_data.start_offset + node.offset()));
             }
             if let Some(children) = node.children() {
-                let mut loop_context = LoopContext::default();
-                loop_context.is_first = true;
-                loop_context.parent = Some(node);
-                let mut iter = children.iter().filter(|child| child.is_element()).peekable();
+                let mut inner_loop_context = LoopContext::default();
+                inner_loop_context.parent = Some(node);
 
-                while let Some(child) = iter.next() {
-                    if iter.peek().is_none() {
-                        loop_context.is_last = true;
+                if node.tag_name() == Some("tr") {
+                    inner_loop_context.is_first = loop_context.is_first;
+                    inner_loop_context.is_last = loop_context.is_last;
+
+                    if draw_state.column_widths.is_empty() {
+                        let min_row_width: i32 = draw_state.min_column_widths.iter().sum();
+                        let max_row_width: i32 = draw_state.max_column_widths.iter().sum();
+                        // https://www.w3.org/MarkUp/html3/tables.html
+                        if min_row_width >= width {
+                            draw_state.column_widths =
+                                draw_state.min_column_widths.iter()
+                                          .map(|w| ((*w as f32 / min_row_width as f32) *
+                                                   width as f32).round() as i32)
+                                          .collect();
+                        } else if max_row_width <= width {
+                            draw_state.column_widths = draw_state.max_column_widths.clone();
+                        } else {
+                            let dw = (width - min_row_width) as f32;
+                            let dr = (max_row_width - min_row_width) as f32;
+                            let gf = dw / dr;
+                            draw_state.column_widths =
+                                draw_state.min_column_widths.iter()
+                                          .zip(draw_state.max_column_widths.iter())
+                                          .map(|(a, b)| a + ((b - a) as f32 * gf).round() as i32)
+                                          .collect();
+                        }
                     }
-                    let artifact = self.build_display_list_rec(child, &style, &loop_context, stylesheet, root_data, position, display_list);
-                    loop_context.sibling = Some(&child);
-                    loop_context.sibling_style = artifact.sibling_style;
-                    loop_context.is_first = false;
-                    // Collapse the bottom margin of the last child and its parent.
-                    if loop_context.is_last {
-                        style.margin.bottom = collapse_margins(loop_context.sibling_style.margin_bottom, style.margin.bottom);
+
+                    if draw_state.center_table {
+                        let actual_width = draw_state.column_widths.iter().sum();
+                        let delta_width = width - actual_width;
+                        let left_shift = delta_width / 2;
+                        let right_shift = delta_width - left_shift;
+                        style.start_x += left_shift;
+                        style.end_x -= right_shift;
+                        style.width = actual_width;
                     }
-                    // TODO: Merge artifact.rects in rects: [(i, r1), (i, r2)] becomes
-                    // [(i, r1.merge(r2).grow(style.padding)]
+
+                    let start_x = style.start_x;
+                    let end_x = style.end_x;
+                    let mut cur_x = start_x;
+                    let position = draw_state.position;
+                    let mut final_page = (0, position);
+                    let page_index = display_list.len() - 1;
+                    let mut index = 0;
+
+                    // TODO: rowspan, vertical-align
+                    for child in children.iter().filter(|child| child.is_element()) {
+                        if index >= draw_state.column_widths.len() {
+                            break;
+                        }
+
+                        let colspan = child.attr("colspan")
+                                           .and_then(|v| v.parse().ok())
+                                           .unwrap_or(1);
+                        let column_width = draw_state.column_widths[index..index+colspan]
+                                                     .iter().sum::<i32>();
+                        let mut child_display_list = Vec::new();
+                        child_display_list.push(Vec::new());
+                        style.start_x = cur_x;
+                        style.end_x = cur_x + column_width;
+                        draw_state.position = position;
+                        let artifact = self.build_display_list_rec(child, &style, &inner_loop_context, stylesheet, root_data, draw_state, &mut child_display_list);
+
+                        let pages_count = child_display_list.len();
+                        if pages_count > final_page.0 ||
+                           (pages_count == final_page.0 && draw_state.position.y > final_page.1.y) {
+                            final_page = (pages_count, draw_state.position);
+                        }
+
+                        for (i, mut pg) in child_display_list.into_iter().enumerate() {
+                            if let Some(page) = display_list.get_mut(page_index+i) {
+                                page.append(&mut pg);
+                            } else {
+                                display_list.push(pg);
+                            }
+                        }
+
+                        for (i, rect) in artifact.rects.into_iter().enumerate() {
+                            if let Some(page_rect) = rects.get_mut(i) {
+                                if let Some(pr) = page_rect.as_mut() {
+                                    if let Some(r) = rect.as_ref() {
+                                        pr.absorb(r);
+                                    }
+                                } else {
+                                    *page_rect = rect;
+                                }
+                            } else {
+                                rects.push(rect);
+                            }
+                        }
+
+                        inner_loop_context.sibling = Some(&child);
+                        inner_loop_context.sibling_style = artifact.sibling_style;
+
+                        if inner_loop_context.is_last {
+                            style.margin.bottom = collapse_margins(inner_loop_context.sibling_style.margin.bottom, style.margin.bottom);
+                        }
+
+                        index += colspan;
+                        cur_x += column_width;
+                    }
+
+                    style.start_x = start_x;
+                    style.end_x = end_x;
+                    draw_state.position = final_page.1;
+                } else {
+                    let mut iter = children.iter().filter(|child| child.is_element()).peekable();
+                    inner_loop_context.is_first = true;
+
+                    while let Some(child) = iter.next() {
+                        if iter.peek().is_none() {
+                            inner_loop_context.is_last = true;
+                        }
+                        let mut artifact = self.build_display_list_rec(child, &style, &inner_loop_context, stylesheet, root_data, draw_state, display_list);
+                        inner_loop_context.sibling = Some(&child);
+                        inner_loop_context.sibling_style = artifact.sibling_style;
+                        inner_loop_context.is_first = false;
+                        // Collapse the bottom margin of the last child and its parent.
+                        if inner_loop_context.is_last {
+                            style.margin.bottom = collapse_margins(inner_loop_context.sibling_style.margin.bottom, style.margin.bottom);
+                        }
+
+                        let last_index = rects.len() - 1;
+                        for (i, rect) in artifact.rects.into_iter().enumerate() {
+                            if let Some(page_rect) = rects.get_mut(last_index + i) {
+                                if let Some(pr) = page_rect.as_mut() {
+                                    if let Some(r) = rect.as_ref() {
+                                        pr.absorb(r);
+                                    }
+                                } else {
+                                    *page_rect = rect;
+                                }
+                            } else {
+                                rects.push(rect);
+                            }
+                        }
+                    }
                 }
             }
         } else {
-            let mut inlines = Vec::new();
-            let mut markers = Vec::new();
-            if node.id().is_some() {
-                markers.push(node.offset());
-            }
-            let mut sibling = None;
             if let Some(children) = node.children() {
-                for child in children {
-                    self.gather_inline_material(child, Some(node), sibling, stylesheet, &style, &root_data.spine_dir, &mut markers, &mut inlines);
-                    sibling = Some(child);
+                if children.is_empty() {
+                    if node.id().is_some() {
+                        display_list.last_mut().unwrap()
+                                    .push(DrawCommand::Marker(root_data.start_offset + node.offset()));
+                    }
+                } else {
+                    let mut inlines = Vec::new();
+                    let mut markers = Vec::new();
+                    if node.id().is_some() {
+                        markers.push(node.offset());
+                    }
+                    let mut sibling = None;
+                    for child in children {
+                        self.gather_inline_material(child, Some(node), sibling, stylesheet, &style, &root_data.spine_dir, &mut markers, &mut inlines);
+                        sibling = Some(child);
+                    }
+                    if !inlines.is_empty() {
+                        self.place_paragraphs(&inlines, &style, root_data, &markers, &mut draw_state.position, &mut rects, display_list);
+                    }
                 }
-            }
-            if !inlines.is_empty() {
-                self.place_paragraphs(&inlines, &style, root_data, &markers, position, &mut rects, display_list);
             }
         }
 
-        // FIXME: Properly handle the height property:
-        // let height: i32 = rects.iter().map(|(_, r)| r.height()).sum::<u32>() as i32;
-        // if style.height > height {
-        //     position.y += style.height - height;
-        // }
-        position.y += style.height;
+        if style.height > 0 {
+            let height = rects.iter()
+                              .filter_map(|v| v.map(|r| r.height() as i32))
+                              .sum::<i32>();
+            draw_state.position.y += (style.height - height).max(0);
+        }
 
         // Collapse top and bottom margins of empty blocks.
-        // FIXME: The correct test is rects.is_empty(), but we
-        // need to fill the rects vector in the general case
-        // in order to be able to use the proper condition.
-        if position.y == last_y {
+        if rects.is_empty() {
             style.margin.bottom = collapse_margins(style.margin.bottom, style.margin.top);
             style.margin.top = 0;
         }
 
-        position.y += style.padding.bottom;
+        draw_state.position.y += style.padding.bottom;
 
         if props.get("page-break-after").map(String::as_str) == Some("always") {
             display_list.push(Vec::new());
-            position.y = root_data.rect.min.y;
+            draw_state.position.y = root_data.rect.min.y;
         }
 
         ChildArtifact {
             sibling_style: SiblingStyle {
-                padding_bottom: style.padding.bottom,
-                margin_bottom: style.margin.bottom,
+                padding: style.padding,
+                margin: style.margin,
             },
             rects,
         }
@@ -1125,7 +1314,7 @@ impl EpubDocument {
         items
     }
 
-    fn place_paragraphs(&mut self, inlines: &[InlineMaterial], style: &StyleData, root_data: &RootData, markers: &Vec<usize>, position: &mut Point, rects: &mut Vec<(usize, Rectangle)>, display_list: &mut Vec<Page>) {
+    fn place_paragraphs(&mut self, inlines: &[InlineMaterial], style: &StyleData, root_data: &RootData, markers: &Vec<usize>, position: &mut Point, rects: &mut Vec<Option<Rectangle>>, display_list: &mut Vec<Page>) {
         let text_indent = if style.text_align == TextAlign::Center {
             0
         } else {
@@ -1148,13 +1337,13 @@ impl EpubDocument {
         let space_top = (style.line_height as f32 * ratio) as i32;
         let space_bottom = style.line_height - space_top;
 
-        let mut start_y = position.y + style.margin.top - style.padding.top;
         position.y += style.margin.top + space_top;
 
         let line_width = style.end_x - style.start_x;
         let line_lengths = [line_width - text_indent, line_width];
 
         let mut page = display_list.pop().unwrap();
+        let mut page_rect = rects.pop().unwrap();
         let mut items = self.make_paragraph_items(inlines, style, line_width);
 
         let mut bps = total_fit(&items, &line_lengths, stretch_tolerance, 0);
@@ -1223,14 +1412,8 @@ impl EpubDocument {
 
         for bp in bps {
             if position.y > root_data.rect.max.y - space_bottom {
-                if !is_first_line {
-                    let end_y = position.y - style.line_height + space_bottom;
-                    rects.push((display_list.len(),
-                                rect![style.start_x - style.padding.left, start_y,
-                                      style.end_x + style.padding.right, end_y]));
-                }
+                rects.push(page_rect.take());
                 display_list.push(page);
-                start_y = root_data.rect.min.y;
                 position.y = root_data.rect.min.y + space_top;
                 page = Vec::new();
             }
@@ -1265,6 +1448,11 @@ impl EpubDocument {
                             ParagraphElement::Text(element) => {
                                 let pt = pt!(position.x, position.y - element.vertical_align);
                                 let rect = rect![pt + pt!(0, -ascender), pt + pt!(element.plan.width as i32, -descender)];
+                                if let Some(pr) = page_rect.as_mut() {
+                                    pr.absorb(&rect);
+                                } else {
+                                    page_rect = Some(rect);
+                                }
                                 last_text_offset = element.offset;
                                 while let Some(offset) = markers.get(markers_index) {
                                     if *offset < element.offset {
@@ -1354,11 +1542,13 @@ impl EpubDocument {
                                     (element.width, element.height, pt, element.scale)
                                 };
 
-
                                 let rect = rect![pt, pt + pt!(w, h)];
-                                rects.push((display_list.len(),
-                                            rect![style.start_x - style.padding.left, rect.min.y,
-                                                  style.end_x + style.padding.right, rect.max.y]));
+                                if let Some(pr) = page_rect.as_mut() {
+                                    pr.absorb(&rect);
+                                } else {
+                                    page_rect = Some(rect);
+                                }
+
                                 page.push(DrawCommand::Image(ImageCommand {
                                     offset: element.offset + root_data.start_offset,
                                     position: pt,
@@ -1382,6 +1572,16 @@ impl EpubDocument {
                         } else {
                             exact_width.ceil() as i32
                         };
+                        // <td>&nbsp;=&nbsp;</td>
+                        if stretch == 0 && shrink == 0 {
+                            let rect = rect![*position + pt!(0, -ascender),
+                                             *position + pt!(approx_width, -descender)];
+                            if let Some(pr) = page_rect.as_mut() {
+                                pr.absorb(&rect);
+                            } else {
+                                page_rect = Some(rect);
+                            }
+                        }
                         epsilon += approx_width as f32 - exact_width;
                         position.x += approx_width;
                     },
@@ -1430,12 +1630,7 @@ impl EpubDocument {
             markers_index += 1;
         }
 
-        if !is_first_line {
-            let end_y = position.y + space_bottom + style.padding.bottom;
-            rects.push((display_list.len(),
-                        rect![style.start_x - style.padding.left, start_y,
-                              style.end_x + style.padding.right, end_y]));
-        }
+        rects.push(page_rect.take());
 
         position.y += space_bottom;
 

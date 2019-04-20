@@ -19,6 +19,27 @@ pub struct RootData {
 }
 
 #[derive(Debug, Clone)]
+pub struct DrawState {
+    pub position: Point,
+    pub min_column_widths: Vec<i32>,
+    pub max_column_widths: Vec<i32>,
+    pub column_widths: Vec<i32>,
+    pub center_table: bool,
+}
+
+impl Default for DrawState {
+    fn default() -> Self {
+        DrawState {
+            position: Point::default(),
+            min_column_widths: Vec::new(),
+            max_column_widths: Vec::new(),
+            column_widths: Vec::new(),
+            center_table: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct StyleData {
     pub display: Display,
     pub width: i32,
@@ -47,19 +68,20 @@ pub struct StyleData {
 pub enum Display {
     Block,
     Inline,
+    InlineTable,
     None,
 }
 
 #[derive(Debug, Clone)]
 pub struct ChildArtifact {
     pub sibling_style: SiblingStyle,
-    pub rects: Vec<(usize, Rectangle)>,
+    pub rects: Vec<Option<Rectangle>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct SiblingStyle {
-    pub padding_bottom: i32,
-    pub margin_bottom: i32,
+    pub padding: Edge,
+    pub margin: Edge,
 }
 
 #[derive(Debug, Clone)]
@@ -84,8 +106,8 @@ impl Default for LineStats {
 impl Default for SiblingStyle {
     fn default() -> Self {
         SiblingStyle {
-            padding_bottom: 0,
-            margin_bottom: 0,
+            padding: Edge::default(),
+            margin: Edge::default(),
         }
     }
 }
@@ -314,6 +336,14 @@ impl DrawCommand {
             DrawCommand::Text(TextCommand { offset, .. }) => offset,
             DrawCommand::Image(ImageCommand { offset, .. }) => offset,
             DrawCommand::Marker(offset) => offset,
+        }
+    }
+
+    pub fn rect(&self) -> Option<Rectangle> {
+        match *self {
+            DrawCommand::Text(TextCommand { rect, .. }) => Some(rect),
+            DrawCommand::Image(ImageCommand { rect, .. }) => Some(rect),
+            _ => None,
         }
     }
 }

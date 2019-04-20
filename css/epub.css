@@ -69,3 +69,16 @@ sub {
 sup {
 	vertical-align: super;
 }
+
+table {
+	text-align: left;
+}
+
+th {
+	font-weight: bold;
+	text-align: center;
+}
+
+th, td {
+	padding: 0.67em;
+}
