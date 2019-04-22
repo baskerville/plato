@@ -1,5 +1,5 @@
 - Dictionary, highlights, annotations.
-- ePUB renderer: floats, RTL.
+- ePUB renderer: RTL.
 - Metadata view.
 - Complex/fuzzy search queries?
 - Input field completions bar.

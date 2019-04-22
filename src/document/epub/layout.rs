@@ -21,6 +21,7 @@ pub struct RootData {
 #[derive(Debug, Clone)]
 pub struct DrawState {
     pub position: Point,
+    pub floats: FnvHashMap<usize, Vec<Rectangle>>,
     pub min_column_widths: Vec<i32>,
     pub max_column_widths: Vec<i32>,
     pub column_widths: Vec<i32>,
@@ -31,6 +32,7 @@ impl Default for DrawState {
     fn default() -> Self {
         DrawState {
             position: Point::default(),
+            floats: FnvHashMap::default(),
             min_column_widths: Vec::new(),
             max_column_widths: Vec::new(),
             column_widths: Vec::new(),
@@ -42,6 +44,7 @@ impl Default for DrawState {
 #[derive(Debug, Clone)]
 pub struct StyleData {
     pub display: Display,
+    pub float: Option<Float>,
     pub width: i32,
     pub height: i32,
     pub margin: Edge,
@@ -62,6 +65,12 @@ pub struct StyleData {
     pub letter_spacing: i32,
     pub vertical_align: i32,
     pub uri: Option<String>,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Float {
+    Left,
+    Right,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -137,6 +146,7 @@ impl Default for StyleData {
     fn default() -> Self {
         StyleData {
             display: Display::Block,
+            float: None,
             width: 0,
             height: 0,
             margin: Edge::default(),
@@ -293,7 +303,8 @@ pub struct ImageElement {
     pub scale: f32,
     pub vertical_align: i32,
     pub display: Display,
-    pub edge: Edge,
+    pub margin: Edge,
+    pub float: Option<Float>,
     pub path: String,
     pub uri: Option<String>,
 }

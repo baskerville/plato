@@ -25,14 +25,14 @@ use xi_unicode::LineBreakIterator;
 use crate::unit::{mm_to_px, pt_to_px};
 use crate::geom::{Point, Rectangle, Edge, CycleDir};
 use crate::settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT};
-use self::parse::{parse_display, parse_edge, parse_text_align, parse_text_indent, parse_width, parse_height, parse_inline_material};
+use self::parse::{parse_display, parse_edge, parse_float, parse_text_align, parse_text_indent, parse_width, parse_height, parse_inline_material};
 use self::parse::{parse_font_kind, parse_font_style, parse_font_weight, parse_font_size, parse_font_features, parse_font_variant, parse_letter_spacing};
 use self::parse::{parse_line_height, parse_vertical_align, parse_color};
 use self::dom::{Node, ElementData, TextData};
 use self::layout::{StyleData, InlineMaterial, TextMaterial, ImageMaterial};
 use self::layout::{GlueMaterial, PenaltyMaterial, ChildArtifact, SiblingStyle, LoopContext};
 use self::layout::{RootData, DrawState, DrawCommand, TextCommand, ImageCommand, FontKind, Fonts};
-use self::layout::{TextAlign, ParagraphElement, TextElement, ImageElement, Display, LineStats};
+use self::layout::{TextAlign, ParagraphElement, TextElement, ImageElement, Display, Float, LineStats};
 use self::layout::{hyph_lang, collapse_margins, DEFAULT_HYPH_LANG, HYPHENATION_PATTERNS};
 use self::layout::{EM_SPACE_RATIOS, WORD_SPACE_RATIOS, FONT_SPACES};
 use self::style::{Stylesheet, specified_values};
@@ -552,7 +552,7 @@ impl EpubDocument {
                                     .unwrap_or(parent_style.letter_spacing);
 
         style.vertical_align = props.get("vertical-align")
-                                    .and_then(|value| parse_vertical_align(value, style.font_size, self.font_size, self.dpi))
+                                    .and_then(|value| parse_vertical_align(value, style.font_size, self.font_size, style.line_height, self.dpi))
                                     .unwrap_or(parent_style.vertical_align);
 
         style.font_kind = props.get("font-family")
@@ -835,7 +835,7 @@ impl EpubDocument {
                         sibling = Some(child);
                     }
                     if !inlines.is_empty() {
-                        self.place_paragraphs(&inlines, &style, root_data, &markers, &mut draw_state.position, &mut rects, display_list);
+                        self.place_paragraphs(&inlines, &style, root_data, &markers, draw_state, &mut rects, display_list);
                     }
                 }
             }
@@ -915,7 +915,7 @@ impl EpubDocument {
                                             .unwrap_or(parent_style.letter_spacing);
 
                 style.vertical_align = props.get("vertical-align")
-                                            .and_then(|value| parse_vertical_align(value, style.font_size, self.font_size, self.dpi))
+                                            .and_then(|value| parse_vertical_align(value, style.font_size, self.font_size, style.line_height, self.dpi))
                                             .unwrap_or(parent_style.vertical_align);
 
                 style.font_style = props.get("font-style")
@@ -950,18 +950,17 @@ impl EpubDocument {
                             spine_dir.join(src).normalize().to_str().map(String::from)
                         }).unwrap_or_default();
 
+                        style.float = props.get("float").and_then(|value| parse_float(value));
+
                         let is_block = style.display == Display::Block;
-                        if is_block {
+                        if is_block || style.float.is_some() {
                             style.margin = parse_edge(props.get("margin-top").map(String::as_str),
                                                       props.get("margin-right").map(String::as_str),
                                                       props.get("margin-bottom").map(String::as_str),
                                                       props.get("margin-left").map(String::as_str),
                                                       style.font_size, self.font_size, parent_style.width, self.dpi);
-                            style.padding = parse_edge(props.get("padding-top").map(String::as_str),
-                                                       props.get("padding-right").map(String::as_str),
-                                                       props.get("padding-bottom").map(String::as_str),
-                                                       props.get("padding-left").map(String::as_str),
-                                                       style.font_size, self.font_size, parent_style.width, self.dpi);
+                        }
+                        if is_block {
                             inlines.push(InlineMaterial::LineBreak);
                         }
                         inlines.push(InlineMaterial::Image(ImageMaterial {
@@ -1041,8 +1040,9 @@ impl EpubDocument {
         }
     }
 
-    fn make_paragraph_items(&mut self, inlines: &[InlineMaterial], parent_style: &StyleData, line_width: i32) -> Vec<ParagraphItem<ParagraphElement>> {
+    fn make_paragraph_items(&mut self, inlines: &[InlineMaterial], parent_style: &StyleData, line_width: i32) -> (Vec<ParagraphItem<ParagraphElement>>, Vec<ImageElement>) {
         let mut items = Vec::new();
+        let mut floats = Vec::new();
         let font_size = (parent_style.font_size * 64.0) as u32;
         let space_plan = {
             let font = self.fonts.as_mut().unwrap()
@@ -1090,26 +1090,26 @@ impl EpubDocument {
                         }
 
                         if width * height > 0 {
-                            let edge = Edge {
-                                top: style.padding.top,
-                                right: style.margin.right,
-                                bottom: style.padding.bottom,
-                                left: style.margin.left,
-                            };
-                            items.push(ParagraphItem::Box {
-                                width,
-                                data: ParagraphElement::Image(ImageElement {
+                            let element = ImageElement {
                                     offset: *offset,
                                     width,
                                     height,
                                     scale,
                                     vertical_align: style.vertical_align,
                                     display: style.display,
-                                    edge,
+                                    margin: style.margin,
+                                    float: style.float,
                                     path: path.clone(),
                                     uri: style.uri.clone(),
-                                }),
-                            });
+                            };
+                            if style.float.is_none() {
+                                items.push(ParagraphItem::Box {
+                                    width,
+                                    data: ParagraphElement::Image(element),
+                                });
+                            } else {
+                                floats.push(element);
+                            }
                         }
                     }
                 },
@@ -1311,10 +1311,12 @@ impl EpubDocument {
             items.push(ParagraphItem::Penalty { penalty: -INFINITE_PENALTY, width: 0, flagged: true });
         }
 
-        items
+        (items, floats)
     }
 
-    fn place_paragraphs(&mut self, inlines: &[InlineMaterial], style: &StyleData, root_data: &RootData, markers: &Vec<usize>, position: &mut Point, rects: &mut Vec<Option<Rectangle>>, display_list: &mut Vec<Page>) {
+    fn place_paragraphs(&mut self, inlines: &[InlineMaterial], style: &StyleData, root_data: &RootData, markers: &Vec<usize>, draw_state: &mut DrawState, rects: &mut Vec<Option<Rectangle>>, display_list: &mut Vec<Page>) {
+        let position = &mut draw_state.position;
+
         let text_indent = if style.text_align == TextAlign::Center {
             0
         } else {
@@ -1340,11 +1342,103 @@ impl EpubDocument {
         position.y += style.margin.top + space_top;
 
         let line_width = style.end_x - style.start_x;
-        let line_lengths = [line_width - text_indent, line_width];
 
         let mut page = display_list.pop().unwrap();
         let mut page_rect = rects.pop().unwrap();
-        let mut items = self.make_paragraph_items(inlines, style, line_width);
+        if position.y > root_data.rect.max.y - space_bottom {
+            rects.push(page_rect.take());
+            display_list.push(page);
+            position.y = root_data.rect.min.y + space_top;
+            page = Vec::new();
+        }
+
+        let (mut items, floats) = self.make_paragraph_items(inlines, style, line_width);
+        let page_index = display_list.len();
+
+        for mut element in floats.into_iter() {
+            let horiz_margin = element.margin.left + element.margin.right;
+            let vert_margin = element.margin.top + element.margin.bottom;
+            let mut width = element.width;
+            let mut height = element.height;
+
+            let max_width = line_width / 3;
+            if width + horiz_margin > max_width {
+                let ratio = (max_width - horiz_margin) as f32 / width as f32;
+                element.scale *= ratio;
+                width = max_width - horiz_margin;
+                height = (ratio * height as f32).round() as i32;
+            }
+
+            let mut y_min = position.y - space_top;
+            let side = if element.float == Some(Float::Left) { 0 } else { 1 };
+
+            if let Some(ref mut floating_rects) = draw_state.floats.get_mut(&page_index) {
+                if let Some(orect) = floating_rects.iter().rev()
+                                                   .find(|orect| orect.max.y > y_min &&
+                                                                 (orect.min.x - style.start_x).signum() == side) {
+                    y_min = orect.max.y;
+                }
+            }
+
+            let max_height = 2 * (root_data.rect.max.y - space_bottom - y_min) / 3;
+            if height + vert_margin > max_height {
+                let ratio = (max_height - vert_margin) as f32 / height as f32;
+                element.scale *= ratio;
+                height = max_height - vert_margin;
+                width = (ratio * width as f32).round() as i32;
+            }
+
+            if width > 0 && height > 0 {
+                let mut rect = if element.float == Some(Float::Left) {
+                    rect![style.start_x, y_min,
+                          style.start_x + width + horiz_margin,
+                          y_min + height + vert_margin]
+                } else {
+                    rect![style.end_x - width - horiz_margin, y_min,
+                          style.end_x, y_min + height + vert_margin]
+                };
+
+                let floating_rects = draw_state.floats.entry(page_index).or_default();
+                floating_rects.push(rect);
+
+                rect.shrink(&element.margin);
+                page.push(DrawCommand::Image(ImageCommand {
+                    offset: element.offset + root_data.start_offset,
+                    position: rect.min,
+                    rect,
+                    scale: element.scale,
+                    path: element.path,
+                    uri: element.uri,
+                }));
+            }
+        }
+
+        let mut para_shape = if let Some(floating_rects) = draw_state.floats.get(&page_index) {
+            let mut max_lines = (root_data.rect.max.y - position.y + space_top) / style.line_height;
+            let mut para_shape = Vec::new();
+            for index in 0..max_lines {
+                let y_min = position.y - space_top + index * style.line_height;
+                let mut rect = rect![pt!(style.start_x, y_min),
+                                     pt!(style.end_x, y_min + style.line_height)];
+                for frect in floating_rects {
+                    if rect.overlaps(frect) {
+                        if frect.min.x > rect.min.x {
+                            rect.max.x = frect.min.x;
+                        } else {
+                            rect.min.x = frect.max.x;
+                        }
+                    }
+                }
+                para_shape.push((rect.min.x, rect.max.x));
+            }
+            para_shape.push((style.start_x, style.end_x));
+            para_shape
+        } else {
+            vec![(style.start_x, style.end_x); 2]
+        };
+
+        let mut line_lengths: Vec<i32> = para_shape.iter().map(|(a, b)| b - a).collect();
+        line_lengths[0] -= text_indent;
 
         let mut bps = total_fit(&items, &line_lengths, stretch_tolerance, 0);
 
@@ -1411,26 +1505,21 @@ impl EpubDocument {
         let mut j = 0;
 
         for bp in bps {
-            if position.y > root_data.rect.max.y - space_bottom {
-                rects.push(page_rect.take());
-                display_list.push(page);
-                position.y = root_data.rect.min.y + space_top;
-                page = Vec::new();
-            }
-
             let drift = if glue_drifts.is_empty() {
                 0.0
             } else {
                 glue_drifts[j]
             };
 
+            let (start_x, end_x) = para_shape[j.min(para_shape.len() - 1)];
+
             let Breakpoint { index, width, mut ratio } = bp;
             let mut epsilon: f32 = 0.0;
             let current_text_indent = if is_first_line { text_indent } else { 0 };
 
             match style.text_align {
-                TextAlign::Right => position.x = style.end_x - width - current_text_indent,
-                _ => position.x = style.start_x + current_text_indent,
+                TextAlign::Right => position.x = end_x - width - current_text_indent,
+                _ => position.x = start_x + current_text_indent,
             }
 
             if style.text_align == TextAlign::Left || style.text_align == TextAlign::Right {
@@ -1494,7 +1583,7 @@ impl EpubDocument {
                                 }
                                 // The image is the only consistent box on this line.
                                 let (w, h, pt, scale) = if k == index {
-                                    position.y += element.edge.top;
+                                    position.y += element.margin.top;
                                     if element.display == Display::Block {
                                         position.y -= space_top;
                                     }
@@ -1513,14 +1602,14 @@ impl EpubDocument {
                                     }
                                     let scale = element.scale * width as f32 / element.width as f32;
                                     if element.display == Display::Block {
-                                        let mut left_edge = element.edge.left;
-                                        let total_width = left_edge + width + element.edge.right;
+                                        let mut left_margin = element.margin.left;
+                                        let total_width = left_margin + width + element.margin.right;
                                         if total_width > line_width {
                                             let remaining_space = line_width - width;
-                                            let ratio = left_edge as f32 / (left_edge + element.edge.right) as f32;
-                                            left_edge = (ratio * remaining_space as f32).round() as i32;
+                                            let ratio = left_margin as f32 / (left_margin + element.margin.right) as f32;
+                                            left_margin = (ratio * remaining_space as f32).round() as i32;
                                         }
-                                        position.x = style.start_x + left_edge;
+                                        position.x = start_x + left_margin;
                                         if last_x_position < position.x && position.y > root_data.rect.min.y {
                                             position.y -= style.line_height;
                                         }
@@ -1532,17 +1621,31 @@ impl EpubDocument {
                                         }
                                     }
                                     let pt = pt!(position.x, position.y);
-                                    position.y += height + element.edge.bottom;
+                                    position.y += height + element.margin.bottom;
                                     if element.display == Display::Block {
                                         position.y -= space_bottom;
                                     }
                                     (width, height, pt, scale)
                                 } else {
-                                    let pt = pt!(position.x, position.y - element.height - element.vertical_align);
+                                    let mut pt = pt!(position.x, position.y - element.height - element.vertical_align);
+                                    if pt.y < root_data.rect.min.y {
+                                        pt.y = root_data.rect.min.y;
+                                    }
+
+                                    if pt.y + element.height + element.vertical_align > root_data.rect.max.y {
+                                        pt.y = root_data.rect.max.y - element.height - element.vertical_align;
+
+                                    }
+
                                     (element.width, element.height, pt, element.scale)
                                 };
 
                                 let rect = rect![pt, pt + pt!(w, h)];
+
+                                if rect.height() > root_data.rect.height() {
+                                    continue;
+                                }
+
                                 if let Some(pr) = page_rect.as_mut() {
                                     pr.absorb(&rect);
                                 } else {
@@ -1620,6 +1723,13 @@ impl EpubDocument {
 
             if index < items.len() - 1 {
                 position.y += style.line_height;
+            }
+
+            if position.y > root_data.rect.max.y - space_bottom {
+                rects.push(page_rect.take());
+                display_list.push(page);
+                position.y = root_data.rect.min.y + space_top;
+                page = Vec::new();
             }
 
             j += 1;
