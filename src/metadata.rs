@@ -628,7 +628,7 @@ pub fn extract_metadata_from_filename(metadata: &mut Metadata) {
                 }
             }
 
-            if let Some(index) = filename[start_index..].find('-') {
+            if let Some(index) = filename[start_index..].find("- ") {
                 info.author = filename[start_index..start_index+index].trim().to_string();
                 start_index += index + 1;
             }
