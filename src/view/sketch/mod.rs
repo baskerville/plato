@@ -137,12 +137,13 @@ impl Sketch {
                 EntryKind::SubMenu("Color".to_string(), colors),
                 EntryKind::Separator,
                 EntryKind::Command("Save".to_string(), EntryId::Save),
+                EntryKind::Command("Refresh".to_string(), EntryId::Refresh),
                 EntryKind::Command("New".to_string(), EntryId::New),
                 EntryKind::Command("Quit".to_string(), EntryId::Quit),
             ];
 
             if !loadables.is_empty() {
-                entries.insert(5, EntryKind::SubMenu("Load".to_string(),
+                entries.insert(entries.len() - 1, EntryKind::SubMenu("Load".to_string(),
                     loadables.into_iter().map(|e|
                         EntryKind::Command(e.to_string_lossy().into_owned(),
                                            EntryId::Load(e))).collect()));
@@ -267,6 +268,10 @@ impl View for Sketch {
                 } else {
                     hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 }
+                true
+            },
+            Event::Select(EntryId::Refresh) => {
+                hub.send(Event::Render(self.rect, UpdateMode::Full)).unwrap();
                 true
             },
             Event::Select(EntryId::New) => {

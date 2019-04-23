@@ -444,6 +444,7 @@ pub enum EntryId {
     SetPenColor(u8),
     TogglePenDynamism,
     New,
+    Refresh,
     Save,
     OpenMetadata,
     TakeScreenshot,
