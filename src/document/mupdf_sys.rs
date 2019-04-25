@@ -55,7 +55,7 @@ extern {
     pub fn fz_device_rgb(ctx: *mut FzContext) -> *mut FzColorspace;
     pub fn fz_device_gray(ctx: *mut FzContext) -> *mut FzColorspace;
     pub fn fz_scale(sx: libc::c_float, sy: libc::c_float) -> FzMatrix;
-    pub fn fz_new_pixmap_from_page(ctx: *mut FzContext, page: *mut FzPage, mat: FzMatrix, cs: *mut FzColorspace, alpha: libc::c_int) -> *mut FzPixmap;
+    pub fn fz_new_pixmap_from_page(ctx: *mut FzContext, page: *mut FzPage, mat: FzMatrix, cs: *mut FzColorspace, seps: *mut FzSeparations, alpha: libc::c_int) -> *mut FzPixmap;
     pub fn fz_set_pixmap_resolution(ctx: *mut FzContext, pix: *mut FzPixmap, xres: libc::c_int, yres: libc::c_int);
     pub fn fz_drop_pixmap(ctx: *mut FzContext, pixmap: *mut FzPixmap);
     pub fn mp_load_page(ctx: *mut FzContext, doc: *mut FzDocument, page_idx: libc::c_int) -> *mut FzPage;
@@ -69,7 +69,6 @@ extern {
     pub fn fz_new_bbox_device(ctx: *mut FzContext, rect: *mut FzRect) -> *mut FzDevice;
     pub fn fz_close_device(ctx: *mut FzContext, dev: *mut FzDevice);
     pub fn fz_drop_device(ctx: *mut FzContext, dev: *mut FzDevice);
-    pub fn fz_new_pixmap(ctx: *mut FzContext, cs: *mut FzColorspace, width: libc::c_int, height: libc::c_int, alpha: libc::c_int) -> *mut FzPixmap;
     pub fn fz_union_rect(a: FzRect, b: FzRect) -> FzRect;
     pub fn fz_rect_from_quad(q: FzQuad) -> FzRect;
     pub fn fz_runetochar(buf: *mut u8, rune: libc::c_int) -> libc::c_int;

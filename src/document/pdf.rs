@@ -370,6 +370,7 @@ impl<'a> PdfPage<'a> {
                                                  self.page,
                                                  mat,
                                                  fz_device_gray(self.ctx.0),
+                                                 ptr::null_mut(),
                                                  0);
             if pixmap.is_null() {
                 return None;
