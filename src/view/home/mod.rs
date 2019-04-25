@@ -313,20 +313,21 @@ impl Home {
             hub.send(Event::Select(EntryId::SecondColumn(second_column))).unwrap();
         }
         let process = hook.program.as_ref().and_then(|p| {
-            self.spawn_child(&hook.name, p, context.online, hub)
+            self.spawn_child(&hook.name, p, context.settings.wifi, context.online, hub)
                 .map_err(|e| eprintln!("Can't spawn child: {}.", e)).ok()
         });
         self.background_fetchers.insert(hook.name.clone(),
                                         Fetcher { process, sort_method, second_column });
     }
 
-    fn spawn_child(&mut self, name: &str, program: &PathBuf, online: bool, hub: &Hub) -> Result<Child, Error> {
+    fn spawn_child(&mut self, name: &str, program: &PathBuf, wifi: bool, online: bool, hub: &Hub) -> Result<Child, Error> {
         let parent = program.parent()
                             .unwrap_or_else(|| Path::new(""));
         let path = program.canonicalize()?;
         let mut process = Command::new(path)
                                  .current_dir(parent)
                                  .arg(name)
+                                 .arg(wifi.to_string())
                                  .arg(online.to_string())
                                  .stdout(Stdio::piped())
                                  .spawn()?;

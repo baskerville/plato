@@ -16,8 +16,8 @@ The `name` key is the name of the category that will trigger the hook. The
 The *Hooks* sub-menu of the matches menu can be used to trigger a hook when the
 corresponding category isn't in the summary bar. Otherwise, you can just tap
 the category name in the summary bar. When the hook is triggered, the
-associated `program` is spawned. It will receive the category name and online
-status (*true* or *false*) as arguments.
+associated `program` is spawned. It will receive the category name, wifi and
+online statuses (*true* or *false*) as arguments.
 
 A fetcher can send events to *Plato* through its standard output.
 Each event is a JSON object with a required `type` key:

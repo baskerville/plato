@@ -112,6 +112,9 @@ fn run() -> Result<(), Error> {
     let mut args = env::args().skip(1);
     let category = args.next()
                        .ok_or_else(|| format_err!("Missing argument: category name."))?;
+    let wifi = args.next()
+                   .ok_or_else(|| format_err!("Missing argument: wifi status."))
+                   .and_then(|v| v.parse::<bool>().map_err(Into::into))?;
     let online = args.next()
                      .ok_or_else(|| format_err!("Missing argument: online status."))
                      .and_then(|v| v.parse::<bool>().map_err(Into::into))?;
@@ -304,7 +307,7 @@ fn run() -> Result<(), Error> {
 
     let event = json!({
         "type": "setWifi",
-        "enable": online,
+        "enable": wifi,
     });
     println!("{}", event);
 
