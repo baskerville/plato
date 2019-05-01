@@ -1325,11 +1325,17 @@ impl Reader {
 
             let font_size = self.info.reader.as_ref().and_then(|r| r.font_size)
                                 .unwrap_or(context.settings.reader.font_size);
-            let entries = (0..=20).map(|v| {
+            let min_font_size = context.settings.reader.font_size / 2.0;
+            let max_font_size = 3.0 * context.settings.reader.font_size / 2.0;
+            let entries = (0..=20).filter_map(|v| {
                 let fs = font_size - 1.0 + v as f32 / 10.0;
-                EntryKind::RadioButton(format!("{:.1}", fs),
-                                       EntryId::SetFontSize(v),
-                                       (fs - font_size).abs() < 0.05)
+                if fs >= min_font_size && fs <= max_font_size {
+                    Some(EntryKind::RadioButton(format!("{:.1}", fs),
+                                                EntryId::SetFontSize(v),
+                                                (fs - font_size).abs() < 0.05))
+                } else {
+                    None
+                }
             }).collect();
             let font_size_menu = Menu::new(rect, ViewId::FontSizeMenu, MenuKind::Contextual, entries, context);
             hub.send(Event::Render(*font_size_menu.rect(), UpdateMode::Gui)).unwrap();
