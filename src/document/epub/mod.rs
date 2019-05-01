@@ -497,7 +497,7 @@ impl EpubDocument {
     }
 
     fn build_display_list_rec(&mut self, node: &Node, parent_style: &StyleData, loop_context: &LoopContext, stylesheet: &Stylesheet, root_data: &RootData, draw_state: &mut DrawState, display_list: &mut Vec<Page>) -> ChildArtifact {
-        // TODO: border, background, text-transform, tab-size.
+        // TODO: border, background, text-transform, tab-size, text-decoration.
         let mut style = StyleData::default();
         let mut rects: Vec<Option<Rectangle>> = Vec::new();
         rects.push(None);
