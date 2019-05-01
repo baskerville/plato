@@ -255,27 +255,30 @@ impl Home {
         }
     }
 
+    fn terminate_fetchers(&mut self, categ: &str, hub: &Hub) {
+        self.background_fetchers.retain(|name, fetcher| {
+            if name == categ {
+                if let Some(process) = fetcher.process.as_mut() {
+                    unsafe { libc::kill(process.id() as libc::pid_t, libc::SIGTERM) };
+                    process.wait().ok();
+                }
+                if let Some(sort_method) = fetcher.sort_method {
+                    hub.send(Event::Select(EntryId::Sort(sort_method))).unwrap();
+                }
+                if let Some(second_column) = fetcher.second_column {
+                    hub.send(Event::Select(EntryId::SecondColumn(second_column))).unwrap();
+                }
+                false
+            } else {
+                true
+            }
+        });
+    }
+
     fn toggle_select_category(&mut self, categ: &str, hub: &Hub, context: &mut Context) {
         if self.selected_categories.contains(categ) {
             self.selected_categories.remove(categ);
-
-            self.background_fetchers.retain(|name, fetcher| {
-                if name == categ {
-                    if let Some(process) = fetcher.process.as_mut() {
-                        unsafe { libc::kill(process.id() as libc::pid_t, libc::SIGTERM) };
-                        process.wait().ok();
-                    }
-                    if let Some(sort_method) = fetcher.sort_method {
-                        hub.send(Event::Select(EntryId::Sort(sort_method))).unwrap();
-                    }
-                    if let Some(second_column) = fetcher.second_column {
-                        hub.send(Event::Select(EntryId::SecondColumn(second_column))).unwrap();
-                    }
-                    false
-                } else {
-                    true
-                }
-            });
+            self.terminate_fetchers(categ, hub);
         } else {
             self.selected_categories = self.selected_categories.iter().filter_map(|s| {
                 if s.is_descendant_of(categ) || categ.is_descendant_of(s) {
@@ -372,7 +375,7 @@ impl Home {
         Ok(process)
     }
 
-    fn toggle_negate_category(&mut self, categ: &str) {
+    fn toggle_negate_category(&mut self, categ: &str, hub: &Hub) {
         if self.negated_categories.contains(categ) {
             self.negated_categories.remove(categ);
         } else {
@@ -383,18 +386,23 @@ impl Home {
                     Some(s.clone())
                 }
             }).collect();
+            let mut deselected_categories = Vec::new();
             self.selected_categories = self.selected_categories.iter().filter_map(|s| {
                 if s == categ || s.is_descendant_of(categ) {
+                    deselected_categories.push(s.clone());
                     None
                 } else {
                     Some(s.clone())
                 }
             }).collect();
+            for s in deselected_categories {
+                self.terminate_fetchers(&s, hub);
+            }
             self.negated_categories.insert(categ.to_string());
         }
     }
 
-    fn toggle_negate_category_children(&mut self, parent: &str) {
+    fn toggle_negate_category_children(&mut self, parent: &str, hub: &Hub) {
         let mut children = Vec::new();
 
         for c in &self.visible_categories {
@@ -404,7 +412,7 @@ impl Home {
         }
 
         while let Some(c) = children.pop() {
-            self.toggle_negate_category(&c);
+            self.toggle_negate_category(&c, hub);
         }
     }
 
@@ -1473,12 +1481,12 @@ impl View for Home {
                 true
             },
             Event::ToggleNegateCategory(ref categ) => {
-                self.toggle_negate_category(categ);
+                self.toggle_negate_category(categ, hub);
                 self.refresh_visibles(true, true, hub, context);
                 true
             },
             Event::ToggleNegateCategoryChildren(ref categ) => {
-                self.toggle_negate_category_children(categ);
+                self.toggle_negate_category_children(categ, hub);
                 self.refresh_visibles(true, true, hub, context);
                 true
             },
