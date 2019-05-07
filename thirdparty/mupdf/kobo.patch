@@ -1,18 +1,17 @@
-diff -ru a/Makefile b/Makefile
---- a/Makefile	2018-04-12 15:14:06.000000000 +0200
-+++ b/Makefile	2018-04-26 17:28:57.393916084 +0200
-@@ -360,8 +360,8 @@
+diff --git a/Makefile b/Makefile
+index 97ccf19..c16892f 100644
+--- a/Makefile
++++ b/Makefile
+@@ -200,7 +200,7 @@ $(THIRD_LIB) : $(THIRD_OBJ)
  $(THREAD_LIB) : $(THREAD_OBJ)
  $(PKCS7_LIB) : $(PKCS7_OBJ)
  
 -INSTALL_LIBS := $(MUPDF_LIB) $(THIRD_LIB)
--
 +INSTALL_LIBS := $(MUPDF_LIB)
-+ 	
- # --- Tools and Apps ---
  
- MUTOOL_EXE := $(OUT)/mutool
-@@ -517,7 +517,7 @@
+ # --- Main tools and viewers ---
+ 
+@@ -383,7 +383,7 @@ cscope.files: $(shell find include source platform -name '*.[ch]')
  cscope.out: cscope.files
  	cscope -b
  
@@ -21,12 +20,13 @@ diff -ru a/Makefile b/Makefile
  
  clean:
  	rm -rf $(OUT)
-diff -ru a/Makerules b/Makerules
---- a/Makerules	2018-04-12 15:14:06.000000000 +0200
-+++ b/Makerules	2018-04-26 17:09:23.140857713 +0200
-@@ -155,6 +155,34 @@
- #   2) do a non cross compile build (e.g. windows in MSVC) first.
- #   3) download the generated files from mupdf.com.
+diff --git a/Makerules b/Makerules
+index b62374d..c8a0580 100644
+--- a/Makerules
++++ b/Makerules
+@@ -184,6 +184,34 @@ ifeq "$(OS)" "mingw64-cross"
+   HAVE_WIN32=yes
+ endif
  
 +ifeq "$(OS)" "kobo"
 +CC = arm-linux-gnueabihf-gcc
@@ -34,7 +34,7 @@ diff -ru a/Makerules b/Makerules
 +LD = arm-linux-gnueabihf-ld
 +AR = arm-linux-gnueabihf-ar
 +AS = arm-linux-gnueabihf-as
-+CFLAGS += -O2 -fPIC -mcpu=cortex-a9 -mfpu=neon -DTOFU_CJK_LANG -DTOFU_CJK_EXT -DNO_ICC -DFZ_ENABLE_JS=0
++CFLAGS += -O2 -fPIC -mcpu=cortex-a9 -mfpu=neon -DTOFU_CJK_LANG -DTOFU_CJK_EXT -DFZ_ENABLE_ICC=0 -DFZ_ENABLE_JS=0
 +CROSSCOMPILE=yes
 +HAVE_PTHREAD := yes
 +HAVE_LIBCRYPTO := no
@@ -56,27 +56,6 @@ diff -ru a/Makerules b/Makerules
 +SYS_ZLIB_LIBS := -L../zlib -lz
 +endif
 +
- ifeq "$(OS)" "beagle-cross"
- CC = arm-none-linux-gnueabi-gcc
- CXX = arm-none-linux-gnueabi-g++
-diff -ru a/source/svg/svg-run.c b/source/svg/svg-run.c
---- a/source/svg/svg-run.c	2018-04-12 15:14:06.000000000 +0200
-+++ b/source/svg/svg-run.c	2018-04-27 11:40:50.101616658 +0200
-@@ -812,7 +812,6 @@
- 	if (h_att) h = svg_parse_length(h_att, state->viewbox_h, state->fontsize);
- 
- 	/* TODO: new transform */
--	fz_warn(ctx, "push viewport: %g %g %g %g", x, y, w, h);
- 
- 	state->viewport_w = w;
- 	state->viewport_h = h;
-@@ -832,8 +831,7 @@
- 	{
- 		sscanf(viewbox_att, "%g %g %g %g", &min_x, &min_y, &box_w, &box_h);
- 
--		/* scale and translate to fit [x y w h] to [0 0 viewport.w viewport.h] */
--		fz_warn(ctx, "push viewbox: %g %g %g %g", min_x, min_y, box_w, box_h);
-+		/* TODO: scale and translate to fit [x y w h] to [0 0 viewport.w viewport.h] */
- 	}
- }
- 
+ # Most variables when building for iOS are set up in ios/build_libs.sh,
+ # which is called from the Xcode project as a "Run Script" build step.
+ # The following section works for both device and simulator builds.

@@ -14,7 +14,7 @@ declare -A urls=(
 	["harfbuzz"]="https://github.com/harfbuzz/harfbuzz/archive/2.1.0.tar.gz"
 	# Documents
 	["djvulibre"]="http://downloads.sourceforge.net/djvu/djvulibre-3.5.27.tar.gz"
-	["mupdf"]="https://mupdf.com/downloads/mupdf-1.13.0-source.tar.gz"
+	["mupdf"]="https://mupdf.com/downloads/archive/mupdf-1.15.0-source.tar.gz"
 	# Helper
 	["chrpath"]="http://archive.ubuntu.com/ubuntu/pool/main/c/chrpath/chrpath_0.14.orig.tar.gz"
 )
