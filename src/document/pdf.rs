@@ -341,7 +341,7 @@ impl<'a> PdfPage<'a> {
 
     pub fn links(&self) -> Option<Vec<BoundedText>> {
         unsafe {
-            let links = fz_load_links(self.ctx.0, self.page);
+            let links = mp_load_links(self.ctx.0, self.page);
 
             if links.is_null() {
                 return None;
@@ -366,11 +366,10 @@ impl<'a> PdfPage<'a> {
     pub fn pixmap(&self, scale: f32) -> Option<Pixmap> {
         unsafe {
             let mat = fz_scale(scale as libc::c_float, scale as libc::c_float);
-            let pixmap = fz_new_pixmap_from_page(self.ctx.0,
+            let pixmap = mp_new_pixmap_from_page(self.ctx.0,
                                                  self.page,
                                                  mat,
                                                  fz_device_gray(self.ctx.0),
-                                                 ptr::null_mut(),
                                                  0);
             if pixmap.is_null() {
                 return None;

@@ -3,7 +3,7 @@
 use std::mem;
 
 pub const FZ_MAX_COLORS: usize = 32;
-pub const FZ_VERSION: &str = "1.14.0";
+pub const FZ_VERSION: &str = "1.15.0";
 
 pub const FZ_META_INFO_AUTHOR: &str = "info:Author";
 pub const FZ_META_INFO_TITLE: &str = "info:Title";
@@ -55,14 +55,14 @@ extern {
     pub fn fz_device_rgb(ctx: *mut FzContext) -> *mut FzColorspace;
     pub fn fz_device_gray(ctx: *mut FzContext) -> *mut FzColorspace;
     pub fn fz_scale(sx: libc::c_float, sy: libc::c_float) -> FzMatrix;
-    pub fn fz_new_pixmap_from_page(ctx: *mut FzContext, page: *mut FzPage, mat: FzMatrix, cs: *mut FzColorspace, seps: *mut FzSeparations, alpha: libc::c_int) -> *mut FzPixmap;
+    pub fn mp_new_pixmap_from_page(ctx: *mut FzContext, page: *mut FzPage, mat: FzMatrix, cs: *mut FzColorspace, alpha: libc::c_int) -> *mut FzPixmap;
     pub fn fz_set_pixmap_resolution(ctx: *mut FzContext, pix: *mut FzPixmap, xres: libc::c_int, yres: libc::c_int);
     pub fn fz_drop_pixmap(ctx: *mut FzContext, pixmap: *mut FzPixmap);
     pub fn mp_load_page(ctx: *mut FzContext, doc: *mut FzDocument, page_idx: libc::c_int) -> *mut FzPage;
     pub fn fz_drop_page(ctx: *mut FzContext, page: *mut FzPage);
     pub fn fz_bound_page(ctx: *mut FzContext, page: *mut FzPage) -> FzRect;
     pub fn fz_run_page(ctx: *mut FzContext, page: *mut FzPage, dev: *mut FzDevice, mat: FzMatrix, cookie: *mut FzCookie);
-    pub fn fz_load_links(ctx: *mut FzContext, page: *mut FzPage) -> *mut FzLink;
+    pub fn mp_load_links(ctx: *mut FzContext, page: *mut FzPage) -> *mut FzLink;
     pub fn fz_drop_link(ctx: *mut FzContext, link: *mut FzLink);
     pub fn mp_new_stext_page_from_page(ctx: *mut FzContext, page: *mut FzPage, options: *const FzTextOptions) -> *mut FzTextPage;
     pub fn fz_drop_stext_page(ctx: *mut FzContext, tp: *mut FzTextPage);
