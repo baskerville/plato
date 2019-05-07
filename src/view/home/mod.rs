@@ -18,7 +18,7 @@ use serde_json::Value as JsonValue;
 use fnv::{FnvHashSet, FnvHashMap};
 use failure::{Error, format_err};
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::metadata::{Info, Metadata, SortMethod, SimpleStatus, sort, make_query};
+use crate::metadata::{Info, Metadata, SortMethod, SimpleStatus, sort, make_query, auto_import};
 use crate::view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
 use crate::settings::{Hook, SecondColumn};
 use crate::view::filler::Filler;
@@ -866,7 +866,9 @@ impl Home {
             }).unwrap_or_default();
 
 
-            let mut entries = vec![EntryKind::Command("Export As".to_string(), EntryId::ExportMatches)];
+            let mut entries = vec![EntryKind::Command("Save".to_string(), EntryId::Save),
+                                   EntryKind::Command("Save As".to_string(), EntryId::SaveAs),
+                                   EntryKind::Command("Import".to_string(), EntryId::Import)];
 
             if !loadables.is_empty() {
                 entries.push(EntryKind::SubMenu("Load".to_string(),
@@ -874,8 +876,19 @@ impl Home {
                                                                                                  EntryId::Load(e))).collect()));
             }
 
-            if !self.visible_books.is_empty() {
+            entries.push(EntryKind::Command("Reload".to_string(), EntryId::Reload));
+            entries.push(EntryKind::Command("Clean Up".to_string(), EntryId::CleanUp));
+
+            let hooks: Vec<EntryKind> =
+                context.settings.home.hooks.iter()
+                       .map(|v| EntryKind::Command(v.name.clone(),
+                                                   EntryId::ToggleSelectCategory(v.name.clone()))).collect();
+
+            if !self.visible_books.is_empty() || !hooks.is_empty() {
                 entries.push(EntryKind::Separator);
+            }
+
+            if !self.visible_books.is_empty() {
                 entries.push(EntryKind::Command("Add Categories".to_string(), EntryId::AddMatchesCategories));
                 let categories: BTreeSet<String> = self.visible_books.iter().flat_map(|info| info.categories.clone()).collect();
                 let categories: Vec<EntryKind> = categories.iter().map(|c| EntryKind::Command(c.clone(), EntryId::RemoveCategory(c.clone()))).collect();
@@ -885,14 +898,12 @@ impl Home {
                 }
             }
 
-            entries.push(EntryKind::Separator);
-            let hooks: Vec<EntryKind> =
-                context.settings.home.hooks.iter()
-                       .map(|v| EntryKind::Command(v.name.clone(),
-                                                   EntryId::ToggleSelectCategory(v.name.clone()))).collect();
             if !hooks.is_empty() {
-                entries.push(EntryKind::SubMenu("Hooks".to_string(), hooks));
+                entries.push(EntryKind::SubMenu("Toggle Hook".to_string(), hooks));
             }
+
+            entries.push(EntryKind::Separator);
+
             let status_filter = self.status_filter;
             entries.push(EntryKind::SubMenu("Show".to_string(),
                 vec![EntryKind::RadioButton("All".to_string(), EntryId::StatusFilter(None), status_filter == None),
@@ -905,13 +916,17 @@ impl Home {
                 vec![EntryKind::RadioButton("Progress".to_string(), EntryId::SecondColumn(SecondColumn::Progress), second_column == SecondColumn::Progress),
                      EntryKind::RadioButton("Year".to_string(), EntryId::SecondColumn(SecondColumn::Year), second_column == SecondColumn::Year)]));
 
-            entries.push(EntryKind::Separator);
+            if !self.visible_books.is_empty() || !self.history.is_empty() || !trash::is_empty(context) {
+                entries.push(EntryKind::Separator);
+            }
 
             if !trash::is_empty(context) {
                 entries.push(EntryKind::Command("Empty Trash".to_string(), EntryId::EmptyTrash));
             }
 
-            entries.push(EntryKind::Command("Remove".to_string(), EntryId::RemoveMatches));
+            if !self.visible_books.is_empty() {
+                entries.push(EntryKind::Command("Remove".to_string(), EntryId::RemoveMatches));
+            }
 
             if !self.history.is_empty() {
                 entries.push(EntryKind::Command("Undo".to_string(), EntryId::Undo));
@@ -995,7 +1010,7 @@ impl Home {
         if let Some(entry) = self.history.pop_back() {
             context.metadata = entry.metadata;
             if entry.restore_books {
-                untrash(context).map_err(|e| eprintln!("Couldn't restore books from trash: {}", e)).ok();
+                untrash(context).map_err(|e| eprintln!("Can't restore books from trash: {}", e)).ok();
             }
             sort(&mut context.metadata, self.sort_method, self.reverse_order);
             self.refresh_visibles(true, false, hub, context);
@@ -1223,21 +1238,26 @@ impl Home {
         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
     }
 
-    fn export_matches(&mut self, filename: &str, context: &mut Context) {
+    fn save(&mut self, context: &mut Context) {
+        save_json(&context.metadata,
+                  context.settings.library_path.join(&context.filename))
+                 .map_err(|e| eprintln!("Can't save: {}", e)).ok();
+    }
+
+    fn save_as(&mut self, filename: &str, context: &mut Context) {
         let path = context.settings.library_path.join(format!(".metadata-{}.json", filename));
         save_json(&self.visible_books, path).map_err(|e| {
-            eprintln!("Couldn't export matches: {}.", e);
+            eprintln!("Can't save: {}.", e);
         }).ok();
     }
 
-    fn load_metadata(&mut self, filename: &PathBuf, hub: &Hub, context: &mut Context) {
-        let metadata = load_json::<Metadata, _>(context.settings.library_path.join(filename))
-                                 .map_err(|e| eprintln!("Can't load metadata: {}", e))
-                                 .unwrap_or_default();
-        if !metadata.is_empty() {
+    fn load(&mut self, filename: &PathBuf, hub: &Hub, context: &mut Context) {
+        let md = load_json::<Metadata, _>(context.settings.library_path.join(filename))
+                           .map_err(|e| eprintln!("Can't load: {}", e));
+        if let Ok(metadata) = md {
             let saved = save_json(&context.metadata,
                                   context.settings.library_path.join(&context.filename))
-                                 .map_err(|e| eprintln!("Can't save metadata: {}", e)).is_ok();
+                                 .map_err(|e| eprintln!("Can't save: {}", e)).is_ok();
             if saved {
                 context.filename = filename.clone();
                 context.metadata = metadata;
@@ -1246,6 +1266,37 @@ impl Home {
                 self.negated_categories.clear();
                 self.reseed(true, hub, context);
             }
+        }
+    }
+
+    fn reload(&mut self, hub: &Hub, context: &mut Context) {
+        let md = load_json::<Metadata, _>(context.settings.library_path.join(&context.filename))
+                           .map_err(|e| eprintln!("Can't load: {}", e));
+        if let Ok(metadata) = md {
+            context.metadata = metadata;
+            self.history.clear();
+            self.selected_categories.clear();
+            self.negated_categories.clear();
+            self.reseed(true, hub, context);
+        }
+    }
+
+    fn clean_up(&mut self, hub: &Hub, context: &mut Context) {
+        self.history_push(false, context);
+        let library_path = &context.settings.library_path;
+        context.metadata.retain(|info| library_path.join(&info.file.path).exists());
+        self.refresh_visibles(true, false, hub, context);
+    }
+
+    fn import(&mut self, hub: &Hub, context: &mut Context) {
+        let imd = auto_import(&context.settings.library_path,
+                              &context.metadata,
+                              &context.settings.import)
+                             .map_err(|e| eprintln!("Can't import: {}", e));
+        if let Ok(mut imported_metadata) = imd {
+            context.metadata.append(&mut imported_metadata);
+            sort(&mut context.metadata, self.sort_method, self.reverse_order);
+            self.refresh_visibles(true, false, hub, context);
         }
     }
 }
@@ -1339,18 +1390,34 @@ impl View for Home {
                 self.set_reverse_order(next_value, hub, context);
                 true
             },
-            Event::Select(EntryId::ExportMatches) => {
-                let export_as = NamedInput::new("Export as".to_string(),
-                                                ViewId::ExportAs,
-                                                ViewId::ExportAsInput,
-                                                12, context);
-                hub.send(Event::Render(*export_as.rect(), UpdateMode::Gui)).unwrap();
-                hub.send(Event::Focus(Some(ViewId::ExportAsInput))).unwrap();
-                self.children.push(Box::new(export_as) as Box<dyn View>);
+            Event::Select(EntryId::Save) => {
+                self.save(context);
+                true
+            },
+            Event::Select(EntryId::SaveAs) => {
+                let save_as = NamedInput::new("Save as".to_string(),
+                                              ViewId::SaveAs,
+                                              ViewId::SaveAsInput,
+                                              12, context);
+                hub.send(Event::Render(*save_as.rect(), UpdateMode::Gui)).unwrap();
+                hub.send(Event::Focus(Some(ViewId::SaveAsInput))).unwrap();
+                self.children.push(Box::new(save_as) as Box<dyn View>);
+                true
+            },
+            Event::Select(EntryId::Import) => {
+                self.import(hub, context);
                 true
             },
             Event::Select(EntryId::Load(ref filename)) => {
-                self.load_metadata(filename, hub, context);
+                self.load(filename, hub, context);
+                true
+            },
+            Event::Select(EntryId::Reload) => {
+                self.reload(hub, context);
+                true
+            },
+            Event::Select(EntryId::CleanUp) => {
+                self.clean_up(hub, context);
                 true
             },
             Event::AddDocument(ref info) => {
@@ -1406,7 +1473,7 @@ impl View for Home {
                 true
             },
             Event::Select(EntryId::EmptyTrash) => {
-                trash::empty(context).map_err(|e| eprintln!("Couldn't empty the trash: {}", e)).ok();
+                trash::empty(context).map_err(|e| eprintln!("Can't empty the trash: {}", e)).ok();
                 true
             },
             Event::Select(EntryId::Undo) => {
@@ -1425,9 +1492,9 @@ impl View for Home {
                 }
                 true
             },
-            Event::Submit(ViewId::ExportAsInput, ref text) => {
+            Event::Submit(ViewId::SaveAsInput, ref text) => {
                 if !text.is_empty() {
-                    self.export_matches(text, context);
+                    self.save_as(text, context);
                 }
                 self.toggle_keyboard(false, true, None, hub, context);
                 true
