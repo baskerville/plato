@@ -517,8 +517,8 @@ impl Reader {
             if let Some(next_location) = doc.resolve_location(Location::Next(location)) {
                 location = next_location;
                 let frame = self.cache.get(&location).unwrap().frame;
-                let max_top_offset = frame.height().saturating_sub(1) as i32;
-                next_top_offset = (next_top_offset - max_top_offset - 1).min(max_top_offset);
+                let mto = frame.height().saturating_sub(1) as i32;
+                next_top_offset = (next_top_offset - max_top_offset - 1).min(mto);
             } else {
                 next_top_offset = max_top_offset;
             }
