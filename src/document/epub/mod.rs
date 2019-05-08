@@ -1628,23 +1628,15 @@ impl EpubDocument {
                                     (width, height, pt, scale)
                                 } else {
                                     let mut pt = pt!(position.x, position.y - element.height - element.vertical_align);
+
                                     if pt.y < root_data.rect.min.y {
                                         pt.y = root_data.rect.min.y;
-                                    }
-
-                                    if pt.y + element.height + element.vertical_align > root_data.rect.max.y {
-                                        pt.y = root_data.rect.max.y - element.height - element.vertical_align;
-
                                     }
 
                                     (element.width, element.height, pt, element.scale)
                                 };
 
                                 let rect = rect![pt, pt + pt!(w, h)];
-
-                                if rect.height() > root_data.rect.height() {
-                                    continue;
-                                }
 
                                 if let Some(pr) = page_rect.as_mut() {
                                     pr.absorb(&rect);
