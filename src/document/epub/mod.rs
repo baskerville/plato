@@ -23,7 +23,7 @@ use paragraph_breaker::{Item as ParagraphItem, Breakpoint, INFINITE_PENALTY};
 use paragraph_breaker::{total_fit, standard_fit};
 use xi_unicode::LineBreakIterator;
 use crate::unit::{mm_to_px, pt_to_px};
-use crate::geom::{Point, Rectangle, Edge, CycleDir};
+use crate::geom::{Rectangle, Edge, CycleDir};
 use crate::settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT};
 use self::parse::{parse_display, parse_edge, parse_float, parse_text_align, parse_text_indent, parse_width, parse_height, parse_inline_material};
 use self::parse::{parse_font_kind, parse_font_style, parse_font_weight, parse_font_size, parse_font_features, parse_font_variant, parse_letter_spacing};
@@ -114,7 +114,7 @@ impl EpubDocument {
                                   .ok_or_else(|| format_err!("The manifest is missing."))?;
 
             let children = content.find("spine")
-                                  .and_then(|spine| spine.children())
+                                  .and_then(Node::children)
                                   .ok_or_else(|| format_err!("The spine is missing."))?;
 
             for child in children {
@@ -310,7 +310,7 @@ impl EpubDocument {
             let page_index = self.page_index(start_offset, index, start_offset)?;
             let offset = self.cache.get(&index)
                              .and_then(|display_list| display_list[page_index].first())
-                             .map(|dc| dc.offset())?;
+                             .map(DrawCommand::offset)?;
             cache.insert(uri.to_string(), offset);
             Some(offset)
         }
@@ -664,7 +664,7 @@ impl EpubDocument {
 
         let has_blocks = node.children().and_then(|children| {
             children.iter().skip_while(|child| child.is_whitespace())
-                    .next().map(|child| child.is_block())
+                    .next().map(Node::is_block)
         });
 
         if has_blocks == Some(true) {
@@ -790,7 +790,7 @@ impl EpubDocument {
                         if iter.peek().is_none() {
                             inner_loop_context.is_last = true;
                         }
-                        let mut artifact = self.build_display_list_rec(child, &style, &inner_loop_context, stylesheet, root_data, draw_state, display_list);
+                        let artifact = self.build_display_list_rec(child, &style, &inner_loop_context, stylesheet, root_data, draw_state, display_list);
                         inner_loop_context.sibling = Some(&child);
                         inner_loop_context.sibling_style = artifact.sibling_style;
                         inner_loop_context.is_first = false;
@@ -1302,7 +1302,7 @@ impl EpubDocument {
             }
         }
 
-        if items.last().map(|x| x.penalty()) != Some(-INFINITE_PENALTY) {
+        if items.last().map(ParagraphItem::penalty) != Some(-INFINITE_PENALTY) {
             items.push(ParagraphItem::Penalty { penalty: INFINITE_PENALTY,  width: 0, flagged: false });
 
             let stretch = if parent_style.text_align == TextAlign::Center { big_stretch } else { line_width };
@@ -1314,7 +1314,7 @@ impl EpubDocument {
         (items, floats)
     }
 
-    fn place_paragraphs(&mut self, inlines: &[InlineMaterial], style: &StyleData, root_data: &RootData, markers: &Vec<usize>, draw_state: &mut DrawState, rects: &mut Vec<Option<Rectangle>>, display_list: &mut Vec<Page>) {
+    fn place_paragraphs(&mut self, inlines: &[InlineMaterial], style: &StyleData, root_data: &RootData, markers: &[usize], draw_state: &mut DrawState, rects: &mut Vec<Option<Rectangle>>, display_list: &mut Vec<Page>) {
         let position = &mut draw_state.position;
 
         let text_indent = if style.text_align == TextAlign::Center {
@@ -1413,8 +1413,8 @@ impl EpubDocument {
             }
         }
 
-        let mut para_shape = if let Some(floating_rects) = draw_state.floats.get(&page_index) {
-            let mut max_lines = (root_data.rect.max.y - position.y + space_top) / style.line_height;
+        let para_shape = if let Some(floating_rects) = draw_state.floats.get(&page_index) {
+            let max_lines = (root_data.rect.max.y - position.y + space_top) / style.line_height;
             let mut para_shape = Vec::new();
             for index in 0..max_lines {
                 let y_min = position.y - space_top + index * style.line_height;
@@ -1791,7 +1791,7 @@ impl EpubDocument {
                         let chunk = &text[start_index..end_index];
                         // Hyphenate.
                         if let Some(dict) = dictionary {
-                            let mut index_before = chunk.find(|c: char| c.is_alphabetic()).unwrap_or_else(|| chunk.len());
+                            let mut index_before = chunk.find(char::is_alphabetic).unwrap_or_else(|| chunk.len());
                             if index_before > 0 {
                                     let subelem = self.box_from_chunk(&chunk[0..index_before],
                                                                       start_index,
@@ -1822,9 +1822,9 @@ impl EpubDocument {
                                 if len_after > 1 + len_before {
                                     hyph_indices.push([len_before, len_after]);
                                 }
-                                index_before = chunk[index_after..].find(|c: char| c.is_alphabetic())
+                                index_before = chunk[index_after..].find(char::is_alphabetic)
                                                                    .map(|i| index_after + i)
-                                                                   .unwrap_or(chunk.len());
+                                                                   .unwrap_or_else(|| chunk.len());
                                 if index_before > index_after {
                                     let subelem = self.box_from_chunk(&chunk[index_after..index_before],
                                                                       start_index + index_after,
@@ -1834,7 +1834,7 @@ impl EpubDocument {
 
                                 index_after = chunk[index_before..].find(|c: char| !c.is_alphabetic())
                                                                    .map(|i| index_before + i)
-                                                                   .unwrap_or(chunk.len());
+                                                                   .unwrap_or_else(|| chunk.len());
                             }
                         } else {
                             let subelem = self.box_from_chunk(chunk, start_index, &element);
@@ -1992,7 +1992,7 @@ impl EpubDocument {
 
     pub fn metadata_by_name(&self, name: &str) -> Option<String> {
         self.content.find("metadata")
-            .and_then(|metadata| metadata.children())
+            .and_then(Node::children)
             .and_then(|children| children.iter()
                                          .find(|child| child.tag_name() == Some("meta") &&
                                                        child.attr("name") == Some(name)))
@@ -2002,11 +2002,11 @@ impl EpubDocument {
     pub fn categories(&self) -> BTreeSet<String> {
         let mut result = BTreeSet::new();
         self.content.find("metadata")
-            .and_then(|metadata| metadata.children())
+            .and_then(Node::children)
             .map(|children| {
                 for child in children {
                     if child.tag_name() == Some("dc:subject") {
-                        for subject in child.text().map(|text| decode_entities(text)) {
+                        if let Some(subject) = child.text().map(|text| decode_entities(text)) {
                             // Pipe separated list of BISAC categories
                             if subject.contains(" / ") {
                                 for categ in subject.split('|') {
@@ -2204,14 +2204,14 @@ impl Document for EpubDocument {
                 let page_index = self.page_index(offset, index, start_offset)?;
                 self.cache.get(&index)
                     .and_then(|display_list| display_list[page_index].first())
-                    .map(|dc| dc.offset())
+                    .map(DrawCommand::offset)
             },
             Location::Previous(offset) => {
                 let (index, start_offset) = self.vertebra_coordinates(offset)?;
                 let page_index = self.page_index(offset, index, start_offset)?;
                 if page_index > 0 {
                     self.cache.get(&index)
-                        .and_then(|display_list| display_list[page_index-1].first().map(|dc| dc.offset()))
+                        .and_then(|display_list| display_list[page_index-1].first().map(DrawCommand::offset))
                 } else {
                     if index == 0 {
                         return None;
@@ -2222,14 +2222,14 @@ impl Document for EpubDocument {
                         self.cache.insert(index, display_list);
                     }
                     self.cache.get(&index)
-                        .and_then(|display_list| display_list.last().and_then(|page| page.first()).map(|dc| dc.offset()))
+                        .and_then(|display_list| display_list.last().and_then(|page| page.first()).map(DrawCommand::offset))
                 }
             },
             Location::Next(offset) => {
                 let (index, start_offset) = self.vertebra_coordinates(offset)?;
                 let page_index = self.page_index(offset, index, start_offset)?;
-                if page_index < self.cache.get(&index).map(|display_list| display_list.len())? - 1 {
-                    self.cache.get(&index).and_then(|display_list| display_list[page_index+1].first().map(|dc| dc.offset()))
+                if page_index < self.cache.get(&index).map(Vec::len)? - 1 {
+                    self.cache.get(&index).and_then(|display_list| display_list[page_index+1].first().map(DrawCommand::offset))
                 } else {
                     if index == self.spine.len() - 1 {
                         return None;
@@ -2383,7 +2383,7 @@ impl Document for EpubDocument {
 
     fn metadata(&self, key: &str) -> Option<String> {
         self.content.find("metadata")
-            .and_then(|metadata| metadata.children())
+            .and_then(Node::children)
             .and_then(|children| children.iter().find(|child| child.tag_name() == Some(key)))
             .and_then(|child| child.children().and_then(|c| c.get(0)))
             .and_then(|child| child.text().map(|s| decode_entities(s).into_owned()))

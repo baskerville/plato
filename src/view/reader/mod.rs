@@ -431,7 +431,7 @@ impl Reader {
             }
 
             if let Some(ref mut s) = self.search {
-                s.current_page = s.highlights.range(..location+1).count().saturating_sub(1);
+                s.current_page = s.highlights.range(..=location).count().saturating_sub(1);
             }
 
             self.view_port.top_offset = 0;
@@ -501,13 +501,12 @@ impl Reader {
 
         let mut next_top_offset = self.view_port.top_offset - delta_y;
         let mut location = self.current_page;
-        let max_top_offset = self.cache.get(&location)
-                                 .unwrap().frame.height().saturating_sub(1) as i32;
+        let max_top_offset = self.cache[&location].frame.height().saturating_sub(1) as i32;
         if next_top_offset < 0 {
             let mut doc = self.doc.lock().unwrap();
             if let Some(previous_location) = doc.resolve_location(Location::Previous(location)) {
                 location = previous_location;
-                let frame = self.cache.get(&location).unwrap().frame;
+                let frame = self.cache[&location].frame;
                 next_top_offset = (frame.height() as i32 + next_top_offset).max(0);
             } else {
                 next_top_offset = 0;
@@ -516,7 +515,7 @@ impl Reader {
             let mut doc = self.doc.lock().unwrap();
             if let Some(next_location) = doc.resolve_location(Location::Next(location)) {
                 location = next_location;
-                let frame = self.cache.get(&location).unwrap().frame;
+                let frame = self.cache[&location].frame;
                 let mto = frame.height().saturating_sub(1) as i32;
                 next_top_offset = (next_top_offset - max_top_offset - 1).min(mto);
             } else {
@@ -547,7 +546,7 @@ impl Reader {
 
         if location_changed {
             if let Some(ref mut s) = self.search {
-                s.current_page = s.highlights.range(..location+1).count().saturating_sub(1);
+                s.current_page = s.highlights.range(..=location).count().saturating_sub(1);
             }
             self.update_bottom_bar(hub);
             if self.search.is_some() {
@@ -572,7 +571,7 @@ impl Reader {
 
                         loop {
                             self.load_pixmap(location);
-                            let Resource { mut frame, .. } = *self.cache.get(&location).unwrap();
+                            let Resource { mut frame, .. } = self.cache[&location];
                             if location == first_chunk.location {
                                 frame.max.y = first_chunk.frame.min.y;
                             }
@@ -590,7 +589,7 @@ impl Reader {
 
                         let mut next_top_offset = (height - available_height).max(0);
                         if height > available_height {
-                            let Resource { frame, scale, .. } = *self.cache.get(&location).unwrap();
+                            let Resource { frame, scale, .. } = self.cache[&location];
                             let mut doc = self.doc.lock().unwrap();
                             if let Some((lines, _)) = doc.lines(Location::Exact(location)) {
                                 if let Some(mut y_pos) = find_cut(&frame, frame.min.y + next_top_offset,
@@ -610,7 +609,7 @@ impl Reader {
                     ZoomMode::FitToPage => Location::Next(current_page),
                     ZoomMode::FitToWidth => {
                         let last_chunk = self.chunks.last().unwrap();
-                        let pixmap_frame = self.cache.get(&last_chunk.location).unwrap().frame;
+                        let pixmap_frame = self.cache[&last_chunk.location].frame;
                         let next_top_offset = last_chunk.frame.max.y - pixmap_frame.min.y;
                         self.view_port.top_offset = next_top_offset;
                         if next_top_offset >= pixmap_frame.height() as i32 {
@@ -627,7 +626,7 @@ impl Reader {
         match loc {
             Some(location) if location != current_page || self.view_port.top_offset != top_offset => {
                 if let Some(ref mut s) = self.search {
-                    s.current_page = s.highlights.range(..location+1).count().saturating_sub(1);
+                    s.current_page = s.highlights.range(..=location).count().saturating_sub(1);
                 }
 
                 self.current_page = location;
@@ -701,7 +700,7 @@ impl Reader {
         });
         if let Some(location) = loc {
             if let Some(ref mut s) = self.search {
-                s.current_page = s.highlights.range(..location+1).count().saturating_sub(1);
+                s.current_page = s.highlights.range(..=location).count().saturating_sub(1);
             }
             self.view_port.top_offset = 0;
             self.current_page = location;
@@ -799,7 +798,7 @@ impl Reader {
         match self.view_port.zoom_mode {
             ZoomMode::FitToPage => {
                 self.load_pixmap(location);
-                let Resource { frame, scale, .. } = *self.cache.get(&location).unwrap();
+                let Resource { frame, scale, .. } = self.cache[&location];
                 let dx = smw + ((self.rect.width() - frame.width()) as i32 - 2 * smw) / 2;
                 let dy = smw + ((self.rect.height() - frame.height()) as i32 - 2 * smw) / 2;
                 self.chunks.push(RenderChunk { frame, location, position: pt!(dx, dy), scale });
@@ -809,7 +808,7 @@ impl Reader {
                 let mut height = 0;
                 while height < available_height {
                     self.load_pixmap(location);
-                    let Resource { mut frame, scale, .. } = *self.cache.get(&location).unwrap();
+                    let Resource { mut frame, scale, .. } = self.cache[&location];
                     if location == self.current_page {
                         frame.min.y += self.view_port.top_offset;
                     }
@@ -829,7 +828,7 @@ impl Reader {
                         last_chunk.frame.max.y -= height - available_height;
                         let mut doc = self.doc.lock().unwrap();
                         if let Some((lines, _)) = doc.lines(Location::Exact(last_chunk.location)) {
-                            let pixmap_frame = self.cache.get(&last_chunk.location).unwrap().frame;
+                            let pixmap_frame = self.cache[&last_chunk.location].frame;
                             if let Some(mut y_pos) = find_cut(&pixmap_frame, last_chunk.frame.max.y, last_chunk.scale, LinearDir::Backward, &lines) {
                                 y_pos = y_pos.max(pixmap_frame.min.y).min(pixmap_frame.max.y - 1);
                                 last_chunk.frame.max.y = y_pos;
@@ -947,9 +946,9 @@ impl Reader {
             }
 
             if index == 1 {
-                self.children.drain(index - 1 .. index + 2);
+                self.children.drain(index - 1 ..= index + 1);
             } else {
-                self.children.drain(index - 1 .. index + 1);
+                self.children.drain(index - 1 ..= index);
             }
 
 
@@ -1028,7 +1027,7 @@ impl Reader {
 
             let mut rect = *self.child(index).rect();
             rect.absorb(self.child(index - 1).rect());
-            self.children.drain(index - 1 .. index + 1);
+            self.children.drain(index - 1 ..= index);
             hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
         } else {
             if !enable {
@@ -1064,7 +1063,7 @@ impl Reader {
 
             let mut rect = *self.child(index).rect();
             rect.absorb(self.child(index - 1).rect());
-            self.children.drain(index - 1 .. index + 1);
+            self.children.drain(index - 1 ..= index);
             hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
         } else {
             if !enable {
@@ -1101,7 +1100,7 @@ impl Reader {
             }
 
             if let Some(bottom_index) = locate::<BottomBar>(self) {
-                self.children.drain(top_index..bottom_index+1);
+                self.children.drain(top_index..=bottom_index);
                 hub.send(Event::Focus(None)).unwrap();
                 hub.send(Event::Expose(self.rect, UpdateMode::Gui)).unwrap();
             }
@@ -1513,7 +1512,7 @@ impl Reader {
             let current_page = self.current_page;
             let is_split = self.info.reader.as_ref()
                                .and_then(|r| r.cropping_margins
-                                              .as_ref().map(|c| c.is_split()));
+                                              .as_ref().map(CroppingMargins::is_split));
 
             let mut entries = vec![EntryKind::RadioButton("Any".to_string(),
                                                           EntryId::ApplyCroppings(current_page, PageScheme::Any),
@@ -1958,7 +1957,7 @@ impl View for Reader {
                         if let Some(caps) = toc_page.captures(&link.text) {
                             let loc_opt = if caps[1].chars().all(|c| c.is_digit(10)) {
                                 caps[1].parse::<usize>()
-                                       .map(|offset| Location::Exact(offset))
+                                       .map(Location::Exact)
                                        .ok()
                             } else {
                                 Some(Location::Uri(caps[1].to_string()))
@@ -2335,7 +2334,7 @@ impl View for Reader {
 
                 if let Some(ref mut s) = self.search {
                     let pages_count = s.highlights.len();
-                    s.highlights.entry(location).or_insert_with(|| Vec::new()).push(rect);
+                    s.highlights.entry(location).or_insert_with(Vec::new).push(rect);
                     s.results_count += 1;
                     results_count = s.results_count;
                     if results_count > 1 && location <= self.current_page && s.highlights.len() > pages_count {
@@ -2483,7 +2482,7 @@ impl View for Reader {
         fb.draw_rectangle(&self.rect, WHITE);
 
         for chunk in &self.chunks {
-            let Resource { ref pixmap, scale, .. } = *self.cache.get(&chunk.location).unwrap();
+            let Resource { ref pixmap, scale, .. } = self.cache[&chunk.location];
             fb.draw_framed_pixmap_contrast(pixmap, &chunk.frame, chunk.position, self.contrast.exponent, self.contrast.gray);
 
             if let Some(rects) = self.search.as_ref().and_then(|s| s.highlights.get(&chunk.location)) {

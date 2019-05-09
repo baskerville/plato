@@ -7,6 +7,7 @@ mod mupdf_sys;
 
 use std::path::Path;
 use std::str::FromStr;
+use std::ffi::OsStr;
 use fnv::FnvHashSet;
 use isbn::Isbn;
 use lazy_static::lazy_static;
@@ -140,8 +141,8 @@ pub trait Document: Send+Sync {
 
 pub fn file_kind<P: AsRef<Path>>(path: P) -> Option<String> {
     path.as_ref().extension()
-        .and_then(|os_ext| os_ext.to_str())
-        .map(|ext| ext.to_lowercase())
+        .and_then(OsStr::to_str)
+        .map(str::to_lowercase)
 }
 
 pub trait HumanSize {
@@ -254,7 +255,7 @@ pub fn toc_as_html_aux(toc: &[TocEntry], chap_index: usize, buf: &mut String) {
 }
 
 #[inline]
-fn chapter<'a>(index: usize, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
+fn chapter(index: usize, toc: &[TocEntry]) -> Option<&TocEntry> {
     let mut chap = None;
     let mut chap_index = 0;
     chapter_aux(toc, index, &mut chap, &mut chap_index);
@@ -274,7 +275,7 @@ fn chapter_aux<'a>(toc: &'a [TocEntry], index: usize, chap: &mut Option<&'a TocE
 }
 
 #[inline]
-fn chapter_relative<'a>(index: usize, dir: CycleDir, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
+fn chapter_relative(index: usize, dir: CycleDir, toc: &[TocEntry]) -> Option<&TocEntry> {
     let chap = chapter(index, toc);
 
     match dir {

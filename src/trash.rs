@@ -163,6 +163,6 @@ pub fn is_empty(context: &Context) -> bool {
         return true;
     }
     let count = fs::read_dir(trash_path)
-                   .map(|dir| dir.into_iter().count()).unwrap_or(0);
+                   .map(|dir| dir.count()).unwrap_or(0);
     count < 2
 }

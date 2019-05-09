@@ -78,7 +78,7 @@ pub fn parse_inline_material(value: &str, em: f32, rem: f32, dpi: u16) -> Vec<In
     let mut inlines = Vec::new();
     for decl in value.split(',') {
         let tokens: Vec<&str> = decl.trim().split_whitespace().collect();
-        match tokens.get(0).map(|s| *s) {
+        match tokens.get(0).cloned() {
             Some("glue") => {
                 let width = tokens.get(1).and_then(|s| parse_length(s, em, rem, dpi)).unwrap_or(0);
                 let stretch = tokens.get(2).and_then(|s| parse_length(s, em, rem,dpi)).unwrap_or(0);
@@ -317,9 +317,9 @@ pub fn parse_color(value: &str) -> Option<u8> {
             return None;
         }
         let chunk_size = if value.len() < 7 { 1 } else { 2 };
-        let red = u8::from_str_radix(&value[1..chunk_size+1].repeat(3 - chunk_size), 16).ok()?;
-        let green = u8::from_str_radix(&value[1+chunk_size..1+2*chunk_size].repeat(3 - chunk_size), 16).ok()?;
-        let blue = u8::from_str_radix(&value[1+2*chunk_size..1+3*chunk_size].repeat(3 - chunk_size), 16).ok()?;
+        let red = u8::from_str_radix(&value[1..=chunk_size].repeat(3 - chunk_size), 16).ok()?;
+        let green = u8::from_str_radix(&value[chunk_size+1..=2*chunk_size].repeat(3 - chunk_size), 16).ok()?;
+        let blue = u8::from_str_radix(&value[2*chunk_size+1..=3*chunk_size].repeat(3 - chunk_size), 16).ok()?;
         let color = luma(red as f32, green as f32, blue as f32) as u8;
         Some(color)
     } else {

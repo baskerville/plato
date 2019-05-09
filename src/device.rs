@@ -243,7 +243,7 @@ pub fn optimal_bars_setup(height: u32, dpi: u16) -> (u32, u32) {
     let minimum_small_height = 2 * target_small_height / 3;
     let mut max_score = 0;
     let mut result = (0, 0);
-    for small_height in minimum_small_height..target_small_height+1 {
+    for small_height in minimum_small_height..=target_small_height {
         let remaining_height = height - 3 * small_height;
         for big_height in small_height..maximum_big_height {
             if remaining_height % big_height == 0 {
@@ -271,8 +271,8 @@ pub fn optimal_key_setup(width: u32, height: u32, dpi: u16) -> (u32, u32) {
     let minimum_padding = 4 * target_padding / 5;
     let mut max_score = 0;
     let mut result = (0, 0);
-    for side in minimum_side..target_side+1 {
-        for padding in minimum_padding..target_padding+1 {
+    for side in minimum_side..=target_side {
+        for padding in minimum_padding..=target_padding {
             let w = 11 * side + 12 * padding;
             let h = 4 * side + 5 * padding;
             if  w <= width && h <= height {

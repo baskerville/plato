@@ -20,7 +20,7 @@ impl<'a> Iterator for Ancestors<'a> {
     type Item = &'a str;
     fn next(&mut self) -> Option<&'a str> {
         let next = self.next;
-        self.next = self.next.and_then(|path| path.parent());
+        self.next = self.next.and_then(SymbolicPath::parent);
         next
     }
 }

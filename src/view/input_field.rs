@@ -33,7 +33,7 @@ fn closest_char_boundary(text: &str, index: usize, dir: LinearDir) -> Option<usi
             if index == text.len() {
                 return Some(index);
             }
-            (index+1..text.len()+1).find(|&i| text.is_char_boundary(i))
+            (index+1..=text.len()).find(|&i| text.is_char_boundary(i))
         },
     }
 }

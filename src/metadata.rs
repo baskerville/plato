@@ -2,6 +2,7 @@ use std::fs;
 use std::fmt;
 use std::path::{self, Path, PathBuf};
 use std::collections::BTreeSet;
+use std::ffi::OsStr;
 use std::cmp::Ordering;
 use fnv::{FnvHashMap, FnvHashSet};
 use chrono::{Local, DateTime};
@@ -447,7 +448,7 @@ impl SortMethod {
         }
     }
 
-    pub fn title(&self) -> String {
+    pub fn title(self) -> String {
         format!("Sort by: {}", self.label())
     }
 }
@@ -617,7 +618,7 @@ pub fn extract_metadata_from_filename(metadata: &mut Metadata) {
             continue;
         }
 
-        if let Some(filename) = info.file.path.file_name().and_then(|v| v.to_str()) {
+        if let Some(filename) = info.file.path.file_name().and_then(OsStr::to_str) {
             let mut start_index = 0;
 
             if filename.starts_with('(') {
@@ -673,13 +674,13 @@ fn find_files(root: &Path, dir: &Path, traverse_hidden: bool) -> Result<Vec<File
 
         if path.is_dir() {
             if let Some(name) = entry.file_name().to_str() {
-                if (!traverse_hidden && name.starts_with(".")) || RESERVED_DIRECTORIES.contains(name) {
+                if (!traverse_hidden && name.starts_with('.')) || RESERVED_DIRECTORIES.contains(name) {
                     continue;
                 }
             }
             result.extend_from_slice(&find_files(root, path.as_path(), traverse_hidden)?);
         } else {
-            if entry.file_name().to_string_lossy().starts_with(".") {
+            if entry.file_name().to_string_lossy().starts_with('.') {
                 continue;
             }
             let relat = path.strip_prefix(root).unwrap().to_path_buf();

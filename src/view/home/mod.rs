@@ -342,25 +342,25 @@ impl Home {
             for line_res in reader.lines() {
                 if let Ok(line) = line_res {
                     if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
-                        match event.get("type").and_then(|v| v.as_str()) {
+                        match event.get("type").and_then(JsonValue::as_str) {
                             Some("notify") => {
-                                if let Some(msg) = event.get("message").and_then(|v| v.as_str()) {
+                                if let Some(msg) = event.get("message").and_then(JsonValue::as_str) {
                                     hub2.send(Event::Notify(msg.to_string())).unwrap();
                                 }
                             },
                             Some("addDocument") => {
-                                if let Some(info) = event.get("info").map(|v| v.to_string())
+                                if let Some(info) = event.get("info").map(ToString::to_string)
                                                          .and_then(|v| serde_json::from_str(&v).ok()) {
                                     hub2.send(Event::AddDocument(Box::new(info))).unwrap();
                                 }
                             },
                             Some("removeDocument") => {
-                                if let Some(path) = event.get("path").and_then(|v| v.as_str()) {
+                                if let Some(path) = event.get("path").and_then(JsonValue::as_str) {
                                     hub2.send(Event::RemoveDocument(PathBuf::from(path))).unwrap();
                                 }
                             },
                             Some("setWifi") => {
-                                if let Some(enable) = event.get("enable").and_then(|v| v.as_bool()) {
+                                if let Some(enable) = event.get("enable").and_then(JsonValue::as_bool) {
                                     hub2.send(Event::SetWifi(enable)).unwrap();
                                 }
                             },
@@ -525,7 +525,7 @@ impl Home {
 
             let kb_rect = *self.child(index).rect();
 
-            self.children.drain(index - 1 .. index + 1);
+            self.children.drain(index - 1 ..= index);
 
             let delta_y = kb_rect.height() as i32 + thickness;
 
@@ -618,7 +618,7 @@ impl Home {
                 self.toggle_keyboard(false, false, Some(ViewId::SearchInput), hub, context);
             }
 
-            self.children.drain(index - 1 .. index + 1);
+            self.children.drain(index - 1 ..= index);
 
             {
                 let shelf = self.child_mut(4).downcast_mut::<Shelf>().unwrap();
@@ -1179,8 +1179,8 @@ impl Home {
             if info.file.path == *path {
                 if status == SimpleStatus::New {
                     info.reader = None;
-                } else {
-                    info.reader.as_mut().map(|info| info.finished = true);
+                } else if let Some(r) = info.reader.as_mut() {
+                    r.finished = true;
                 }
                 break;
             }
@@ -1582,7 +1582,7 @@ impl View for Home {
                 true
             },
             Event::Device(DeviceEvent::NetUp) => {
-                for (_, fetcher) in &self.background_fetchers {
+                for fetcher in self.background_fetchers.values() {
                     if let Some(process) = fetcher.process.as_ref() {
                         unsafe { libc::kill(process.id() as libc::pid_t, libc::SIGUSR1) };
                     }
