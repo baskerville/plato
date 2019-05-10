@@ -1463,7 +1463,7 @@ impl EpubDocument {
         }
 
         if bps.is_empty() {
-            let max_width = line_lengths[0].min(line_lengths[1]);
+            let max_width = *line_lengths.iter().min().unwrap();
 
             for itm in &mut items {
                 if let ParagraphItem::Box { width, data } = itm {
