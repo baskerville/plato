@@ -33,6 +33,7 @@ A recent 4.X firmware is required.
 - The metadata for each document is read from a single JSON file.
 - Crop the margins.
 - Continuous fit-to-width zoom mode with line preserving cuts.
+- Rotate the screen (portrait ↔ landscape).
 - Adjust the contrast.
 
 [![Tn01](artworks/thumbnail01.png)](artworks/screenshot01.png) [![Tn02](artworks/thumbnail02.png)](artworks/screenshot02.png) [![Tn03](artworks/thumbnail03.png)](artworks/screenshot03.png) [![Tn04](artworks/thumbnail04.png)](artworks/screenshot04.png)
