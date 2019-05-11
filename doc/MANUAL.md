@@ -17,6 +17,8 @@
 
 Hold the next/previous page icon to go the last/first page.
 
+Tap the matches count label to bring up the library menu.
+
 # Reader
 
 ## Viewer
@@ -68,6 +70,10 @@ Spread horizontally to switch the zoom mode to fit-to-width.
 ## Bottom bar
 
 Hold the next/previous page icon to go the next/previous chapter.
+
+## Top bar
+
+Tap the title label to bring up the book menu.
 
 # Home & Reader
 
