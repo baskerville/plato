@@ -4,16 +4,20 @@
 
 Documentation: [GUIDE](doc/GUIDE.md), [MANUAL](doc/MANUAL.md) and [BUILD](doc/BUILD.md).
 
+## Supported firmwares
+
+A recent 4.X firmware is required.
+
 ## Supported devices
 
 - *Forma*.
 - *Clara HD*.
 - *Aura H₂O Edition 2*.
 - *Aura Edition 2*.
-- *Aura ONE* (FW 4.13.12638).
-- *Glo HD* (FW 4.13.12638).
+- *Aura ONE*.
+- *Glo HD*.
 - *Aura H₂O*.
-- *Aura* (FW 4.12.12111).
+- *Aura*.
 - *Glo*.
 - *Touch C*.
 
