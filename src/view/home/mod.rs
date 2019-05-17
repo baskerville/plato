@@ -1238,14 +1238,12 @@ impl Home {
         hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
     }
 
-    fn save(&mut self, context: &mut Context) {
-        save_json(&context.metadata,
-                  context.settings.library_path.join(&context.filename))
-                 .map_err(|e| eprintln!("Can't save: {}", e)).ok();
-    }
-
-    fn save_as(&mut self, filename: &str, context: &mut Context) {
-        let path = context.settings.library_path.join(format!(".metadata-{}.json", filename));
+    fn save_as(&mut self, filename: Option<&str>, context: &mut Context) {
+        let path = if let Some(filename) = filename.as_ref() {
+            context.settings.library_path.join(format!(".metadata-{}.json", filename))
+        } else {
+            context.settings.library_path.join(&context.filename)
+        };
         save_json(&self.visible_books, path).map_err(|e| {
             eprintln!("Can't save: {}.", e);
         }).ok();
@@ -1391,7 +1389,7 @@ impl View for Home {
                 true
             },
             Event::Select(EntryId::Save) => {
-                self.save(context);
+                self.save_as(None, context);
                 true
             },
             Event::Select(EntryId::SaveAs) => {
@@ -1494,7 +1492,7 @@ impl View for Home {
             },
             Event::Submit(ViewId::SaveAsInput, ref text) => {
                 if !text.is_empty() {
-                    self.save_as(text, context);
+                    self.save_as(Some(text), context);
                 }
                 self.toggle_keyboard(false, true, None, hub, context);
                 true
