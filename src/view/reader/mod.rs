@@ -1920,11 +1920,19 @@ impl View for Reader {
 
             },
             Event::Device(DeviceEvent::Button { code: ButtonCode::Backward, status: ButtonStatus::Pressed, .. }) => {
-                self.go_to_neighbor(CycleDir::Previous, hub, context);
+                if self.search.is_none() {
+                    self.go_to_neighbor(CycleDir::Previous, hub, context);
+                } else {
+                    self.go_to_results_neighbor(CycleDir::Previous, hub);
+                }
                 true
             },
             Event::Device(DeviceEvent::Button { code: ButtonCode::Forward, status: ButtonStatus::Pressed, .. }) => {
-                self.go_to_neighbor(CycleDir::Next, hub, context);
+                if self.search.is_none() {
+                    self.go_to_neighbor(CycleDir::Next, hub, context);
+                } else {
+                    self.go_to_results_neighbor(CycleDir::Next, hub);
+                }
                 true
             },
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
