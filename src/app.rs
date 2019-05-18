@@ -489,6 +489,11 @@ pub fn run() -> Result<(), Error> {
                         }
                     },
                     DeviceEvent::RotateScreen(n) => {
+                        if context.shared || tasks.iter().any(|task| task.id == TaskId::PrepareSuspend ||
+                                                                     task.id == TaskId::Suspend) {
+                            continue;
+                        }
+
                         if view.might_rotate() {
                             if let Some(rotation_lock) = context.settings.rotation_lock {
                                 let orientation = n % 2;
