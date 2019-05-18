@@ -143,6 +143,10 @@ impl View for Intermission {
         self.rect
     }
 
+    fn might_rotate(&self) -> bool {
+        false
+    }
+
     fn rect(&self) -> &Rectangle {
         &self.rect
     }
