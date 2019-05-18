@@ -164,8 +164,8 @@ fn resume(id: TaskId, tasks: &mut Vec<Task>, view: &mut View, hub: &Sender<Event
         tasks.retain(|task| task.id != TaskId::Suspend);
         if context.settings.frontlight {
             let levels = context.settings.frontlight_levels;
-            context.frontlight.set_intensity(levels.intensity);
             context.frontlight.set_warmth(levels.warmth);
+            context.frontlight.set_intensity(levels.intensity);
         }
         if context.settings.wifi {
             Command::new("scripts/wifi-enable.sh")
@@ -288,11 +288,11 @@ pub fn run() -> Result<(), Error> {
 
     if context.settings.frontlight {
         let levels = context.settings.frontlight_levels;
-        context.frontlight.set_intensity(levels.intensity);
         context.frontlight.set_warmth(levels.warmth);
+        context.frontlight.set_intensity(levels.intensity);
     } else {
-        context.frontlight.set_warmth(0.0);
         context.frontlight.set_intensity(0.0);
+        context.frontlight.set_warmth(0.0);
     }
 
     let mut tasks: Vec<Task> = Vec::new();
@@ -446,8 +446,8 @@ pub fn run() -> Result<(), Error> {
                             }
                             if context.settings.frontlight {
                                 let levels = context.settings.frontlight_levels;
-                                context.frontlight.set_intensity(levels.intensity);
                                 context.frontlight.set_warmth(levels.warmth);
+                                context.frontlight.set_intensity(levels.intensity);
                             }
                             if let Some(index) = locate::<Intermission>(view.as_ref()) {
                                 let rect = *view.child(index).rect();
@@ -538,8 +538,8 @@ pub fn run() -> Result<(), Error> {
                 save_json(&context.metadata, path).map_err(|e| eprintln!("Can't save metadata: {}", e)).ok();
                 if context.settings.frontlight {
                     context.settings.frontlight_levels = context.frontlight.levels();
-                    context.frontlight.set_warmth(0.0);
                     context.frontlight.set_intensity(0.0);
+                    context.frontlight.set_warmth(0.0);
                 }
                 if context.settings.wifi {
                     Command::new("scripts/wifi-disable.sh")
@@ -587,8 +587,8 @@ pub fn run() -> Result<(), Error> {
                 save_json(&context.metadata, path).map_err(|e| eprintln!("Can't save metadata: {}", e)).ok();
                 if context.settings.frontlight {
                     context.settings.frontlight_levels = context.frontlight.levels();
-                    context.frontlight.set_warmth(0.0);
                     context.frontlight.set_intensity(0.0);
+                    context.frontlight.set_warmth(0.0);
                 }
                 if context.settings.wifi {
                     Command::new("scripts/wifi-disable.sh")
@@ -635,12 +635,12 @@ pub fn run() -> Result<(), Error> {
                 context.settings.frontlight = !context.settings.frontlight;
                 if context.settings.frontlight {
                     let levels = context.settings.frontlight_levels;
-                    context.frontlight.set_intensity(levels.intensity);
                     context.frontlight.set_warmth(levels.warmth);
+                    context.frontlight.set_intensity(levels.intensity);
                 } else {
                     context.settings.frontlight_levels = context.frontlight.levels();
-                    context.frontlight.set_warmth(0.0);
                     context.frontlight.set_intensity(0.0);
+                    context.frontlight.set_warmth(0.0);
                 }
                 view.handle_event(&Event::ToggleFrontlight, &tx, &mut bus, &mut context);
             },
