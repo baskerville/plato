@@ -48,7 +48,7 @@ use fnv::FnvHashMap;
 use downcast_rs::{Downcast, impl_downcast};
 use crate::font::Fonts;
 use crate::document::{Location, TocEntry};
-use crate::settings::SecondColumn;
+use crate::settings::{SecondColumn, RotationLock};
 use crate::metadata::{Info, ZoomMode, SortMethod, TextAlign, SimpleStatus, PageScheme, Margin};
 use crate::geom::{LinearDir, CycleDir, Rectangle, Boundary};
 use crate::framebuffer::{Framebuffer, UpdateMode};
@@ -439,6 +439,7 @@ pub enum EntryId {
     SetLineHeight(i32),
     SetContrastExponent(i32),
     SetContrastGray(i32),
+    SetRotationLock(Option<RotationLock>),
     ToggleInverted,
     ToggleMonochrome,
     ToggleWifi,

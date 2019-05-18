@@ -21,7 +21,7 @@ use crate::input::{raw_events, device_events, usb_events, display_rotate_event};
 use crate::gesture::{GestureEvent, gesture_events};
 use crate::helpers::{load_json, save_json, load_toml, save_toml};
 use crate::metadata::{Metadata, METADATA_FILENAME, auto_import};
-use crate::settings::{Settings, SETTINGS_PATH};
+use crate::settings::{Settings, SETTINGS_PATH, RotationLock};
 use crate::frontlight::{Frontlight, StandardFrontlight, NaturalFrontlight, PremixedFrontlight};
 use crate::lightsensor::{LightSensor, KoboLightSensor};
 use crate::battery::{Battery, KoboBattery};
@@ -490,6 +490,14 @@ pub fn run() -> Result<(), Error> {
                     },
                     DeviceEvent::RotateScreen(n) => {
                         if view.might_rotate() {
+                            if let Some(rotation_lock) = context.settings.rotation_lock {
+                                let orientation = n % 2;
+                                if rotation_lock == RotationLock::Current ||
+                                   (rotation_lock == RotationLock::Portrait && orientation == 0) ||
+                                   (rotation_lock == RotationLock::Landscape && orientation == 1) {
+                                    continue;
+                                }
+                            }
                             tx.send(Event::Select(EntryId::Rotate(n))).unwrap();
                         }
                     },
@@ -797,6 +805,9 @@ pub fn run() -> Result<(), Error> {
                         tx.send(Event::Render(context.fb.rect(), UpdateMode::Full)).unwrap();
                     }
                 }
+            },
+            Event::Select(EntryId::SetRotationLock(rotation_lock)) => {
+                context.settings.rotation_lock = rotation_lock;
             },
             Event::SetWifi(enable) => {
                 set_wifi(enable, &mut context);

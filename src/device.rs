@@ -93,6 +93,13 @@ impl Device {
         }
     }
 
+    pub fn has_gyroscope(&self) -> bool {
+        match self.model {
+            Model::Forma => true,
+            _ => false,
+        }
+    }
+
     pub fn should_mirror_axes(&self, rotation: i8) -> (bool, bool) {
         let (mxy, dir) = self.mirroring_scheme();
         let mx = (4 + (mxy + dir)) % 4;

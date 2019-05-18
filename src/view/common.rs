@@ -1,6 +1,8 @@
 use std::env;
 use std::sync::mpsc;
 use chrono::Local;
+use crate::device::CURRENT_DEVICE;
+use crate::settings::RotationLock;
 use crate::framebuffer::UpdateMode;
 use crate::geom::{Point, Rectangle};
 use super::{View, Event, Hub, ViewId, AppId, EntryId, EntryKind};
@@ -61,10 +63,13 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
         if let Some(false) = enable {
             return;
         }
-        let rotate = (0..4).map(|n| EntryKind::RadioButton((n as i16 * 90).to_string(),
-                                                           EntryId::Rotate(n),
-                                                           n == context.display.rotation))
-                           .collect::<Vec<EntryKind>>();
+
+        let rotate = (0..4).map(|n|
+            EntryKind::RadioButton((n as i16 * 90).to_string(),
+                                   EntryId::Rotate(n),
+                                   n == context.display.rotation)
+        ).collect::<Vec<EntryKind>>();
+
         let apps = vec![EntryKind::Command("Sketch".to_string(),
                                            EntryId::Launch(AppId::Sketch)),
                         EntryKind::Command("Calculator".to_string(),
@@ -92,6 +97,18 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
             entries.push(EntryKind::Command("Start Nickel".to_string(), EntryId::StartNickel));
         } else {
             entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
+        }
+
+        if CURRENT_DEVICE.has_gyroscope() {
+            let rotation_lock = context.settings.rotation_lock;
+            let gyro = vec![
+                EntryKind::RadioButton("Auto".to_string(), EntryId::SetRotationLock(None), rotation_lock.is_none()),
+                EntryKind::Separator,
+                EntryKind::RadioButton("Portrait".to_string(), EntryId::SetRotationLock(Some(RotationLock::Portrait)), rotation_lock == Some(RotationLock::Portrait)),
+                EntryKind::RadioButton("Landscape".to_string(), EntryId::SetRotationLock(Some(RotationLock::Landscape)), rotation_lock == Some(RotationLock::Landscape)),
+                EntryKind::RadioButton("Ignore".to_string(), EntryId::SetRotationLock(Some(RotationLock::Current)), rotation_lock == Some(RotationLock::Current)),
+            ];
+            entries.insert(5, EntryKind::SubMenu("Gyroscope".to_string(), gyro));
         }
 
         let main_menu = Menu::new(rect, ViewId::MainMenu, MenuKind::DropDown, entries, context);

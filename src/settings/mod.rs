@@ -24,12 +24,22 @@ pub const DEFAULT_FONT_FAMILY: &str = "Libertinus Serif";
 // Default text alignment.
 pub const DEFAULT_TEXT_ALIGN: TextAlign = TextAlign::Left;
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RotationLock {
+    Landscape,
+    Portrait,
+    Current,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct Settings {
     pub library_path: PathBuf,
     pub frontlight: bool,
     pub wifi: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rotation_lock: Option<RotationLock>,
     pub auto_suspend: u8,
     #[serde(skip_serializing_if = "FnvHashMap::is_empty")]
     pub intermission_images: FnvHashMap<String, PathBuf>,
@@ -253,6 +263,7 @@ impl Default for Settings {
             library_path: PathBuf::from("/mnt/onboard"),
             frontlight: true,
             wifi: false,
+            rotation_lock: None,
             auto_suspend: 15,
             intermission_images: FnvHashMap::default(),
             home: HomeSettings::default(),
