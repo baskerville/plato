@@ -65,7 +65,7 @@ Swipe north/south to scroll the page stream when the zoom mode is fit-to-width.
 
 Rotate to change the screen orientation (one finger is the center, the other describes the desired rotation with a circular motion around the center: the two fingers should land and take off simultaneously).
 
-Spread horizontally to switch the zoom mode to fit-to-width.
+Spread (resp. pinch) horizontally to switch the zoom mode to fit-to-width (resp. fit-to-page).
 
 ## Bottom bar
 

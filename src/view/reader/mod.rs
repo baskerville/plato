@@ -1915,7 +1915,16 @@ impl View for Reader {
                 true
             },
             Event::Gesture(GestureEvent::Spread { axis: Axis::Horizontal, starts, .. }) if self.rect.includes(starts[0]) => {
-                self.set_zoom_mode(ZoomMode::FitToWidth, hub);
+                if !self.reflowable {
+                    self.set_zoom_mode(ZoomMode::FitToWidth, hub);
+                }
+                true
+
+            },
+            Event::Gesture(GestureEvent::Pinch { axis: Axis::Horizontal, starts, .. }) if self.rect.includes(starts[0]) => {
+                if !self.reflowable {
+                    self.set_zoom_mode(ZoomMode::FitToPage, hub);
+                }
                 true
 
             },
