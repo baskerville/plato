@@ -72,8 +72,8 @@ impl Device {
     pub fn frontlight_kind(&self) -> FrontlightKind {
         match self.model {
             Model::AuraONE |
-            Model::AuraH2OEdition2 |
-            Model::ClaraHD => FrontlightKind::Natural,
+            Model::AuraH2OEdition2 => FrontlightKind::Natural,
+            Model::ClaraHD |
             Model::Forma => FrontlightKind::Premixed,
             _ => FrontlightKind::Standard,
         }
