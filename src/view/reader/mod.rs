@@ -611,10 +611,11 @@ impl Reader {
                         let last_chunk = self.chunks.last().unwrap();
                         let pixmap_frame = self.cache[&last_chunk.location].frame;
                         let next_top_offset = last_chunk.frame.max.y - pixmap_frame.min.y;
-                        self.view_port.top_offset = next_top_offset;
-                        if next_top_offset >= pixmap_frame.height() as i32 {
+                        if next_top_offset == pixmap_frame.height() as i32 {
+                            self.view_port.top_offset = 0;
                             Location::Next(last_chunk.location)
                         } else {
+                            self.view_port.top_offset = next_top_offset;
                             Location::Exact(last_chunk.location)
                         }
                     },
