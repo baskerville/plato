@@ -3,11 +3,15 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 use failure::Error;
+use crate::device::{CURRENT_DEVICE, Model};
 use super::{Frontlight, LightLevels};
 
 const FRONTLIGHT_INTERFACE: &str = "/sys/class/backlight";
 const FRONTLIGHT_WHITE: &str = "mxc_msp430.0/brightness";
-const FRONTLIGHT_ORANGE: &str = "tlc5947_bl/color";
+// Forma
+const FRONTLIGHT_ORANGE_A: &str = "tlc5947_bl/color";
+// Clara HD
+const FRONTLIGHT_ORANGE_B: &str = "lm3630a_led/color";
 
 pub struct PremixedFrontlight {
     intensity: f32,
@@ -20,7 +24,12 @@ impl PremixedFrontlight {
     pub fn new(intensity: f32, warmth: f32) -> Result<PremixedFrontlight, Error> {
         let base = PathBuf::from(FRONTLIGHT_INTERFACE);
         let white = OpenOptions::new().write(true).open(base.join(FRONTLIGHT_WHITE))?;
-        let orange = OpenOptions::new().write(true).open(base.join(FRONTLIGHT_ORANGE))?;
+        let orange_path = base.join(if CURRENT_DEVICE.model == Model::Forma {
+            FRONTLIGHT_ORANGE_A
+        } else {
+            FRONTLIGHT_ORANGE_B
+        });
+        let orange = OpenOptions::new().write(true).open(orange_path)?;
         Ok(PremixedFrontlight { intensity, warmth, white, orange })
     }
 }
