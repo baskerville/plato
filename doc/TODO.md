@@ -4,3 +4,4 @@
 - Complex/fuzzy search queries?
 - Input field completions bar.
 - Applications: Terminal, Browser.
+- Use nix's ioctl macros.
