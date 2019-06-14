@@ -998,6 +998,14 @@ impl Boundary {
         rect.min.x >= self.min.x && rect.max.x <= self.max.x &&
         rect.min.y >= self.min.y && rect.max.y <= self.max.y
     }
+
+    pub fn width(&self) -> f32 {
+        self.max.x - self.min.x
+    }
+
+    pub fn height(&self) -> f32 {
+        self.max.y - self.min.y
+    }
 }
 
 #[macro_export]

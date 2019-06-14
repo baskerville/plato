@@ -167,9 +167,10 @@ fn find_cut(frame: &Rectangle, y_pos: i32, scale: f32, dir: LinearDir, lines: &[
     let y_pos_u = y_pos as f32 / scale;
     let frame_u = frame.to_boundary() / scale;
     let mut rect_a: Option<Boundary> = None;
+    let max_line_height = frame_u.height() / 10.0;
 
     for line in lines {
-        if frame_u.overlaps(&line.rect) && !line.rect.contains(&frame_u) && y_pos_u >= line.rect.min.y && y_pos_u < line.rect.max.y {
+        if frame_u.overlaps(&line.rect) && line.rect.height() <= max_line_height && y_pos_u >= line.rect.min.y && y_pos_u < line.rect.max.y {
             rect_a = Some(line.rect);
             break;
         }
