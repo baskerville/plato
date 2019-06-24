@@ -903,7 +903,7 @@ pub fn run() -> Result<(), Error> {
         },
         ExitStatus::PowerOff => {
             Command::new("sync").status().ok();
-            Command::new("poweroff").status().ok();
+            Command::new("poweroff").arg("-f").status().ok();
         },
         _ => (),
     }
