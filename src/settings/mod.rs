@@ -242,7 +242,7 @@ impl Default for ImportSettings {
             startup_trigger: true,
             traverse_hidden: false,
             allowed_kinds: ["pdf", "djvu", "epub",
-                            "fb2", "cbz"].iter().map(|k| k.to_string()).collect(),
+                            "fb2", "xps", "oxps", "cbz"].iter().map(|k| k.to_string()).collect(),
             category_providers: [CategoryProvider::Path].iter().cloned().collect(),
         }
     }
