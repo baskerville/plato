@@ -1138,6 +1138,7 @@ impl Home {
         if trash(&paths, context).map_err(|e| eprintln!("Can't trash {}: {}", path.display(), e)).is_ok() {
             self.history_push(true, context);
             context.metadata.retain(|info| info.file.path != *path);
+            context.settings.intermission_images.retain(|_, path| !paths.contains(path));
             self.refresh_visibles(true, false, hub, context);
         }
     }
