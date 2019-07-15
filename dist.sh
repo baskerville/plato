@@ -2,11 +2,8 @@
 
 [ -d dist ] && rm -Rf dist
 
-if ! [ -x thirdparty/chrpath/chrpath ] ; then
-	cd thirdparty/chrpath
-	./configure && make
-	cd ../..
-fi
+[ -d bin ] || ./download.sh 'bin/*'
+[ -d hyphenation-patterns ] || ./download.sh 'hyphenation-patterns/*'
 
 mkdir -p dist/libs
 
@@ -33,6 +30,6 @@ cp -R fonts dist
 cp -R css dist
 cp target/arm-unknown-linux-gnueabihf/release/plato dist/
 
-./thirdparty/chrpath/chrpath -d dist/libs/*
+patchelf --remove-rpath dist/libs/*
 
 arm-linux-gnueabihf-strip dist/plato dist/libs/*

@@ -4,18 +4,11 @@ set -e
 
 method=${*:-"fast"}
 
-[ -d libs ] && method=skip
+[ -e libs/libz.so ] && method=skip
 
 case "$method" in
 	fast)
-		version=$(cargo pkgid | cut -d '#' -f 2)
-		archive="plato-${version}.zip"
-		info_url="https://github.com/baskerville/plato/releases/tag/${version}"
-		echo "Downloading ${archive}."
-		release_url=$(wget -q -O - "$info_url" | grep -Eo "https[^\"]+files[^\"]+${archive}")
-		wget -q "$release_url"
-		unzip "$archive" 'libs/*' 'bin/*' 'hyphenation-patterns/*'
-		rm "$archive"
+		./download.sh 'libs/*'
 		cd libs
 		
 		ln -s libz.so.1 libz.so

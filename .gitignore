@@ -11,5 +11,6 @@
 /src/wrapper/*.so
 /src/wrapper/*.dylib
 /dist
+/plato-*.zip
 /thirdparty/*/*
 !/thirdparty/*/*kobo*

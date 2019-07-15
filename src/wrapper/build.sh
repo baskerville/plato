@@ -3,7 +3,7 @@
 CC=${CC:-gcc}
 LD=${LD:-ld}
 
-TARGET_OS=$(uname -s)
+TARGET_OS=${TARGET_OS:-$(uname -s)}
 if [ "$TARGET_OS" = "Darwin" ] ; then
 	LIB_EXT=dylib
 else

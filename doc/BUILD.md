@@ -1,14 +1,8 @@
 ## Preliminary
 
-Install [Ubuntu 14.04.5](http://releases.ubuntu.com/14.04.5/).
+Install the appropriate [compiler toolchain](https://github.com/kobolabs/Kobo-Reader/tree/master/toolchain) (the binaries of the `bin` directory need to be in your path).
 
-Install the required packages:
-```sh
-sudo apt-get upgrade
-sudo apt-get install curl git libtool {auto,c}make ragel
-sudo apt-get install {zlib1g,libjpeg8,libjbig2dec0}-dev
-sudo apt-get install g{cc,++}-arm-linux-gnueabihf
-```
+Install the required dependencies: `curl`, `git` `libtool` `automake`, `pkg-config`, `cmake` `ragel`, `jq`, `patchelf`.
 
 Install *rustup*:
 ```sh
