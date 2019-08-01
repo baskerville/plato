@@ -88,6 +88,8 @@ pub const HB_SCRIPT_INVALID: HbTag = 0;
 // Custom *scripts*.
 pub const HB_SYMBOL_MISC_ONE: HbTag = hb_tag!('Z','s','m','o');
 pub const HB_SYMBOL_MISC_TWO: HbTag = hb_tag!('Z','s','m','t');
+pub const HB_SYMBOL_MUSIC: HbTag = hb_tag!('Z','s','m','u');
+pub const HB_SYMBOL_MATHS: HbTag = hb_tag!('Z','s','m','a');
 pub const HB_SYMBOL_EMOJI: HbTag = hb_tag!('Z','s','e','j');
 
 pub const HB_SCRIPT_ARABIC: HbTag = hb_tag!('A','r','a','b');

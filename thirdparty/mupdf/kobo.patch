@@ -1,8 +1,7 @@
-diff --git a/Makefile b/Makefile
-index 97ccf19..c16892f 100644
---- a/Makefile
-+++ b/Makefile
-@@ -200,7 +200,7 @@ $(THIRD_LIB) : $(THIRD_OBJ)
+diff -ru a/Makefile b/Makefile
+--- a/Makefile	2019-07-26 16:10:07.000000000 +0200
++++ b/Makefile	2019-08-01 10:22:40.000000000 +0200
+@@ -199,7 +199,7 @@
  $(THREAD_LIB) : $(THREAD_OBJ)
  $(PKCS7_LIB) : $(PKCS7_OBJ)
  
@@ -11,7 +10,7 @@ index 97ccf19..c16892f 100644
  
  # --- Main tools and viewers ---
  
-@@ -383,7 +383,7 @@ cscope.files: $(shell find include source platform -name '*.[ch]')
+@@ -372,7 +372,7 @@
  cscope.out: cscope.files
  	cscope -b
  
@@ -20,11 +19,10 @@ index 97ccf19..c16892f 100644
  
  clean:
  	rm -rf $(OUT)
-diff --git a/Makerules b/Makerules
-index b62374d..c8a0580 100644
---- a/Makerules
-+++ b/Makerules
-@@ -184,6 +184,34 @@ ifeq "$(OS)" "mingw64-cross"
+diff -ru a/Makerules b/Makerules
+--- a/Makerules	2019-07-26 16:10:07.000000000 +0200
++++ b/Makerules	2019-08-01 10:22:40.000000000 +0200
+@@ -184,6 +184,34 @@
    HAVE_WIN32=yes
  endif
  

@@ -14,7 +14,7 @@ declare -A urls=(
 	["harfbuzz"]="https://github.com/harfbuzz/harfbuzz/archive/2.5.3.tar.gz"
 	# Documents
 	["djvulibre"]="http://downloads.sourceforge.net/djvu/djvulibre-3.5.27.tar.gz"
-	["mupdf"]="https://mupdf.com/downloads/archive/mupdf-1.15.0-source.tar.gz"
+	["mupdf"]="https://mupdf.com/downloads/archive/mupdf-1.16.0-source.tar.gz"
 )
 
 for name in "${@:-${!urls[@]}}" ; do
