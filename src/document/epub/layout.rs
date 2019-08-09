@@ -6,7 +6,7 @@ use crate::geom::{Point, Rectangle, Edge};
 use crate::font::{FontFamily, Font, RenderPlan};
 pub use crate::metadata::TextAlign;
 use super::dom::Node;
-use hyphenation::{Standard, Language, Load};
+use kl_hyphenate::{Standard, Language, Load};
 use crate::color::BLACK;
 
 pub const DEFAULT_HYPH_LANG: &str = "en";

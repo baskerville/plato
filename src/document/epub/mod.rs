@@ -12,7 +12,7 @@ use std::borrow::Cow;
 use std::collections::BTreeSet;
 use fnv::FnvHashMap;
 use zip::ZipArchive;
-use hyphenation::{Standard, Hyphenator, Iter};
+use kl_hyphenate::{Standard, Hyphenator, Iter};
 use failure::{Error, format_err};
 use crate::framebuffer::{Framebuffer, Pixmap};
 use crate::helpers::Normalize;
