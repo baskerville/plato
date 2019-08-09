@@ -105,37 +105,6 @@ pub trait Document: Send+Sync {
             _ => None,
         }
     }
-
-    fn isbn(&mut self) -> Option<String> {
-        let mut found = false;
-        let mut result = None;
-        let mut loc = Location::Exact(0);
-        let mut pages_count = 0;
-        while let Some((ref words, l)) = self.words(loc) {
-            for word in words.iter().map(|w| &*w.text) {
-                if word.contains("ISBN") {
-                    found = true;
-                    continue;
-                }
-                if found && word.len() >= 10 {
-                    let digits: String = word.chars()
-                                             .filter(|&c| c.is_digit(10) ||
-                                                          c == 'X')
-                                             .collect();
-                    if let Ok(isbn) = Isbn::from_str(&digits) {
-                        result = Some(isbn.to_string());
-                        break;
-                    }
-                }
-            }
-            pages_count += 1;
-            if pages_count > 10 || result.is_some() {
-                break;
-            }
-            loc = Location::Next(l);
-        }
-        result
-    }
 }
 
 pub fn file_kind<P: AsRef<Path>>(path: P) -> Option<String> {

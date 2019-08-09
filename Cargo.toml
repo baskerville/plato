@@ -77,6 +77,6 @@ version = "0.1.9"
 optional = true
 
 [features]
-importer = ["reqwest", "getopts"]
+importer = ["getopts"]
 emulator = ["sdl2"]
 fetcher = ["reqwest", "crossbeam-channel", "signal-hook"]

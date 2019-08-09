@@ -36,9 +36,6 @@ fn run() -> Result<(), Error> {
 
     opts.optflag("h", "help", "Print this help message.");
     opts.optflag("I", "import", "Import new books.");
-    opts.optflag("S", "extract-isbn", "Try to extract identifiers from books.");
-    opts.optflag("R", "retrieve-metadata", "Try to retrieve missing metadata.");
-    opts.optflag("s", "strict", "Only use the ISBN when retreiving metadata.");
     opts.optflag("M", "extract-metadata-epub", "Extract metadata from ePUBs.");
     opts.optflag("F", "extract-metadata-filename", "Extract metadata from filenames.");
     opts.optflag("C", "consolidate", "Consolidate an existing database.");
@@ -54,7 +51,7 @@ fn run() -> Result<(), Error> {
     let matches = opts.parse(&args).context("Failed to parse the command line arguments.")?;
 
     if matches.opt_present("h") {
-        println!("{}", opts.usage("Usage: plato-import -h|-I|-S|-R[s]|-M|-F|-C|-N|-Z|-Y [-t] [-a ALLOWED_KINDS] [-c CATEGORY_PROVIDERS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
+        println!("{}", opts.usage("Usage: plato-import -h|-I|-M|-F|-C|-N|-Z|-Y [-t] [-a ALLOWED_KINDS] [-c CATEGORY_PROVIDERS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
         return Ok(());
     }
 
@@ -89,14 +86,6 @@ fn run() -> Result<(), Error> {
         save_json(&metadata, output_path)?;
     } else {
         let mut metadata = load_json(&output_path)?;
-
-        if matches.opt_present("S") {
-            extract_isbn(library_path, &mut metadata);
-        }
-
-        if matches.opt_present("R") {
-            retrieve(&mut metadata, matches.opt_present("s"));
-        }
 
         if matches.opt_present("M") {
             extract_metadata_from_epub(library_path, &mut metadata, &import_settings);
@@ -136,95 +125,6 @@ fn main() {
             eprintln!("plato-import: {}", e);
         }
         process::exit(1);
-    }
-}
-
-pub fn extract_isbn(dir: &Path, metadata: &mut Metadata) {
-    for info in metadata {
-        if !info.isbn.is_empty() {
-            continue;
-        }
-
-        let path = dir.join(&info.file.path);
-
-        if let Some(isbn) = open(&path).and_then(|mut doc| doc.isbn()) {
-            println!("ISBN {}", isbn);
-            info.isbn = isbn;
-        }
-    }
-}
-
-pub fn retrieve(metadata: &mut Metadata, strict: bool) {
-    for info in metadata {
-        if !info.title.is_empty() {
-            continue;
-        }
-
-        retriever_lookup_by_isbn(info, strict);
-    }
-}
-
-#[inline]
-pub fn retriever_lookup_by_isbn(info: &mut Info, strict: bool) {
-    let terms = if info.isbn.is_empty() && !strict {
-        label_from_path(&info.file.path)
-    } else {
-        info.isbn.clone()
-    };
-
-    if terms.is_empty() {
-        return;
-    }
-
-    let url = format!("http://lookupbyisbn.com/Search/Book/{}/1", &terms);
-
-    if let Ok(mut resp) = reqwest::get(&url) {
-        if resp.status().is_success() {
-            let mut content = String::new();
-            resp.read_to_string(&mut content).unwrap();
-            let re = Regex::new(r"(?xs)/Lookup/Book/.+?>
-                                  ([^<]+)<.+?
-                                  <u>([^<]+)</u>.+?
-                                  <i>([^<]+)</i>.+?
-                                  <i>([^<]+)</i>").unwrap();
-            if let Some(caps) = re.captures(&content) {
-                info.title = decode_entities(&caps[1]).into_owned();
-                info.author = decode_entities(&caps[2]).into_owned();
-                info.publisher = decode_entities(&caps[3]).into_owned();
-                info.year = decode_entities(&caps[4]).into_owned();
-                println!("{}", info.label());
-            }
-        } else {
-            eprintln!("The request failed: {:?}.", resp.status());
-        }
-    }
-}
-
-#[inline]
-pub fn retriever_amazon(info: &mut Info, _strict: bool) {
-    let url = format!("https://www.amazon.com/s/?field-isbn={}", info.isbn);
-
-    if let Ok(mut resp) = reqwest::get(&url) {
-        if resp.status().is_success() {
-            let mut content = String::new();
-            resp.read_to_string(&mut content).unwrap();
-            let re = Regex::new(r"s-access-title.+?<h3").unwrap();
-            if let Some(mat) = re.find(&content) {
-                let re = Regex::new(r">([^<]+)<").unwrap();
-                for cap in re.captures_iter(&content[mat.start()..mat.end()]) {
-                    if info.title.is_empty() {
-                        info.title = decode_entities(&cap[1]).into_owned();
-                    } else if info.year.is_empty() {
-                        info.year = decode_entities(&cap[1]).into_owned();
-                    } else {
-                        info.author += &decode_entities(&cap[1]);
-                    }
-                }
-                println!("{}", info.label());
-            }
-        } else {
-            eprintln!("The request failed: {:?}.", resp.status());
-        }
     }
 }
 
