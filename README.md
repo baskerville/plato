@@ -24,7 +24,7 @@ A recent 4.X firmware is required.
 ## Supported formats
 
 - PDF and CBZ via [MuPDF](https://mupdf.com/index.html).
-- ePUB through a built-in renderer or [MuPDF](https://mupdf.com/index.html).
+- ePUB through a built-in renderer.
 - DJVU via [DjVuLibre](http://djvu.sourceforge.net/index.html).
 
 ## Features

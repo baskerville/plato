@@ -38,7 +38,7 @@ use crate::settings::{guess_frontlight, FinishedAction};
 use crate::settings::{DEFAULT_FONT_FAMILY, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT, DEFAULT_MARGIN_WIDTH};
 use crate::frontlight::LightLevels;
 use crate::gesture::GestureEvent;
-use crate::document::{Document, DocumentOpener, Location, BoundedText, Neighbors, BYTES_PER_PAGE};
+use crate::document::{Document, open, Location, BoundedText, Neighbors, BYTES_PER_PAGE};
 use crate::document::{TocEntry, toc_as_html, chapter_from_index};
 use crate::document::pdf::PdfOpener;
 use crate::metadata::{Info, FileInfo, ReaderInfo, TextAlign, ZoomMode, PageScheme};
@@ -214,9 +214,8 @@ impl Reader {
     pub fn new(rect: Rectangle, mut info: Info, hub: &Hub, context: &mut Context) -> Option<Reader> {
         let settings = &context.settings;
         let path = settings.library_path.join(&info.file.path);
-        let opener = DocumentOpener::new(settings.reader.epub_engine);
 
-        opener.open(&path).and_then(|mut doc| {
+        open(&path).and_then(|mut doc| {
             let (width, height) = context.display.dims;
             let font_size = info.reader.as_ref().and_then(|r| r.font_size)
                                 .unwrap_or(settings.reader.font_size);

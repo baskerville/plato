@@ -23,11 +23,11 @@ use regex::Regex;
 use getopts::Options;
 use titlecase::titlecase;
 use crate::helpers::{load_json, save_json};
-use crate::settings::{ImportSettings, CategoryProvider, EpubEngine};
+use crate::settings::{ImportSettings, CategoryProvider};
 use crate::metadata::{Info, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
 use crate::metadata::{import, extract_metadata_from_epub,extract_metadata_from_filename};
 use crate::document::epub::xml::decode_entities;
-use crate::document::{DocumentOpener, asciify};
+use crate::document::{open, asciify};
 
 fn run() -> Result<(), Error> {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -147,8 +147,7 @@ pub fn extract_isbn(dir: &Path, metadata: &mut Metadata) {
 
         let path = dir.join(&info.file.path);
 
-        if let Some(isbn) = DocumentOpener::new(EpubEngine::BuiltIn)
-                                           .open(&path).and_then(|mut doc| doc.isbn()) {
+        if let Some(isbn) = open(&path).and_then(|mut doc| doc.isbn()) {
             println!("ISBN {}", isbn);
             info.isbn = isbn;
         }

@@ -17,7 +17,6 @@ use self::djvu::DjvuOpener;
 use self::pdf::PdfOpener;
 use self::epub::EpubDocument;
 use crate::geom::{Boundary, CycleDir};
-use crate::settings::EpubEngine;
 use crate::metadata::TextAlign;
 use crate::framebuffer::Pixmap;
 
@@ -172,52 +171,28 @@ pub fn asciify(name: &str) -> String {
         .replace('’', "'")
 }
 
-pub struct DocumentOpener {
-    epub_engine: EpubEngine,
-}
 
-impl DocumentOpener {
-    pub fn new(epub_engine: EpubEngine) -> DocumentOpener {
-        DocumentOpener { epub_engine }
-    }
-
-    pub fn open<P: AsRef<Path>>(&self, path: P) -> Option<Box<dyn Document>> {
-        file_kind(path.as_ref()).and_then(|k| {
-            match k.as_ref() {
-                "epub" => {
-                    match self.epub_engine {
-                        EpubEngine::BuiltIn => {
-                            EpubDocument::new(path)
-                                         .map(|d| Box::new(d) as Box<dyn Document>).ok()
-                        },
-                        EpubEngine::Mupdf => {
-                            PdfOpener::new()
-                                .and_then(|mut o| {
-                                    let css_path = Path::new("user.css");
-                                    if css_path.exists() {
-                                        o.set_user_css(css_path).ok();
-                                    }
-                                    o.open(path)
-                                     .map(|d| Box::new(d) as Box<dyn Document>)
-                                })
-                        },
-                    }
-                },
-                "djvu" | "djv" => {
-                    DjvuOpener::new().and_then(|o| {
-                        o.open(path)
-                         .map(|d| Box::new(d) as Box<dyn Document>)
-                    })
-                },
-                _ => {
-                    PdfOpener::new().and_then(|o| {
-                        o.open(path)
-                         .map(|d| Box::new(d) as Box<dyn Document>)
-                    })
-                },
-            }
-        })
-    }
+pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<dyn Document>> {
+    file_kind(path.as_ref()).and_then(|k| {
+        match k.as_ref() {
+            "epub" => {
+                EpubDocument::new(path)
+                             .map(|d| Box::new(d) as Box<dyn Document>).ok()
+            },
+            "djvu" | "djv" => {
+                DjvuOpener::new().and_then(|o| {
+                    o.open(path)
+                     .map(|d| Box::new(d) as Box<dyn Document>)
+                })
+            },
+            _ => {
+                PdfOpener::new().and_then(|o| {
+                    o.open(path)
+                     .map(|d| Box::new(d) as Box<dyn Document>)
+                })
+            },
+        }
+    })
 }
 
 pub fn toc_as_html(toc: &[TocEntry], chap_index: usize) -> String {

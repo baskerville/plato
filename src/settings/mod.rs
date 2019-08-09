@@ -179,7 +179,6 @@ pub struct HomeSettings {
 pub struct ReaderSettings {
     pub refresh_every: u8,
     pub finished: FinishedAction,
-    pub epub_engine: EpubEngine,
     pub font_path: String,
     pub font_family: String,
     pub font_size: f32,
@@ -193,13 +192,6 @@ pub struct ReaderSettings {
 pub struct BatterySettings {
     pub warn: f32,
     pub power_off: f32,
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum EpubEngine {
-    BuiltIn,
-    Mupdf,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
@@ -224,7 +216,6 @@ impl Default for ReaderSettings {
         ReaderSettings {
             refresh_every: 8,
             finished: FinishedAction::Notify,
-            epub_engine: EpubEngine::BuiltIn,
             font_path: DEFAULT_FONT_PATH.to_string(),
             font_family: DEFAULT_FONT_FAMILY.to_string(),
             font_size: DEFAULT_FONT_SIZE,
