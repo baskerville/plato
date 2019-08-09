@@ -6,10 +6,8 @@ mod djvulibre_sys;
 mod mupdf_sys;
 
 use std::path::Path;
-use std::str::FromStr;
 use std::ffi::OsStr;
 use fnv::FnvHashSet;
-use isbn::Isbn;
 use lazy_static::lazy_static;
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::{is_combining_mark};
