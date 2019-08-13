@@ -179,7 +179,7 @@ pub fn toggle_clock_menu(view: &mut dyn View, rect: Rectangle, enable: Option<bo
         if let Some(false) = enable {
             return;
         }
-        let text = Local::now().format("%A, %B %-d, %Y").to_string();
+        let text = Local::now().format(&context.settings.date_format).to_string();
         let entries = vec![EntryKind::Message(text)];
         let clock_menu = Menu::new(rect, ViewId::ClockMenu, MenuKind::DropDown, entries, context);
         rq.add(RenderData::new(clock_menu.id(), *clock_menu.rect(), UpdateMode::Gui));

@@ -64,6 +64,8 @@ pub struct Settings {
     pub button_scheme: ButtonScheme,
     pub auto_suspend: u8,
     pub auto_power_off: u8,
+    pub time_format: String,
+    pub date_format: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<LibrarySettings>,
     #[serde(skip_serializing_if = "FxHashMap::is_empty")]
@@ -372,6 +374,8 @@ impl Default for Settings {
             button_scheme: ButtonScheme::Natural,
             auto_suspend: 30,
             auto_power_off: 3,
+            time_format: "%H:%M".to_string(),
+            date_format: "%A, %B %-d, %Y".to_string(),
             intermission_images: FxHashMap::default(),
             home: HomeSettings::default(),
             reader: ReaderSettings::default(),

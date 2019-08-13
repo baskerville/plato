@@ -12,19 +12,23 @@ pub struct Clock {
     id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
+    format: String,
     time: DateTime<Local>,
 }
 
 impl Clock {
-    pub fn new(rect: &mut Rectangle, fonts: &mut Fonts) -> Clock {
-        let font = font_from_style(fonts, &NORMAL_STYLE, CURRENT_DEVICE.dpi);
-        let width = font.plan("00:00", None, None).width + font.em() as i32;
+    pub fn new(rect: &mut Rectangle, context: &mut Context) -> Clock {
+        let time = Local::now();
+        let format = context.settings.time_format.clone();
+        let font = font_from_style(&mut context.fonts, &NORMAL_STYLE, CURRENT_DEVICE.dpi);
+        let width = font.plan(&time.format(&format).to_string(), None, None).width + font.em() as i32;
         rect.min.x = rect.max.x - width;
         Clock {
             id: ID_FEEDER.next(),
             rect: *rect,
             children: vec![],
-            time: Local::now(),
+            format,
+            time,
         }
     }
 }
@@ -48,7 +52,7 @@ impl View for Clock {
     fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
-        let plan = font.plan(&self.time.format("%H:%M").to_string(), None, None);
+        let plan = font.plan(&self.time.format(&self.format).to_string(), None, None);
         let dx = (self.rect.width() as i32 - plan.width) / 2;
         let dy = (self.rect.height() as i32 - font.x_heights.0 as i32) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);

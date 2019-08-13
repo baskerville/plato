@@ -21,7 +21,6 @@ impl TopBar {
     pub fn new(rect: Rectangle, root_event: Event, title: String, context: &mut Context) -> TopBar {
         let id = ID_FEEDER.next();
         let mut children = Vec::new();
-        let fonts = &mut context.fonts;
 
         let side = rect.height() as i32;
         let icon_name = match root_event {
@@ -36,7 +35,7 @@ impl TopBar {
 
         let mut clock_rect = rect![rect.max - pt!(4*side, side),
                                    rect.max - pt!(3*side, 0)];
-        let clock_label = Clock::new(&mut clock_rect, fonts);
+        let clock_label = Clock::new(&mut clock_rect, context);
         let title_rect = rect![rect.min.x + side, rect.min.y,
                                clock_rect.min.x, rect.max.y];
         let title_label = Label::new(title_rect, title, Align::Center)
