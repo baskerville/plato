@@ -251,7 +251,7 @@ impl Default for BatterySettings {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            library_path: PathBuf::from("/mnt/onboard"),
+            library_path: CURRENT_DEVICE.library_path(),
             frontlight: true,
             wifi: false,
             rotation_lock: None,

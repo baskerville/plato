@@ -1,5 +1,6 @@
 use std::env;
 use std::fmt;
+use std::path::PathBuf;
 use std::collections::HashMap;
 use lazy_static::lazy_static;
 use crate::unit::scale_by_dpi;
@@ -69,6 +70,18 @@ pub enum FrontlightKind {
 }
 
 impl Device {
+    pub fn library_path(&self) -> PathBuf {
+        match self.model {
+            Model::AuraH2O |
+            Model::Aura |
+            Model::AuraHD |
+            Model::Mini |
+            Model::Glo |
+            Model::Touch => PathBuf::from("/mnt/sd"),
+            _ => PathBuf::from("/mnt/onboard"),
+        }
+    }
+
     pub fn frontlight_kind(&self) -> FrontlightKind {
         match self.model {
             Model::AuraONE |
