@@ -29,7 +29,6 @@ use std::time::Duration;
 use failure::{Error, ResultExt};
 use fnv::FnvHashMap;
 use chrono::Local;
-use png::HasParameters;
 use sdl2::event::Event as SdlEvent;
 use sdl2::keyboard::{Scancode, Keycode};
 use sdl2::render::{WindowCanvas, BlendMode};
@@ -152,7 +151,8 @@ impl Framebuffer for WindowCanvas {
         let (width, height) = self.dims();
         let file = File::create(path).context("Can't create output file.")?;
         let mut encoder = png::Encoder::new(file, width, height);
-        encoder.set(png::ColorType::RGB).set(png::BitDepth::Eight);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_color(png::ColorType::RGB);
         let mut writer = encoder.write_header().context("Can't write header.")?;
         let data = self.read_pixels(self.viewport(), PixelFormatEnum::RGB24).unwrap_or_default();
         writer.write_image_data(&data).context("Can't write data to file.")?;

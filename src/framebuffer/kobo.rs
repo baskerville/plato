@@ -7,7 +7,6 @@ use std::os::unix::io::AsRawFd;
 use std::ops::Drop;
 use failure::{Error, ResultExt};
 use libc::ioctl;
-use png::HasParameters;
 use crate::geom::Rectangle;
 use super::{UpdateMode, Framebuffer};
 use super::mxcfb_sys::*;
@@ -187,7 +186,8 @@ impl Framebuffer for KoboFramebuffer {
         let (width, height) = self.dims();
         let file = File::create(path).context("Can't create output file.")?;
         let mut encoder = png::Encoder::new(file, width, height);
-        encoder.set(png::ColorType::RGB).set(png::BitDepth::Eight);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_color(png::ColorType::RGB);
         let mut writer = encoder.write_header().context("Can't write header.")?;
         writer.write_image_data(&(self.as_rgb)(self)).context("Can't write data to file.")?;
         Ok(())

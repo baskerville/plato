@@ -1,5 +1,4 @@
 use std::fs::File;
-use png::HasParameters;
 use failure::{Error, ResultExt, format_err};
 use super::{Framebuffer, UpdateMode};
 use crate::color::WHITE;
@@ -75,7 +74,8 @@ impl Framebuffer for Pixmap {
         let (width, height) = self.dims();
         let file = File::create(path).context("Can't create output file.")?;
         let mut encoder = png::Encoder::new(file, width, height);
-        encoder.set(png::ColorType::Grayscale).set(png::BitDepth::Eight);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_color(png::ColorType::Grayscale);
         let mut writer = encoder.write_header().context("Can't write header.")?;
         writer.write_image_data(&self.data).context("Can't write data to file.")?;
         Ok(())
