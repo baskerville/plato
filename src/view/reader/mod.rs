@@ -254,7 +254,7 @@ impl Reader {
             let mut view_port = ViewPort::default();
             let mut contrast = Contrast::default();
             let pages_count = doc.pages_count();
-            let current_page;
+            let mut current_page;
 
             // TODO: use get_or_insert_with?
             if let Some(ref mut r) = info.reader {
@@ -266,6 +266,10 @@ impl Reader {
                 }
 
                 current_page = r.current_page;
+
+                if current_page >= pages_count {
+                    current_page = pages_count - 1;
+                }
 
                 if let Some(zoom_mode) = r.zoom_mode {
                     view_port.zoom_mode = zoom_mode;
