@@ -346,8 +346,9 @@ pub fn run() -> Result<(), Error> {
                     DeviceEvent::CoverOn => {
                         context.covered = true;
 
-                        if context.shared || tasks.iter().any(|task| task.id == TaskId::PrepareSuspend ||
-                                                                      task.id == TaskId::Suspend) {
+                        if !context.settings.sleep_cover || context.shared ||
+                           tasks.iter().any(|task| task.id == TaskId::PrepareSuspend ||
+                                                   task.id == TaskId::Suspend) {
                             continue;
                         }
 
@@ -361,6 +362,15 @@ pub fn run() -> Result<(), Error> {
                         context.covered = false;
 
                         if context.shared {
+                            continue;
+                        }
+
+                        if !context.settings.sleep_cover {
+                            if tasks.iter().any(|task| task.id == TaskId::Suspend && task.has_occurred()) {
+                                tasks.retain(|task| task.id != TaskId::Suspend);
+                                schedule_task(TaskId::Suspend, Event::Suspend,
+                                              SUSPEND_WAIT_DELAY, &tx, &mut tasks);
+                            }
                             continue;
                         }
 

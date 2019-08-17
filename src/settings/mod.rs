@@ -38,6 +38,7 @@ pub struct Settings {
     pub library_path: PathBuf,
     pub frontlight: bool,
     pub wifi: bool,
+    pub sleep_cover: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rotation_lock: Option<RotationLock>,
     pub auto_suspend: u8,
@@ -254,6 +255,7 @@ impl Default for Settings {
             library_path: CURRENT_DEVICE.library_path(),
             frontlight: true,
             wifi: false,
+            sleep_cover: true,
             rotation_lock: None,
             auto_suspend: 15,
             intermission_images: FnvHashMap::default(),
