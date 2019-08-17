@@ -31,7 +31,7 @@ use crate::view::reader::Reader;
 use crate::view::confirmation::Confirmation;
 use crate::view::intermission::{Intermission, IntermKind};
 use crate::view::notification::Notification;
-use crate::device::{CURRENT_DEVICE, FrontlightKind};
+use crate::device::{CURRENT_DEVICE, FrontlightKind, INTERNAL_CARD_ROOT};
 use crate::font::Fonts;
 
 pub const APP_NAME: &str = "Plato";
@@ -99,14 +99,17 @@ struct HistoryItem {
 fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let path = Path::new(SETTINGS_PATH);
     let settings = load_toml::<Settings, _>(path);
+    let mut initial_run = false;
 
     if let Err(ref e) = settings {
         if path.exists() {
             eprintln!("Warning: can't load settings: {}", e);
+        } else {
+            initial_run = true;
         }
     }
 
-    let settings = settings.unwrap_or_default();
+    let mut settings = settings.unwrap_or_default();
 
     let path = settings.library_path.join(METADATA_FILENAME);
     let mut metadata = load_json::<Metadata, _>(path)
@@ -115,6 +118,11 @@ fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
                                                           &Vec::new(),
                                                           &settings.import))
                                  .unwrap_or_default();
+
+    if initial_run && metadata.is_empty() && settings.library_path != PathBuf::from(INTERNAL_CARD_ROOT) {
+        settings.library_path = PathBuf::from(INTERNAL_CARD_ROOT);
+        metadata = auto_import(&settings.library_path, &Vec::new(), &settings.import).unwrap_or_default();
+    }
 
     if settings.import.startup_trigger {
         let imported_metadata = auto_import(&settings.library_path,

@@ -6,6 +6,9 @@ use lazy_static::lazy_static;
 use crate::unit::scale_by_dpi;
 use crate::input::TouchProto;
 
+pub const INTERNAL_CARD_ROOT: &str = "/mnt/onboard";
+pub const EXTERNAL_CARD_ROOT: &str = "/mnt/sd";
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
     Forma,
@@ -77,8 +80,8 @@ impl Device {
             Model::AuraHD |
             Model::Mini |
             Model::Glo |
-            Model::Touch => PathBuf::from("/mnt/sd"),
-            _ => PathBuf::from("/mnt/onboard"),
+            Model::Touch => PathBuf::from(EXTERNAL_CARD_ROOT),
+            _ => PathBuf::from(INTERNAL_CARD_ROOT),
         }
     }
 
