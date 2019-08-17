@@ -10,14 +10,14 @@ use super::menu::{Menu, MenuKind};
 use super::notification::Notification;
 use crate::app::Context;
 
-pub fn shift(view: &mut View, delta: Point) {
+pub fn shift(view: &mut dyn View, delta: Point) {
     *view.rect_mut() += delta;
     for child in view.children_mut().iter_mut() {
         shift(child.as_mut(), delta);
     }
 }
 
-pub fn locate<T: View>(view: &View) -> Option<usize> {
+pub fn locate<T: View>(view: &dyn View) -> Option<usize> {
     for (index, child) in view.children().iter().enumerate() {
         if child.as_ref().is::<T>() {
             return Some(index);
@@ -26,11 +26,11 @@ pub fn locate<T: View>(view: &View) -> Option<usize> {
     None
 }
 
-pub fn locate_by_id(view: &View, id: ViewId) -> Option<usize> {
+pub fn locate_by_id(view: &dyn View, id: ViewId) -> Option<usize> {
     view.children().iter().position(|c| c.id().map_or(false, |i| i == id))
 }
 
-pub fn overlapping_rectangle(view: &View) -> Rectangle {
+pub fn overlapping_rectangle(view: &dyn View) -> Rectangle {
     let mut rect = *view.rect();
     for child in view.children() {
         rect.absorb(&overlapping_rectangle(child.as_ref()));
@@ -39,7 +39,7 @@ pub fn overlapping_rectangle(view: &View) -> Rectangle {
 }
 
 // Transfer the notifications from the view1 to the view2.
-pub fn transfer_notifications(view1: &mut View, view2: &mut View, context: &mut Context) {
+pub fn transfer_notifications(view1: &mut dyn View, view2: &mut dyn View, context: &mut Context) {
     for index in (0..view1.len()).rev() {
         if view1.child(index).is::<Notification>() {
             let mut child = view1.children_mut().remove(index);
@@ -52,7 +52,7 @@ pub fn transfer_notifications(view1: &mut View, view2: &mut View, context: &mut 
     }
 }
 
-pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
     if let Some(index) = locate_by_id(view, ViewId::MainMenu) {
         if let Some(true) = enable {
             return;
@@ -117,7 +117,7 @@ pub fn toggle_main_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, 
     }
 }
 
-pub fn toggle_battery_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+pub fn toggle_battery_menu(view: &mut dyn View, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
     if let Some(index) = locate_by_id(view, ViewId::BatteryMenu) {
         if let Some(true) = enable {
             return;
@@ -141,7 +141,7 @@ pub fn toggle_battery_menu(view: &mut View, rect: Rectangle, enable: Option<bool
     }
 }
 
-pub fn toggle_clock_menu(view: &mut View, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+pub fn toggle_clock_menu(view: &mut dyn View, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
     if let Some(index) = locate_by_id(view, ViewId::ClockMenu) {
         if let Some(true) = enable {
             return;

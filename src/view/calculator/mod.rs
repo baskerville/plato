@@ -561,7 +561,7 @@ impl View for Calculator {
         }
     }
 
-    fn render(&self, _fb: &mut Framebuffer, rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, _fb: &mut dyn Framebuffer, rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
         rect
     }
 

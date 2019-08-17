@@ -167,7 +167,7 @@ fn schedule_task(id: TaskId, event: Event, delay: Duration, hub: &Sender<Event>,
     });
 }
 
-fn resume(id: TaskId, tasks: &mut Vec<Task>, view: &mut View, hub: &Sender<Event>, context: &mut Context) {
+fn resume(id: TaskId, tasks: &mut Vec<Task>, view: &mut dyn View, hub: &Sender<Event>, context: &mut Context) {
     if id == TaskId::Suspend {
         tasks.retain(|task| task.id != TaskId::Suspend);
         if context.settings.frontlight {
@@ -193,7 +193,7 @@ fn resume(id: TaskId, tasks: &mut Vec<Task>, view: &mut View, hub: &Sender<Event
     }
 }
 
-fn power_off(view: &mut View, history: &mut Vec<HistoryItem>, updating: &mut FnvHashMap<u32, Rectangle>, context: &mut Context) {
+fn power_off(view: &mut dyn View, history: &mut Vec<HistoryItem>, updating: &mut FnvHashMap<u32, Rectangle>, context: &mut Context) {
     let (tx, _rx) = mpsc::channel();
     view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), context);
     while let Some(mut item) = history.pop() {
@@ -731,7 +731,7 @@ pub fn run() -> Result<(), Error> {
             Event::Select(EntryId::Launch(app_id)) => {
                 view.children_mut().retain(|child| !child.is::<Menu>());
                 let monochrome = context.fb.monochrome();
-                let mut next_view: Box<View> = match app_id {
+                let mut next_view: Box<dyn View> = match app_id {
                     AppId::Sketch => {
                         context.fb.set_monochrome(true);
                         Box::new(Sketch::new(context.fb.rect(), &tx, &mut context))

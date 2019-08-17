@@ -358,7 +358,7 @@ pub fn run() -> Result<(), Error> {
                 },
                 Event::Select(EntryId::Launch(app_id)) => {
                     view.children_mut().retain(|child| !child.is::<Menu>());
-                    let mut next_view: Box<View> = match app_id {
+                    let mut next_view: Box<dyn View> = match app_id {
                         AppId::Sketch => {
                             Box::new(Sketch::new(context.fb.rect(), &tx, &mut context))
                         },
@@ -367,7 +367,7 @@ pub fn run() -> Result<(), Error> {
                         },
                     };
                     transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
-                    history.push(view as Box<View>);
+                    history.push(view as Box<dyn View>);
                     view = next_view;
                 },
                 Event::Back => {

@@ -74,7 +74,7 @@ pub type Hub = Sender<Event>;
 
 pub trait View: Downcast {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool;
-    fn render(&self, fb: &mut Framebuffer, rect: Rectangle, fonts: &mut Fonts) -> Rectangle;
+    fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, fonts: &mut Fonts) -> Rectangle;
     fn rect(&self) -> &Rectangle;
     fn rect_mut(&mut self) -> &mut Rectangle;
     fn children(&self) -> &Vec<Box<dyn View>>;
@@ -84,11 +84,11 @@ pub trait View: Downcast {
         *self.rect_mut() = rect;
     }
 
-    fn child(&self, index: usize) -> &View {
+    fn child(&self, index: usize) -> &dyn View {
         self.children()[index].as_ref()
     }
 
-    fn child_mut(&mut self, index: usize) -> &mut View {
+    fn child_mut(&mut self, index: usize) -> &mut dyn View {
         self.children_mut()[index].as_mut()
     }
 
@@ -126,7 +126,7 @@ impl Debug for Box<dyn View> {
 // The consistency must also be ensured by the views: popups, for example, need to
 // capture any tap gesture with a touch point inside their rectangle.
 // A child can send events to the main channel through the *hub* or communicate with its parent through the *bus*.
-pub fn handle_event(view: &mut View, evt: &Event, hub: &Hub, parent_bus: &mut Bus, context: &mut Context) -> bool {
+pub fn handle_event(view: &mut dyn View, evt: &Event, hub: &Hub, parent_bus: &mut Bus, context: &mut Context) -> bool {
     if view.len() > 0 {
         let mut captured = false;
 
@@ -152,15 +152,15 @@ pub fn handle_event(view: &mut View, evt: &Event, hub: &Hub, parent_bus: &mut Bu
     }
 }
 
-pub fn render(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
+pub fn render(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
     render_aux(view, rect, fb, fonts, &mut false, true, updating);
 }
 
-pub fn render_no_wait(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
+pub fn render_no_wait(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
     render_aux(view, rect, fb, fonts, &mut false, false, updating);
 }
 
-pub fn render_no_wait_region(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
+pub fn render_no_wait_region(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
     render_aux(view, rect, fb, fonts, &mut true, false, updating);
 }
 
@@ -168,7 +168,7 @@ pub fn render_no_wait_region(view: &View, rect: &mut Rectangle, fb: &mut Framebu
 // Once we reach that z-level, we start comparing the candidate rectangles with the source
 // rectangle. If there is an overlap, we render the corresponding view. And update the source
 // rectangle by absorbing the candidate rectangle into it.
-fn render_aux(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &mut Fonts, above: &mut bool, wait: bool, updating: &mut FnvHashMap<u32, Rectangle>) {
+fn render_aux(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, above: &mut bool, wait: bool, updating: &mut FnvHashMap<u32, Rectangle>) {
     // FIXME: rect is used as an identifier.
     if !*above && view.rect() == rect {
         *above = true;
@@ -191,7 +191,7 @@ fn render_aux(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &m
 
 // When a floating window is destroyed, it leaves a crack underneath.
 // Each view intersecting the crack's rectangle needs to be redrawn.
-pub fn expose(view: &View, rect: &mut Rectangle, fb: &mut Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
+pub fn expose(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
     if (view.len() == 0 || view.is_background()) && view.rect().overlaps(rect) {
         updating.retain(|tok, urect| {
             !view.rect().overlaps(urect) || fb.wait(*tok).is_err()

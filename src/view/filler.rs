@@ -25,7 +25,7 @@ impl View for Filler {
         false
     }
 
-    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
         fb.draw_rectangle(&self.rect, self.color);
         self.rect
     }

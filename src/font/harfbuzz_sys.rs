@@ -11,7 +11,7 @@ macro_rules! hb_tag {
 }
 
 pub type HbDirection = libc::c_uint;
-pub type HbTag = libc::uint32_t;
+pub type HbTag = u32;
 pub type HbScript = libc::c_uint;
 pub type HbBool = libc::c_int;
 
@@ -63,7 +63,7 @@ pub struct HbGlyphPosition {
 #[repr(C)]
 pub struct HbFeature {
     tag: HbTag,
-    value: libc::uint32_t,
+    value: u32,
     start: libc::c_uint,
     end: libc::c_uint,
 }

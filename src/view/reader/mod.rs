@@ -158,7 +158,7 @@ fn scaling_factor(rect: &Rectangle, cropping_margin: &Margin, screen_margin_widt
     }
 }
 
-fn build_pixmap(rect: &Rectangle, doc: &mut Document, location: usize) -> (Pixmap, usize) {
+fn build_pixmap(rect: &Rectangle, doc: &mut dyn Document, location: usize) -> (Pixmap, usize) {
     let scale = scaling_factor(rect, &Margin::default(), 0, doc.dims(location).unwrap(), ZoomMode::FitToPage);
     doc.pixmap(Location::Exact(location), scale).unwrap()
 }
@@ -2500,7 +2500,7 @@ impl View for Reader {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
         fb.draw_rectangle(&self.rect, WHITE);
 
         for chunk in &self.chunks {

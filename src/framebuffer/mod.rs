@@ -235,7 +235,7 @@ pub trait Framebuffer {
         }
     }
 
-    fn draw_rounded_rectangle_with_border(&mut self, rect: &Rectangle, corners: &CornerSpec, border: &BorderSpec, color: &ColorSource) {
+    fn draw_rounded_rectangle_with_border(&mut self, rect: &Rectangle, corners: &CornerSpec, border: &BorderSpec, color: &dyn ColorSource) {
         let (nw, ne, se, sw) = match *corners {
             CornerSpec::Uniform(v) => (v, v, v, v),
             CornerSpec::North(v) => (v, v, 0, 0),

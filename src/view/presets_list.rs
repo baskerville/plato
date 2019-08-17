@@ -115,7 +115,7 @@ impl View for PresetsList {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
         fb.draw_rectangle(&self.rect, WHITE);
         self.rect
     }

@@ -307,7 +307,7 @@ impl View for Sketch {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
         fb.draw_framed_pixmap_halftone(&self.pixmap, &self.random, &rect, rect.min);
         rect
     }

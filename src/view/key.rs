@@ -136,7 +136,7 @@ impl View for Key {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
         fb.draw_rectangle(&self.rect, KEYBOARD_BG);
         let scheme: [u8; 3] = if self.active ^ (self.pressure == 2) {

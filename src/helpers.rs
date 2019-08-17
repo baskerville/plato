@@ -24,7 +24,7 @@ pub fn save_toml<T, P: AsRef<Path>>(data: &T, path: P) -> Result<(), Error> wher
     fs::write(path, &s).context("Can't write to file.").map_err(Into::into)
 }
 
-pub fn combine_sort_methods<'a, T, F1, F2>(mut f1: F1, mut f2: F2) -> Box<FnMut(&T, &T) -> Ordering + 'a>
+pub fn combine_sort_methods<'a, T, F1, F2>(mut f1: F1, mut f2: F2) -> Box<dyn FnMut(&T, &T) -> Ordering + 'a>
 where F1: FnMut(&T, &T) -> Ordering + 'a,
       F2: FnMut(&T, &T) -> Ordering + 'a {
     Box::new(move |x, y| {

@@ -65,7 +65,7 @@ impl View for Button {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
 
         let scheme = if self.active {

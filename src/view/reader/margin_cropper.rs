@@ -149,7 +149,7 @@ impl View for MarginCropper {
         }
     }
 
-    fn render(&self, fb: &mut Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
         let dpi = CURRENT_DEVICE.dpi;
         let dx = (self.rect.width() as i32 - self.pixmap.width as i32) / 2;
         let dy = (self.rect.height() as i32 - self.pixmap.height as i32) / 2;
