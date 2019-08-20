@@ -772,17 +772,24 @@ impl Home {
             let info = &self.visible_books[book_index];
             let path = &info.file.path;
 
-            let categories = info.categories.iter()
-                                  .map(|c| EntryKind::Command(c.to_string(),
-                                                              EntryId::RemoveBookCategory(path.clone(),
-                                                                                          c.to_string())))
-                                  .collect::<Vec<EntryKind>>();
-
             let mut entries = vec![EntryKind::Command("Add Categories".to_string(),
                                                       EntryId::AddBookCategories(path.clone()))];
 
-            if !categories.is_empty() {
-                entries.push(EntryKind::SubMenu("Remove Category".to_string(), categories));
+            if !info.categories.is_empty() {
+                let remove_categories =
+                    info.categories.iter()
+                        .map(|c| EntryKind::Command(c.to_string(),
+                                                    EntryId::RemoveBookCategory(path.clone(),
+                                                                                c.to_string())))
+                        .collect::<Vec<EntryKind>>();
+                let toggle_categories =
+                    info.categories.iter()
+                        .map(|c| EntryKind::Command(c.to_string(),
+                                                    EntryId::ToggleSelectCategory(c.to_string())))
+                        .collect::<Vec<EntryKind>>();
+
+                entries.push(EntryKind::SubMenu("Remove Category".to_string(), remove_categories));
+                entries.push(EntryKind::SubMenu("Toggle Category".to_string(), toggle_categories));
             }
 
             entries.push(EntryKind::Separator);
