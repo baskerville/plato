@@ -591,23 +591,26 @@ pub fn extract_metadata_from_epub(dir: &Path, metadata: &mut Metadata, settings:
 
         let path = dir.join(&info.file.path);
 
-        if let Ok(doc) = EpubDocument::new(&path) {
-            info.title = doc.title().unwrap_or_default();
-            info.author = doc.author().unwrap_or_default();
-            info.year = doc.year().unwrap_or_default();
-            info.publisher = doc.publisher().unwrap_or_default();
-            info.series = doc.series().unwrap_or_default();
-            if !info.series.is_empty() {
-                info.number = doc.series_index().unwrap_or_default();
-            }
-            info.language = doc.language().unwrap_or_default();
-            if info.language == "en" || info.language == "en-US" {
-                info.language.clear();
-            }
-            if subjects_as_categories {
-                info.categories.append(&mut doc.categories());
-            }
-            println!("{}", info.label());
+        match EpubDocument::new(&path) {
+            Ok(doc) => {
+                info.title = doc.title().unwrap_or_default();
+                info.author = doc.author().unwrap_or_default();
+                info.year = doc.year().unwrap_or_default();
+                info.publisher = doc.publisher().unwrap_or_default();
+                info.series = doc.series().unwrap_or_default();
+                if !info.series.is_empty() {
+                    info.number = doc.series_index().unwrap_or_default();
+                }
+                info.language = doc.language().unwrap_or_default();
+                if info.language == "en" || info.language == "en-US" {
+                    info.language.clear();
+                }
+                if subjects_as_categories {
+                    info.categories.append(&mut doc.categories());
+                }
+                println!("{}", info.label());
+            },
+            Err(e) => eprintln!("{}: {}", info.file.path.display(), e),
         }
     }
 }
