@@ -1500,7 +1500,10 @@ impl View for Home {
                 true
             },
             Event::Submit(ViewId::AddCategoriesInput, ref text) => {
-                let categs = text.split(',').map(|s| s.trim().to_string()).collect();
+                let categs = text.split(',')
+                                 .map(|s| s.trim().to_string())
+                                 .filter(|s| !s.is_empty())
+                                 .collect();
                 if let Some(ref path) = self.target_path.take() {
                     self.add_book_categories(path, &categs, hub, context);
                 } else {
@@ -1510,8 +1513,10 @@ impl View for Home {
                 true
             },
             Event::Submit(ViewId::RenameCategoryInput, ref categ_new) => {
-                if let Some(ref categ_old) = self.target_category.take() {
-                    self.rename_category(categ_old, categ_new, hub, context);
+                if !categ_new.is_empty() {
+                    if let Some(ref categ_old) = self.target_category.take() {
+                        self.rename_category(categ_old, categ_new, hub, context);
+                    }
                 }
                 self.toggle_keyboard(false, true, None, hub, context);
                 true
