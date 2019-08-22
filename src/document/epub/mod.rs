@@ -467,8 +467,13 @@ impl EpubDocument {
                                         artifact.sibling_style.padding.right;
                     let min_width = display_list.into_iter()
                                                 .flatten()
-                                                .filter_map(|dc| dc.rect())
-                                                .map(|r| r.width() as i32 + horiz_padding)
+                                                .filter_map(|dc| {
+                                                    match dc {
+                                                        DrawCommand::Text(TextCommand { rect, .. }) => Some(rect.width() as i32 + horiz_padding),
+                                                        DrawCommand::Image(ImageCommand { rect, .. }) => Some((rect.width() as i32).min(pt_to_px(parent_style.font_size, self.dpi).round().max(1.0) as i32) + horiz_padding),
+                                                        _ => None,
+                                                    }
+                                                })
                                                 .max().unwrap_or(0);
                     let max_width = artifact.rects.into_iter()
                                             .filter_map(|v| v.map(|r| r.width() as i32 + horiz_padding))
