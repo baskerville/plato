@@ -301,7 +301,9 @@ impl View for Keyboard {
                         } else {
                             hub.send(Event::Keyboard(KeyboardEvent::Append(ch))).unwrap();
                         }
-                        self.release_modifiers(hub);
+                        if ch != ' ' {
+                            self.release_modifiers(hub);
+                        }
                     }
                     KeyKind::Shift => {
                         self.state.shift = (self.state.shift + 1) % 3;
