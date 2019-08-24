@@ -14,11 +14,14 @@ use std::path::PathBuf;
 use std::collections::{VecDeque, BTreeMap};
 use chrono::Local;
 use regex::Regex;
+use septem::prelude::*;
+use septem::Roman;
 use crate::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
 use crate::view::{View, Event, Hub, ViewId, EntryKind, EntryId, SliderId, Bus, THICKNESS_MEDIUM};
 use crate::unit::{scale_by_dpi, mm_to_px};
 use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use crate::helpers::AsciiExtension;
 use crate::font::Fonts;
 use crate::font::family_names;
 use self::margin_cropper::{MarginCropper, BUTTON_DIAMETER};
@@ -984,7 +987,9 @@ impl Reader {
                                     self.rect.max.y - small_height as i32 - small_thickness];
 
             let number = match id {
-                Some(ViewId::GoToPageInput) | Some(ViewId::GoToResultsPageInput) => true,
+                Some(ViewId::GoToPageInput) |
+                Some(ViewId::GoToResultsPageInput) |
+                Some(ViewId::NamePageInput) => true,
                 _ => false,
             };
 
@@ -1221,6 +1226,31 @@ impl Reader {
             self.children.insert(index, Box::new(bottom_bar) as Box<dyn View>);
 
             hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        }
+    }
+
+    fn toggle_name_page(&mut self, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+        if let Some(index) = locate_by_id(self, ViewId::NamePage) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            self.children.remove(index);
+
+            if self.focus.map(|focus_id| focus_id == ViewId::NamePageInput).unwrap_or(false) {
+                self.toggle_keyboard(false, None, hub, context);
+            }
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let name_page = NamedInput::new("Name page".to_string(), ViewId::NamePage, ViewId::NamePageInput, 4, context);
+            hub.send(Event::Render(*name_page.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Focus(Some(ViewId::NamePageInput))).unwrap();
+
+            self.children.push(Box::new(name_page) as Box<dyn View>);
         }
     }
 
@@ -1490,11 +1520,23 @@ impl Reader {
                 return;
             }
 
-            let first_page = self.info.reader.as_ref()
-                                 .and_then(|r| r.first_page).unwrap_or(0);
-            let entries = vec![EntryKind::CheckBox("First Page".to_string(),
-                                                   EntryId::ToggleFirstPage,
-                                                   self.current_page == first_page)];
+            let has_name = self.info.reader.as_ref()
+                               .map_or(false, |r| r.page_names.contains_key(&self.current_page));
+
+            let mut entries = vec![EntryKind::Command("Name".to_string(), EntryId::SetPageName)];
+            if has_name {
+                entries.push(EntryKind::Command("Remove Name".to_string(), EntryId::RemovePageName));
+            }
+            let names = self.info.reader.as_ref()
+                            .map(|r| r.page_names.iter()
+                                      .map(|(i, s)| EntryKind::Command(s.to_string(), EntryId::GoTo(*i)))
+                                      .collect::<Vec<EntryKind>>())
+                            .unwrap_or_default();
+            if !names.is_empty() {
+                entries.push(EntryKind::Separator);
+                entries.push(EntryKind::SubMenu("Go To".to_string(), names));
+            }
+
             let page_menu = Menu::new(rect, ViewId::PageMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*page_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(page_menu) as Box<dyn View>);
@@ -1848,6 +1890,34 @@ impl Reader {
         self.update(None, hub);
     }
 
+    fn find_page_by_name(&self, name: &str) -> Option<usize> {
+        self.info.reader.as_ref().and_then(|r| {
+            if let Ok(a) = u32::from_str_radix(name, 10) {
+                r.page_names
+                 .iter().filter_map(|(i, s)| u32::from_str_radix(s, 10).ok().map(|b| (b, i)))
+                 .filter(|(b, _)| *b <= a)
+                 .max_by(|x, y| x.0.cmp(&y.0))
+                 .map(|(b, i)| *i + (a - b) as usize)
+            } else if let Some(a) = name.chars().next().and_then(|c| c.to_alphabetic_digit()) {
+                r.page_names
+                 .iter().filter_map(|(i, s)| s.chars().next()
+                                              .and_then(|c| c.to_alphabetic_digit())
+                                              .map(|c| (c, i)))
+                 .filter(|(b, _)| *b <= a)
+                 .max_by(|x, y| x.0.cmp(&y.0))
+                 .map(|(b, i)| *i + (a - b) as usize)
+            } else if let Ok(a) = Roman::from_str(name) {
+                r.page_names
+                 .iter().filter_map(|(i, s)| Roman::from_str(s).ok().map(|b| (*b, i)))
+                 .filter(|(b, _)| *b <= *a)
+                 .max_by(|x, y| x.0.cmp(&y.0))
+                 .map(|(b, i)| *i + (*a - b) as usize)
+            } else {
+                None
+            }
+        })
+    }
+
     fn reseed(&mut self, hub: &Hub, context: &mut Context) {
         let (tx, _rx) = mpsc::channel();
         if let Some(index) = locate::<TopBar>(self) {
@@ -2148,24 +2218,25 @@ impl View for Reader {
             Event::Submit(ViewId::GoToPageInput, ref text) => {
                 let re = Regex::new(r#"^([-+"])?(.+)$"#).unwrap();
                 if let Some(caps) = re.captures(text) {
-                    if let Ok(number) = caps[2].parse::<f64>() {
-                        let location = if !self.synthetic {
-                            let mut index = number.max(0.0) as usize;
-                            match caps.get(1).map(|m| m.as_str()) {
-                                Some("\"") => {
-                                    index = index.saturating_sub(1);
-                                    index += self.info.reader.as_ref()
-                                                    .and_then(|r| r.first_page).unwrap_or(0);
-                                },
-                                Some("-") => index = self.current_page.saturating_sub(index),
-                                Some("+") => index += self.current_page,
-                                _ => index = index.saturating_sub(1),
-                            }
-                            index
-                        } else {
-                            (number * BYTES_PER_PAGE).max(0.0).round() as usize
-                        };
-                        self.go_to_page(location, true, hub);
+                    if let Some("\"") = caps.get(1).map(|m| m.as_str()) {
+                        if let Some(location) = self.find_page_by_name(&caps[2]) {
+                            self.go_to_page(location, true, hub);
+                        }
+                    } else {
+                        if let Ok(number) = caps[2].parse::<f64>() {
+                            let location = if !self.synthetic {
+                                let mut index = number.max(0.0) as usize;
+                                match caps.get(1).map(|m| m.as_str()) {
+                                    Some("-") => index = self.current_page.saturating_sub(index),
+                                    Some("+") => index += self.current_page,
+                                    _ => index = index.saturating_sub(1),
+                                }
+                                index
+                            } else {
+                                (number * BYTES_PER_PAGE).max(0.0).round() as usize
+                            };
+                            self.go_to_page(location, true, hub);
+                        }
                     }
                 }
                 true
@@ -2174,6 +2245,15 @@ impl View for Reader {
                 if let Ok(index) = text.parse::<usize>() {
                     self.go_to_results_page(index.saturating_sub(1), hub);
                 }
+                true
+            },
+            Event::Submit(ViewId::NamePageInput, ref text) => {
+                if !text.is_empty() {
+                    if let Some(ref mut r) = self.info.reader {
+                        r.page_names.insert(self.current_page, text.to_string());
+                    }
+                }
+                self.toggle_keyboard(false, None, hub, context);
                 true
             },
             Event::Submit(ViewId::SearchInput, ref text) => {
@@ -2197,7 +2277,7 @@ impl View for Reader {
                 self.go_to_neighbor(dir, hub, context);
                 true
             },
-            Event::GoTo(location) => {
+            Event::GoTo(location) | Event::Select(EntryId::GoTo(location)) => {
                 self.go_to_page(location, true, hub);
                 true
             },
@@ -2449,13 +2529,13 @@ impl View for Reader {
                 self.set_contrast_gray(gray, hub, context);
                 true
             },
-            Event::Select(EntryId::ToggleFirstPage) => {
+            Event::Select(EntryId::SetPageName) => {
+                self.toggle_name_page(None, hub, context);
+                true
+            },
+            Event::Select(EntryId::RemovePageName) => {
                 if let Some(ref mut r) = self.info.reader {
-                    if r.first_page.unwrap_or(0) == self.current_page {
-                        r.first_page = None;
-                    } else {
-                        r.first_page = Some(self.current_page);
-                    }
+                    r.page_names.remove(&self.current_page);
                 }
                 true
             },

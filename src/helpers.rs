@@ -52,6 +52,20 @@ impl Normalize for Path {
     }
 }
 
+pub trait AsciiExtension {
+    fn to_alphabetic_digit(self) -> Option<u32>;
+}
+
+impl AsciiExtension for char {
+    fn to_alphabetic_digit(self) -> Option<u32> {
+        if self.is_ascii_uppercase() {
+            Some(self as u32 - 65)
+        } else {
+            None
+        }
+    }
+}
+
 pub mod simple_date_format {
     use chrono::{DateTime, Local, TimeZone};
     use serde::{self, Deserialize, Serializer, Deserializer};

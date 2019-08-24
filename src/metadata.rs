@@ -1,9 +1,9 @@
 use std::fs;
 use std::fmt;
 use std::path::{self, Path, PathBuf};
-use std::collections::BTreeSet;
 use std::ffi::OsStr;
 use std::cmp::Ordering;
+use std::collections::{BTreeSet, BTreeMap};
 use fnv::{FnvHashMap, FnvHashSet};
 use chrono::{Local, DateTime};
 use serde::{Serialize, Deserialize};
@@ -202,8 +202,8 @@ pub struct ReaderInfo {
     pub contrast_exponent: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub contrast_gray: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub first_page: Option<usize>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub page_names: BTreeMap<usize, String>,
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     pub bookmarks: BTreeSet<usize>,
 }
@@ -239,7 +239,7 @@ impl Default for ReaderInfo {
             line_height: None,
             contrast_exponent: None,
             contrast_gray: None,
-            first_page: None,
+            page_names: BTreeMap::new(),
             bookmarks: BTreeSet::new(),
         }
     }

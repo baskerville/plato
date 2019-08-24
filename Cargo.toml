@@ -48,6 +48,7 @@ entities = "1.0.1"
 paragraph-breaker = "0.4.3"
 rand_xorshift = "0.2.0"
 xi-unicode = "0.2.0"
+septem = "1.0.1"
 
 [dependencies.getopts]
 version = "0.2.19"
