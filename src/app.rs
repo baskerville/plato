@@ -432,12 +432,17 @@ pub fn run() -> Result<(), Error> {
                                     resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut context);
                                 }
 
-                                let confirm = Confirmation::new(ViewId::ConfirmShare,
-                                                                Event::PrepareShare,
-                                                                "Share storage via USB?".to_string(),
-                                                                &mut context);
-                                tx.send(Event::Render(*confirm.rect(), UpdateMode::Gui)).unwrap();
-                                view.children_mut().push(Box::new(confirm) as Box<dyn View>);
+                                if context.settings.auto_share {
+                                    tx.send(Event::PrepareShare).unwrap();
+                                } else {
+                                    let confirm = Confirmation::new(ViewId::ConfirmShare,
+                                                                    Event::PrepareShare,
+                                                                    "Share storage via USB?".to_string(),
+                                                                    &mut context);
+                                    tx.send(Event::Render(*confirm.rect(), UpdateMode::Gui)).unwrap();
+                                    view.children_mut().push(Box::new(confirm) as Box<dyn View>);
+                                }
+
                                 inactive_since = Instant::now();
                             },
                         }
