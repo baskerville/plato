@@ -1,4 +1,4 @@
-use std::mem;
+use std::mem::{self, MaybeUninit};
 use std::ptr;
 use std::slice;
 use std::thread;
@@ -225,15 +225,15 @@ pub fn parse_raw_events(paths: &[String], tx: &Sender<InputEvent>) -> Result<(),
         }
         for (pfd, mut file) in pfds.iter().zip(&files) {
             if pfd.revents & libc::POLLIN != 0 {
-                let mut input_event: InputEvent = unsafe { mem::uninitialized() };
+                let mut input_event = unsafe { MaybeUninit::<InputEvent>::uninit() };
                 unsafe {
-                    let event_slice = slice::from_raw_parts_mut(&mut input_event as *mut InputEvent as *mut u8,
+                    let event_slice = slice::from_raw_parts_mut(input_event.as_mut_ptr() as *mut u8,
                                                                 mem::size_of::<InputEvent>());
                     if file.read_exact(event_slice).is_err() {
                         break;
                     }
+                    tx.send(input_event.assume_init()).unwrap();
                 }
-                tx.send(input_event).unwrap();
             }
         }
     }
