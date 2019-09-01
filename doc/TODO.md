@@ -3,5 +3,5 @@
 - Metadata view.
 - Complex/fuzzy search queries?
 - Input field completions bar.
-- Applications: Terminal, Browser.
+- Applications: Notes, Terminal, Browser.
 - Use nix's ioctl macros.
