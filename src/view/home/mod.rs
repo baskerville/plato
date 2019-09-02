@@ -18,7 +18,7 @@ use serde_json::Value as JsonValue;
 use fnv::{FnvHashSet, FnvHashMap};
 use failure::{Error, format_err};
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::metadata::{Info, Metadata, SortMethod, SimpleStatus, sort, make_query, auto_import};
+use crate::metadata::{Info, Metadata, SortMethod, SimpleStatus, sort, make_query, auto_import, clean_up};
 use crate::view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
 use crate::settings::{Hook, SecondColumn};
 use crate::view::filler::Filler;
@@ -1284,7 +1284,7 @@ impl Home {
     fn clean_up(&mut self, hub: &Hub, context: &mut Context) {
         self.history_push(false, context);
         let library_path = &context.settings.library_path;
-        context.metadata.retain(|info| library_path.join(&info.file.path).exists());
+        clean_up(library_path, &mut context.metadata);
         self.refresh_visibles(true, false, hub, context);
     }
 

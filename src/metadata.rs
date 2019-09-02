@@ -668,6 +668,18 @@ pub fn extract_metadata_from_filename(metadata: &mut Metadata) {
     }
 }
 
+pub fn clean_up(dir: &Path, metadata: &mut Metadata) {
+    metadata.retain(|info| {
+        let path = &info.file.path;
+        if !dir.join(path).exists() {
+            println!("{}", path.display());
+            false
+        } else {
+            true
+        }
+    });
+}
+
 fn find_files(root: &Path, dir: &Path, traverse_hidden: bool) -> Result<Vec<FileInfo>, Error> {
     let mut result = Vec::new();
 

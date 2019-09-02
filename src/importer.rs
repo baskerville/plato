@@ -25,7 +25,7 @@ use titlecase::titlecase;
 use crate::helpers::{load_json, save_json};
 use crate::settings::{ImportSettings, CategoryProvider};
 use crate::metadata::{Info, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
-use crate::metadata::{import, extract_metadata_from_epub,extract_metadata_from_filename};
+use crate::metadata::{import, extract_metadata_from_epub, extract_metadata_from_filename, clean_up};
 use crate::document::epub::xml::decode_entities;
 use crate::document::{open, asciify};
 
@@ -41,6 +41,7 @@ fn run() -> Result<(), Error> {
     opts.optflag("C", "consolidate", "Consolidate an existing database.");
     opts.optflag("N", "rename", "Rename files based on their info.");
     opts.optflag("Y", "synchronize", "Synchronize libraries.");
+    opts.optflag("U", "clean-up", "Remove entries with dangling paths.");
     opts.optflag("Z", "initialize", "Initialize a database.");
     opts.optflag("t", "traverse-hidden", "Traverse hidden directories.");
     opts.optopt("a", "allowed-kinds", "Comma separated list of allowed kinds.", "ALLOWED_KINDS");
@@ -51,7 +52,7 @@ fn run() -> Result<(), Error> {
     let matches = opts.parse(&args).context("Failed to parse the command line arguments.")?;
 
     if matches.opt_present("h") {
-        println!("{}", opts.usage("Usage: plato-import -h|-I|-M|-F|-C|-N|-Z|-Y [-t] [-a ALLOWED_KINDS] [-c CATEGORY_PROVIDERS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
+        println!("{}", opts.usage("Usage: plato-import -h|-I|-M|-F|-C|-N|-U|-Z|-Y [-t] [-a ALLOWED_KINDS] [-c CATEGORY_PROVIDERS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
         return Ok(());
     }
 
@@ -84,6 +85,10 @@ fn run() -> Result<(), Error> {
         let metadata = load_json(input_path)?;
         let metadata = import(library_path, &metadata, &import_settings)?;
         save_json(&metadata, output_path)?;
+    } else if matches.opt_present("U") {
+        let mut metadata = load_json(&input_path)?;
+        clean_up(library_path, &mut metadata);
+        save_json(&metadata, input_path)?;
     } else {
         let mut metadata = load_json(&output_path)?;
 

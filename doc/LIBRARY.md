@@ -12,8 +12,6 @@ And put the generated library in `libs`.
 
 ## Import Metadata
 
-The following tools will be used in the examples: [jq](https://stedolan.github.io/jq/) and [stest](https://git.suckless.org/dmenu/tree/stest.c).
-
 First install the importer with `cargo install --path . --bin plato-import --features importer`.
 
 Then, create an empty database with `plato-import -Z LIBRARY_PATH`.
@@ -39,7 +37,7 @@ I would recommend adding binding to your text editor to open files at the cursor
 
 ## Library Synchronization
 
-Connect your e-reader to your computer. If you're importing for the first time, create and empty database: `plato -Z EREADER_LIBRARY_PATH`. Merge the imported metadata into the e-reader's database:
+Connect your e-reader to your computer. If you're importing for the first time, create and empty database: `plato -Z EREADER_LIBRARY_PATH`. Merge the imported metadata into the e-reader's database using [jq](https://stedolan.github.io/jq/):
 ```sh
 cd EREADER_LIBRARY_PATH
 jq -s '.|add' .metadata.json LIBRARY_PATH/.metadata-imported.json > metadata.json
@@ -53,9 +51,3 @@ plato-import -Y LIBRARY_PATH/ EREADER_LIBRARY_PATH/`
 ```
 
 Don't remove `LIBRARY_PATH/.metadata-imported.json` until all your devices are synchronized.
-
-You can check if a database contains broken paths with:
-
-```sh
-jq -r '.[].file.path' .metadata.json | stest -ave
-```
