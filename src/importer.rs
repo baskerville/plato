@@ -42,6 +42,7 @@ fn run() -> Result<(), Error> {
     opts.optflag("N", "rename", "Rename files based on their info.");
     opts.optflag("Y", "synchronize", "Synchronize libraries.");
     opts.optflag("U", "clean-up", "Remove entries with dangling paths.");
+    opts.optflag("G", "merge", "Merge the imported entries into the library.");
     opts.optflag("Z", "initialize", "Initialize a database.");
     opts.optflag("t", "traverse-hidden", "Traverse hidden directories.");
     opts.optopt("a", "allowed-kinds", "Comma separated list of allowed kinds.", "ALLOWED_KINDS");
@@ -52,7 +53,7 @@ fn run() -> Result<(), Error> {
     let matches = opts.parse(&args).context("Failed to parse the command line arguments.")?;
 
     if matches.opt_present("h") {
-        println!("{}", opts.usage("Usage: plato-import -h|-I|-M|-F|-C|-N|-U|-Z|-Y [-t] [-a ALLOWED_KINDS] [-c CATEGORY_PROVIDERS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
+        println!("{}", opts.usage("Usage: plato-import -h|-I|-M|-F|-C|-N|-U|-G|-Z|-Y [-t] [-a ALLOWED_KINDS] [-c CATEGORY_PROVIDERS] [-i INPUT_NAME] [-o OUTPUT_NAME] LIBRARY_PATH [DEST_LIBRARY_PATH]"));
         return Ok(());
     }
 
@@ -85,10 +86,26 @@ fn run() -> Result<(), Error> {
         let metadata = load_json(input_path)?;
         let metadata = import(library_path, &metadata, &import_settings)?;
         save_json(&metadata, output_path)?;
+    } else if matches.opt_present("G") {
+        let dest_library_path = matches.free.get(1).map(|s| Path::new(s))
+                                       .unwrap_or(library_path);
+        let dest_input_path = dest_library_path.join(input_name);
+        let mut metadata: Metadata = load_json(&dest_input_path)?;
+        let mut imported_metadata = load_json(&output_path)?;
+        metadata.append(&mut imported_metadata);
+        save_json(&metadata, dest_input_path)?;
     } else if matches.opt_present("U") {
         let mut metadata = load_json(&input_path)?;
         clean_up(library_path, &mut metadata);
         save_json(&metadata, input_path)?;
+    } else if matches.opt_present("Y") {
+        if matches.free.len() < 2 {
+            return Err(format_err!("Missing required argument: destination library path."));
+        }
+
+        let metadata = load_json(&output_path)?;
+        let dest_library_path = Path::new(&matches.free[1]);
+        synchronize(library_path, dest_library_path, &metadata);
     } else {
         let mut metadata = load_json(&output_path)?;
 
@@ -108,16 +125,6 @@ fn run() -> Result<(), Error> {
             rename(library_path, &mut metadata);
         }
 
-        if matches.opt_present("Y") {
-            if matches.free.len() < 2 {
-                return Err(format_err!("Missing required argument: destination library path."));
-            }
-
-            let dest_library_path = Path::new(&matches.free[1]);
-
-            synchronize(library_path, dest_library_path, &metadata);
-        }
-        
         save_json(&metadata, output_path)?;
     }
 

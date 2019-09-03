@@ -37,17 +37,10 @@ I would recommend adding binding to your text editor to open files at the cursor
 
 ## Library Synchronization
 
-Connect your e-reader to your computer. If you're importing for the first time, create and empty database: `plato -Z EREADER_LIBRARY_PATH`. Merge the imported metadata into the e-reader's database using [jq](https://stedolan.github.io/jq/):
+Connect your e-reader to your computer. If you're importing for the first time, create and empty database: `plato -Z EREADER_LIBRARY_PATH`. You can then synchronize you device with:
 ```sh
-cd EREADER_LIBRARY_PATH
-jq -s '.|add' .metadata.json LIBRARY_PATH/.metadata-imported.json > metadata.json
-mv metadata.json .metadata.json
+plato-import -G LIBRARY_PATH EREADER_LIBRARY_PATH`
+plato-import -Y LIBRARY_PATH EREADER_LIBRARY_PATH`
 ```
 
-Synchronize your e-reader library:
-
-```sh
-plato-import -Y LIBRARY_PATH/ EREADER_LIBRARY_PATH/`
-```
-
-Don't remove `LIBRARY_PATH/.metadata-imported.json` until all your devices are synchronized.
+Once you've synchronized all your devices, you might update the local library with `plato-import -G LIBRARY_PATH`.
