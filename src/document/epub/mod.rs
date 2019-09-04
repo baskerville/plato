@@ -17,7 +17,7 @@ use failure::{Error, format_err};
 use crate::framebuffer::{Framebuffer, Pixmap};
 use crate::helpers::{Normalize, decode_entities};
 use crate::font::{FontOpener, FontFamily};
-use crate::document::{Document, Location, TocEntry, BoundedText, chapter_from_uri};
+use crate::document::{Document, Location, TextLocation, TocEntry, BoundedText, chapter_from_uri};
 use crate::document::pdf::PdfOpener;
 use paragraph_breaker::{Item as ParagraphItem, Breakpoint, INFINITE_PENALTY};
 use paragraph_breaker::{total_fit, standard_fit};
@@ -1276,7 +1276,6 @@ impl EpubDocument {
                                 uri: style.uri.clone(),
                             }),
                         });
-                        buf = String::new();
                     }
                 },
                 InlineMaterial::LineBreak => {
@@ -1504,7 +1503,6 @@ impl EpubDocument {
 
         let mut last_index = 0;
         let mut markers_index = 0;
-        let mut last_text_offset = 0;
         let mut last_x_position = 0;
         let mut is_first_line = true;
         let mut j = 0;
@@ -1547,7 +1545,6 @@ impl EpubDocument {
                                 } else {
                                     page_rect = Some(rect);
                                 }
-                                last_text_offset = element.offset;
                                 while let Some(offset) = markers.get(markers_index) {
                                     if *offset < element.offset {
                                         page.push(DrawCommand::Marker(root_data.start_offset + *offset));
@@ -1692,26 +1689,17 @@ impl EpubDocument {
             if let ParagraphItem::Penalty { width, .. } = items[index] {
                 if width > 0 {
                     let font_size = (style.font_size * 64.0) as u32;
-                    let plan = {
+                    let mut hyphen_plan = {
                         let font = self.fonts.as_mut().unwrap()
                                        .get_mut(style.font_kind, style.font_style, style.font_weight);
                         font.set_size(font_size, self.dpi);
                         font.plan("-", None, style.font_features.as_ref().map(Vec::as_slice))
                     };
-                    let rect = rect![*position + pt!(0, -ascender), *position + pt!(plan.width as i32, -descender)];
-                    page.push(DrawCommand::Text(TextCommand {
-                        offset: last_text_offset + root_data.start_offset,
-                        position: *position,
-                        rect,
-                        text: '\u{00AD}'.to_string(),
-                        plan,
-                        uri: None,
-                        font_kind: style.font_kind,
-                        font_style: style.font_style,
-                        font_weight: style.font_weight,
-                        font_size,
-                        color: style.color,
-                    }));
+                    if let Some(DrawCommand::Text(TextCommand { ref mut rect, ref mut plan, ref mut text, .. })) = page.last_mut() {
+                        rect.max.x += hyphen_plan.width as i32;
+                        plan.append(&mut hyphen_plan);
+                        text.push('\u{00AD}');
+                    }
                 }
             }
 
@@ -2283,10 +2271,11 @@ impl Document for EpubDocument {
         self.cache.get(&index).map(|display_list| {
             (display_list[page_index].iter().filter_map(|dc| {
                 match dc {
-                    DrawCommand::Text(TextCommand { text, rect, .. }) => {
+                    DrawCommand::Text(TextCommand { text, rect, offset, .. }) => {
                         Some(BoundedText {
                             text: text.clone(),
                             rect: (*rect).into(),
+                            location: TextLocation::Dynamic(*offset),
                         })
                     },
                     _ => None,
@@ -2311,11 +2300,12 @@ impl Document for EpubDocument {
         self.cache.get(&index).map(|display_list| {
             (display_list[page_index].iter().filter_map(|dc| {
                 match dc {
-                    DrawCommand::Text(TextCommand { uri, rect, .. }) |
-                    DrawCommand::Image(ImageCommand { uri, rect, .. }) if uri.is_some() => {
+                    DrawCommand::Text(TextCommand { uri, rect, offset, .. }) |
+                    DrawCommand::Image(ImageCommand { uri, rect, offset, .. }) if uri.is_some() => {
                         Some(BoundedText {
                             text: uri.clone().unwrap(),
                             rect: (*rect).into(),
+                            location: TextLocation::Dynamic(*offset),
                         })
                     },
                     _ => None,

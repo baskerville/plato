@@ -120,9 +120,19 @@ impl Framebuffer for KoboFramebuffer {
         }
     }
 
+    fn shift_region(&mut self, rect: &Rectangle, drift: u8) {
+        for y in rect.min.y..rect.max.y {
+            for x in rect.min.x..rect.max.x {
+                let rgb = (self.get_pixel_rgb)(self, x as u32, y as u32);
+                let red = rgb[0].saturating_sub(drift);
+                let green = rgb[1].saturating_sub(drift);
+                let blue = rgb[2].saturating_sub(drift);
+                (self.set_pixel_rgb)(self, x as u32, y as u32, [red, green, blue]);
+            }
+        }
+    }
+
     // Tell the driver that the screen needs to be redrawn.
-    // The `rect` parameter is ignored for the `Full` mode.
-    // The `Fast` mode maps everything to BLACK and WHITE.
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32, Error> {
         let (update_mode, waveform_mode) = match mode {
             UpdateMode::Gui |

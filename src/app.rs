@@ -10,7 +10,7 @@ use fnv::FnvHashMap;
 use chrono::Local;
 use crate::framebuffer::{Framebuffer, KoboFramebuffer, Display, UpdateMode};
 use crate::view::{View, Event, EntryId, EntryKind, ViewId, AppId};
-use crate::view::{render, render_no_wait, render_no_wait_region, handle_event, expose};
+use crate::view::{render, render_region, render_no_wait, render_no_wait_region, handle_event, expose};
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
 use crate::view::frontlight::FrontlightWindow;
 use crate::view::menu::{Menu, MenuKind};
@@ -517,17 +517,16 @@ pub fn run() -> Result<(), Error> {
                             continue;
                         }
 
-                        if view.might_rotate() {
-                            if let Some(rotation_lock) = context.settings.rotation_lock {
-                                let orientation = CURRENT_DEVICE.orientation(n);
-                                if rotation_lock == RotationLock::Current ||
-                                   (rotation_lock == RotationLock::Portrait && orientation == Orientation::Landscape) ||
-                                   (rotation_lock == RotationLock::Landscape && orientation == Orientation::Portrait) {
-                                    continue;
-                                }
+                        if let Some(rotation_lock) = context.settings.rotation_lock {
+                            let orientation = CURRENT_DEVICE.orientation(n);
+                            if rotation_lock == RotationLock::Current ||
+                               (rotation_lock == RotationLock::Portrait && orientation == Orientation::Landscape) ||
+                               (rotation_lock == RotationLock::Landscape && orientation == Orientation::Portrait) {
+                                continue;
                             }
-                            tx.send(Event::Select(EntryId::Rotate(n))).unwrap();
                         }
+
+                        tx.send(Event::Select(EntryId::Rotate(n))).unwrap();
                     },
                     DeviceEvent::UserActivity if context.settings.auto_suspend > 0 => {
                         inactive_since = Instant::now();
@@ -639,19 +638,26 @@ pub fn run() -> Result<(), Error> {
             },
             Event::Gesture(ge) => {
                 match ge {
-                    GestureEvent::HoldButton(ButtonCode::Power) => {
+                    GestureEvent::HoldButtonLong(ButtonCode::Power) => {
                         power_off(view.as_mut(), &mut history, &mut updating, &mut context);
                         exit_status = ExitStatus::PowerOff;
                         break;
                     },
-                    GestureEvent::MultiTap(points) => {
+                    GestureEvent::MultiTap(mut points) => {
                         let mut rect = context.fb.rect();
                         let w = rect.width() as i32;
                         let h = rect.height() as i32;
                         let m = w.min(h);
                         rect.shrink(&Edge::uniform(m / 12));
+                        if points[0].x > points[1].x {
+                            points.swap(0, 1);
+                        }
                         if points[0].dist2(points[1]) >= rect.diag2() {
-                            tx.send(Event::Select(EntryId::TakeScreenshot)).unwrap();
+                            if points[0].y < points[1].y {
+                                tx.send(Event::Select(EntryId::TakeScreenshot)).unwrap();
+                            } else {
+                                tx.send(Event::Render(context.fb.rect(), UpdateMode::Full)).unwrap();
+                            }
                         }
                     },
                     _ => {
@@ -674,6 +680,12 @@ pub fn run() -> Result<(), Error> {
             },
             Event::Render(mut rect, mode) => {
                 render(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
+                if let Ok(tok) = context.fb.update(&rect, mode) {
+                    updating.insert(tok, rect);
+                }
+            },
+            Event::RenderRegion(mut rect, mode) => {
+                render_region(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
                 if let Ok(tok) = context.fb.update(&rect, mode) {
                     updating.insert(tok, rect);
                 }
@@ -820,7 +832,7 @@ pub fn run() -> Result<(), Error> {
                     context.settings.intermission_images.insert(key.to_string(), path.clone());
                 }
             },
-            Event::Select(EntryId::Rotate(n)) if n != context.display.rotation => {
+            Event::Select(EntryId::Rotate(n)) if n != context.display.rotation && view.might_rotate() => {
                 updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                 if let Ok(dims) = context.fb.set_rotation(n) {
                     raw_sender.send(display_rotate_event(n)).unwrap();

@@ -65,7 +65,7 @@ impl View for Button {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
 
         let scheme = if self.active {
@@ -96,7 +96,6 @@ impl View for Button {
 
         let foreground = if self.disabled { scheme[2] } else { scheme[1] };
         font.render(fb, foreground, &plan, pt);
-        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

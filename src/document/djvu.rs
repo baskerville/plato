@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::path::Path;
 use std::ffi::{CStr, CString};
 use std::os::unix::ffi::OsStrExt;
-use super::{Document, Location, BoundedText, TocEntry};
+use super::{Document, Location, TextLocation, BoundedText, TocEntry};
 use super::{chapter, chapter_relative};
 use crate::metadata::TextAlign;
 use crate::framebuffer::Pixmap;
@@ -171,6 +171,7 @@ impl Document for DjvuDocument {
                 let s_rect = miniexp_symbol(c_rect.as_ptr()) as *mut MiniExp;
                 let mut link = links;
                 let mut result = Vec::new();
+                let mut offset = 0;
                 while !(*link).is_null() {
                     let uri = miniexp_nth(1, *link);
                     let area = miniexp_nth(3, *link);
@@ -183,8 +184,13 @@ impl Document for DjvuDocument {
                             let r_height = miniexp_nth(4, area) as i32 >> 2;
                             bndr![x_min as f32, (y_max - r_height) as f32, (x_min + r_width) as f32, y_max as f32]
                         };
-                        result.push(BoundedText { text, rect });
+                        result.push(BoundedText {
+                            text,
+                            rect,
+                            location: TextLocation::Static(index, offset),
+                        });
                     }
+                    offset += 1;
                     link = link.offset(1);
                 }
                 libc::free(links as *mut libc::c_void);
@@ -278,15 +284,16 @@ impl DjvuDocument {
             if exp == MINIEXP_NIL {
                 None
             } else {
-                let mut words = Vec::new();
-                Self::walk_text(exp, height, kind, &mut words);
+                let mut data = Vec::new();
+                let mut offset = 0;
+                Self::walk_text(exp, height, kind, index, &mut offset, &mut data);
                 ddjvu_miniexp_release(self.doc, exp);
-                Some((words, index))
+                Some((data, index))
             }
         }
     }
 
-    fn walk_text(exp: *mut MiniExp, height: i32, kind: &[u8], data: &mut Vec<BoundedText>) {
+    fn walk_text(exp: *mut MiniExp, height: i32, kind: &[u8], index: usize, offset: &mut usize, data: &mut Vec<BoundedText>) {
         unsafe {
             let len = miniexp_length(exp);
             let rect = {
@@ -305,10 +312,15 @@ impl DjvuDocument {
                 let raw = miniexp_to_str(miniexp_nth(5, exp));
                 let c_str = CStr::from_ptr(raw);
                 let text = c_str.to_string_lossy().into_owned();
-                data.push(BoundedText { rect, text });
+                *offset += 1;
+                data.push(BoundedText {
+                    rect,
+                    text,
+                    location: TextLocation::Static(index, *offset),
+                });
             } else if !has_text {
                 for i in 5..len {
-                    Self::walk_text(miniexp_nth(i, exp), height, kind, data);
+                    Self::walk_text(miniexp_nth(i, exp), height, kind, index, offset, data);
                 }
             }
         }

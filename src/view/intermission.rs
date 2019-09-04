@@ -79,7 +79,7 @@ impl View for Intermission {
         true
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let scheme = if self.halt {
             TEXT_INVERTED_HARD
         } else {
@@ -139,8 +139,6 @@ impl View for Intermission {
                 }
             },
         }
-
-        self.rect
     }
 
     fn might_rotate(&self) -> bool {

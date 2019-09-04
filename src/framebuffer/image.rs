@@ -62,6 +62,16 @@ impl Framebuffer for Pixmap {
         }
     }
 
+    fn shift_region(&mut self, rect: &Rectangle, drift: u8) {
+        for y in rect.min.y..rect.max.y {
+            for x in rect.min.x..rect.max.x {
+                let addr = (y * self.width as i32 + x) as usize;
+                let color = self.data[addr].saturating_sub(drift);
+                self.data[addr] = color;
+            }
+        }
+    }
+
     fn update(&mut self, _rect: &Rectangle, _mode: UpdateMode) -> Result<u32, Error> {
         Ok(1)
     }

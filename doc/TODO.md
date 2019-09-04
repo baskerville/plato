@@ -1,4 +1,4 @@
-- Dictionary, highlights, annotations.
+- Dictionary.
 - ePUB renderer: RTL.
 - Metadata view.
 - Complex/fuzzy search queries?

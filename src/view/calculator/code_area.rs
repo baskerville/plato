@@ -81,7 +81,7 @@ impl View for CodeArea {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
 
         if let Some(irect) = self.rect.intersection(&rect) {
@@ -121,8 +121,11 @@ impl View for CodeArea {
             y += line_height;
             x = self.rect.min.x + padding;
         }
+    }
 
-        rect
+    fn render_rect(&self, rect: &Rectangle) -> Rectangle {
+        rect.intersection(&self.rect)
+            .unwrap_or(self.rect)
     }
 
     fn rect(&self) -> &Rectangle {

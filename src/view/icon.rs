@@ -101,7 +101,7 @@ impl View for Icon {
                 bus.push_back(self.event.clone());
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => {
                 match self.event {
                     Event::Page(dir) => bus.push_back(Event::Chapter(dir)),
                     Event::Show(ViewId::Frontlight) => {
@@ -124,7 +124,7 @@ impl View for Icon {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
 
         let scheme = if self.active {
@@ -152,7 +152,6 @@ impl View for Icon {
         }
 
         fb.draw_blended_pixmap(pixmap, pt, scheme[1]);
-        self.rect
     }
 
     fn resize(&mut self, rect: Rectangle, _hub: &Hub, _context: &mut Context) {

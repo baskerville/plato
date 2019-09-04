@@ -306,7 +306,7 @@ impl View for FrontlightWindow {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
 
         let border_radius = scale_by_dpi(BORDER_RADIUS_MEDIUM, dpi) as i32;
@@ -317,7 +317,6 @@ impl View for FrontlightWindow {
                                               &BorderSpec { thickness: border_thickness,
                                                             color: BLACK },
                                               &WHITE);
-        self.rect
     }
 
     fn resize(&mut self, _rect: Rectangle, hub: &Hub, context: &mut Context) {

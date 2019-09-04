@@ -135,7 +135,7 @@ impl View for MarginCropper {
                 hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => true,
+            Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => true,
             Event::Validate => {
                 bus.push_back(Event::CropMargins(Box::new(self.margin())));
                 bus.push_back(Event::Close(ViewId::MarginCropper));
@@ -149,7 +149,7 @@ impl View for MarginCropper {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         let dx = (self.rect.width() as i32 - self.pixmap.width as i32) / 2;
         let dy = (self.rect.height() as i32 - self.pixmap.height as i32) / 2;
@@ -200,8 +200,6 @@ impl View for MarginCropper {
                                                       &WHITE);
             }
         }
-
-        self.rect
     }
 
     fn is_background(&self) -> bool {

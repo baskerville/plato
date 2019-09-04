@@ -524,7 +524,7 @@ impl View for Calculator {
                 hub.send(Event::Select(EntryId::Rotate(n))).unwrap();
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => {
                 hub.send(Event::Render(self.rect, UpdateMode::Full)).unwrap();
                 true
             },
@@ -561,8 +561,7 @@ impl View for Calculator {
         }
     }
 
-    fn render(&self, _fb: &mut dyn Framebuffer, rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
-        rect
+    fn render(&self, _fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
     }
 
     fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {

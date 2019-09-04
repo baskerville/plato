@@ -38,7 +38,7 @@ use sdl2::rect::Rect as SdlRect;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::view::{View, Event, ViewId, EntryId, AppId, EntryKind};
-use crate::view::{render, render_no_wait, render_no_wait_region, handle_event, expose};
+use crate::view::{render, render_region, render_no_wait, render_no_wait_region, handle_event, expose};
 use crate::view::home::Home;
 use crate::view::reader::Reader;
 use crate::view::notification::Notification;
@@ -106,7 +106,7 @@ pub fn device_event(event: SdlEvent) -> Option<DeviceEvent> {
                                        status: FingerStatus::Motion,
                                        position: pt!(x, y),
                                        time: seconds(timestamp) }),
-        _ => None
+        _ => None,
     }
 }
 
@@ -132,6 +132,23 @@ impl Framebuffer for WindowCanvas {
                     let u = (x - rect.min.x) as u32;
                     let addr = 3 * (v * width + u);
                     let color = 255 - data[addr as usize];
+                    self.set_pixel(x as u32, y as u32, color);
+                }
+            }
+        }
+    }
+
+    fn shift_region(&mut self, rect: &Rectangle, drift: u8) {
+        let width = rect.width();
+        let s_rect = Some(SdlRect::new(rect.min.x, rect.min.y,
+                                       width, rect.height()));
+        if let Ok(data) = self.read_pixels(s_rect, PixelFormatEnum::RGB24) {
+            for y in rect.min.y..rect.max.y {
+                let v = (y - rect.min.y) as u32;
+                for x in rect.min.x..rect.max.x {
+                    let u = (x - rect.min.x) as u32;
+                    let addr = 3 * (v * width + u);
+                    let color = data[addr as usize].saturating_sub(drift);
                     self.set_pixel(x as u32, y as u32, color);
                 }
             }
@@ -294,6 +311,17 @@ pub fn run() -> Result<(), Error> {
                             ty.send(DeviceEvent::Finger { status: FingerStatus::Up, position, id: 0, time: 0.0}).unwrap();
                         }
                     }
+                    match scancode {
+                        Scancode::LeftBracket => {
+                            let rot = (3 + context.display.rotation) % 4;
+                            ty.send(DeviceEvent::RotateScreen(rot)).unwrap();
+                        },
+                        Scancode::RightBracket => {
+                            let rot = (5 + context.display.rotation) % 4;
+                            ty.send(DeviceEvent::RotateScreen(rot)).unwrap();
+                        },
+                        _ => (),
+                    }
                 },
                 _ => {
                     if let Some(dev_evt) = device_event(sdl_evt) {
@@ -307,6 +335,12 @@ pub fn run() -> Result<(), Error> {
             match evt {
                 Event::Render(mut rect, mode) => {
                     render(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
+                    if let Ok(tok) = context.fb.update(&rect, mode) {
+                        updating.insert(tok, rect);
+                    }
+                },
+                Event::RenderRegion(mut rect, mode) => {
+                    render_region(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
                     if let Ok(tok) = context.fb.update(&rect, mode) {
                         updating.insert(tok, rect);
                     }
@@ -420,7 +454,7 @@ pub fn run() -> Result<(), Error> {
                         view.children_mut().remove(index);
                     }
                 },
-                Event::Select(EntryId::Rotate(n)) if n != context.display.rotation => {
+                Event::Select(EntryId::Rotate(n)) if n != context.display.rotation && view.might_rotate() => {
                     updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                     if let Ok(dims) = context.fb.set_rotation(n) {
                         context.display.rotation = n;
@@ -483,6 +517,9 @@ pub fn run() -> Result<(), Error> {
                         let (tx, _rx) = mpsc::channel();
                         history[0].handle_event(&evt, &tx, &mut VecDeque::new(), &mut context);
                     };
+                },
+                Event::Device(DeviceEvent::RotateScreen(n)) => {
+                    tx.send(Event::Select(EntryId::Rotate(n))).unwrap();
                 },
                 Event::Select(EntryId::Quit) => {
                     break 'outer;

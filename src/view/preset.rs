@@ -58,7 +58,7 @@ impl View for Preset {
                 }
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => {
                 if let PresetKind::Normal(_, index) = self.kind {
                     bus.push_back(Event::TogglePresetMenu(self.rect, index)); 
                 }
@@ -68,7 +68,7 @@ impl View for Preset {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
 
         let (scheme, border_radius) = if self.active {
@@ -96,7 +96,6 @@ impl View for Preset {
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 
         font.render(fb, scheme[1], &plan, pt);
-        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

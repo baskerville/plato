@@ -124,7 +124,7 @@ impl View for Key {
                 bus.push_back(Event::Key(self.kind));
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => {
                 match self.kind {
                     KeyKind::Delete(dir) => hub.send(Event::Keyboard(KeyboardEvent::Delete { target: TextKind::Word, dir })).unwrap(),
                     KeyKind::Move(dir) => hub.send(Event::Keyboard(KeyboardEvent::Move { target: TextKind::Word, dir })).unwrap(),
@@ -136,7 +136,7 @@ impl View for Key {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         fb.draw_rectangle(&self.rect, KEYBOARD_BG);
         let scheme: [u8; 3] = if self.active ^ (self.pressure == 2) {
@@ -177,8 +177,6 @@ impl View for Key {
                 fb.draw_blended_pixmap(pixmap, pt, scheme[1]);
             }
         }
-
-        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

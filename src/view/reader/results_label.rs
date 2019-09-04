@@ -56,7 +56,7 @@ impl View for ResultsLabel {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let padding = font.em() as i32 / 2;
@@ -72,7 +72,6 @@ impl View for ResultsLabel {
             TEXT_NORMAL[2]
         };
         font.render(fb, color, &plan, pt);
-        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

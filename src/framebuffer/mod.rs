@@ -30,6 +30,7 @@ pub trait Framebuffer {
     fn set_pixel(&mut self, x: u32, y: u32, color: u8);
     fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32);
     fn invert_region(&mut self, rect: &Rectangle);
+    fn shift_region(&mut self, rect: &Rectangle, drift: u8);
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32, Error>;
     fn wait(&self, token: u32) -> Result<i32, Error>;
     fn save(&self, path: &str) -> Result<(), Error>;
@@ -387,10 +388,10 @@ pub trait Framebuffer {
 
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
-                let pt = vec2!(x as f32, y as f32) + 0.5;
-                let (nsp, t) = nearest_segment_point(pt, a, b);
+                let p = vec2!(x as f32, y as f32) + 0.5;
+                let (n, t) = nearest_segment_point(p, a, b);
                 let radius = lerp(start_radius, end_radius, t);
-                if (nsp - pt).length() <= radius {
+                if (n - p).length() <= radius {
                     self.set_pixel(x as u32, y as u32, color);
                 }
             }

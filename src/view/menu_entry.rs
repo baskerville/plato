@@ -60,7 +60,7 @@ impl View for MenuEntry {
                 }
             },
             Event::Gesture(GestureEvent::Tap(center)) |
-            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => {
                 match self.kind {
                     EntryKind::CheckBox(_, _, ref mut value) => {
                         *value = !*value;
@@ -109,7 +109,7 @@ impl View for MenuEntry {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let x_height = font.x_heights.0 as i32;
@@ -150,8 +150,6 @@ impl View for MenuEntry {
 
             fb.draw_blended_pixmap(pixmap, pt, scheme[1]);
         }
-
-        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

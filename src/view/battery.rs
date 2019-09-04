@@ -52,7 +52,7 @@ impl View for Battery {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
 
         let border_radius = scale_by_dpi(THICKNESS_LARGE / 2.0, dpi) as i32;
@@ -115,8 +115,6 @@ impl View for Battery {
                               (fill_height - pixmap.height as i32) / 2);
             fb.draw_blended_pixmap(pixmap, pt, BLACK);
         }
-
-        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

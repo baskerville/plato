@@ -36,7 +36,7 @@ pub enum LinearDir {
     Forward,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Point {
     pub x: i32,
     pub y: i32,
@@ -360,9 +360,15 @@ impl Into<(f32, f32)> for Point {
     }
 }
 
-impl Into<Vec2> for Point {
-    fn into(self) -> Vec2 {
-        Vec2::new(self.x as f32, self.y as f32)
+impl From<Point> for Vec2 {
+    fn from(pt: Point) -> Self {
+        Vec2::new(pt.x as f32, pt.y as f32)
+    }
+}
+
+impl From<Vec2> for Point {
+    fn from(pt: Vec2) -> Self {
+        Point::new(pt.x as i32, pt.y as i32)
     }
 }
 
@@ -398,10 +404,42 @@ impl Vec2 {
     pub fn angle(self) -> f32 {
         (-self.y).atan2(self.x)
     }
+
+    pub fn dir(self) -> Dir {
+        if self.x.abs() > self.y.abs() {
+            if self.x.is_sign_positive() {
+                Dir::East
+            } else {
+                Dir::West
+            }
+        } else {
+            if self.y.is_sign_positive() {
+                Dir::South
+            } else {
+                Dir::North
+            }
+        }
+    }
+
+    pub fn diag_dir(self) -> DiagDir {
+        if self.x.is_sign_positive() {
+            if self.y.is_sign_positive() {
+                DiagDir::SouthEast
+            } else {
+                DiagDir::NorthEast
+            }
+        } else {
+            if self.y.is_sign_positive() {
+                DiagDir::SouthWest
+            } else {
+                DiagDir::NorthWest
+            }
+        }
+    }
 }
 
 // Based on https://golang.org/pkg/image/#Rectangle
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Rectangle {
     pub min: Point,
     pub max: Point,
@@ -569,18 +607,26 @@ impl From<(u32, u32)> for Rectangle {
     }
 }
 
-fn rect_cmp(r1: &Rectangle, r2: &Rectangle) -> Ordering {
-    if r1.min.y >= r2.max.y {
-        Ordering::Greater
-    } else if r1.max.y <= r2.min.y {
-        Ordering::Less
-    } else {
-        if r1.min.x >= r2.max.x {
+impl PartialOrd for Rectangle {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Rectangle {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.min.y >= other.max.y {
             Ordering::Greater
-        } else if r1.max.x <= r2.min.x {
+        } else if self.max.y <= other.min.y {
             Ordering::Less
         } else {
-            Ordering::Equal
+            if self.min.x >= other.max.x {
+                Ordering::Greater
+            } else if self.max.x <= other.min.x {
+                Ordering::Less
+            } else {
+                Ordering::Equal
+            }
         }
     }
 }

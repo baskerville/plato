@@ -15,7 +15,7 @@
 
 ## Bottom bar
 
-Hold the next/previous page icon to go the last/first page.
+Tap and hold the next/previous page icon to go the last/first page.
 
 Tap the matches count label to bring up the library menu.
 
@@ -27,37 +27,19 @@ The screen is divided into seven regions:
 
 ![Touch Regions](../artworks/touch_regions.svg)
 
-Gestures by region:
+Tap gestures by region:
 
 - *LE* (Left Ear):
-	- Normal Mode:
-		- Tap: previous page.
-		- Hold: previous chapter.
-	- Search Mode:
-		- Tap: previous results page.
-		- Hold: first results page.
-- *MB* (Middle Band):
-	- Tap: toggle the top and bottom bars.
-	- Hold: perform a full screen refresh.
+	- Normal Mode: previous page.
+	- Search Mode: previous results page.
+- *MB* (Middle Band): toggle the top and bottom bars.
 - *RE* (Right Ear):
-	- Normal Mode:
-		- Tap: next page.
-		- Hold: next chapter.
-	- Search Mode:
-		- Tap: next results page.
-		- Hold: last results page.
-- *TL* (Top Left Corner):
-	- Tap: previous location.
-	- Hold: previous bookmark.
-- *TR* (Top Right Corner):
-	- Tap: toggle bookmark.
-	- Hold: next bookmark.
-- *BL* (Bottom Left Corner):
-	- Tap: table of contents in normal mode, previous page in search mode.
-	- Hold: guess the frontlight if there's more than two frontlight presets defined, toggle the frontlight otherwise.
-- *BR* (Bottom Right Corner):
-	- Tap: go to page in normal mode, next page in search mode.
-	- Hold: toggle the bitonal mode.
+	- Normal Mode: next page.
+	- Search Mode: next results page.
+- *TL* (Top Left Corner): previous location.
+- *TR* (Top Right Corner): toggle bookmark.
+- *BL* (Bottom Left Corner): table of contents in normal mode, previous page in search mode.
+- *BR* (Bottom Right Corner): go to page in normal mode, next page in search mode.
 
 Swipe west/east to go to the next/previous page.
 
@@ -67,9 +49,23 @@ Rotate to change the screen orientation (one finger is the center, the other des
 
 Spread (resp. pinch) horizontally to switch the zoom mode to fit-to-width (resp. fit-to-page).
 
+The following swipe sequences are recognized:
+
+![Swipe Sequences](../artworks/swipe_sequences.svg)
+
+- Arrow west/east: go to the previous/next chapter in normal mode, the first/last results in search mode.
+- Arrow north/south: start searching text backward/forward.
+- Top left/right corner: go to the previous/next annotation, highlight or bookmark.
+- Bottom left corner: guess the frontlight if there's more than two frontlight presets defined, toggle the frontlight otherwise.
+- Bottom right corner: toggle the bitonal mode.
+
+### Text Selection
+
+To select text, tap and hold the first or last word of the selection. Wait for the selection feedback. Move your finger on the other end of the selection and lift it. If you've made a mistake, select *Adjust Selection* and tap on the correct ends; tap and hold the selection when you're done.
+
 ## Bottom bar
 
-Hold the next/previous page icon to go the next/previous chapter.
+Tap and hold the next/previous page icon to go the next/previous chapter.
 
 ## Top bar
 
@@ -77,11 +73,13 @@ Tap the title label to bring up the book menu.
 
 # Home & Reader
 
-Tap two diagonally opposite corners to take a screenshot.
+Tap the bottom left and top right corners to take a screenshot.
+
+Tap the top left and bottom right corners to do a full screen refresh.
 
 ## Menus
 
-You can select a menu entry *without closing the menu* by holding it.
+You can select a menu entry *without closing the menu* by tapping and holding it.
 
 ## Top bar
 
@@ -97,7 +95,7 @@ The *ALT* and *SHIFT* keys can be locked by tapping them twice.
 
 The *CMB* (combine) key can be used to enter special characters, e.g.: `CMB o e` produces `œ`.
 
-A hold on the delete or motion keys will act on words instead of characters.
+A tap and hold on the delete or motion keys will act on words instead of characters.
 
 # Annex
 

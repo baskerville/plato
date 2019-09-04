@@ -34,6 +34,32 @@ pub enum Location {
 pub struct BoundedText {
     pub text: String,
     pub rect: Boundary,
+    pub location: TextLocation,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TextLocation {
+    Static(usize, usize),
+    Dynamic(usize),
+}
+
+impl TextLocation {
+    pub fn location(self) -> usize {
+        match self {
+            TextLocation::Static(page, _) => page,
+            TextLocation::Dynamic(offset) => offset,
+        }
+    }
+
+    #[inline]
+    pub fn min_max(self, other: Self) -> (Self, Self) {
+        if self < other {
+            (self, other)
+        } else {
+            (other, self)
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -85,7 +111,11 @@ pub trait Document: Send+Sync {
 
         match loc {
             Location::Exact(index) => {
-                Some(index.min(self.pages_count() - 1))
+                if index >= self.pages_count() {
+                    None
+                } else {
+                    Some(index)
+                }
             },
             Location::Previous(index) => {
                 if index > 0 {

@@ -257,13 +257,13 @@ impl View for Menu {
             },
             Event::Gesture(GestureEvent::Tap(center)) if !self.rect.includes(center) => {
                 if self.root {
-                    hub.send(Event::Close(self.id)).unwrap();
+                    bus.push_back(Event::Close(self.id));
                 } else {
                     bus.push_back(Event::CloseSub(self.id));
                 }
                 self.root
             },
-            Event::Gesture(GestureEvent::HoldFinger(center)) if !self.rect.includes(center) => self.root,
+            Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if !self.rect.includes(center) => self.root,
             Event::SubMenu(rect, ref entries) => {
                 let menu = Menu::new(rect, ViewId::SubMenu(self.sub_id),
                                      MenuKind::SubMenu, entries.clone(), context).root(false);
@@ -284,7 +284,7 @@ impl View for Menu {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         let border_radius = scale_by_dpi(BORDER_RADIUS_MEDIUM, dpi) as i32;
         let border_thickness = scale_by_dpi(THICKNESS_LARGE, dpi) as u16;
@@ -345,8 +345,6 @@ impl View for Menu {
                                                                 color: BLACK },
                                                   &WHITE);
         }
-
-        self.rect
     }
 
     fn is_background(&self) -> bool {

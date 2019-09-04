@@ -10,7 +10,7 @@ use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use regex::Regex;
 use failure::{Error, ResultExt};
-use crate::document::{Document, SimpleTocEntry};
+use crate::document::{Document, SimpleTocEntry, TextLocation};
 use crate::document::epub::EpubDocument;
 use crate::helpers::simple_date_format;
 use crate::settings::{ImportSettings, CategoryProvider};
@@ -77,6 +77,29 @@ impl Default for FileInfo {
             path: PathBuf::default(),
             kind: String::default(),
             size: u64::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Annotation {
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub note: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub text: String,
+    pub selection: [TextLocation; 2],
+    #[serde(with = "simple_date_format")]
+    pub modified: DateTime<Local>,
+}
+
+impl Default for Annotation {
+    fn default() -> Self {
+        Annotation {
+            note: String::new(),
+            text: String::new(),
+            selection: [TextLocation::Dynamic(0), TextLocation::Dynamic(1)],
+            modified: Local::now(),
         }
     }
 }
@@ -208,6 +231,8 @@ pub struct ReaderInfo {
     pub page_names: BTreeMap<usize, String>,
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     pub bookmarks: BTreeSet<usize>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub annotations: Vec<Annotation>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
@@ -243,6 +268,7 @@ impl Default for ReaderInfo {
             contrast_gray: None,
             page_names: BTreeMap::new(),
             bookmarks: BTreeSet::new(),
+            annotations: Vec::new(),
         }
     }
 }
@@ -396,7 +422,7 @@ impl Info {
 }
 
 pub fn make_query(text: &str) -> Option<Regex> {
-    let any = Regex::new(r"^\.*$").unwrap();
+    let any = Regex::new(r"^(\.*|\s)$").unwrap();
 
     if any.is_match(text) {
         return None;
@@ -663,7 +689,6 @@ pub fn extract_metadata_from_filename(metadata: &mut Metadata) {
 
             if let Some(index) = filename[start_index..].find(')') {
                 info.year = filename[start_index..start_index+index].to_string();
-                start_index += index + 1;
             }
 
             println!("{}", info.label());

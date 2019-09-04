@@ -50,7 +50,7 @@ impl View for Category {
                 bus.push_back(Event::ToggleNegateCategory(self.text.clone()));
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => {
                 bus.push_back(Event::ToggleCategoryMenu(self.rect, self.text.clone()));
                 true
             },
@@ -58,7 +58,7 @@ impl View for Category {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         fb.draw_rectangle(&self.rect, TEXT_BUMP_SMALL[0]);
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
@@ -90,7 +90,6 @@ impl View for Category {
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
         let color_index = if self.status == Status::Negated { 2 } else { 1 };
         font.render(fb, TEXT_BUMP_SMALL[color_index], &plan, pt);
-        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

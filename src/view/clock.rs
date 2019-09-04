@@ -43,7 +43,7 @@ impl View for Clock {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let plan = font.plan(&self.time.format("%H:%M").to_string(), None, None);
@@ -53,7 +53,6 @@ impl View for Clock {
 
         fb.draw_rectangle(&self.rect, WHITE);
         font.render(fb, BLACK, &plan, pt);
-        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

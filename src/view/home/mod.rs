@@ -523,11 +523,13 @@ impl Home {
                 return;
             }
 
-            let kb_rect = *self.child(index).rect();
+            let y_min = self.child(5).rect().min.y;
+            let mut rect = *self.child(index).rect();
+            rect.absorb(self.child(index-1).rect());
 
             self.children.drain(index - 1 ..= index);
 
-            let delta_y = kb_rect.height() as i32 + thickness;
+            let delta_y = rect.height() as i32;
 
             if index > 6 {
                 has_search_bar = true;
@@ -541,7 +543,8 @@ impl Home {
             }
 
             hub.send(Event::Focus(None)).unwrap();
-            hub.send(Event::Expose(kb_rect, UpdateMode::Gui)).unwrap();
+            let rect = rect![self.rect.min.x, y_min, self.rect.max.x, y_min + delta_y];
+            hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
         } else {
             if !enable {
                 return;
@@ -1609,8 +1612,7 @@ impl View for Home {
         }
     }
 
-    fn render(&self, _fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
-        self.rect
+    fn render(&self, _fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
     }
 
     fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {

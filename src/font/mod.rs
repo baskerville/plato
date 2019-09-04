@@ -10,9 +10,8 @@ use std::slice;
 use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
-use std::collections::BTreeSet;
+use std::collections::{HashMap, BTreeSet};
 use std::rc::Rc;
-use fnv::FnvHashMap;
 use bitflags::bitflags;
 use failure::{Error, Fail, format_err};
 use glob::glob;
@@ -269,7 +268,7 @@ impl FontFamily {
         let pattern_path = search_path.as_ref().join(&end_path);
         let pattern = pattern_path.to_str().unwrap_or_default();
 
-        let mut styles = FnvHashMap::default();
+        let mut styles = HashMap::new();
 
         for path in glob(pattern)?.filter_map(Result::ok) {
             let font = opener.open(&path)?;
@@ -1115,7 +1114,7 @@ impl Font {
     pub fn render(&mut self, fb: &mut dyn Framebuffer, color: u8, render_plan: &RenderPlan, origin: Point) {
         unsafe {
             let mut pos = origin;
-            let mut fallback_faces = FnvHashMap::default();
+            let mut fallback_faces = HashMap::new();
 
             for (index, glyph) in render_plan.glyphs.iter().enumerate() {
                 let face = if let Some(script) = render_plan.scripts.get(&index) {
@@ -1200,7 +1199,7 @@ struct GlyphPlan {
 #[derive(Debug, Clone)]
 pub struct RenderPlan {
     pub width: u32,
-    scripts: FnvHashMap<usize, HbScript>,
+    scripts: HashMap<usize, HbScript>,
     glyphs: Vec<GlyphPlan>,
 }
 
@@ -1208,7 +1207,7 @@ impl Default for RenderPlan {
     fn default() -> RenderPlan {
         RenderPlan {
             width: 0,
-            scripts: FnvHashMap::default(),
+            scripts: HashMap::new(),
             glyphs: vec![],
         }
     }
@@ -1230,7 +1229,7 @@ impl RenderPlan {
     }
 
     pub fn split_off(&mut self, index: usize, width: u32) -> RenderPlan {
-        let mut next_scripts = FnvHashMap::default();
+        let mut next_scripts = HashMap::new();
         if !self.scripts.is_empty() {
             for i in index..self.glyphs.len() {
                 self.scripts.remove_entry(&i)
@@ -1262,6 +1261,13 @@ impl RenderPlan {
             index += 1;
         }
         index
+    }
+
+    pub fn append(&mut self, other: &mut Self) {
+        let next_index = self.glyphs.len();
+        self.scripts.extend(other.scripts.iter().map(|(k, v)| (next_index + k, *v)));
+        self.glyphs.append(&mut other.glyphs);
+        self.width += other.width;
     }
 
     pub fn total_advance(&self, index: usize) -> i32 {

@@ -307,9 +307,13 @@ impl View for Sketch {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, _fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, _fonts: &mut Fonts) {
         fb.draw_framed_pixmap_halftone(&self.pixmap, &self.random, &rect, rect.min);
-        rect
+    }
+
+    fn render_rect(&self, rect: &Rectangle) -> Rectangle {
+        rect.intersection(&self.rect)
+            .unwrap_or(self.rect)
     }
 
     fn might_rotate(&self) -> bool {

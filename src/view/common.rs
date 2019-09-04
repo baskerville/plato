@@ -26,6 +26,15 @@ pub fn locate<T: View>(view: &dyn View) -> Option<usize> {
     None
 }
 
+pub fn rlocate<T: View>(view: &dyn View) -> Option<usize> {
+    for (index, child) in view.children().iter().enumerate().rev() {
+        if child.as_ref().is::<T>() {
+            return Some(index);
+        }
+    }
+    None
+}
+
 pub fn locate_by_id(view: &dyn View, id: ViewId) -> Option<usize> {
     view.children().iter().position(|c| c.id().map_or(false, |i| i == id))
 }

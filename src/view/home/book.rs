@@ -46,7 +46,7 @@ impl View for Book {
                 hub.send(Event::Open(Box::new(self.info.clone()))).unwrap();
                 true
             },
-            Event::Gesture(GestureEvent::HoldFinger(center)) if self.rect.includes(center) => {
+            Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => {
                 let pt = pt!(center.x, self.rect.center().y);
                 bus.push_back(Event::ToggleBookMenu(Rectangle::from_point(pt), self.index));
                 true
@@ -64,7 +64,7 @@ impl View for Book {
         }
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) -> Rectangle {
+    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
 
         let scheme = if self.active {
@@ -189,8 +189,6 @@ impl View for Book {
                          self.rect.max.y - baseline);
             font.render(fb, scheme[1], &plan, pt);
         }
-
-        self.rect
     }
 
     fn rect(&self) -> &Rectangle {

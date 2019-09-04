@@ -10,7 +10,7 @@ use std::fs::File;
 use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
 use failure::Error;
-use super::{Document, Location, BoundedText, TocEntry};
+use super::{Document, Location, TextLocation, BoundedText, TocEntry};
 use super::{chapter, chapter_relative};
 use crate::metadata::TextAlign;
 use crate::geom::{Boundary, CycleDir};
@@ -38,6 +38,7 @@ pub struct PdfDocument {
 pub struct PdfPage<'a> {
     ctx: Rc<PdfContext>,
     page: *mut FzPage,
+    index: usize,
     _doc: &'a PdfDocument,
 }
 
@@ -123,6 +124,7 @@ impl PdfDocument {
                 Some(PdfPage {
                     ctx: self.ctx.clone(),
                     page,
+                    index,
                     _doc: self,
                 })
             }
@@ -263,6 +265,7 @@ impl<'a> PdfPage<'a> {
             if tp.is_null() {
                 return None;
             }
+            let mut offset = 0;
             let mut block = (*tp).first_block;
 
             while !block.is_null() {
@@ -272,7 +275,12 @@ impl<'a> PdfPage<'a> {
 
                     while !line.is_null() {
                         let rect = (*line).bbox.into();
-                        lines.push(BoundedText { text: "".to_string(), rect });
+                        lines.push(BoundedText {
+                            rect,
+                            text: String::default(),
+                            location: TextLocation::Static(self.index, offset),
+                        });
+                        offset += 1;
                         line = (*line).next;
                     }
                 }
@@ -293,6 +301,7 @@ impl<'a> PdfPage<'a> {
                 return None;
             }
             let mut block = (*tp).first_block;
+            let mut offset = 0;
 
             while !block.is_null() {
                 if (*block).kind == FZ_PAGE_BLOCK_TEXT {
@@ -320,10 +329,14 @@ impl<'a> PdfPage<'a> {
                             }
 
                             if !text.is_empty() {
-                                words.push(BoundedText { text: text.clone(),
-                                                         rect: rect.into() });
+                                words.push(BoundedText {
+                                    text: text.clone(),
+                                    rect: rect.into(),
+                                    location: TextLocation::Static(self.index, offset),
+                                });
                                 text.clear();
                                 rect = FzRect::default();
+                                offset += 1;
                             }
                         }
 
@@ -349,12 +362,18 @@ impl<'a> PdfPage<'a> {
 
             let mut link = links;
             let mut result = Vec::new();
+            let mut offset = 0;
 
             while !link.is_null() {
                 let text = CStr::from_ptr((*link).uri).to_string_lossy().into_owned();
                 let rect = (*link).rect.into();
-                result.push(BoundedText { text, rect });
+                result.push(BoundedText {
+                    text,
+                    rect,
+                    location: TextLocation::Static(self.index, offset),
+                });
                 link = (*link).next;
+                offset += 1;
             }
 
             fz_drop_link(self.ctx.0, links);

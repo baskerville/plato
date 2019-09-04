@@ -47,7 +47,7 @@ use std::fmt::{self, Debug};
 use fnv::FnvHashMap;
 use downcast_rs::{Downcast, impl_downcast};
 use crate::font::Fonts;
-use crate::document::{Location, TocEntry};
+use crate::document::{Location, TextLocation, TocEntry};
 use crate::settings::{SecondColumn, RotationLock};
 use crate::metadata::{Info, ZoomMode, SortMethod, TextAlign, SimpleStatus, PageScheme, Margin};
 use crate::geom::{LinearDir, CycleDir, Rectangle, Boundary};
@@ -74,11 +74,15 @@ pub type Hub = Sender<Event>;
 
 pub trait View: Downcast {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool;
-    fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, fonts: &mut Fonts) -> Rectangle;
+    fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, fonts: &mut Fonts);
     fn rect(&self) -> &Rectangle;
     fn rect_mut(&mut self) -> &mut Rectangle;
     fn children(&self) -> &Vec<Box<dyn View>>;
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>>;
+
+    fn render_rect(&self, _rect: &Rectangle) -> Rectangle {
+        *self.rect()
+    }
 
     fn resize(&mut self, rect: Rectangle, _hub: &Hub, _context: &mut Context) {
         *self.rect_mut() = rect;
@@ -156,6 +160,10 @@ pub fn render(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, f
     render_aux(view, rect, fb, fonts, &mut false, true, updating);
 }
 
+pub fn render_region(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
+    render_aux(view, rect, fb, fonts, &mut true, true, updating);
+}
+
 pub fn render_no_wait(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
     render_aux(view, rect, fb, fonts, &mut false, false, updating);
 }
@@ -175,12 +183,13 @@ fn render_aux(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, f
     }
 
     if *above && (view.len() == 0 || view.is_background()) && view.rect().overlaps(rect) {
+        let render_rect = view.render_rect(rect);
         if wait {
             updating.retain(|tok, urect| {
-                !view.rect().overlaps(urect) || fb.wait(*tok).is_err()
+                !render_rect.overlaps(urect) || fb.wait(*tok).is_err()
             });
         }
-        let render_rect = view.render(fb, *rect, fonts);
+        view.render(fb, *rect, fonts);
         rect.absorb(&render_rect);
     }
 
@@ -193,10 +202,11 @@ fn render_aux(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, f
 // Each view intersecting the crack's rectangle needs to be redrawn.
 pub fn expose(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
     if (view.len() == 0 || view.is_background()) && view.rect().overlaps(rect) {
+        let render_rect = view.render_rect(rect);
         updating.retain(|tok, urect| {
-            !view.rect().overlaps(urect) || fb.wait(*tok).is_err()
+            !render_rect.overlaps(urect) || fb.wait(*tok).is_err()
         });
-        let render_rect = view.render(fb, *rect, fonts);
+        view.render(fb, *rect, fonts);
         rect.absorb(&render_rect);
     }
 
@@ -208,6 +218,7 @@ pub fn expose(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, f
 #[derive(Debug, Clone)]
 pub enum Event {
     Render(Rectangle, UpdateMode),
+    RenderRegion(Rectangle, UpdateMode),
     RenderNoWait(Rectangle, UpdateMode),
     RenderNoWaitRegion(Rectangle, UpdateMode),
     Expose(Rectangle, UpdateMode),
@@ -252,7 +263,8 @@ pub enum Event {
     Show(ViewId),
     Close(ViewId),
     CloseSub(ViewId),
-    SearchResult(usize, Boundary),
+    Search(String),
+    SearchResult(usize, Vec<Boundary>),
     EndOfSearch,
     Finished,
     ClockTick,
@@ -290,6 +302,8 @@ pub enum ViewId {
     SortMenu,
     MainMenu,
     TitleMenu,
+    SelectionMenu,
+    AnnotationMenu,
     BatteryMenu,
     ClockMenu,
     Frontlight,
@@ -314,6 +328,8 @@ pub enum ViewId {
     GoToResultsPageInput,
     NamePage,
     NamePageInput,
+    EditNote,
+    EditNoteInput,
     SaveAs,
     SaveAsInput,
     AddCategories,
@@ -434,7 +450,15 @@ pub enum EntryId {
     SetZoomMode(ZoomMode),
     SetPageName,
     RemovePageName,
+    HighlightSelection,
+    AnnotateSelection,
+    SearchForSelection,
+    AdjustSelection,
+    RemoveAnnotation([TextLocation; 2]),
+    EditAnnotationNote([TextLocation; 2]),
+    RemoveAnnotationNote([TextLocation; 2]),
     GoTo(usize),
+    GoToSelectedPageName,
     SearchDirection(LinearDir),
     SetFontFamily(String),
     SetFontSize(i32),
