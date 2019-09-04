@@ -57,6 +57,8 @@ pub struct Info {
     pub file: FileInfo,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reader: Option<ReaderInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub toc: Option<Vec<SimpleTocEntry>>,
     #[serde(with = "simple_date_format")]
     pub added: DateTime<Local>,
 }
@@ -77,6 +79,20 @@ impl Default for FileInfo {
             size: u64::default(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SimpleTocEntry {
+    Leaf(String, TocLocation),
+    Container(String, TocLocation, Vec<SimpleTocEntry>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TocLocation {
+    Exact(usize),
+    Uri(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -263,6 +279,7 @@ impl Default for Info {
             file: FileInfo::default(),
             added: Local::now(),
             reader: None,
+            toc: None,
         }
     }
 }

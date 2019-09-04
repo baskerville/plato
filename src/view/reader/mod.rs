@@ -42,7 +42,7 @@ use crate::settings::{DEFAULT_FONT_FAMILY, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIG
 use crate::frontlight::LightLevels;
 use crate::gesture::GestureEvent;
 use crate::document::{Document, open, Location, BoundedText, Neighbors, BYTES_PER_PAGE};
-use crate::document::{TocEntry, toc_as_html, chapter_from_index};
+use crate::document::{TocEntry, toc_from_simple_toc, toc_as_html, chapter_from_index};
 use crate::document::pdf::PdfOpener;
 use crate::metadata::{Info, FileInfo, ReaderInfo, TextAlign, ZoomMode, PageScheme};
 use crate::metadata::{Margin, CroppingMargins, make_query};
@@ -2405,13 +2405,14 @@ impl View for Reader {
                     self.toggle_bars(Some(false), hub, context);
                 }
                 let mut doc = self.doc.lock().unwrap();
-                if let Some(toc) = doc.toc() {
-                    if !toc.is_empty() {
-                        let chap_index = doc.chapter(self.current_page, &toc)
-                                            .map(|chap| chap.index)
-                                            .unwrap_or(usize::max_value());
-                        hub.send(Event::OpenToc(toc, chap_index)).unwrap();
-                    }
+                if let Some(toc) = self.info.toc.as_ref()
+                                       .map(|toc| toc_from_simple_toc(toc))
+                                       .or_else(|| doc.toc())
+                                       .filter(|toc| !toc.is_empty()) {
+                    let chap_index = doc.chapter(self.current_page, &toc)
+                                        .map(|chap| chap.index)
+                                        .unwrap_or(usize::max_value());
+                    hub.send(Event::OpenToc(toc, chap_index)).unwrap();
                 }
                 true
             },

@@ -15,7 +15,7 @@ use self::djvu::DjvuOpener;
 use self::pdf::PdfOpener;
 use self::epub::EpubDocument;
 use crate::geom::{Boundary, CycleDir};
-use crate::metadata::TextAlign;
+use crate::metadata::{TextAlign, SimpleTocEntry, TocLocation};
 use crate::framebuffer::Pixmap;
 
 pub const BYTES_PER_PAGE: f64 = 2048.0;
@@ -160,6 +160,46 @@ pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<dyn Document>> {
             },
         }
     })
+}
+
+impl From<TocLocation> for Location {
+    fn from(loc: TocLocation) -> Location {
+        match loc {
+            TocLocation::Exact(n) => Location::Exact(n),
+            TocLocation::Uri(uri) => Location::Uri(uri),
+        }
+    }
+}
+
+pub fn toc_from_simple_toc(simple_toc: &[SimpleTocEntry]) -> Vec<TocEntry> {
+    let mut index = 0;
+    toc_from_simple_toc_aux(simple_toc, &mut index)
+}
+
+pub fn toc_from_simple_toc_aux(simple_toc: &[SimpleTocEntry], index: &mut usize) -> Vec<TocEntry> {
+    let mut toc = Vec::new();
+    for entry in simple_toc {
+        *index += 1;
+        match entry {
+            SimpleTocEntry::Leaf(title, location) => {
+                toc.push(TocEntry {
+                    title: title.clone(),
+                    location: location.clone().into(),
+                    index: *index,
+                    children: Vec::new(),
+                });
+            },
+            SimpleTocEntry::Container(title, location, children) => {
+                toc.push(TocEntry {
+                    title: title.clone(),
+                    location: location.clone().into(),
+                    index: *index,
+                    children: toc_from_simple_toc_aux(&children, index),
+                });
+            },
+        }
+    }
+    toc
 }
 
 pub fn toc_as_html(toc: &[TocEntry], chap_index: usize) -> String {
