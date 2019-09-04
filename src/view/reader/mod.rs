@@ -456,7 +456,9 @@ impl Reader {
         let current_page = self.current_page;
         let loc = {
             let mut doc = self.doc.lock().unwrap();
-            if let Some(toc) = doc.toc() {
+            if let Some(toc) = self.info.toc.as_ref()
+                                   .map(|toc| toc_from_simple_toc(toc))
+                                   .or_else(|| doc.toc()) {
                 let chap_offset = if dir == CycleDir::Previous {
                    doc.chapter(current_page, &toc)
                       .and_then(|chap| doc.resolve_location(chap.location.clone()))
@@ -729,9 +731,12 @@ impl Reader {
             };
             bottom_bar.update_page_label(self.current_page, self.pages_count, hub);
             bottom_bar.update_icons(&neighbors, hub);
-            let chapter = doc.toc().as_ref().and_then(|toc| doc.chapter(current_page, toc))
-                                   .map(|c| c.title.clone())
-                                   .unwrap_or_default();
+            let chapter = self.info.toc.as_ref()
+                              .map(|toc| toc_from_simple_toc(toc))
+                              .or_else(|| doc.toc())
+                              .as_ref().and_then(|toc| doc.chapter(current_page, toc))
+                              .map(|c| c.title.clone())
+                              .unwrap_or_default();
             bottom_bar.update_chapter(chapter, hub);
         }
     }
@@ -1219,6 +1224,7 @@ impl Reader {
                                                   self.rect.max.x,
                                                   self.rect.max.y],
                                             doc.as_mut(),
+                                            self.info.toc.as_ref().map(|toc| toc_from_simple_toc(toc)),
                                             self.current_page,
                                             self.pages_count,
                                             &neighbors,

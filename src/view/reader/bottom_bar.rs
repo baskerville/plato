@@ -7,7 +7,7 @@ use crate::view::page_label::PageLabel;
 use crate::gesture::GestureEvent;
 use crate::input::DeviceEvent;
 use crate::geom::{Rectangle, CycleDir, halves};
-use crate::document::{Document, Neighbors};
+use crate::document::{Document, Neighbors, TocEntry};
 use crate::color::WHITE;
 use crate::font::Fonts;
 use crate::app::Context;
@@ -21,7 +21,7 @@ pub struct BottomBar {
 }
 
 impl BottomBar {
-    pub fn new(rect: Rectangle, doc: &mut dyn Document, current_page: usize, pages_count: usize, neighbors: &Neighbors, synthetic: bool) -> BottomBar {
+    pub fn new(rect: Rectangle, doc: &mut dyn Document, toc: Option<Vec<TocEntry>>, current_page: usize, pages_count: usize, neighbors: &Neighbors, synthetic: bool) -> BottomBar {
         let mut children = Vec::new();
         let side = rect.height() as i32;
         let is_prev_disabled = neighbors.previous_page.is_none();
@@ -45,9 +45,10 @@ impl BottomBar {
         let chapter_rect = rect![pt!(rect.min.x + side, rect.min.y),
                                  pt!(rect.min.x + side + small_half_width, rect.max.y)];
 
-        let chapter = doc.toc().as_ref().and_then(|toc| doc.chapter(current_page, toc))
-                               .map(|c| c.title.clone())
-                               .unwrap_or_default();
+        let chapter = toc.or_else(|| doc.toc()).as_ref()
+                         .and_then(|toc| doc.chapter(current_page, toc))
+                         .map(|c| c.title.clone())
+                         .unwrap_or_default();
         let chapter_label = Label::new(chapter_rect,
                                        chapter,
                                        Align::Center);
