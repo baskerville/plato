@@ -2222,9 +2222,10 @@ impl View for Reader {
                 true
             },
             Event::Submit(ViewId::GoToPageInput, ref text) => {
-                let re = Regex::new(r#"^([-+"])?(.+)$"#).unwrap();
+                let re = Regex::new(r#"^([-+"'])?(.+)$"#).unwrap();
                 if let Some(caps) = re.captures(text) {
-                    if let Some("\"") = caps.get(1).map(|m| m.as_str()) {
+                    let prefix = caps.get(1).map(|m| m.as_str());
+                    if prefix == Some("\"") || prefix == Some("'") {
                         if let Some(location) = self.find_page_by_name(&caps[2]) {
                             self.go_to_page(location, true, hub);
                         }
@@ -2232,7 +2233,7 @@ impl View for Reader {
                         if let Ok(number) = caps[2].parse::<f64>() {
                             let location = if !self.synthetic {
                                 let mut index = number.max(0.0) as usize;
-                                match caps.get(1).map(|m| m.as_str()) {
+                                match prefix {
                                     Some("-") => index = self.current_page.saturating_sub(index),
                                     Some("+") => index += self.current_page,
                                     _ => index = index.saturating_sub(1),
