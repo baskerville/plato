@@ -2289,9 +2289,14 @@ impl View for Reader {
                 true
             },
             Event::GoToLocation(ref location) => {
-                let offset_opt = {
-                    let mut doc = self.doc.lock().unwrap();
-                    doc.resolve_location(location.clone())
+                let offset_opt = match location {
+                    Location::Uri(uri) if uri.starts_with('\'') => {
+                        self.find_page_by_name(&uri[1..])
+                    },
+                    _ => {
+                        let mut doc = self.doc.lock().unwrap();
+                        doc.resolve_location(location.clone())
+                    }
                 };
                 if let Some(offset) = offset_opt {
                     self.go_to_page(offset, true, hub);
