@@ -1292,7 +1292,7 @@ impl Reader {
     }
 
     pub fn toggle_title_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
-        if let Some(index) = locate_by_id(self, ViewId::SearchMenu) {
+        if let Some(index) = locate_by_id(self, ViewId::TitleMenu) {
             if let Some(true) = enable {
                 return;
             }
