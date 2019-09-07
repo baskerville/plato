@@ -10,7 +10,7 @@ use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use regex::Regex;
 use failure::{Error, ResultExt};
-use crate::document::Document;
+use crate::document::{Document, SimpleTocEntry};
 use crate::document::epub::EpubDocument;
 use crate::helpers::simple_date_format;
 use crate::settings::{ImportSettings, CategoryProvider};
@@ -79,20 +79,6 @@ impl Default for FileInfo {
             size: u64::default(),
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SimpleTocEntry {
-    Leaf(String, TocLocation),
-    Container(String, TocLocation, Vec<SimpleTocEntry>),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum TocLocation {
-    Exact(usize),
-    Uri(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

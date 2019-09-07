@@ -42,7 +42,7 @@ use crate::settings::{DEFAULT_FONT_FAMILY, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIG
 use crate::frontlight::LightLevels;
 use crate::gesture::GestureEvent;
 use crate::document::{Document, open, Location, BoundedText, Neighbors, BYTES_PER_PAGE};
-use crate::document::{TocEntry, toc_from_simple_toc, toc_as_html, chapter_from_index};
+use crate::document::{TocEntry, SimpleTocEntry, TocLocation, toc_as_html, chapter_from_index};
 use crate::document::pdf::PdfOpener;
 use crate::metadata::{Info, FileInfo, ReaderInfo, TextAlign, ZoomMode, PageScheme};
 use crate::metadata::{Margin, CroppingMargins, make_query};
@@ -456,8 +456,7 @@ impl Reader {
         let current_page = self.current_page;
         let loc = {
             let mut doc = self.doc.lock().unwrap();
-            if let Some(toc) = self.info.toc.as_ref()
-                                   .map(|toc| toc_from_simple_toc(toc))
+            if let Some(toc) = self.toc()
                                    .or_else(|| doc.toc()) {
                 let chap_offset = if dir == CycleDir::Previous {
                    doc.chapter(current_page, &toc)
@@ -723,20 +722,18 @@ impl Reader {
     fn update_bottom_bar(&mut self, hub: &Hub) {
         if let Some(index) = locate::<BottomBar>(self) {
             let current_page = self.current_page;
-            let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
             let mut doc = self.doc.lock().unwrap();
+            let chapter = self.toc().or_else(|| doc.toc())
+                              .as_ref().and_then(|toc| doc.chapter(current_page, toc))
+                              .map(|c| c.title.clone())
+                              .unwrap_or_default();
+            let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
             let neighbors = Neighbors {
                 previous_page: doc.resolve_location(Location::Previous(current_page)),
                 next_page: doc.resolve_location(Location::Next(current_page)),
             };
             bottom_bar.update_page_label(self.current_page, self.pages_count, hub);
             bottom_bar.update_icons(&neighbors, hub);
-            let chapter = self.info.toc.as_ref()
-                              .map(|toc| toc_from_simple_toc(toc))
-                              .or_else(|| doc.toc())
-                              .as_ref().and_then(|toc| doc.chapter(current_page, toc))
-                              .map(|c| c.title.clone())
-                              .unwrap_or_default();
             bottom_bar.update_chapter(chapter, hub);
         }
     }
@@ -1224,7 +1221,7 @@ impl Reader {
                                                   self.rect.max.x,
                                                   self.rect.max.y],
                                             doc.as_mut(),
-                                            self.info.toc.as_ref().map(|toc| toc_from_simple_toc(toc)),
+                                            self.toc(),
                                             self.current_page,
                                             self.pages_count,
                                             &neighbors,
@@ -1896,6 +1893,45 @@ impl Reader {
         self.update(None, hub);
     }
 
+    fn toc(&self) -> Option<Vec<TocEntry>> {
+        let mut index = 0;
+        self.info.toc.as_ref()
+            .map(|simple_toc| self.toc_aux(simple_toc, &mut index))
+    }
+
+    fn toc_aux(&self, simple_toc: &[SimpleTocEntry], index: &mut usize) -> Vec<TocEntry> {
+        let mut toc = Vec::new();
+        for entry in simple_toc {
+            *index += 1;
+            match entry {
+                SimpleTocEntry::Leaf(title, location) | SimpleTocEntry::Container(title, location, _) => {
+                    let current_title = title.clone();
+                    let current_location = match location {
+                        TocLocation::Uri(uri) if uri.starts_with('\'') => {
+                            self.find_page_by_name(&uri[1..])
+                                .map(Location::Exact)
+                                .unwrap_or_else(|| location.clone().into())
+                        },
+                        _ => location.clone().into(),
+                    };
+                    let current_index = *index;
+                    let current_children = if let SimpleTocEntry::Container(_, _, children) = entry {
+                        self.toc_aux(children, index)
+                    } else {
+                        Vec::new()
+                    };
+                    toc.push(TocEntry {
+                        title: current_title,
+                        location: current_location,
+                        index: current_index,
+                        children: current_children,
+                    });
+                },
+            }
+        }
+        toc
+    }
+
     fn find_page_by_name(&self, name: &str) -> Option<usize> {
         self.info.reader.as_ref().and_then(|r| {
             if let Ok(a) = u32::from_str_radix(name, 10) {
@@ -2289,14 +2325,9 @@ impl View for Reader {
                 true
             },
             Event::GoToLocation(ref location) => {
-                let offset_opt = match location {
-                    Location::Uri(uri) if uri.starts_with('\'') => {
-                        self.find_page_by_name(&uri[1..])
-                    },
-                    _ => {
-                        let mut doc = self.doc.lock().unwrap();
-                        doc.resolve_location(location.clone())
-                    }
+                let offset_opt = {
+                    let mut doc = self.doc.lock().unwrap();
+                    doc.resolve_location(location.clone())
                 };
                 if let Some(offset) = offset_opt {
                     self.go_to_page(offset, true, hub);
@@ -2417,8 +2448,7 @@ impl View for Reader {
                     self.toggle_bars(Some(false), hub, context);
                 }
                 let mut doc = self.doc.lock().unwrap();
-                if let Some(toc) = self.info.toc.as_ref()
-                                       .map(|toc| toc_from_simple_toc(toc))
+                if let Some(toc) = self.toc()
                                        .or_else(|| doc.toc())
                                        .filter(|toc| !toc.is_empty()) {
                     let chap_index = doc.chapter(self.current_page, &toc)
