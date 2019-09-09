@@ -225,7 +225,7 @@ pub fn parse_raw_events(paths: &[String], tx: &Sender<InputEvent>) -> Result<(),
         }
         for (pfd, mut file) in pfds.iter().zip(&files) {
             if pfd.revents & libc::POLLIN != 0 {
-                let mut input_event = unsafe { MaybeUninit::<InputEvent>::uninit() };
+                let mut input_event = MaybeUninit::<InputEvent>::uninit();
                 unsafe {
                     let event_slice = slice::from_raw_parts_mut(input_event.as_mut_ptr() as *mut u8,
                                                                 mem::size_of::<InputEvent>());
