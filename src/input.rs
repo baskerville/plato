@@ -9,6 +9,7 @@ use std::os::unix::io::AsRawFd;
 use std::ffi::CString;
 use fnv::{FnvHashMap, FnvHashSet};
 use crate::framebuffer::Display;
+use crate::settings::ButtonScheme;
 use crate::device::CURRENT_DEVICE;
 use crate::geom::Point;
 use failure::{Error, ResultExt};
@@ -128,7 +129,7 @@ pub enum ButtonCode {
 }
 
 impl ButtonCode {
-    fn from_raw(code: u16, rotation: i8) -> ButtonCode {
+    fn from_raw(code: u16, rotation: i8, button_scheme: ButtonScheme) -> ButtonCode {
         if code == KEY_POWER {
             ButtonCode::Power
         } else if code == KEY_HOME {
@@ -136,16 +137,40 @@ impl ButtonCode {
         } else if code == KEY_LIGHT {
             ButtonCode::Light
         } else if code == KEY_BACKWARD {
-            if rotation < 2 {
-                ButtonCode::Backward
-            } else {
-                ButtonCode::Forward
+            match rotation {
+                0 => ButtonCode::Backward,
+                1 => {
+                    match button_scheme {
+                        ButtonScheme::Natural => ButtonCode::Backward,
+                        ButtonScheme::Inverted => ButtonCode::Forward,
+                    }
+                },
+                2 => ButtonCode::Forward,
+                3 => {
+                    match button_scheme {
+                        ButtonScheme::Natural => ButtonCode::Forward,
+                        ButtonScheme::Inverted => ButtonCode::Backward,
+                    }
+                },
+                _ => ButtonCode::Backward,
             }
         } else if code == KEY_FORWARD {
-            if rotation < 2 {
-                ButtonCode::Forward
-            } else {
-                ButtonCode::Backward
+            match rotation {
+                0 => ButtonCode::Forward,
+                1 => {
+                    match button_scheme {
+                        ButtonScheme::Natural => ButtonCode::Forward,
+                        ButtonScheme::Inverted => ButtonCode::Backward,
+                    }
+                },
+                2 => ButtonCode::Backward,
+                3 => {
+                    match button_scheme {
+                        ButtonScheme::Natural => ButtonCode::Backward,
+                        ButtonScheme::Inverted => ButtonCode::Forward,
+                    }
+                },
+                _ => ButtonCode::Forward,
             }
         } else {
             ButtonCode::Raw(code)
@@ -295,13 +320,13 @@ fn parse_usb_events(tx: &Sender<DeviceEvent>) {
     }
 }
 
-pub fn device_events(rx: Receiver<InputEvent>, display: Display) -> Receiver<DeviceEvent> {
+pub fn device_events(rx: Receiver<InputEvent>, display: Display, button_scheme: ButtonScheme) -> Receiver<DeviceEvent> {
     let (ty, ry) = mpsc::channel();
-    thread::spawn(move || parse_device_events(&rx, &ty, display));
+    thread::spawn(move || parse_device_events(&rx, &ty, display, button_scheme));
     ry
 }
 
-pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, display: Display) {
+pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, display: Display, button_scheme: ButtonScheme) {
     let mut id = 0;
     let mut position = Point::default();
     let mut pressure = 0;
@@ -417,7 +442,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 if let Some(button_status) = ButtonStatus::try_from_raw(evt.value) {
                     ty.send(DeviceEvent::Button {
                         time: seconds(evt.time),
-                        code: ButtonCode::from_raw(evt.code, rotation),
+                        code: ButtonCode::from_raw(evt.code, rotation, button_scheme),
                         status: button_status,
                     }).unwrap();
                 }

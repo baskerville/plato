@@ -243,7 +243,7 @@ pub fn run() -> Result<(), Error> {
     let paths = vec!["/dev/input/event0".to_string(),
                      "/dev/input/event1".to_string()];
     let (raw_sender, raw_receiver) = raw_events(paths);
-    let touch_screen = gesture_events(device_events(raw_receiver, context.display));
+    let touch_screen = gesture_events(device_events(raw_receiver, context.display, context.settings.button_scheme));
     let usb_port = usb_events();
 
     let (tx, rx) = mpsc::channel();

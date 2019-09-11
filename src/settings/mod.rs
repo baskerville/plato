@@ -32,6 +32,13 @@ pub enum RotationLock {
     Current,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ButtonScheme {
+    Natural,
+    Inverted,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct Settings {
@@ -42,6 +49,7 @@ pub struct Settings {
     pub auto_share: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rotation_lock: Option<RotationLock>,
+    pub button_scheme: ButtonScheme,
     pub auto_suspend: u8,
     #[serde(skip_serializing_if = "FnvHashMap::is_empty")]
     pub intermission_images: FnvHashMap<String, PathBuf>,
@@ -259,6 +267,7 @@ impl Default for Settings {
             sleep_cover: true,
             auto_share: false,
             rotation_lock: None,
+            button_scheme: ButtonScheme::Natural,
             auto_suspend: 15,
             intermission_images: FnvHashMap::default(),
             home: HomeSettings::default(),
