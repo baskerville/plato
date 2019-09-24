@@ -31,7 +31,7 @@ use crate::view::reader::Reader;
 use crate::view::confirmation::Confirmation;
 use crate::view::intermission::{Intermission, IntermKind};
 use crate::view::notification::Notification;
-use crate::device::{CURRENT_DEVICE, FrontlightKind, INTERNAL_CARD_ROOT};
+use crate::device::{CURRENT_DEVICE, Orientation, FrontlightKind, INTERNAL_CARD_ROOT};
 use crate::font::Fonts;
 
 pub const APP_NAME: &str = "Plato";
@@ -519,10 +519,10 @@ pub fn run() -> Result<(), Error> {
 
                         if view.might_rotate() {
                             if let Some(rotation_lock) = context.settings.rotation_lock {
-                                let orientation = n % 2;
+                                let orientation = CURRENT_DEVICE.orientation(n);
                                 if rotation_lock == RotationLock::Current ||
-                                   (rotation_lock == RotationLock::Portrait && orientation == 0) ||
-                                   (rotation_lock == RotationLock::Landscape && orientation == 1) {
+                                   (rotation_lock == RotationLock::Portrait && orientation == Orientation::Landscape) ||
+                                   (rotation_lock == RotationLock::Landscape && orientation == Orientation::Portrait) {
                                     continue;
                                 }
                             }

@@ -11,6 +11,7 @@ pub const EXTERNAL_CARD_ROOT: &str = "/mnt/sd";
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
+    LibraH2O,
     Forma,
     ClaraHD,
     AuraH2OEdition2,
@@ -26,9 +27,16 @@ pub enum Model {
     Touch,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Orientation {
+    Portrait,
+    Landscape,
+}
+
 impl fmt::Display for Model {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Model::LibraH2O        => write!(f, "Libra H₂O"),
             Model::Forma           => write!(f, "Forma"),
             Model::ClaraHD         => write!(f, "Clara HD"),
             Model::AuraH2OEdition2 => write!(f, "Aura H₂O Edition 2"),
@@ -90,7 +98,8 @@ impl Device {
             Model::AuraONE |
             Model::AuraH2OEdition2 => FrontlightKind::Natural,
             Model::ClaraHD |
-            Model::Forma => FrontlightKind::Premixed,
+            Model::Forma |
+            Model::LibraH2O => FrontlightKind::Premixed,
             _ => FrontlightKind::Standard,
         }
     }
@@ -111,8 +120,20 @@ impl Device {
 
     pub fn has_gyroscope(&self) -> bool {
         match self.model {
-            Model::Forma => true,
+            Model::Forma | Model::LibraH2O => true,
             _ => false,
+        }
+    }
+
+    pub fn orientation(&self, rotation: i8) -> Orientation {
+        let discriminant = match self.model {
+            Model::LibraH2O => 0,
+            _ => 1,
+        };
+        if rotation % 2 == discriminant {
+            Orientation::Portrait
+        } else {
+            Orientation::Landscape
         }
     }
 
@@ -132,12 +153,25 @@ impl Device {
             Model::AuraH2OEdition2 if model_number == "374" => (1, 1),
             Model::AuraH2OEdition2 if model_number == "378" => (0, -1),
             Model::Forma => (2, -1),
+            Model::LibraH2O => (3, 1),
             _ => (2, 1),
+        }
+    }
+
+    pub fn should_swap_axes(&self, rotation: i8) -> bool {
+        rotation % 2 == self.swapping_scheme()
+    }
+
+    pub fn swapping_scheme(&self) -> i8 {
+        match self.model {
+            Model::LibraH2O => 0,
+            _ => 1,
         }
     }
 
     pub fn startup_rotation(&self) -> i8 {
         match self.model {
+            Model::LibraH2O => 0,
             Model::Forma => 1,
             _ => 3,
         }
@@ -232,6 +266,12 @@ lazy_static! {
                 dims: (1440, 1920),
                 dpi: 300,
             },
+            "storm" => Device {
+                model: Model::LibraH2O,
+                proto: TouchProto::MultiB,
+                dims: (1264, 1680),
+                dpi: 300,
+            },
             _ => Device::default(),
         }
     };
@@ -247,6 +287,8 @@ pub static ref BAR_SIZES: HashMap<(u32, u16), (u32, u32)> =
      ((1440, 300), (126, 177)),
      ((1872, 300), (126, 166)),
      ((1404, 300), (126, 171)),
+     ((1264, 300), (123, 179)),
+     ((1680, 300), (120, 165)),
      ((1448, 300), (121, 155)),
      ((1072, 300), (124, 175)),
      ((1440, 265), (104, 141)),
@@ -257,6 +299,17 @@ pub static ref BAR_SIZES: HashMap<(u32, u16), (u32, u32)> =
      (( 600, 167), ( 65,  81)),
      (( 800, 200), ( 80, 112)),
      (( 600, 200), ( 84, 116))].iter().cloned().collect();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::optimal_bars_setup;
+
+    #[test]
+    fn bar_sizes() {
+        assert_eq!(optimal_bars_setup(1872, 300), (126, 166));
+        assert_eq!(optimal_bars_setup(1448, 300), (121, 155));
+    }
 }
 
 pub fn optimal_bars_setup(height: u32, dpi: u16) -> (u32, u32) {

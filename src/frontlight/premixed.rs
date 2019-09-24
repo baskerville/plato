@@ -10,7 +10,7 @@ const FRONTLIGHT_INTERFACE: &str = "/sys/class/backlight";
 const FRONTLIGHT_WHITE: &str = "mxc_msp430.0/brightness";
 // Forma
 const FRONTLIGHT_ORANGE_A: &str = "tlc5947_bl/color";
-// Clara HD
+// Libra H₂O, Clara HD
 const FRONTLIGHT_ORANGE_B: &str = "lm3630a_led/color";
 
 pub struct PremixedFrontlight {
