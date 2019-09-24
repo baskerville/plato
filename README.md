@@ -6,7 +6,7 @@ Documentation: [GUIDE](doc/GUIDE.md), [MANUAL](doc/MANUAL.md) and [BUILD](doc/BU
 
 ## Supported firmwares
 
-A recent 4.X firmware is required.
+Any 4.*X*.*Y* firmware, with *X* ≥ 6, will do.
 
 ## Supported devices
 
