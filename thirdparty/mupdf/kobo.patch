@@ -57,3 +57,15 @@ diff -ru a/Makerules b/Makerules
  # Most variables when building for iOS are set up in ios/build_libs.sh,
  # which is called from the Xcode project as a "Run Script" build step.
  # The following section works for both device and simulator builds.
+diff -ru a/source/fitz/store.c b/source/fitz/store.c
+--- a/source/fitz/store.c	2019-09-25 22:07:15.000000000 +0200
++++ b/source/fitz/store.c	2019-09-25 22:08:48.000000000 +0200
+@@ -336,7 +336,7 @@
+ 	}
+ 
+ 	/* If we ran out of items to search, then we can never free enough */
+-	if (item == NULL)
++	if (count == 0)
+ 	{
+ 		return 0;
+ 	}
