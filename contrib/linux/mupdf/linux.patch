@@ -1,0 +1,33 @@
+diff -ru a/Makefile b/Makefile
+--- a/Makefile	2019-05-06 13:53:09.000000000 +0200
++++ b/Makefile	2019-07-24 15:36:09.000000000 +0200
+@@ -197,7 +197,7 @@
+ $(THREAD_LIB) : $(THREAD_OBJ)
+ $(PKCS7_LIB) : $(PKCS7_OBJ)
+ 
+-INSTALL_LIBS := $(MUPDF_LIB) $(THIRD_LIB)
++INSTALL_LIBS := $(MUPDF_LIB)
+ 
+ # --- Main tools and viewers ---
+ 
+@@ -353,7 +353,7 @@
+ cscope.out: cscope.files
+ 	cscope -b
+ 
+-all: libs apps
++all: libs
+ 
+ clean:
+ 	rm -rf $(OUT)
+diff -ru a/Makerules b/Makerules
+--- a/Makerules	2019-05-06 13:53:09.000000000 +0200
++++ b/Makerules	2019-07-24 15:42:24.000000000 +0200
+@@ -86,7 +86,7 @@
+   RANLIB = xcrun ranlib
+ 
+ else ifeq ($(OS),Linux)
+-  HAVE_OBJCOPY := yes
++  HAVE_OBJCOPY := no
+ 
+   ifeq ($(shell pkg-config --exists freetype2 && echo yes),yes)
+ 	SYS_FREETYPE_CFLAGS := $(shell pkg-config --cflags freetype2)

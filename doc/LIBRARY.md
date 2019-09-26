@@ -1,20 +1,6 @@
-## Preliminary
-
-Install the required libraries: *mupdf* and *djvulibre*.
-
-Then build the *mupdf* wrapper in `src/wrapper`:
-
-```
-CFLAGS='-I/path/to/mupdf/include' LDFLAGS='-lmupdf' ./build.sh
-```
-
-And put the generated library in `libs`.
-
 ## Import Metadata
 
-First install the importer with `cargo install --path . --bin plato-import --features importer`.
-
-Then, create an empty database with `plato-import -Z LIBRARY_PATH`.
+Create an empty database with `plato-import -Z LIBRARY_PATH`.
 
 If the command runs successfully, a file named `.metadata.json` will appear in the given directory.
 
