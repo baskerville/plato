@@ -8,7 +8,7 @@ Once a page is named, you can jump to any page above it in the same category. Fo
 
 You can override a book's TOC by adding a *toc* key to the corresponding entry in `.metadata.json`:
 
-```json
+```
 ⋮
 {
 	⋮
@@ -25,7 +25,7 @@ You can override a book's TOC by adding a *toc* key to the corresponding entry i
 
 Page names can also be used instead of page numbers:
 
-```json
+```
 ⋮
 {
 	⋮
