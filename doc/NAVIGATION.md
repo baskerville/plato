@@ -27,7 +27,8 @@ Page names can also be used instead of page numbers:
 {
 	⋮
 	"toc": [
-		["Preface", "'vii"],
+		["Preface", "'viii"],
+		["Acknowledgments", "'xvii"],
 		["Introduction", "'1"],
 		["Section 1", "'16", [["Chapter 1", "'16"],
 							  ["Chapter 2", "'47"],
