@@ -1881,6 +1881,20 @@ impl Reader {
     }
 
     fn crop_margins(&mut self, index: usize, margin: &Margin, hub: &Hub) {
+        if self.view_port.zoom_mode == ZoomMode::FitToWidth {
+            let Resource { pixmap, frame, .. } = self.cache.get(&index).unwrap();
+            let ratio = (frame.min.y + self.view_port.top_offset) as f32 / pixmap.height as f32;
+            if ratio >= margin.top && ratio <= (1.0 - margin.bottom) {
+                let dims = {
+                    let doc = self.doc.lock().unwrap();
+                    doc.dims(index).unwrap()
+                };
+                let scale = scaling_factor(&self.rect, margin, self.view_port.margin_width, dims, ZoomMode::FitToWidth);
+                self.view_port.top_offset = (scale * (ratio - margin.top) * dims.1) as i32;
+            } else {
+                self.view_port.top_offset = 0;
+            }
+        }
         if let Some(r) = self.info.reader.as_mut() {
             if r.cropping_margins.is_none() {
                 r.cropping_margins = Some(CroppingMargins::Any(Margin::default()));
