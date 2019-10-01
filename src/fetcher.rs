@@ -11,7 +11,7 @@ use chrono::{Duration, Utc, Local, DateTime};
 use serde::{Serialize, Deserialize};
 use serde_json::Value as JsonValue;
 use failure::{Error, ResultExt, format_err};
-use self::helpers::{load_toml, load_json, save_json};
+use self::helpers::{load_toml, load_json, save_json, decode_entities};
 
 const SETTINGS_PATH: &str = "Settings.toml";
 const SESSION_PATH: &str = ".session.json";
@@ -205,6 +205,7 @@ fn run() -> Result<(), Error> {
 
                 let title = element.get("title")
                                    .and_then(|v| v.as_str())
+                                   .map(decode_entities)
                                    .map(String::from)
                                    .unwrap_or_default();
 

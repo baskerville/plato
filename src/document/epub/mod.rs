@@ -15,7 +15,7 @@ use zip::ZipArchive;
 use kl_hyphenate::{Standard, Hyphenator, Iter};
 use failure::{Error, format_err};
 use crate::framebuffer::{Framebuffer, Pixmap};
-use crate::helpers::Normalize;
+use crate::helpers::{Normalize, decode_entities};
 use crate::font::{FontOpener, FontFamily};
 use crate::document::{Document, Location, TocEntry, BoundedText, chapter_from_uri};
 use crate::document::pdf::PdfOpener;
@@ -37,7 +37,7 @@ use self::layout::{hyph_lang, collapse_margins, DEFAULT_HYPH_LANG, HYPHENATION_P
 use self::layout::{EM_SPACE_RATIOS, WORD_SPACE_RATIOS, FONT_SPACES};
 use self::style::{Stylesheet, specified_values};
 use self::css::{CssParser, RuleKind};
-use self::xml::{XmlParser, decode_entities};
+use self::xml::XmlParser;
 
 const DEFAULT_DPI: u16 = 300;
 const DEFAULT_WIDTH: u32 = 1404;

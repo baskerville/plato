@@ -26,7 +26,6 @@ use crate::helpers::{load_json, save_json};
 use crate::settings::{ImportSettings, CategoryProvider};
 use crate::metadata::{Info, Metadata, METADATA_FILENAME, IMPORTED_MD_FILENAME};
 use crate::metadata::{import, extract_metadata_from_epub, extract_metadata_from_filename, clean_up};
-use crate::document::epub::xml::decode_entities;
 use crate::document::{open, asciify};
 
 fn run() -> Result<(), Error> {
