@@ -8,5 +8,5 @@ killall udhcpc default.script wpa_supplicant 2> /dev/null
 ifconfig "$INTERFACE" down
 
 sleep 0.2
-rmmod -r "$WIFI_MODULE"
-rmmod -r sdio_wifi_pwr
+rmmod "$WIFI_MODULE"
+rmmod sdio_wifi_pwr
