@@ -268,11 +268,8 @@ impl Reader {
                     r.current_page = first_location;
                 }
 
-                current_page = r.current_page;
-
-                if current_page >= pages_count {
-                    current_page = pages_count - 1;
-                }
+                current_page = doc.resolve_location(Location::Exact(r.current_page))
+                                  .unwrap_or(first_location);
 
                 if let Some(zoom_mode) = r.zoom_mode {
                     view_port.zoom_mode = zoom_mode;

@@ -85,7 +85,7 @@ pub trait Document: Send+Sync {
 
         match loc {
             Location::Exact(index) => {
-                Some(index.max(0).min(self.pages_count() - 1))
+                Some(index.min(self.pages_count() - 1))
             },
             Location::Previous(index) => {
                 if index > 0 {
