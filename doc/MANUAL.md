@@ -59,6 +59,8 @@ The following swipe sequences are recognized:
 - Bottom left corner: guess the frontlight if there's more than two frontlight presets defined, toggle the frontlight otherwise.
 - Bottom right corner: toggle the bitonal mode.
 
+Simultaneously performing an east arrow with the left hand and a west arrow with the right hand will lead you back to the home screen.
+
 ### Text Selection
 
 To select text, tap and hold the first or last word of the selection. Wait for the selection feedback. Move your finger on the other end of the selection and lift it. If you've made a mistake, select *Adjust Selection* and tap on the correct ends; tap and hold the selection when you're done.
