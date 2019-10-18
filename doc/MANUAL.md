@@ -75,9 +75,9 @@ Tap the title label to bring up the book menu.
 
 # Home & Reader
 
-Tap the bottom left and top right corners to take a screenshot.
+Tap the bottom left and top right corners to do a full screen refresh.
 
-Tap the top left and bottom right corners to do a full screen refresh.
+Tap the top left and bottom right corners to take a screenshot.
 
 ## Menus
 
