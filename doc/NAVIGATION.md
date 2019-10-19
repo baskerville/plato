@@ -4,6 +4,8 @@ To name a page, hold the current page indicator and select the *Name* entry. A p
 
 Once a page is named, you can jump to any page above it in the same category. For example if you've defined page 15 as *vi*, by entering *'ix* (or *"ix*), in the *Go to page* input field, you'll jump to page 18.
 
+You can also select a page name in the book's text and jump to it by taping *Go To* in the selection menu. This can be particularly useful within a book's index.
+
 ## Overriding the TOC
 
 You can override a book's TOC by adding a *toc* key to the corresponding entry in `.metadata.json`:
