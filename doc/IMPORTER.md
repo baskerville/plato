@@ -11,7 +11,7 @@ patch -p 1 < linux.patch
 ```sh
 CFLAGS="-I<path_to_mupdf>/include" ./build.sh
 ```
-5. Copy the generated libraries (`libmupdf.so` and `libmupdfwrapper.so`) in the appropriate directory (e.g. `/usr/lib`).
+5. Copy the libraries generated on steps 3 (`libmupdf.so`) and 4 (`libmupdfwrapper.so`) in the appropriate directory (e.g. `/usr/lib`).
 6. And finally, in *Plato*'s directory (the binary is saved in `~/.cargo/bin`): 
 ```sh
 cargo install --path . --bin plato-import --features importer
