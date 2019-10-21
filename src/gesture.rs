@@ -252,32 +252,32 @@ fn interpret_segment(sp: &[Point], jitter: f32) -> GestureEvent {
     let b = sp[sp.len()-1];
     let ab = b - a;
     let d = ab.length();
-    let p = sp[sp.len()/2];
-    let (n, p) = {
-        let p: Vec2 = p.into();
-        let (n, _) = nearest_segment_point(p, a.into(), b.into());
-        (n, p)
-    };
-    let np = p - n;
-    let ds = np.length();
-    if ds > d / 5.0 {
-        let g = (ab.x as f32 / ab.y as f32).abs();
-        if g < 0.5 || g > 2.0 {
-            GestureEvent::Arrow {
-                dir: np.dir(),
-                start: a,
-                end: b,
-            }
-        } else {
-            GestureEvent::Corner {
-                dir: np.diag_dir(),
-                start: a,
-                end: b,
-            }
-        }
+    if d < jitter {
+        GestureEvent::Tap(a)
     } else {
-        if d < jitter {
-            GestureEvent::Tap(a)
+        let p = sp[sp.len()/2];
+        let (n, p) = {
+            let p: Vec2 = p.into();
+            let (n, _) = nearest_segment_point(p, a.into(), b.into());
+            (n, p)
+        };
+        let np = p - n;
+        let ds = np.length();
+        if ds > d / 5.0 {
+            let g = (ab.x as f32 / ab.y as f32).abs();
+            if g < 0.5 || g > 2.0 {
+                GestureEvent::Arrow {
+                    dir: np.dir(),
+                    start: a,
+                    end: b,
+                }
+            } else {
+                GestureEvent::Corner {
+                    dir: np.diag_dir(),
+                    start: a,
+                    end: b,
+                }
+            }
         } else {
             GestureEvent::Swipe {
                 start: a,
