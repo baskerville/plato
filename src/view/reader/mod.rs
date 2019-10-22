@@ -3442,8 +3442,8 @@ impl View for Reader {
                 fb.draw_framed_pixmap_contrast(pixmap, &chunk_frame, chunk_position, self.contrast.exponent, self.contrast.gray);
 
                 if let Some(groups) = self.search.as_ref().and_then(|s| s.highlights.get(&chunk.location)) {
-                    let mut last_rect: Option<Rectangle> = None;
                     for rects in groups {
+                        let mut last_rect: Option<Rectangle> = None;
                         for r in rects {
                             let rect = (*r * scale).to_rect() - chunk.frame.min + chunk.position;
                             if let Some(ref search_rect) = rect.intersection(&region_rect) {
