@@ -18,7 +18,7 @@ use septem::prelude::*;
 use septem::{Roman, Digit};
 use crate::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
-use crate::view::{View, Event, Hub, ViewId, EntryKind, EntryId, SliderId, Bus, THICKNESS_MEDIUM};
+use crate::view::{View, Event, AppCmd, Hub, Bus, ViewId, EntryKind, EntryId, SliderId, THICKNESS_MEDIUM};
 use crate::unit::{scale_by_dpi, mm_to_px};
 use crate::device::{CURRENT_DEVICE, BAR_SIZES};
 use crate::helpers::AsciiExtension;
@@ -29,7 +29,7 @@ use super::top_bar::TopBar;
 use self::tool_bar::ToolBar;
 use self::bottom_bar::BottomBar;
 use self::results_bar::ResultsBar;
-use crate::view::common::{locate, rlocate, locate_by_id, shift};
+use crate::view::common::{locate, rlocate, locate_by_id};
 use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
 use crate::view::filler::Filler;
 use crate::view::named_input::NamedInput;
@@ -834,7 +834,7 @@ impl Reader {
             };
             bottom_bar.update_page_label(self.current_page, self.pages_count, hub);
             bottom_bar.update_icons(&neighbors, hub);
-            bottom_bar.update_chapter(chapter, hub);
+            bottom_bar.update_chapter(&chapter, hub);
         }
     }
 
@@ -1111,8 +1111,9 @@ impl Reader {
                 let delta_y = rect.height() as i32;
 
                 for i in start_index..index-1 {
-                    shift(self.child_mut(i), pt!(0, delta_y));
-                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).unwrap();
+                    let shifted_rect = *self.child(i).rect() + pt!(0, delta_y);
+                    self.child_mut(i).resize(shifted_rect, hub, context);
+                    hub.send(Event::Render(shifted_rect, UpdateMode::Gui)).unwrap();
                 }
 
                 let rect = rect![self.rect.min.x, y_min, self.rect.max.x, y_min + delta_y];
@@ -1173,8 +1174,9 @@ impl Reader {
                 let start_index = locate::<TopBar>(self).map(|index| index+2).unwrap_or(0);
 
                 for i in start_index..index {
-                    shift(self.child_mut(i), pt!(0, -delta_y));
-                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).unwrap();
+                    let shifted_rect = *self.child(i).rect() + pt!(0, -delta_y);
+                    self.child_mut(i).resize(shifted_rect, hub, context);
+                    hub.send(Event::Render(shifted_rect, UpdateMode::Gui)).unwrap();
                 }
             }
         }
@@ -1512,8 +1514,10 @@ impl Reader {
 
             let mut edit_note = NamedInput::new("Note".to_string(), ViewId::EditNote, ViewId::EditNoteInput, 32, context);
             if let Some(text) = text.as_ref() {
-                edit_note.set_text(text);
+                let (tx, _rx) = mpsc::channel();
+                edit_note.set_text(text, &tx);
             }
+
             hub.send(Event::Render(*edit_note.rect(), UpdateMode::Gui)).unwrap();
             hub.send(Event::Focus(Some(ViewId::EditNoteInput))).unwrap();
 
@@ -1628,6 +1632,7 @@ impl Reader {
             ];
 
             entries.push(EntryKind::Separator);
+            entries.push(EntryKind::Command("Define".to_string(), EntryId::DefineSelection));
             entries.push(EntryKind::Command("Search".to_string(), EntryId::SearchForSelection));
 
             if self.info.reader.as_ref().map_or(false, |r| !r.page_names.is_empty()) {
@@ -1960,12 +1965,7 @@ impl Reader {
                                                       EntryId::SearchDirection(LinearDir::Backward),
                                                       self.search_direction == LinearDir::Backward)];
 
-            let kind = if locate::<SearchBar>(self).is_some() {
-                MenuKind::Contextual
-            } else {
-                MenuKind::DropDown
-            };
-            let search_menu = Menu::new(rect, ViewId::SearchMenu, kind, entries, context);
+            let search_menu = Menu::new(rect, ViewId::SearchMenu, MenuKind::Contextual, entries, context);
             hub.send(Event::Render(*search_menu.rect(), UpdateMode::Gui)).unwrap();
             self.children.push(Box::new(search_menu) as Box<dyn View>);
         }
@@ -2923,6 +2923,16 @@ impl View for Reader {
 
                 true
             },
+            Event::Gesture(GestureEvent::HoldFingerLong(center, _)) if self.rect.includes(center) => {
+                if let Some(text) = self.selected_text() {
+                    let query = text.trim_matches(|c: char| !c.is_alphanumeric()).to_string();
+                    let language = self.info.language.clone();
+                    hub.send(Event::Select(EntryId::Launch(AppCmd::Dictionary { query, language }))).unwrap();
+                }
+                self.selection = None;
+                self.state = State::Idle;
+                true
+            },
             Event::Update(mode) => {
                 self.update(Some(mode), hub);
                 true
@@ -3265,6 +3275,15 @@ impl View for Reader {
                     self.update_annotations();
                 }
 
+                true
+            },
+            Event::Select(EntryId::DefineSelection) => {
+                if let Some(text) = self.selected_text() {
+                    let query = text.trim_matches(|c: char| !c.is_alphanumeric()).to_string();
+                    let language = self.info.language.clone();
+                    hub.send(Event::Select(EntryId::Launch(AppCmd::Dictionary { query, language }))).unwrap();
+                }
+                self.selection = None;
                 true
             },
             Event::Select(EntryId::SearchForSelection) => {

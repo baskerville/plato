@@ -110,9 +110,6 @@ impl View for Icon {
                     Event::Show(ViewId::MarginCropper) => {
                         bus.push_back(Event::ToggleNear(ViewId::MarginCropperMenu, self.rect));
                     },
-                    Event::Show(ViewId::SearchBar) | Event::Focus(Some(ViewId::SearchInput)) => {
-                        bus.push_back(Event::ToggleNear(ViewId::SearchMenu, self.rect));
-                    },
                     Event::History(dir, false) => {
                         bus.push_back(Event::History(dir, true));
                     },

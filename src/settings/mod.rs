@@ -1,7 +1,7 @@
 mod preset;
 
 use std::path::PathBuf;
-use fnv::{FnvHashSet, FnvHashMap};
+use std::collections::{HashSet, HashMap, BTreeMap};
 use serde::{Serialize, Deserialize};
 use crate::metadata::{SortMethod, TextAlign};
 use crate::frontlight::LightLevels;
@@ -51,13 +51,14 @@ pub struct Settings {
     pub rotation_lock: Option<RotationLock>,
     pub button_scheme: ButtonScheme,
     pub auto_suspend: u8,
-    #[serde(skip_serializing_if = "FnvHashMap::is_empty")]
-    pub intermission_images: FnvHashMap<String, PathBuf>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub intermission_images: HashMap<String, PathBuf>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub frontlight_presets: Vec<LightPreset>,
     pub home: HomeSettings,
     pub reader: ReaderSettings,
     pub import: ImportSettings,
+    pub dictionary: DictionarySettings,
     pub sketch: SketchSettings,
     pub calculator: CalculatorSettings,
     pub battery: BatterySettings,
@@ -87,8 +88,27 @@ pub struct ImportSettings {
     pub unshare_trigger: bool,
     pub startup_trigger: bool,
     pub traverse_hidden: bool,
-    pub allowed_kinds: FnvHashSet<String>,
-    pub category_providers: FnvHashSet<CategoryProvider>,
+    pub allowed_kinds: HashSet<String>,
+    pub category_providers: HashSet<CategoryProvider>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct DictionarySettings {
+    pub margin_width: i32,
+    pub font_size: f32,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub languages: BTreeMap<String, Vec<String>>,
+}
+
+impl Default for DictionarySettings {
+    fn default() -> Self {
+        DictionarySettings {
+            font_size: 11.0,
+            margin_width: 4,
+            languages: BTreeMap::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -269,10 +289,11 @@ impl Default for Settings {
             rotation_lock: None,
             button_scheme: ButtonScheme::Natural,
             auto_suspend: 15,
-            intermission_images: FnvHashMap::default(),
+            intermission_images: HashMap::new(),
             home: HomeSettings::default(),
             reader: ReaderSettings::default(),
             import: ImportSettings::default(),
+            dictionary: DictionarySettings::default(),
             sketch: SketchSettings::default(),
             calculator: CalculatorSettings::default(),
             battery: BatterySettings::default(),

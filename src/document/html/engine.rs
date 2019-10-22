@@ -897,7 +897,7 @@ impl Engine {
                                 items.push(ParagraphItem::Box { width: 0, data: ParagraphElement::Nothing });
                             }
 
-                            let is_unbreakable = c == '\u{00A0}' || c == '\u{202F}';
+                            let is_unbreakable = c == '\u{00A0}' || c == '\u{202F}' || c == '\u{2007}';
 
                             if is_unbreakable {
                                 items.push(ParagraphItem::Penalty { width: 0, penalty: INFINITE_PENALTY, flagged: false });

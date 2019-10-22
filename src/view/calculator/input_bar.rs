@@ -1,4 +1,4 @@
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::framebuffer::{Framebuffer};
 use crate::device::CURRENT_DEVICE;
 use crate::view::{View, Event, Hub, Bus, ViewId, THICKNESS_MEDIUM};
 use crate::view::icon::Icon;
@@ -64,8 +64,7 @@ impl InputBar {
 
     pub fn set_text(&mut self, text: &str, move_cursor: bool, hub: &Hub) {
         if let Some(input_field) = self.children[2].downcast_mut::<InputField>() {
-            input_field.set_text(text, move_cursor);
-            hub.send(Event::Render(*input_field.rect(), UpdateMode::Gui)).unwrap();
+            input_field.set_text(text, move_cursor, hub);
         }
     }
 

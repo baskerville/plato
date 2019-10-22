@@ -3,19 +3,22 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::process::Command;
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::time::{Duration, Instant};
 use failure::{Error, ResultExt};
 use fnv::FnvHashMap;
 use chrono::Local;
+use glob::glob;
+use crate::dictionary::{Dictionary, load_dictionary_from_file};
 use crate::framebuffer::{Framebuffer, KoboFramebuffer, Display, UpdateMode};
-use crate::view::{View, Event, EntryId, EntryKind, ViewId, AppId};
+use crate::view::{View, Event, EntryId, EntryKind, ViewId, AppCmd};
 use crate::view::{render, render_region, render_no_wait, render_no_wait_region, handle_event, expose};
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
 use crate::view::frontlight::FrontlightWindow;
 use crate::view::menu::{Menu, MenuKind};
-use crate::view::sketch::Sketch;
+use crate::view::dictionary::Dictionary as DictionaryApp;
 use crate::view::calculator::Calculator;
+use crate::view::sketch::Sketch;
 use crate::input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus};
 use crate::input::{raw_events, device_events, usb_events, display_rotate_event};
 use crate::gesture::{GestureEvent, gesture_events};
@@ -49,6 +52,7 @@ pub struct Context {
     pub metadata: Metadata,
     pub filename: PathBuf,
     pub fonts: Fonts,
+    pub dictionaries: BTreeMap<String, Dictionary>,
     pub frontlight: Box<dyn Frontlight>,
     pub battery: Box<dyn Battery>,
     pub lightsensor: Box<dyn LightSensor>,
@@ -67,9 +71,30 @@ impl Context {
         let dims = fb.dims();
         let rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
         Context { fb, display: Display { dims, rotation },
-                  settings, metadata, filename, fonts, battery,
+                  settings, metadata, filename, fonts, dictionaries: BTreeMap::new(), battery,
                   frontlight, lightsensor, notification_index: 0, kb_rect: Rectangle::default(),
                   plugged: false, covered: false, shared: false, online: false }
+    }
+
+    pub fn load_dictionaries(&mut self) {
+        if let Ok(entries) = glob("dictionaries/**/*.index") {
+            for entry in entries.into_iter().filter_map(|e| e.ok()) {
+                let index_path = entry;
+                let mut content_path = index_path.clone();
+                content_path.set_extension("dict.dz");
+                if !content_path.exists() {
+                    content_path.set_extension("");
+                }
+                if let Ok(mut dict) = load_dictionary_from_file(&content_path, &index_path) {
+                    let name = dict.short_name().ok().unwrap_or_else(|| {
+                        index_path.file_stem()
+                                  .map(|s| s.to_string_lossy().into_owned())
+                                  .unwrap_or_default()
+                    });
+                    self.dictionaries.insert(name, dict);
+                }
+            }
+        }
     }
 }
 
@@ -746,15 +771,16 @@ pub fn run() -> Result<(), Error> {
                 });
                 view = next_view;
             },
-            Event::Select(EntryId::Launch(app_id)) => {
+            Event::Select(EntryId::Launch(app_cmd)) => {
                 view.children_mut().retain(|child| !child.is::<Menu>());
                 let monochrome = context.fb.monochrome();
-                let mut next_view: Box<dyn View> = match app_id {
-                    AppId::Sketch => {
+                let mut next_view: Box<dyn View> = match app_cmd {
+                    AppCmd::Sketch => {
                         context.fb.set_monochrome(true);
                         Box::new(Sketch::new(context.fb.rect(), &tx, &mut context))
                     },
-                    AppId::Calculator => Box::new(Calculator::new(context.fb.rect(), &tx, &mut context)?),
+                    AppCmd::Calculator => Box::new(Calculator::new(context.fb.rect(), &tx, &mut context)?),
+                    AppCmd::Dictionary { ref query, ref language } => Box::new(DictionaryApp::new(context.fb.rect(), query, language, &tx, &mut context)),
                 };
                 transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
                 history.push(HistoryItem {
@@ -779,6 +805,8 @@ pub fn run() -> Result<(), Error> {
                         }
                     }
                     view.handle_event(&Event::Reseed, &tx, &mut bus, &mut context);
+                } else {
+                    break;
                 }
             },
             Event::TogglePresetMenu(rect, index) => {

@@ -77,7 +77,7 @@ impl TopBar {
 
     pub fn update_title_label(&mut self, title: &str, hub: &Hub) {
         let title_label = self.children[1].as_mut().downcast_mut::<Label>().unwrap();
-        title_label.update(title.to_string(), hub);
+        title_label.update(title, hub);
     }
 
     pub fn update_frontlight_icon(&mut self, hub: &Hub, context: &mut Context) {

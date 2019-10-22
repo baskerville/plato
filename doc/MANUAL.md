@@ -99,6 +99,20 @@ The *CMB* (combine) key can be used to enter special characters, e.g.: `CMB o e`
 
 A tap and hold on the delete or motion keys will act on words instead of characters.
 
+# Applications
+
+Applications can be launched from the *Applications* submenu of the main menu.
+
+You can go back to the previous view by tapping the top-left *back arrow*.
+
+## Dictionary
+
+*Dictionary* can be launched from the *Reader* view by tapping and holding a word or by making a text selection and tapping *Define* in the selection menu.
+
+Dictionaries will be searched recursively in the `dictionaries` directory. The supported format is *dictd*: `.dict.dz` (or `.dict`) and `.index`. The dictionary definitions can be styled by creating a stylesheet at `css/dictionary-user.css`. The definitions that aren't formatted with XML are wrapped inside a *pre* tag. The font size and margin width can be changed in the `[dictionary]` section of `Settings.toml`.
+
+You can select the search target by tapping the label in the bottom bar. You can set the input languages of a dictionary by tapping and holding the target's label. You can then provide a comma-separated list of IETF language tags (e.g.: *en, en-US, en-GB*).
+
 # Annex
 
 ## Combination Sequences

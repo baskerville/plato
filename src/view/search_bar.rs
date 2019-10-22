@@ -25,9 +25,10 @@ impl SearchBar {
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let side = rect.height() as i32;
 
+        let search_rect = rect![rect.min, rect.min + side];
         let search_icon = Icon::new("search",
-                                    rect![rect.min, rect.min + side],
-                                    Event::Focus(Some(ViewId::SearchInput)))
+                                    search_rect,
+                                    Event::ToggleNear(ViewId::SearchMenu, search_rect))
                                .background(TEXT_BUMP_SMALL[0]);
 
         children.push(Box::new(search_icon) as Box<dyn View>);
@@ -64,6 +65,12 @@ impl SearchBar {
         SearchBar {
             rect,
             children,
+        }
+    }
+
+    pub fn set_text(&mut self, text: &str, hub: &Hub) {
+        if let Some(input_field) = self.children[2].downcast_mut::<InputField>() {
+            input_field.set_text(text, true, hub);
         }
     }
 }

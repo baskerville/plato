@@ -19,7 +19,6 @@ use crate::symbolic_path;
 
 pub const METADATA_FILENAME: &str = ".metadata.json";
 pub const IMPORTED_MD_FILENAME: &str = ".metadata-imported.json";
-pub const MATCHES_MD_FILENAME: &str = ".metadata-matches-%Y%m%d_%H%M%S.json";
 pub const TRASH_NAME: &str = ".trash";
 
 pub const DEFAULT_CONTRAST_EXPONENT: f32 = 1.0;
@@ -631,9 +630,6 @@ pub fn extract_metadata_from_epub(dir: &Path, metadata: &mut Metadata, settings:
                     info.number = doc.series_index().unwrap_or_default();
                 }
                 info.language = doc.language().unwrap_or_default();
-                if info.language == "en" || info.language == "en-US" {
-                    info.language.clear();
-                }
                 if subjects_as_categories {
                     info.categories.append(&mut doc.categories());
                 }

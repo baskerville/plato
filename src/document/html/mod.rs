@@ -24,7 +24,7 @@ use self::css::{CssParser, RuleKind};
 use self::xml::XmlParser;
 
 const VIEWER_STYLESHEET: &str = "css/html.css";
-const USER_STYLESHEET: &str = "user.css";
+const USER_STYLESHEET: &str = "css/html-user.css";
 
 type UriCache = HashMap<String, usize>;
 
@@ -35,6 +35,7 @@ pub struct HtmlDocument {
     parent: PathBuf,
     size: usize,
     viewer_stylesheet: PathBuf,
+    user_stylesheet: PathBuf,
     ignore_document_css: bool,
 }
 
@@ -67,6 +68,7 @@ impl HtmlDocument {
             parent: parent.to_path_buf(),
             size,
             viewer_stylesheet: PathBuf::from(VIEWER_STYLESHEET),
+            user_stylesheet: PathBuf::from(USER_STYLESHEET),
             ignore_document_css: false,
         })
     }
@@ -83,8 +85,16 @@ impl HtmlDocument {
             parent: PathBuf::from(""),
             size,
             viewer_stylesheet: PathBuf::from(VIEWER_STYLESHEET),
+            user_stylesheet: PathBuf::from(USER_STYLESHEET),
             ignore_document_css: false,
         }
+    }
+
+    pub fn update(&mut self, content: &str) {
+        self.size = content.len();
+        self.content = XmlParser::new(content).parse();
+        self.content.wrap_lost_inlines();
+        self.pages.clear();
     }
 
     pub fn set_margin(&mut self, margin: &Edge) {
@@ -102,8 +112,8 @@ impl HtmlDocument {
         self.pages.clear();
     }
 
-    pub fn set_ignore_document_css(&mut self, value: bool) {
-        self.ignore_document_css = value;
+    pub fn set_user_stylesheet<P: AsRef<Path>>(&mut self, path: P) {
+        self.user_stylesheet = path.as_ref().to_path_buf();
         self.pages.clear();
     }
 
@@ -167,7 +177,7 @@ impl HtmlDocument {
             stylesheet.append(&mut css);
         }
 
-        if let Ok(text) = fs::read_to_string(USER_STYLESHEET) {
+        if let Ok(text) = fs::read_to_string(&self.user_stylesheet) {
             let (mut css, _) = CssParser::new(&text).parse(RuleKind::User);
             stylesheet.append(&mut css);
         }

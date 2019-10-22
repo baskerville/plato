@@ -19,7 +19,7 @@ use super::html::css::{CssParser, RuleKind};
 use super::html::xml::XmlParser;
 
 const VIEWER_STYLESHEET: &str = "css/epub.css";
-const USER_STYLESHEET: &str = "user.css";
+const USER_STYLESHEET: &str = "css/epub-user.css";
 
 type UriCache = HashMap<String, usize>;
 

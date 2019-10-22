@@ -106,10 +106,13 @@ impl InputField {
         self
     }
 
-    pub fn set_text(&mut self, text: &str, move_cursor: bool) {
-        self.text = text.to_string();
-        if move_cursor {
-            self.cursor = self.text.len();
+    pub fn set_text(&mut self, text: &str, move_cursor: bool, hub: &Hub) {
+        if self.text != text {
+            self.text = text.to_string();
+            if move_cursor {
+                self.cursor = self.text.len();
+            }
+            hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
         }
     }
 

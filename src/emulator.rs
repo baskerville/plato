@@ -9,6 +9,7 @@ mod battery;
 mod device;
 mod font;
 mod helpers;
+mod dictionary;
 mod document;
 mod metadata;
 mod settings;
@@ -37,7 +38,7 @@ use sdl2::rect::Point as SdlPoint;
 use sdl2::rect::Rect as SdlRect;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
-use crate::view::{View, Event, ViewId, EntryId, AppId, EntryKind};
+use crate::view::{View, Event, ViewId, EntryId, AppCmd, EntryKind};
 use crate::view::{render, render_region, render_no_wait, render_no_wait_region, handle_event, expose};
 use crate::view::home::Home;
 use crate::view::reader::Reader;
@@ -45,8 +46,9 @@ use crate::view::notification::Notification;
 use crate::view::frontlight::FrontlightWindow;
 use crate::view::keyboard::Keyboard;
 use crate::view::menu::{Menu, MenuKind};
-use crate::view::sketch::Sketch;
+use crate::view::dictionary::Dictionary;
 use crate::view::calculator::Calculator;
+use crate::view::sketch::Sketch;
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
 use crate::helpers::{load_json, save_json, load_toml, save_toml};
 use crate::metadata::{Metadata, METADATA_FILENAME, auto_import};
@@ -390,14 +392,17 @@ pub fn run() -> Result<(), Error> {
                     history.push(view as Box<dyn View>);
                     view = next_view;
                 },
-                Event::Select(EntryId::Launch(app_id)) => {
+                Event::Select(EntryId::Launch(app_cmd)) => {
                     view.children_mut().retain(|child| !child.is::<Menu>());
-                    let mut next_view: Box<dyn View> = match app_id {
-                        AppId::Sketch => {
+                    let mut next_view: Box<dyn View> = match app_cmd {
+                        AppCmd::Sketch => {
                             Box::new(Sketch::new(context.fb.rect(), &tx, &mut context))
                         },
-                        AppId::Calculator => {
+                        AppCmd::Calculator => {
                             Box::new(Calculator::new(context.fb.rect(), &tx, &mut context)?)
+                        },
+                        AppCmd::Dictionary { ref query, ref language } => {
+                            Box::new(Dictionary::new(context.fb.rect(), query, language, &tx, &mut context))
                         },
                     };
                     transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);

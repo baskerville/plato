@@ -217,19 +217,19 @@ impl ToolBar {
     pub fn update_margin_width(&mut self, margin_width: i32, hub: &Hub) {
         let index = if self.reflowable { 0 } else { 8 };
         if let Some(labeled_icon) = self.children[index].downcast_mut::<LabeledIcon>() {
-            labeled_icon.update(format!("{} mm", margin_width), hub);
+            labeled_icon.update(&format!("{} mm", margin_width), hub);
         }
     }
 
     pub fn update_font_family(&mut self, font_family: String, hub: &Hub) {
         if let Some(labeled_icon) = self.children[1].downcast_mut::<LabeledIcon>() {
-            labeled_icon.update(font_family, hub);
+            labeled_icon.update(&font_family, hub);
         }
     }
 
     pub fn update_line_height(&mut self, line_height: f32, hub: &Hub) {
         if let Some(labeled_icon) = self.children[2].downcast_mut::<LabeledIcon>() {
-            labeled_icon.update(format!("{:.1} em", line_height), hub);
+            labeled_icon.update(&format!("{:.1} em", line_height), hub);
         }
     }
 

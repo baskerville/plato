@@ -22,7 +22,7 @@ use crate::metadata::{Info, Metadata, SortMethod, SimpleStatus, sort, make_query
 use crate::view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
 use crate::settings::{Hook, SecondColumn};
 use crate::view::filler::Filler;
-use crate::view::common::{shift, locate, locate_by_id};
+use crate::view::common::{locate, locate_by_id};
 use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
 use crate::view::keyboard::{Keyboard, DEFAULT_LAYOUT};
 use crate::view::named_input::NamedInput;
@@ -533,12 +533,9 @@ impl Home {
 
             if index > 6 {
                 has_search_bar = true;
-                {
-                    let separator = self.child_mut(5).downcast_mut::<Filler>().unwrap();
-                    separator.rect += pt!(0, delta_y);
-                }
-                {
-                    shift(self.child_mut(6), pt!(0, delta_y));
+                for i in 5..=6 {
+                    let shifted_rect = *self.child(i).rect() + pt!(0, delta_y);
+                    self.child_mut(i).resize(shifted_rect, hub, context);
                 }
             }
 
@@ -573,12 +570,9 @@ impl Home {
 
             if index > 5 {
                 has_search_bar = true;
-                {
-                    let separator = self.child_mut(5).downcast_mut::<Filler>().unwrap();
-                    separator.rect -= pt!(0, delta_y);
-                }
-                {
-                    shift(self.child_mut(6), pt!(0, -delta_y));
+                for i in 5..=6 {
+                    let shifted_rect = *self.child(i).rect() + pt!(0, -delta_y);
+                    self.child_mut(i).resize(shifted_rect, hub, context);
                 }
             }
         }
@@ -1466,7 +1460,8 @@ impl View for Home {
                                                     ViewId::RenameCategory,
                                                     ViewId::RenameCategoryInput,
                                                     21, context);
-                ren_categ.set_text(categ_old);
+                let (tx, _rx) = mpsc::channel();
+                ren_categ.set_text(categ_old, &tx);
                 hub.send(Event::Render(*ren_categ.rect(), UpdateMode::Gui)).unwrap();
                 hub.send(Event::Focus(Some(ViewId::RenameCategoryInput))).unwrap();
                 self.children.push(Box::new(ren_categ) as Box<dyn View>);

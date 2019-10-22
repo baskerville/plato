@@ -29,4 +29,4 @@ The default library path is `/mnt/onboard` on devices without an external SD car
 library-path = "LIBRARY_PATH"
 ```
 
-If there's a `user.css` in same directory as the program's binary, it will be used for all the reflowable formats.
+The default ePUB stylesheet, `css/epub.css`, can be overriden via `css/epub-user.css`.

@@ -28,6 +28,7 @@ cp -R scripts dist
 cp -R icons dist
 cp -R fonts dist
 cp -R css dist
+find dist/css -name '*-user.css' -delete
 cp target/arm-unknown-linux-gnueabihf/release/plato dist/
 
 patchelf --remove-rpath dist/libs/*

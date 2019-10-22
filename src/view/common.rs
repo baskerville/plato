@@ -5,7 +5,7 @@ use crate::device::CURRENT_DEVICE;
 use crate::settings::RotationLock;
 use crate::framebuffer::UpdateMode;
 use crate::geom::{Point, Rectangle};
-use super::{View, Event, Hub, ViewId, AppId, EntryId, EntryKind};
+use super::{View, Event, Hub, ViewId, AppCmd, EntryId, EntryKind};
 use super::menu::{Menu, MenuKind};
 use super::notification::Notification;
 use crate::app::Context;
@@ -79,10 +79,12 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
                                    n == context.display.rotation)
         ).collect::<Vec<EntryKind>>();
 
-        let apps = vec![EntryKind::Command("Sketch".to_string(),
-                                           EntryId::Launch(AppId::Sketch)),
+        let apps = vec![EntryKind::Command("Dictionary".to_string(),
+                                           EntryId::Launch(AppCmd::Dictionary { query: "".to_string(), language: "".to_string() })),
                         EntryKind::Command("Calculator".to_string(),
-                                           EntryId::Launch(AppId::Calculator))];
+                                           EntryId::Launch(AppCmd::Calculator)),
+                        EntryKind::Command("Sketch".to_string(),
+                                           EntryId::Launch(AppCmd::Sketch))];
 
         let mut entries = vec![EntryKind::CheckBox("Invert Colors".to_string(),
                                                    EntryId::ToggleInverted,

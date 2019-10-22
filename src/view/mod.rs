@@ -11,6 +11,7 @@
 
 pub mod common;
 pub mod filler;
+pub mod image;
 pub mod icon;
 pub mod label;
 pub mod button;
@@ -36,8 +37,9 @@ pub mod keyboard;
 pub mod key;
 pub mod home;
 pub mod reader;
-pub mod sketch;
+pub mod dictionary;
 pub mod calculator;
+pub mod sketch;
 
 use std::time::Duration;
 use std::path::PathBuf;
@@ -254,6 +256,8 @@ pub enum Event {
     Focus(Option<ViewId>),
     Select(EntryId),
     PropagateSelect(EntryId),
+    EditLanguages,
+    Define(String),
     Submit(ViewId, String),
     Slider(SliderId, f32, FingerStatus),
     ToggleNear(ViewId, Rectangle),
@@ -293,10 +297,14 @@ pub enum Event {
     Quit,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum AppId {
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum AppCmd {
     Sketch,
     Calculator,
+    Dictionary {
+        query: String,
+        language: String,
+    },
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -310,7 +318,9 @@ pub enum ViewId {
     AnnotationMenu,
     BatteryMenu,
     ClockMenu,
+    SearchTargetMenu,
     Frontlight,
+    Dictionary,
     FontSizeMenu,
     TextAlignMenu,
     FontFamilyMenu,
@@ -334,6 +344,8 @@ pub enum ViewId {
     NamePageInput,
     EditNote,
     EditNoteInput,
+    EditLanguages,
+    EditLanguagesInput,
     SaveAs,
     SaveAsInput,
     AddCategories,
@@ -456,6 +468,7 @@ pub enum EntryId {
     RemovePageName,
     HighlightSelection,
     AnnotateSelection,
+    DefineSelection,
     SearchForSelection,
     AdjustSelection,
     RemoveAnnotation([TextLocation; 2]),
@@ -472,14 +485,17 @@ pub enum EntryId {
     SetContrastExponent(i32),
     SetContrastGray(i32),
     SetRotationLock(Option<RotationLock>),
+    SetSearchTarget(Option<String>),
+    ToggleFuzzy,
     ToggleInverted,
     ToggleMonochrome,
     ToggleWifi,
     Rotate(i8),
-    Launch(AppId),
+    Launch(AppCmd),
     SetPenSize(i32),
     SetPenColor(u8),
     TogglePenDynamism,
+    ReloadDictionaries,
     New,
     Refresh,
     OpenMetadata,

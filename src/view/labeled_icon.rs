@@ -38,7 +38,7 @@ impl LabeledIcon {
         }
     }
 
-    pub fn update(&mut self, text: String, hub: &Hub) {
+    pub fn update(&mut self, text: &str, hub: &Hub) {
         if let Some(label) = self.children[1].downcast_mut::<Label>() {
             label.update(text, hub);
         }

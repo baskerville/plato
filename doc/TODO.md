@@ -1,4 +1,3 @@
-- Dictionary.
 - ePUB renderer: RTL.
 - Metadata view.
 - Complex/fuzzy search queries?

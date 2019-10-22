@@ -13,6 +13,7 @@ pub struct Label {
     text: String,
     align: Align,
     event: Option<Event>,
+    hold_event: Option<Event>,
 }
 
 impl Label {
@@ -23,6 +24,7 @@ impl Label {
             text,
             align,
             event: None,
+            hold_event: None,
         }
     }
 
@@ -31,9 +33,14 @@ impl Label {
         self
     }
 
-    pub fn update(&mut self, text: String, hub: &Hub) {
+    pub fn hold_event(mut self, event: Option<Event>) -> Label {
+        self.hold_event = event;
+        self
+    }
+
+    pub fn update(&mut self, text: &str, hub: &Hub) {
         if self.text != text {
-            self.text = text;
+            self.text = text.to_string();
             hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
         }
     }
@@ -41,12 +48,17 @@ impl Label {
 
 impl View for Label {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
-        if self.event.is_none() {
-            return false;
-        }
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
-                bus.push_back(self.event.clone().unwrap());
+                if let Some(event) = self.event.clone() {
+                    bus.push_back(event);
+                }
+                true
+            },
+            Event::Gesture(GestureEvent::HoldFingerShort(center, _)) if self.rect.includes(center) => {
+                if let Some(event) = self.hold_event.clone() {
+                    bus.push_back(event);
+                }
                 true
             },
             _ => false,

@@ -9,6 +9,7 @@ mod battery;
 mod input;
 mod gesture;
 mod helpers;
+mod dictionary;
 mod document;
 mod metadata;
 mod symbolic_path;

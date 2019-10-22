@@ -65,13 +65,13 @@ impl BottomBar {
 
     pub fn update_font_size(&mut self, font_size: f32, hub: &Hub) {
         if let Some(labeled_icon) = self.children[3].downcast_mut::<LabeledIcon>() {
-            labeled_icon.update(format!("{:.1} pt", font_size), hub);
+            labeled_icon.update(&format!("{:.1} pt", font_size), hub);
         }
     }
 
     pub fn update_margin_width(&mut self, margin_width: i32, hub: &Hub) {
         if let Some(labeled_icon) = self.children[1].downcast_mut::<LabeledIcon>() {
-            labeled_icon.update(format!("{} mm", margin_width), hub);
+            labeled_icon.update(&format!("{} mm", margin_width), hub);
         }
     }
 }

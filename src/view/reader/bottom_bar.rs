@@ -124,7 +124,7 @@ impl BottomBar {
         }
     }
 
-    pub fn update_chapter(&mut self, text: String, hub: &Hub) {
+    pub fn update_chapter(&mut self, text: &str, hub: &Hub) {
         let chapter_label = self.child_mut(1).downcast_mut::<Label>().unwrap();
         chapter_label.update(text, hub);
     }
