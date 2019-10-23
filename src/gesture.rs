@@ -8,7 +8,7 @@ use crate::unit::mm_to_px;
 use crate::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use crate::view::Event;
 use crate::device::CURRENT_DEVICE;
-use crate::geom::{Point, Vec2, Dir, DiagDir, Axis, nearest_segment_point};
+use crate::geom::{Point, Vec2, Dir, DiagDir, Axis, nearest_segment_point, elbow};
 
 pub const JITTER_TOLERANCE_MM: f32 = 6.0;
 pub const HOLD_DELAY_SHORT: Duration = Duration::from_millis(666);
@@ -255,7 +255,7 @@ fn interpret_segment(sp: &[Point], jitter: f32) -> GestureEvent {
     if d < jitter {
         GestureEvent::Tap(a)
     } else {
-        let p = sp[sp.len()/2];
+        let p = sp[elbow(sp)];
         let (n, p) = {
             let p: Vec2 = p.into();
             let (n, _) = nearest_segment_point(p, a.into(), b.into());

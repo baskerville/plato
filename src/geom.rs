@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::f32::consts;
+use std::f32::{self, consts};
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -200,6 +200,25 @@ pub fn nearest_segment_point(p: Vec2, a: Vec2, b: Vec2) -> (Vec2, f32) {
     let mut t = ap.dot(ab) / l2;
     t = t.min(1.0).max(0.0);
     (a + t * ab, t)
+}
+
+pub fn elbow(sp: &[Point]) -> usize {
+    let len = sp.len();
+    let a: Vec2 = sp[0].into();
+    let b: Vec2 = sp[len - 1].into();
+    let i1 = len / 3;
+    let i2 = 2 * len / 3;
+    let p1: Vec2 = sp[i1].into();
+    let p2: Vec2 = sp[i2].into();
+    let (n1, _) = nearest_segment_point(p1, a, b);
+    let (n2, _) = nearest_segment_point(p2, a, b);
+    let d1 = (p1 - n1).length();
+    let d2 = (p2 - n2).length();
+    if d1 > f32::EPSILON || d2 > f32::EPSILON {
+        ((d1 * i1 as f32 + d2 * i2 as f32) / (d1 + d2)) as usize
+    } else {
+        len / 2
+    }
 }
 
 #[inline]
