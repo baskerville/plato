@@ -1,6 +1,7 @@
 pub mod djvu;
 pub mod pdf;
 pub mod epub;
+pub mod html;
 
 mod djvulibre_sys;
 mod mupdf_sys;

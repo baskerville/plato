@@ -1,12 +1,13 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::fmt::Debug;
 use fnv::FnvHashMap;
 use lazy_static::lazy_static;
+use kl_hyphenate::{Standard, Language, Load};
 use crate::geom::{Point, Rectangle, Edge};
 use crate::font::{FontFamily, Font, RenderPlan};
 pub use crate::metadata::TextAlign;
 use super::dom::Node;
-use kl_hyphenate::{Standard, Language, Load};
 use crate::color::BLACK;
 
 pub const DEFAULT_HYPH_LANG: &str = "en";
