@@ -7,6 +7,8 @@ eval "$(xargs -n 1 -0 < /proc/"$(pidof nickel)"/environ | grep -E 'INTERFACE|WIF
 sync
 killall -TERM nickel hindenburg sickel fickel fmon > /dev/null 2>&1
 
+grep -q ' /mnt/sd .*[ ,]ro[ ,]' /proc/mounts && mount -o remount,rw /mnt/sd
+
 MODEL_NUMBER=$(cut -f 6 -d ',' /mnt/onboard/.kobo/version | sed -e 's/^[0-]*//')
 export MODEL_NUMBER
 export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"

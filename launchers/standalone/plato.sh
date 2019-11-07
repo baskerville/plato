@@ -16,6 +16,9 @@ echo "ch 4" > "$LEDS_INTERFACE"
 echo "cur 0" > "$LEDS_INTERFACE"
 echo "dc 0" > "$LEDS_INTERFACE"
 
+# Remount the SD card read-write if it's mounted read-only
+grep -q ' /mnt/sd .*[ ,]ro[ ,]' /proc/mounts && mount -o remount,rw /mnt/sd
+
 # Define environment variables used by
 # /usr/local/Kobo/udev/usb
 KOBO_TAG=/mnt/onboard/.kobo/version
