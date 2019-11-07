@@ -1,9 +1,11 @@
 use std::path::PathBuf;
+use std::convert::TryFrom;
 use failure::Error;
 use kl_hyphenate::{Standard, Hyphenator, Iter};
 use paragraph_breaker::{Item as ParagraphItem, Breakpoint, INFINITE_PENALTY};
 use paragraph_breaker::{total_fit, standard_fit};
 use xi_unicode::LineBreakIterator;
+use septem::Roman;
 use crate::helpers::{Normalize, decode_entities};
 use crate::framebuffer::{Framebuffer, Pixmap};
 use crate::font::{FontOpener, FontFamily};
@@ -14,12 +16,12 @@ use crate::geom::{Rectangle, Edge};
 use crate::settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT};
 use super::parse::{parse_display, parse_edge, parse_float, parse_text_align, parse_text_indent, parse_width, parse_height, parse_inline_material};
 use super::parse::{parse_font_kind, parse_font_style, parse_font_weight, parse_font_size, parse_font_features, parse_font_variant, parse_letter_spacing};
-use super::parse::{parse_line_height, parse_vertical_align, parse_color};
+use super::parse::{parse_line_height, parse_vertical_align, parse_color, parse_list_style_type};
 use super::dom::{Node, ElementData, TextData};
 use super::layout::{StyleData, InlineMaterial, TextMaterial, ImageMaterial};
 use super::layout::{GlueMaterial, PenaltyMaterial, ChildArtifact, SiblingStyle, LoopContext};
 use super::layout::{RootData, DrawState, DrawCommand, TextCommand, ImageCommand, FontKind, Fonts};
-use super::layout::{TextAlign, ParagraphElement, TextElement, ImageElement, Display, Float, LineStats};
+use super::layout::{TextAlign, ParagraphElement, TextElement, ImageElement, Display, Float, ListStyleType, LineStats};
 use super::layout::{hyph_lang, collapse_margins, DEFAULT_HYPH_LANG, HYPHENATION_PATTERNS};
 use super::layout::{EM_SPACE_RATIOS, WORD_SPACE_RATIOS, FONT_SPACES};
 use super::style::{Stylesheet, specified_values};
@@ -147,6 +149,7 @@ impl Engine {
 
         match node.tag_name() {
             Some("pre") => style.retain_whitespace = true,
+            Some("li") | Some("anonymous") => style.list_style_type = parent_style.list_style_type,
             Some("table") => {
                 let position = draw_state.position;
                 draw_state.column_widths.clear();
@@ -209,6 +212,11 @@ impl Engine {
         style.font_features = props.get("font-feature-settings")
                                    .map(|value| parse_font_features(value))
                                    .or_else(|| parent_style.font_features.clone());
+
+        if let Some(value) = props.get("list-style-type")
+                                  .map(|value| parse_list_style_type(value)) {
+            style.list_style_type = value;
+        }
 
         if let Some(value) = props.get("font-variant") {
             let mut features = parse_font_variant(value);
@@ -408,15 +416,26 @@ impl Engine {
                 } else {
                     let mut iter = children.iter().filter(|child| child.is_element()).peekable();
                     inner_loop_context.is_first = true;
+                    let mut index = 0;
 
                     while let Some(child) = iter.next() {
                         if iter.peek().is_none() {
                             inner_loop_context.is_last = true;
                         }
+
+                        inner_loop_context.parent = Some(node);
+                        inner_loop_context.index = index;
+
+                        if child.tag_name() == Some("anonymous") {
+                            inner_loop_context.parent = loop_context.parent.clone();
+                            inner_loop_context.index = loop_context.index;
+                        }
+
                         let artifact = self.build_display_list(child, &style, &inner_loop_context, stylesheet, root_data, resource_fetcher, draw_state, display_list);
                         inner_loop_context.sibling = Some(&child);
                         inner_loop_context.sibling_style = artifact.sibling_style;
                         inner_loop_context.is_first = false;
+
                         // Collapse the bottom margin of the last child and its parent.
                         if inner_loop_context.is_last {
                             style.margin.bottom = collapse_margins(inner_loop_context.sibling_style.margin.bottom, style.margin.bottom);
@@ -436,6 +455,8 @@ impl Engine {
                                 rects.push(rect);
                             }
                         }
+
+                        index += 1
                     }
                 }
             }
@@ -458,6 +479,16 @@ impl Engine {
                         sibling = Some(child);
                     }
                     if !inlines.is_empty() {
+                        draw_state.prefix = match style.list_style_type {
+                            None => {
+                                match loop_context.parent.and_then(|parent| parent.tag_name()) {
+                                    Some("ul") => format_list_prefix(ListStyleType::Disc, loop_context.index),
+                                    Some("ol") => format_list_prefix(ListStyleType::Decimal, loop_context.index),
+                                    _ => None,
+                                }
+                            }
+                            Some(kind) => format_list_prefix(kind, loop_context.index),
+                        };
                         self.place_paragraphs(&inlines, &style, root_data, &markers, resource_fetcher, draw_state, &mut rects, display_list);
                     }
                 }
@@ -1170,6 +1201,34 @@ impl Engine {
         let mut is_first_line = true;
         let mut j = 0;
 
+        if let Some(prefix) = draw_state.prefix.as_ref() {
+            let font_size = (style.font_size * 64.0) as u32;
+            let prefix_plan = {
+                let font = self.fonts.as_mut().unwrap()
+                               .get_mut(style.font_kind, style.font_style, style.font_weight);
+                font.set_size(font_size, self.dpi);
+                font.plan(prefix, None, style.font_features.as_ref().map(Vec::as_slice))
+            };
+            let (start_x, _) = para_shape[0];
+            let pt = pt!(start_x - prefix_plan.width as i32, position.y);
+            let rect = rect![pt + pt!(0, -ascender), pt + pt!(prefix_plan.width as i32, -descender)];
+            if let Some(first_offset) = inlines.iter().filter_map(|elt| elt.offset()).next() {
+                page.push(DrawCommand::ExtraText(TextCommand {
+                    offset: root_data.start_offset + first_offset,
+                    position: pt,
+                    rect,
+                    text: prefix.to_string(),
+                    plan: prefix_plan,
+                    uri: None,
+                    font_kind: style.font_kind,
+                    font_style: style.font_style,
+                    font_weight: style.font_weight,
+                    font_size: font_size,
+                    color: style.color,
+                }));
+            }
+        }
+
         for bp in bps {
             let drift = if glue_drifts.is_empty() {
                 0.0
@@ -1619,7 +1678,8 @@ impl Engine {
 
         for dc in page {
             match dc {
-                DrawCommand::Text(TextCommand { position, plan, font_kind, font_style, font_weight, font_size, color, .. }) => {
+                DrawCommand::Text(TextCommand { position, plan, font_kind, font_style, font_weight, font_size, color, .. }) |
+                DrawCommand::ExtraText(TextCommand { position, plan, font_kind, font_style, font_weight, font_size, color, .. }) => {
                     let font = self.fonts.as_mut().unwrap()
                                    .get_mut(*font_kind, *font_style, *font_weight);
                     font.set_size(*font_size, self.dpi);
@@ -1641,6 +1701,32 @@ impl Engine {
         }
 
         fb
+    }
+}
+
+fn format_list_prefix(kind: ListStyleType, index: usize) -> Option<String> {
+    match kind {
+        ListStyleType::None => None,
+        ListStyleType::Disc => Some("• ".to_string()),
+        ListStyleType::Circle => Some("◦ ".to_string()),
+        ListStyleType::Square => Some("▪ ".to_string()),
+        ListStyleType::Decimal => Some(format!("{}. ", index + 1)),
+        ListStyleType::LowerRoman => Some(format!("{}. ", Roman::from_unchecked(index as u32 + 1).to_lowercase())),
+        ListStyleType::UpperRoman => Some(format!("{}. ", Roman::from_unchecked(index as u32 + 1).to_uppercase())),
+        ListStyleType::LowerAlpha | ListStyleType::UpperAlpha => {
+            let i = index as u32 % 26;
+            let start = if kind == ListStyleType::LowerAlpha { 0x61 } else { 0x41 };
+            Some(format!("{}. ", char::try_from(start + i).unwrap()))
+        },
+        ListStyleType::LowerGreek | ListStyleType::UpperGreek => {
+            let mut i = index as u32 % 24;
+            // Skip ς.
+            if i >= 17 {
+                i += 1;
+            }
+            let start = if kind == ListStyleType::LowerGreek { 0x03B1 } else { 0x0391 };
+            Some(format!("{}. ", char::try_from(start + i).unwrap()))
+        },
     }
 }
 

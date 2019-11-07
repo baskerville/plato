@@ -1,6 +1,6 @@
 use fnv::FnvHashSet;
 use regex::Regex;
-use super::layout::{FontKind, FontStyle, FontWeight, TextAlign, Display, Float};
+use super::layout::{FontKind, FontStyle, FontWeight, TextAlign, Display, Float, ListStyleType};
 use super::layout::{InlineMaterial, GlueMaterial, PenaltyMaterial};
 use crate::geom::Edge;
 use crate::unit::{pt_to_px, pc_to_px, mm_to_px, in_to_px};
@@ -172,6 +172,23 @@ pub fn parse_float(value: &str) -> Option<Float> {
     match value {
         "left" => Some(Float::Left),
         "right" => Some(Float::Right),
+        _ => None,
+    }
+}
+
+pub fn parse_list_style_type(value: &str) -> Option<ListStyleType> {
+    match value {
+        "none" => Some(ListStyleType::None),
+        "disc" => Some(ListStyleType::Disc),
+        "circle" => Some(ListStyleType::Circle),
+        "square" => Some(ListStyleType::Square),
+        "decimal" => Some(ListStyleType::Decimal),
+        "lower-roman" => Some(ListStyleType::LowerRoman),
+        "upper-roman" => Some(ListStyleType::UpperRoman),
+        "lower-alpha" | "lower-latin" => Some(ListStyleType::LowerAlpha),
+        "upper-alpha" | "upper-latin" => Some(ListStyleType::UpperAlpha),
+        "lower-greek" => Some(ListStyleType::LowerGreek),
+        "upper-greek" => Some(ListStyleType::UpperGreek),
         _ => None,
     }
 }

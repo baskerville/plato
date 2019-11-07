@@ -23,6 +23,7 @@ pub struct RootData {
 pub struct DrawState {
     pub position: Point,
     pub floats: FnvHashMap<usize, Vec<Rectangle>>,
+    pub prefix: Option<String>,
     pub min_column_widths: Vec<i32>,
     pub max_column_widths: Vec<i32>,
     pub column_widths: Vec<i32>,
@@ -34,6 +35,7 @@ impl Default for DrawState {
         DrawState {
             position: Point::default(),
             floats: FnvHashMap::default(),
+            prefix: None,
             min_column_widths: Vec::new(),
             max_column_widths: Vec::new(),
             column_widths: Vec::new(),
@@ -65,6 +67,7 @@ pub struct StyleData {
     pub color: u8,
     pub letter_spacing: i32,
     pub vertical_align: i32,
+    pub list_style_type: Option<ListStyleType>,
     pub uri: Option<String>,
 }
 
@@ -79,6 +82,21 @@ pub enum Display {
     Block,
     Inline,
     InlineTable,
+    None,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ListStyleType {
+    Disc,
+    Circle,
+    Square,
+    Decimal,
+    LowerRoman,
+    UpperRoman,
+    LowerAlpha,
+    UpperAlpha,
+    LowerGreek,
+    UpperGreek,
     None,
 }
 
@@ -124,6 +142,7 @@ impl Default for SiblingStyle {
 
 #[derive(Debug, Clone)]
 pub struct LoopContext<'a> {
+    pub index: usize,
     pub parent: Option<&'a Node>,
     pub sibling: Option<&'a Node>,
     pub sibling_style: SiblingStyle,
@@ -134,6 +153,7 @@ pub struct LoopContext<'a> {
 impl<'a> Default for LoopContext<'a> {
     fn default() -> Self {
         LoopContext {
+            index: 0,
             parent: None,
             sibling: None,
             sibling_style: SiblingStyle::default(),
@@ -167,6 +187,7 @@ impl Default for StyleData {
             color: BLACK,
             letter_spacing: 0,
             vertical_align: 0,
+            list_style_type: None,
             uri: None,
         }
     }
@@ -180,6 +201,16 @@ pub enum InlineMaterial {
     Penalty(PenaltyMaterial),
     Box(i32),
     LineBreak,
+}
+
+impl InlineMaterial {
+    pub fn offset(&self) -> Option<usize> {
+        match self {
+            InlineMaterial::Text(TextMaterial { offset, .. }) |
+            InlineMaterial::Image(ImageMaterial { offset, .. }) => Some(*offset),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -313,6 +344,7 @@ pub struct ImageElement {
 #[derive(Debug, Clone)]
 pub enum DrawCommand {
     Text(TextCommand),
+    ExtraText(TextCommand),
     Image(ImageCommand),
     Marker(usize),
 }
@@ -346,6 +378,7 @@ impl DrawCommand {
     pub fn offset(&self) -> usize {
         match *self {
             DrawCommand::Text(TextCommand { offset, .. }) => offset,
+            DrawCommand::ExtraText(TextCommand { offset, .. }) => offset,
             DrawCommand::Image(ImageCommand { offset, .. }) => offset,
             DrawCommand::Marker(offset) => offset,
         }
@@ -354,6 +387,7 @@ impl DrawCommand {
     pub fn rect(&self) -> Option<Rectangle> {
         match *self {
             DrawCommand::Text(TextCommand { rect, .. }) => Some(rect),
+            DrawCommand::ExtraText(TextCommand { rect, .. }) => Some(rect),
             DrawCommand::Image(ImageCommand { rect, .. }) => Some(rect),
             _ => None,
         }
