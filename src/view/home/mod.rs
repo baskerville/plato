@@ -1387,6 +1387,12 @@ impl View for Home {
                 self.toggle_go_to_page(Some(false), hub, context);
                 true
             },
+            Event::Close(ViewId::AddCategories) |
+            Event::Close(ViewId::RenameCategory) |
+            Event::Close(ViewId::SaveAs) => {
+                self.toggle_keyboard(false, true, None, hub, context);
+                false
+            },
             Event::Select(EntryId::Sort(sort_method)) => {
                 self.set_sort_method(sort_method, hub, context);
                 true

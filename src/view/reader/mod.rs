@@ -3158,6 +3158,19 @@ impl View for Reader {
                 }
                 false
             },
+            Event::Close(ViewId::EditNote) => {
+                self.toggle_edit_note(None, Some(false), hub, context);
+                if let Some(rect) = self.selection_rect() {
+                    self.selection = None;
+                    hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).unwrap();
+                }
+                self.target_annotation = None;
+                false
+            },
+            Event::Close(ViewId::NamePage) => {
+                self.toggle_keyboard(false, None, hub, context);
+                false
+            },
             Event::Show(ViewId::TableOfContents) => {
                 {
                     self.toggle_bars(Some(false), hub, context);

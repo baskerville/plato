@@ -44,7 +44,7 @@ pub struct Keyboard {
 use crate::device::optimal_key_setup;
 
 impl Keyboard {
-    pub fn new(rect: &mut Rectangle, layout: Layout, number: bool, context: &Context) -> Keyboard {
+    pub fn new(rect: &mut Rectangle, layout: Layout, number: bool, context: &mut Context) -> Keyboard {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let (side, padding) = optimal_key_setup(rect.width(), rect.height(), dpi);
@@ -53,6 +53,7 @@ impl Keyboard {
         let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
         let height_gap = (rect.height() - (4 * side + 5 * padding)) / big_height;
         rect.min.y += (height_gap * big_height) as i32;
+        context.kb_rect = *rect;
 
         let normal_side = (side + padding) as i32;
         let (small_half_side, big_half_side) = halves(normal_side);
@@ -467,6 +468,7 @@ impl View for Keyboard {
                                  hub, context);
 
         self.rect = rect;
+        context.kb_rect = rect;
     }
 
     fn rect(&self) -> &Rectangle {

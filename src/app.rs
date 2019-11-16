@@ -53,6 +53,7 @@ pub struct Context {
     pub battery: Box<dyn Battery>,
     pub lightsensor: Box<dyn LightSensor>,
     pub notification_index: u8,
+    pub kb_rect: Rectangle,
     pub plugged: bool,
     pub covered: bool,
     pub shared: bool,
@@ -66,8 +67,8 @@ impl Context {
         let dims = fb.dims();
         let rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
         Context { fb, display: Display { dims, rotation },
-                  settings, metadata, filename, fonts,
-                  battery, frontlight, lightsensor, notification_index: 0,
+                  settings, metadata, filename, fonts, battery,
+                  frontlight, lightsensor, notification_index: 0, kb_rect: Rectangle::default(),
                   plugged: false, covered: false, shared: false, online: false }
     }
 }

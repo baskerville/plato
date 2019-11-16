@@ -1,6 +1,7 @@
 use crate::framebuffer::Framebuffer;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use crate::geom::{Rectangle, CornerSpec, BorderSpec, halves, big_half};
+use crate::gesture::GestureEvent;
 use super::{View, Event, Hub, Bus, ViewId, Align};
 use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use super::common::shift;
@@ -86,12 +87,21 @@ impl NamedInput {
 }
 
 impl View for NamedInput {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
             Event::Submit(..) => {
                 bus.push_back(Event::Close(self.id));
                 false
             },
+            Event::Gesture(GestureEvent::Tap(center)) | Event::Gesture(GestureEvent::HoldFingerShort(center, _)) => {
+                if !self.rect.includes(center) && !context.kb_rect.includes(center) {
+                    bus.push_back(Event::Close(self.id));
+                    true
+                } else {
+                    self.rect.includes(center)
+                }
+            },
+            Event::Gesture(..) => true,
             _ => false,
         }
     }

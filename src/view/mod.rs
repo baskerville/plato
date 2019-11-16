@@ -147,8 +147,12 @@ pub fn handle_event(view: &mut dyn View, evt: &Event, hub: &Hub, parent_bus: &mu
             }
         }
 
-        child_bus.retain(|child_evt| !view.handle_event(child_evt, hub, parent_bus, context));
+        let mut temp_bus: Bus = VecDeque::with_capacity(1);
+
+        child_bus.retain(|child_evt| !view.handle_event(child_evt, hub, &mut temp_bus, context));
+
         parent_bus.append(&mut child_bus);
+        parent_bus.append(&mut temp_bus);
 
         captured || view.handle_event(evt, hub, parent_bus, context)
     } else {
