@@ -220,7 +220,7 @@ impl HtmlDocument {
 
         let loop_context = LoopContext::default();
         let mut draw_state = DrawState {
-            position: pt!(rect.min.x, rect.min.y),
+            position: rect.min,
             .. Default::default()
         };
 
