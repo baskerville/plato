@@ -225,7 +225,7 @@ impl Engine {
             }
         }
 
-        if node.tag_name() != Some("body") {
+        if loop_context.parent.is_some() {
             style.margin = parse_edge(props.get("margin-top").map(String::as_str),
                                       props.get("margin-right").map(String::as_str),
                                       props.get("margin-bottom").map(String::as_str),
