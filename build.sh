@@ -2,9 +2,9 @@
 
 set -e
 
-method=${*:-"fast"}
+method=${1:-"fast"}
 
-[ -e libs/libz.so ] && method=skip
+[ -e libs -a $# -eq 0 ] && method=skip
 
 case "$method" in
 	fast)
@@ -25,15 +25,16 @@ case "$method" in
 		ln -s libdjvulibre.so.21 libdjvulibre.so
 		;;
 	slow)
+		shift
 		cd thirdparty
-		./download.sh
-		./build.sh
+		./download.sh "$@"
+		./build.sh "$@"
 		cd ..
 		cd src/wrapper
 		./build-kobo.sh
 		cd ../..
 
-		mkdir libs
+		[ -e libs ] || mkdir libs
 
 		cp thirdparty/zlib/libz.so libs
 		cp thirdparty/bzip2/libbz2.so libs

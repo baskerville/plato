@@ -19,7 +19,11 @@ declare -A urls=(
 
 for name in "${@:-${!urls[@]}}" ; do
 	echo "Downloading ${name}."
-	[ -d "$name" ] || mkdir "$name"
+	if [ -d "$name" ]; then
+		git ls-files -o --directory -z "$name" | xargs -0 rm -rf
+	else
+		mkdir "$name"
+	fi
 	url="${urls[$name]}"
 	wget -q -O - "$url" | tar -xz --strip-components 1 -C "$name"
 done
