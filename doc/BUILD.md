@@ -2,7 +2,7 @@
 
 Install the appropriate [compiler toolchain](https://github.com/kobolabs/Kobo-Reader/tree/master/toolchain) (the binaries of the `bin` directory need to be in your path).
 
-Install the required dependencies: `curl`, `git`, `libtool`, `automake`, `pkg-config`, `cmake`, `ragel`, `patchelf`.
+Install the required dependencies: `curl`, `git`, `libtool`, `automake`, `autoconf`, `pkg-config`, `cmake`, `ragel`, `patchelf`.
 
 Install *rustup*:
 ```sh
