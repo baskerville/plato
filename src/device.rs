@@ -150,7 +150,7 @@ impl Device {
     pub fn mirroring_scheme(&self) -> (i8, i8) {
         let model_number = env::var("MODEL_NUMBER").unwrap_or_default();
         match self.model {
-            Model::AuraH2OEdition2 if model_number == "374" => (1, 1),
+            Model::AuraH2OEdition2 if model_number == "374" => (3, 1),
             Model::AuraH2OEdition2 if model_number == "378" => (0, -1),
             Model::Forma => (2, -1),
             Model::LibraH2O => (3, 1),
@@ -172,6 +172,7 @@ impl Device {
     pub fn startup_rotation(&self) -> i8 {
         match self.model {
             Model::LibraH2O => 0,
+            Model::AuraH2OEdition2 if model_number == "374" => 1,
             Model::Forma => 1,
             _ => 3,
         }
