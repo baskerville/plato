@@ -19,20 +19,7 @@ rustup target add arm-unknown-linux-gnueabihf
 ```sh
 git clone https://github.com/baskerville/plato.git
 cd plato
-```
-
-### Fast Method
-
-```sh
-./build.sh fast
-```
-
-### Slow Method
-
-If you want to build the thirdparty dependencies (instead of using the prebuilt ones), you shall use this method:
-
-```sh
-./build.sh slow
+./build.sh
 ```
 
 ## Distribution
