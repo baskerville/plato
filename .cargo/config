@@ -1,0 +1,3 @@
+[target.arm-unknown-linux-gnueabihf]
+linker = "arm-linux-gnueabihf-gcc"
+rustflags = ["-C", "target-feature=+v7,+vfp3,+a9,+neon"]

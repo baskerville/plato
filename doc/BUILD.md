@@ -14,18 +14,6 @@ Install the appropriate target:
 rustup target add arm-unknown-linux-gnueabihf
 ```
 
-Create *cargo*'s configuration file:
-```sh
-touch ~/.cargo/config
-```
-
-And append the following contents to it:
-```toml
-[target.arm-unknown-linux-gnueabihf]
-linker = "arm-linux-gnueabihf-gcc"
-rustflags = ["-C", "target-feature=+v7,+vfp3,+a9,+neon"]
-```
-
 ## Build Phase
 
 ```sh
