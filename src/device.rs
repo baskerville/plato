@@ -183,7 +183,6 @@ impl Device {
         let model_number = env::var("MODEL_NUMBER").unwrap_or_default();
         match self.model {
             Model::AuraHD | Model::AuraH2O => n ^ 2,
-            Model::AuraH2OEdition2 if model_number == "374" => n ^ 2,
             Model::AuraH2OEdition2 if model_number == "378" => (4 - n) % 4,
             Model::Forma => (4 - n) % 4,
             _ => n,
