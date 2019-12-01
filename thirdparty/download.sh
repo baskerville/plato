@@ -25,5 +25,6 @@ for name in "${@:-${!urls[@]}}" ; do
 		mkdir "$name"
 	fi
 	url="${urls[$name]}"
-	wget -q -O - "$url" | tar -xz --strip-components 1 -C "$name"
+	wget -q --show-progress -O "${name}.tgz" "$url"
+	tar -xz --strip-components 1 -C "$name" -f "${name}.tgz" && rm "${name}.tgz"
 done
