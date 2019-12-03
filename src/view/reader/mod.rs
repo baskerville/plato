@@ -893,6 +893,9 @@ impl Reader {
         if let Some(annotations) = self.info.reader.as_ref().map(|r| &r.annotations).filter(|a| !a.is_empty()) {
             for chunk in &self.chunks {
                 let words = &self.text[&chunk.location];
+                if words.is_empty() {
+                    continue;
+                }
                 for annot in annotations {
                     let [start, end] = annot.selection;
                     if (start >= words[0].location && start <= words[words.len()-1].location) ||
