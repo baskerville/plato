@@ -15,3 +15,8 @@ unset OLDPWD MODEL_NUMBER
 /usr/local/Kobo/hindenburg &
 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &
 udevadm trigger &
+
+# Notify Nickel of the existence of a mounted SD card
+if [ -e /dev/mmcblk1p1 ]; then
+	echo "sd add /dev/mmcblk1p1" > /tmp/nickel-hardware-status &
+fi
