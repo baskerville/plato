@@ -712,7 +712,7 @@ pub fn run() -> Result<(), Error> {
             Event::Open(info) => {
                 let rotation = context.display.rotation;
                 if let Some(n) = info.reader.as_ref().and_then(|r| r.rotation) {
-                    if n != rotation {
+                    if CURRENT_DEVICE.orientation(n) != CURRENT_DEVICE.orientation(rotation) {
                         updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                         if let Ok(dims) = context.fb.set_rotation(n) {
                             raw_sender.send(display_rotate_event(n)).unwrap();
@@ -770,7 +770,7 @@ pub fn run() -> Result<(), Error> {
                     if item.monochrome != context.fb.monochrome() {
                         context.fb.set_monochrome(item.monochrome);
                     }
-                    if item.rotation != context.display.rotation {
+                    if CURRENT_DEVICE.orientation(item.rotation) != CURRENT_DEVICE.orientation(context.display.rotation) {
                         updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                         if let Ok(dims) = context.fb.set_rotation(item.rotation) {
                             raw_sender.send(display_rotate_event(item.rotation)).unwrap();
