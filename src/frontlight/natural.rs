@@ -37,13 +37,16 @@ pub enum LightColor {
 
 lazy_static! {
 pub static ref FRONTLIGHT_DIRS: FnvHashMap<LightColor, &'static str> =
-    if CURRENT_DEVICE.model == Model::AuraONE {
-        [(LightColor::White, FRONTLIGHT_WHITE_A),
-         (LightColor::Red, FRONTLIGHT_RED_A),
-         (LightColor::Green, FRONTLIGHT_GREEN_A)].iter().cloned().collect()
-    } else {
-        [(LightColor::White, FRONTLIGHT_WHITE_B),
-         (LightColor::Orange, FRONTLIGHT_ORANGE_B)].iter().cloned().collect()
+    match CURRENT_DEVICE.model {
+        Model::AuraONE | Model::AuraONELimEd => {
+            [(LightColor::White, FRONTLIGHT_WHITE_A),
+             (LightColor::Red, FRONTLIGHT_RED_A),
+             (LightColor::Green, FRONTLIGHT_GREEN_A)].iter().cloned().collect()
+        },
+        _ => {
+            [(LightColor::White, FRONTLIGHT_WHITE_B),
+             (LightColor::Orange, FRONTLIGHT_ORANGE_B)].iter().cloned().collect()
+        },
     };
 }
 

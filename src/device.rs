@@ -12,10 +12,14 @@ pub const EXTERNAL_CARD_ROOT: &str = "/mnt/sd";
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
     LibraH2O,
+    Forma32GB,
     Forma,
     ClaraHD,
-    AuraH2OEdition2,
-    AuraEdition2,
+    AuraH2OEd2V2,
+    AuraH2OEd2V1,
+    AuraEd2V2,
+    AuraEd2V1,
+    AuraONELimEd,
     AuraONE,
     Touch2,
     GloHD,
@@ -24,7 +28,8 @@ pub enum Model {
     AuraHD,
     Mini,
     Glo,
-    Touch,
+    TouchC,
+    TouchAB,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -36,20 +41,25 @@ pub enum Orientation {
 impl fmt::Display for Model {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Model::LibraH2O        => write!(f, "Libra H₂O"),
-            Model::Forma           => write!(f, "Forma"),
-            Model::ClaraHD         => write!(f, "Clara HD"),
-            Model::AuraH2OEdition2 => write!(f, "Aura H₂O Edition 2"),
-            Model::AuraEdition2    => write!(f, "Aura Edition 2"),
-            Model::AuraONE         => write!(f, "Aura ONE"),
-            Model::Touch2          => write!(f, "Touch 2.0"),
-            Model::GloHD           => write!(f, "Glo HD"),
-            Model::AuraH2O         => write!(f, "Aura H₂O"),
-            Model::Aura            => write!(f, "Aura"),
-            Model::AuraHD          => write!(f, "Aura HD"),
-            Model::Mini            => write!(f, "Mini"),
-            Model::Glo             => write!(f, "Glo"),
-            Model::Touch           => write!(f, "Touch"),
+            Model::LibraH2O      => write!(f, "Libra H₂O"),
+            Model::Forma32GB     => write!(f, "Forma 32GB"),
+            Model::Forma         => write!(f, "Forma"),
+            Model::ClaraHD       => write!(f, "Clara HD"),
+            Model::AuraH2OEd2V1  => write!(f, "Aura H₂O Edition 2 Version 1"),
+            Model::AuraH2OEd2V2  => write!(f, "Aura H₂O Edition 2 Version 2"),
+            Model::AuraEd2V1     => write!(f, "Aura Edition 2 Version 1"),
+            Model::AuraEd2V2     => write!(f, "Aura Edition 2 Version 2"),
+            Model::AuraONELimEd  => write!(f, "Aura ONE Limited Edition"),
+            Model::AuraONE       => write!(f, "Aura ONE"),
+            Model::Touch2        => write!(f, "Touch 2.0"),
+            Model::GloHD         => write!(f, "Glo HD"),
+            Model::AuraH2O       => write!(f, "Aura H₂O"),
+            Model::Aura          => write!(f, "Aura"),
+            Model::AuraHD        => write!(f, "Aura HD"),
+            Model::Mini          => write!(f, "Mini"),
+            Model::Glo           => write!(f, "Glo"),
+            Model::TouchC        => write!(f, "Touch C"),
+            Model::TouchAB       => write!(f, "Touch A/B"),
         }
     }
 }
@@ -60,17 +70,6 @@ pub struct Device {
     pub proto: TouchProto,
     pub dims: (u32, u32),
     pub dpi: u16,
-}
-
-impl Default for Device {
-    fn default() -> Device {
-        Device {
-            model: Model::Touch,
-            proto: TouchProto::Single,
-            dims: (600, 800),
-            dpi: 167,
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -88,7 +87,8 @@ impl Device {
             Model::AuraHD |
             Model::Mini |
             Model::Glo |
-            Model::Touch => PathBuf::from(EXTERNAL_CARD_ROOT),
+            Model::TouchAB |
+            Model::TouchC => PathBuf::from(EXTERNAL_CARD_ROOT),
             _ => PathBuf::from(INTERNAL_CARD_ROOT),
         }
     }
@@ -96,9 +96,12 @@ impl Device {
     pub fn frontlight_kind(&self) -> FrontlightKind {
         match self.model {
             Model::AuraONE |
-            Model::AuraH2OEdition2 => FrontlightKind::Natural,
+            Model::AuraONELimEd |
+            Model::AuraH2OEd2V1 |
+            Model::AuraH2OEd2V2 => FrontlightKind::Natural,
             Model::ClaraHD |
             Model::Forma |
+            Model::Forma32GB |
             Model::LibraH2O => FrontlightKind::Premixed,
             _ => FrontlightKind::Standard,
         }
@@ -113,14 +116,15 @@ impl Device {
 
     pub fn has_lightsensor(&self) -> bool {
         match self.model {
-            Model::AuraONE => true,
+            Model::AuraONE |
+            Model::AuraONELimEd => true,
             _ => false,
         }
     }
 
     pub fn has_gyroscope(&self) -> bool {
         match self.model {
-            Model::Forma | Model::LibraH2O => true,
+            Model::Forma | Model::Forma32GB | Model::LibraH2O => true,
             _ => false,
         }
     }
@@ -137,6 +141,30 @@ impl Device {
         }
     }
 
+    pub fn mark(&self) -> u8 {
+        match self.model {
+            Model::LibraH2O |
+            Model::Forma32GB |
+            Model::Forma |
+            Model::ClaraHD |
+            Model::AuraH2OEd2V2 |
+            Model::AuraEd2V2 => 7,
+            Model::AuraH2OEd2V1 |
+            Model::AuraEd2V1 |
+            Model::AuraONELimEd |
+            Model::AuraONE |
+            Model::Touch2 |
+            Model::GloHD => 6,
+            Model::AuraH2O |
+            Model::Aura => 5,
+            Model::AuraHD |
+            Model::Mini |
+            Model::Glo |
+            Model::TouchC => 4,
+            Model::TouchAB => 3,
+        }
+    }
+
     pub fn should_mirror_axes(&self, rotation: i8) -> (bool, bool) {
         let (mxy, dir) = self.mirroring_scheme();
         let mx = (4 + (mxy + dir)) % 4;
@@ -148,11 +176,10 @@ impl Device {
 
     // Returns the center and direction of the mirroring pattern.
     pub fn mirroring_scheme(&self) -> (i8, i8) {
-        let model_number = env::var("MODEL_NUMBER").unwrap_or_default();
         match self.model {
-            Model::AuraH2OEdition2 if model_number == "374" => (3, 1),
-            Model::AuraH2OEdition2 if model_number == "378" => (0, -1),
-            Model::Forma => (2, -1),
+            Model::AuraH2OEd2V1 => (3, 1),
+            Model::AuraH2OEd2V2 => (0, -1),
+            Model::Forma | Model::Forma32GB => (2, -1),
             Model::LibraH2O => (3, 1),
             _ => (2, 1),
         }
@@ -170,21 +197,19 @@ impl Device {
     }
 
     pub fn startup_rotation(&self) -> i8 {
-        let model_number = env::var("MODEL_NUMBER").unwrap_or_default();
         match self.model {
             Model::LibraH2O => 0,
-            Model::AuraH2OEdition2 if model_number == "374" => 1,
-            Model::Forma => 1,
+            Model::AuraH2OEd2V1 => 1,
+            Model::Forma | Model::Forma32GB => 1,
             _ => 3,
         }
     }
 
     pub fn transformed_rotation(&self, n: i8) -> i8 {
-        let model_number = env::var("MODEL_NUMBER").unwrap_or_default();
         match self.model {
             Model::AuraHD | Model::AuraH2O => n ^ 2,
-            Model::AuraH2OEdition2 if model_number == "378" => (4 - n) % 4,
-            Model::Forma => (4 - n) % 4,
+            Model::AuraH2OEd2V2 => (4 - n) % 4,
+            Model::Forma | Model::Forma32GB => (4 - n) % 4,
             _ => n,
         }
     }
@@ -193,6 +218,7 @@ impl Device {
 lazy_static! {
     pub static ref CURRENT_DEVICE: Device = {
         let product = env::var("PRODUCT").unwrap_or_default();
+        let model_number = env::var("MODEL_NUMBER").unwrap_or_default();
 
         match product.as_ref() {
             "kraken" => Device {
@@ -238,19 +264,19 @@ lazy_static! {
                 dpi: 167,
             },
             "daylight" => Device {
-                model: Model::AuraONE,
+                model: if model_number == "381" { Model::AuraONELimEd } else { Model::AuraONE },
                 proto: TouchProto::MultiA,
                 dims: (1404, 1872),
                 dpi: 300,
             },
             "star" => Device {
-                model: Model::AuraEdition2,
+                model: if model_number == "379" { Model::AuraEd2V2 } else { Model::AuraEd2V1 },
                 proto: TouchProto::MultiA,
                 dims: (758, 1024),
                 dpi: 212,
             },
             "snow" => Device {
-                model: Model::AuraH2OEdition2,
+                model: if model_number == "378" { Model::AuraH2OEd2V2 } else { Model::AuraH2OEd2V1 },
                 proto: TouchProto::MultiB,
                 dims: (1080, 1440),
                 dpi: 265,
@@ -262,7 +288,7 @@ lazy_static! {
                 dpi: 300,
             },
             "frost" => Device {
-                model: Model::Forma,
+                model: if model_number == "380" { Model::Forma32GB } else { Model::Forma },
                 proto: TouchProto::MultiB,
                 dims: (1440, 1920),
                 dpi: 300,
@@ -273,7 +299,12 @@ lazy_static! {
                 dims: (1264, 1680),
                 dpi: 300,
             },
-            _ => Device::default(),
+            _ => Device {
+                model: if model_number == "320" { Model::TouchC } else { Model::TouchAB },
+                proto: TouchProto::Single,
+                dims: (600, 800),
+                dpi: 167,
+            },
         }
     };
 

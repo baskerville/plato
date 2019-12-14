@@ -24,7 +24,8 @@ impl PremixedFrontlight {
     pub fn new(intensity: f32, warmth: f32) -> Result<PremixedFrontlight, Error> {
         let base = PathBuf::from(FRONTLIGHT_INTERFACE);
         let white = OpenOptions::new().write(true).open(base.join(FRONTLIGHT_WHITE))?;
-        let orange_path = base.join(if CURRENT_DEVICE.model == Model::Forma {
+        let model = CURRENT_DEVICE.model;
+        let orange_path = base.join(if model == Model::Forma || model == Model::Forma32GB {
             FRONTLIGHT_ORANGE_A
         } else {
             FRONTLIGHT_ORANGE_B
