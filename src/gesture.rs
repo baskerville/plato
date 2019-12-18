@@ -10,7 +10,8 @@ use crate::view::Event;
 use crate::device::CURRENT_DEVICE;
 use crate::geom::{Point, Vec2, Dir, DiagDir, Axis, nearest_segment_point, elbow};
 
-pub const JITTER_TOLERANCE_MM: f32 = 6.0;
+pub const TAP_JITTER_MM: f32 = 6.0;
+pub const HOLD_JITTER_MM: f32 = 0.5;
 pub const HOLD_DELAY_SHORT: Duration = Duration::from_millis(666);
 pub const HOLD_DELAY_LONG: Duration = Duration::from_millis(1333);
 
@@ -79,7 +80,8 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
     let contacts: Arc<Mutex<FnvHashMap<i32, TouchState>>> = Arc::new(Mutex::new(FnvHashMap::default()));
     let buttons: Arc<Mutex<FnvHashMap<ButtonCode, f64>>> = Arc::new(Mutex::new(FnvHashMap::default()));
     let segments: Arc<Mutex<Vec<Vec<Point>>>> = Arc::new(Mutex::new(Vec::new()));
-    let jitter = mm_to_px(JITTER_TOLERANCE_MM, CURRENT_DEVICE.dpi);
+    let tap_jitter = mm_to_px(TAP_JITTER_MM, CURRENT_DEVICE.dpi);
+    let hold_jitter = mm_to_px(HOLD_JITTER_MM, CURRENT_DEVICE.dpi);
 
     while let Ok(evt) = rx.recv() {
         ty.send(Event::Device(evt)).unwrap();
@@ -101,8 +103,8 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                         }
                         if let Some(ts) = ct.get(&id) {
                             let tp = &ts.positions;
-                            if (ts.time - time).abs() < f64::EPSILON && (tp[tp.len()-1] - position).length() < jitter
-                                                                     && (tp[tp.len()/2] - position).length() < jitter {
+                            if (ts.time - time).abs() < f64::EPSILON && (tp[tp.len()-1] - position).length() < hold_jitter
+                                                                     && (tp[tp.len()/2] - position).length() < hold_jitter {
                                 held = true;
                                 ty.send(Event::Gesture(GestureEvent::HoldFingerShort(position, id))).unwrap();
                             }
@@ -124,8 +126,8 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                         }
                         if let Some(ts) = ct.get_mut(&id) {
                             let tp = &ts.positions;
-                            if (ts.time - time).abs() < f64::EPSILON && (tp[tp.len()-1] - position).length() < jitter
-                                                                     && (tp[tp.len()/2] - position).length() < jitter {
+                            if (ts.time - time).abs() < f64::EPSILON && (tp[tp.len()-1] - position).length() < hold_jitter
+                                                                     && (tp[tp.len()/2] - position).length() < hold_jitter {
                                 ty.send(Event::Gesture(GestureEvent::HoldFingerLong(position, id))).unwrap();
                             }
                         }
@@ -150,10 +152,10 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                 if ct.is_empty() && !sg.is_empty() {
                     let len = sg.len();
                     if len == 1 {
-                        ty.send(Event::Gesture(interpret_segment(&sg.pop().unwrap(), jitter))).unwrap();
+                        ty.send(Event::Gesture(interpret_segment(&sg.pop().unwrap(), tap_jitter))).unwrap();
                     } else if len == 2 {
-                        let ge1 = interpret_segment(&sg.pop().unwrap(), jitter);
-                        let ge2 = interpret_segment(&sg.pop().unwrap(), jitter);
+                        let ge1 = interpret_segment(&sg.pop().unwrap(), tap_jitter);
+                        let ge2 = interpret_segment(&sg.pop().unwrap(), tap_jitter);
                         match (ge1, ge2) {
                             (GestureEvent::Tap(c1), GestureEvent::Tap(c2)) => {
                                 ty.send(Event::Gesture(GestureEvent::MultiTap([c1, c2]))).unwrap();
@@ -247,12 +249,12 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
     }
 }
 
-fn interpret_segment(sp: &[Point], jitter: f32) -> GestureEvent {
+fn interpret_segment(sp: &[Point], tap_jitter: f32) -> GestureEvent {
     let a = sp[0];
     let b = sp[sp.len()-1];
     let ab = b - a;
     let d = ab.length();
-    if d < jitter {
+    if d < tap_jitter {
         GestureEvent::Tap(a)
     } else {
         let p = sp[elbow(sp)];
