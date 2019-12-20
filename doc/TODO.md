@@ -1,6 +1,5 @@
 - ePUB renderer: RTL.
 - Metadata view.
 - Complex/fuzzy search queries?
-- Input field completions bar.
 - Applications: Notes, Terminal, Browser.
 - Use nix's ioctl macros.

@@ -19,7 +19,7 @@ pub struct SearchBar {
 }
 
 impl SearchBar {
-    pub fn new(rect: Rectangle, placeholder: &str, text: &str) -> SearchBar {
+    pub fn new(rect: Rectangle, input_id: ViewId, placeholder: &str, text: &str) -> SearchBar {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
@@ -41,7 +41,7 @@ impl SearchBar {
 
         let input_field = InputField::new(rect![pt!(rect.min.x + side + thickness, rect.min.y),
                                                 pt!(rect.max.x - side - thickness, rect.max.y)],
-                                          ViewId::SearchInput)
+                                          input_id)
                                      .border(false)
                                      .text(text)
                                      .placeholder(placeholder);
@@ -68,9 +68,9 @@ impl SearchBar {
         }
     }
 
-    pub fn set_text(&mut self, text: &str, hub: &Hub) {
+    pub fn set_text(&mut self, text: &str, hub: &Hub, context: &mut Context) {
         if let Some(input_field) = self.children[2].downcast_mut::<InputField>() {
-            input_field.set_text(text, true, hub);
+            input_field.set_text(text, true, hub, context);
         }
     }
 }

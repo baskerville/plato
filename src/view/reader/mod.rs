@@ -1263,7 +1263,7 @@ impl Reader {
                 return;
             }
 
-            if let Some(ViewId::SearchInput) = self.focus {
+            if let Some(ViewId::ReaderSearchInput) = self.focus {
                 self.toggle_keyboard(false, None, hub, context);
             }
 
@@ -1302,7 +1302,7 @@ impl Reader {
             let y_min = sp_rect.max.y;
             let rect = rect![self.rect.min.x, y_min,
                              self.rect.max.x, y_min + small_height as i32 - thickness];
-            let search_bar = SearchBar::new(rect, "", "");
+            let search_bar = SearchBar::new(rect, ViewId::ReaderSearchInput, "", "");
             self.children.insert(index, Box::new(search_bar) as Box<dyn View>);
 
             let separator = Filler::new(sp_rect, BLACK);
@@ -1315,7 +1315,7 @@ impl Reader {
                 hub.send(Event::Render(*self.child(index+2).rect(), UpdateMode::Gui)).unwrap();
             }
 
-            hub.send(Event::Focus(Some(ViewId::SearchInput))).unwrap();
+            hub.send(Event::Focus(Some(ViewId::ReaderSearchInput))).unwrap();
         }
     }
 
@@ -1405,6 +1405,7 @@ impl Reader {
                                                           self.rect.max.y - 2 * small_height as i32 + big_thickness,
                                                           self.rect.max.x,
                                                           self.rect.max.y - small_height as i32 - small_thickness],
+                                                    ViewId::ReaderSearchInput,
                                                     "", &s.query);
                     self.children.insert(index, Box::new(search_bar) as Box<dyn View>);
                     index += 1;
@@ -1515,7 +1516,7 @@ impl Reader {
             let mut edit_note = NamedInput::new("Note".to_string(), ViewId::EditNote, ViewId::EditNoteInput, 32, context);
             if let Some(text) = text.as_ref() {
                 let (tx, _rx) = mpsc::channel();
-                edit_note.set_text(text, &tx);
+                edit_note.set_text(text, &tx, context);
             }
 
             hub.send(Event::Render(*edit_note.rect(), UpdateMode::Gui)).unwrap();
@@ -3012,7 +3013,7 @@ impl View for Reader {
                 self.toggle_keyboard(false, None, hub, context);
                 true
             },
-            Event::Submit(ViewId::SearchInput, ref text) => {
+            Event::Submit(ViewId::ReaderSearchInput, ref text) => {
                 match make_query(text) {
                     Some(query) => {
                         self.search(text, query, hub);
@@ -3250,7 +3251,7 @@ impl View for Reader {
                                                   context);
                     self.children.push(Box::new(notif) as Box<dyn View>);
                     self.toggle_search_bar(true, hub, context);
-                    hub.send(Event::Focus(Some(ViewId::SearchInput))).unwrap();
+                    hub.send(Event::Focus(Some(ViewId::ReaderSearchInput))).unwrap();
                 }
                 true
             },
@@ -3446,7 +3447,7 @@ impl View for Reader {
                 false
             },
             Event::Focus(v) => {
-                if let Some(ViewId::SearchInput) = v {
+                if let Some(ViewId::ReaderSearchInput) = v {
                     self.toggle_results_bar(false, hub, context);
                     if let Some(ref mut s) = self.search {
                         s.running.store(false, AtomicOrdering::Relaxed);

@@ -611,8 +611,8 @@ impl Home {
                 return;
             }
 
-            if let Some(ViewId::SearchInput) = self.focus {
-                self.toggle_keyboard(false, false, Some(ViewId::SearchInput), hub, context);
+            if let Some(ViewId::HomeSearchInput) = self.focus {
+                self.toggle_keyboard(false, false, Some(ViewId::HomeSearchInput), hub, context);
             }
 
             self.children.drain(index - 1 ..= index);
@@ -637,6 +637,7 @@ impl Home {
             let search_bar = SearchBar::new(rect![self.rect.min.x, sp_rect.max.y,
                                                   self.rect.max.x,
                                                   sp_rect.max.y + delta_y - thickness],
+                                            ViewId::HomeSearchInput,
                                             "Title, author, category",
                                             "");
 
@@ -652,10 +653,10 @@ impl Home {
             }
 
             if locate::<Keyboard>(self).is_none() {
-                self.toggle_keyboard(true, false, Some(ViewId::SearchInput), hub, context);
+                self.toggle_keyboard(true, false, Some(ViewId::HomeSearchInput), hub, context);
             }
 
-            hub.send(Event::Focus(Some(ViewId::SearchInput))).unwrap();
+            hub.send(Event::Focus(Some(ViewId::HomeSearchInput))).unwrap();
 
             self.resize_summary(0, false, hub, context);
             search_visible = true;
@@ -1461,7 +1462,7 @@ impl View for Home {
                                                     ViewId::RenameCategoryInput,
                                                     21, context);
                 let (tx, _rx) = mpsc::channel();
-                ren_categ.set_text(categ_old, &tx);
+                ren_categ.set_text(categ_old, &tx, context);
                 hub.send(Event::Render(*ren_categ.rect(), UpdateMode::Gui)).unwrap();
                 hub.send(Event::Focus(Some(ViewId::RenameCategoryInput))).unwrap();
                 self.children.push(Box::new(ren_categ) as Box<dyn View>);
@@ -1528,7 +1529,7 @@ impl View for Home {
                 self.toggle_keyboard(false, true, None, hub, context);
                 true
             },
-            Event::Submit(ViewId::SearchInput, ref text) => {
+            Event::Submit(ViewId::HomeSearchInput, ref text) => {
                 self.query = make_query(text);
                 if self.query.is_some() {
                     // TODO: avoid updating things twice

@@ -261,6 +261,7 @@ pub enum Event {
     Submit(ViewId, String),
     Slider(SliderId, f32, FingerStatus),
     ToggleNear(ViewId, Rectangle),
+    ToggleInputHistoryMenu(ViewId, Rectangle),
     ToggleBookMenu(Rectangle, usize),
     ToggleCategoryMenu(Rectangle, String),
     TogglePresetMenu(Rectangle, usize),
@@ -307,7 +308,7 @@ pub enum AppCmd {
     },
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub enum ViewId {
     Home,
     Reader,
@@ -319,6 +320,7 @@ pub enum ViewId {
     BatteryMenu,
     ClockMenu,
     SearchTargetMenu,
+    InputHistoryMenu,
     Frontlight,
     Dictionary,
     FontSizeMenu,
@@ -352,7 +354,9 @@ pub enum ViewId {
     AddCategoriesInput,
     RenameCategory,
     RenameCategoryInput,
-    SearchInput,
+    HomeSearchInput,
+    ReaderSearchInput,
+    DictionarySearchInput,
     CalculatorInput,
     SearchBar,
     Keyboard,
@@ -486,6 +490,7 @@ pub enum EntryId {
     SetContrastGray(i32),
     SetRotationLock(Option<RotationLock>),
     SetSearchTarget(Option<String>),
+    SetInputText(ViewId, String),
     ToggleFuzzy,
     ToggleInverted,
     ToggleMonochrome,

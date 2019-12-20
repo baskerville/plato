@@ -113,6 +113,14 @@ Dictionaries will be searched recursively in the `dictionaries` directory. The s
 
 You can select the search target by tapping the label in the bottom bar. You can set the input languages of a dictionary by tapping and holding the target's label. You can then provide a comma-separated list of IETF language tags (e.g.: *en, en-US, en-GB*).
 
+# Input Fields
+
+Tapping an input field will:
+- Focus the input field if it isn't.
+- Move the cursor under your finger if it is.
+
+Tap and hold inside an input field to bring up the input history menu.
+
 # Annex
 
 ## Combination Sequences

@@ -62,9 +62,9 @@ impl InputBar {
         }
     }
 
-    pub fn set_text(&mut self, text: &str, move_cursor: bool, hub: &Hub) {
+    pub fn set_text(&mut self, text: &str, move_cursor: bool, hub: &Hub, context: &mut Context) {
         if let Some(input_field) = self.children[2].downcast_mut::<InputField>() {
-            input_field.set_text(text, move_cursor, hub);
+            input_field.set_text(text, move_cursor, hub, context);
         }
     }
 

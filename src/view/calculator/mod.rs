@@ -351,7 +351,7 @@ impl Calculator {
         }
     }
 
-    fn history_navigate(&mut self, dir: CycleDir, honor_prefix: bool, hub: &Hub) {
+    fn history_navigate(&mut self, dir: CycleDir, honor_prefix: bool, hub: &Hub, context: &mut Context) {
         let beginning = if honor_prefix {
             self.children[4].downcast_ref::<InputBar>().unwrap().text_before_cursor()
         } else {
@@ -378,7 +378,7 @@ impl Calculator {
         if let Some(cursor) = cursor_opt {
             let line = self.data[cursor].content.as_str();
             if let Some(input_bar) = self.children[4].downcast_mut::<InputBar>() {
-                input_bar.set_text(line, !honor_prefix, hub);
+                input_bar.set_text(line, !honor_prefix, hub, context);
             }
             self.history.cursor = cursor;
         }
@@ -486,7 +486,7 @@ impl View for Calculator {
             Event::Submit(ViewId::CalculatorInput, ref line) => {
                 self.append(Line { origin: LineOrigin::Input, content: line.to_string() }, context);
                 if let Some(input_bar) = self.children[4].downcast_mut::<InputBar>() {
-                    input_bar.set_text("", true, hub);
+                    input_bar.set_text("", true, hub, context);
                 }
                 if let Some(stdin) = self.process.stdin.as_mut() {
                     writeln!(stdin, "{}", line).ok();
@@ -506,7 +506,7 @@ impl View for Calculator {
                 true
             },
             Event::History(dir, honor_prefix) => {
-                self.history_navigate(dir, honor_prefix, hub);
+                self.history_navigate(dir, honor_prefix, hub, context);
                 true
             },
             Event::Select(EntryId::SetFontSize(v)) => {

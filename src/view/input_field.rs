@@ -1,6 +1,6 @@
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use super::{View, Event, Hub, Bus, KeyboardEvent, ViewId, TextKind};
+use super::{View, Event, Hub, Bus, KeyboardEvent, ViewId, EntryId, TextKind};
 use super::THICKNESS_MEDIUM;
 use crate::gesture::GestureEvent;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE, FONT_SIZES};
@@ -106,9 +106,10 @@ impl InputField {
         self
     }
 
-    pub fn set_text(&mut self, text: &str, move_cursor: bool, hub: &Hub) {
+    pub fn set_text(&mut self, text: &str, move_cursor: bool, hub: &Hub, context: &mut Context) {
         if self.text != text {
             self.text = text.to_string();
+            context.remember_input(text, self.id);
             if move_cursor {
                 self.cursor = self.text.len();
             }
@@ -205,6 +206,10 @@ impl View for InputField {
                 }
                 true
             },
+            Event::Gesture(GestureEvent::HoldFingerShort(center, _)) if self.rect.includes(center) => {
+                hub.send(Event::ToggleInputHistoryMenu(self.id, self.rect)).unwrap();
+                true
+            },
             Event::Focus(id_opt) => {
                 let focused = id_opt.is_some() && id_opt.unwrap() == self.id;
                 if self.focused != focused {
@@ -241,11 +246,20 @@ impl View for InputField {
                     },
                     KeyboardEvent::Submit => {
                         bus.push_back(Event::Submit(self.id, self.text.clone()));
+                        context.remember_input(&self.text, self.id);
                     },
                 };
                 hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).unwrap();
                 true
-            }
+            },
+            Event::Select(EntryId::SetInputText(id, ref text)) => {
+                if self.id == id {
+                    self.set_text(text, true, hub, context);
+                    true
+                } else {
+                    false
+                }
+            },
             _ => false,
         }
     }

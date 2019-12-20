@@ -50,6 +50,7 @@ use crate::view::dictionary::Dictionary;
 use crate::view::calculator::Calculator;
 use crate::view::sketch::Sketch;
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
+use crate::view::common::{toggle_input_history_menu};
 use crate::helpers::{load_json, save_json, load_toml, save_toml};
 use crate::metadata::{Metadata, METADATA_FILENAME, auto_import};
 use crate::settings::{Settings, SETTINGS_PATH};
@@ -444,6 +445,9 @@ pub fn run() -> Result<(), Error> {
                     let flw = FrontlightWindow::new(&mut context);
                     tx.send(Event::Render(*flw.rect(), UpdateMode::Gui)).unwrap();
                     view.children_mut().push(Box::new(flw) as Box<dyn View>);
+                },
+                Event::ToggleInputHistoryMenu(id, rect) => {
+                    toggle_input_history_menu(view.as_mut(), id, rect, None, &tx, &mut context);
                 },
                 Event::Close(ViewId::Frontlight) => {
                     if let Some(index) = locate::<FrontlightWindow>(view.as_ref()) {

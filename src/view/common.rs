@@ -170,3 +170,27 @@ pub fn toggle_clock_menu(view: &mut dyn View, rect: Rectangle, enable: Option<bo
         view.children_mut().push(Box::new(clock_menu) as Box<dyn View>);
     }
 }
+
+pub fn toggle_input_history_menu(view: &mut dyn View, id: ViewId, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+    if let Some(index) = locate_by_id(view, ViewId::ClockMenu) {
+        if let Some(true) = enable {
+            return;
+        }
+        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).unwrap();
+        view.children_mut().remove(index);
+    } else {
+        if let Some(false) = enable {
+            return;
+        }
+        let entries = context.input_history.get(&id)
+                             .map(|h| h.iter().map(|s|
+                                 EntryKind::Command(s.to_string(),
+                                                    EntryId::SetInputText(id, s.to_string())))
+                                           .collect::<Vec<EntryKind>>());
+        if let Some(entries) = entries {
+            let input_history_menu = Menu::new(rect, ViewId::InputHistoryMenu, MenuKind::DropDown, entries, context);
+            hub.send(Event::Render(*input_history_menu.rect(), UpdateMode::Gui)).unwrap();
+            view.children_mut().push(Box::new(input_history_menu) as Box<dyn View>);
+        }
+    }
+}

@@ -110,6 +110,7 @@ impl Dictionary {
 
         let search_bar = SearchBar::new(rect![rect.min.x, rect.min.y + small_height as i32 + big_thickness,
                                               rect.max.x, rect.min.y + 2 * small_height as i32 - small_thickness],
+                                        ViewId::DictionarySearchInput,
                                         "", query);
         children.push(Box::new(search_bar) as Box<dyn View>);
 
@@ -157,7 +158,7 @@ impl Dictionary {
         hub.send(Event::Render(rect, UpdateMode::Gui)).unwrap();
 
         if query.is_empty() {
-            hub.send(Event::Focus(Some(ViewId::SearchInput))).unwrap();
+            hub.send(Event::Focus(Some(ViewId::DictionarySearchInput))).unwrap();
         } else {
             hub.send(Event::Define(query.to_string())).unwrap();
         }
@@ -312,7 +313,7 @@ impl Dictionary {
                                      .and_then(|name| context.settings.dictionary.languages.get(name))
                                      .filter(|langs| !langs.is_empty()) {
                 let (tx, _rx) = mpsc::channel();
-                edit_languages.set_text(&langs.join(", "), &tx);
+                edit_languages.set_text(&langs.join(", "), &tx, context);
             }
 
             hub.send(Event::Render(*edit_languages.rect(), UpdateMode::Gui)).unwrap();
@@ -353,7 +354,7 @@ impl Dictionary {
         if let Some(query) = text {
             self.query = query.to_string();
             if let Some(search_bar) = self.children[2].downcast_mut::<SearchBar>() {
-                search_bar.set_text(query, hub);
+                search_bar.set_text(query, hub, context);
             }
         }
         let content = query_to_content(&self.query, &self.language, self.fuzzy, self.target.as_ref(), context);
@@ -403,7 +404,7 @@ impl View for Dictionary {
                 self.define(Some(query), hub, context);
                 true
             },
-            Event::Submit(ViewId::SearchInput, ref text) => {
+            Event::Submit(ViewId::DictionarySearchInput, ref text) => {
                 if !text.is_empty() {
                     self.toggle_keyboard(false, None, hub, context);
                     self.define(Some(text), hub, context);

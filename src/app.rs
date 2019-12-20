@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::process::Command;
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{HashMap, BTreeMap, VecDeque};
 use std::time::{Duration, Instant};
 use failure::{Error, ResultExt};
 use fnv::FnvHashMap;
@@ -14,6 +14,7 @@ use crate::framebuffer::{Framebuffer, KoboFramebuffer, Display, UpdateMode};
 use crate::view::{View, Event, EntryId, EntryKind, ViewId, AppCmd};
 use crate::view::{render, render_region, render_no_wait, render_no_wait_region, handle_event, expose};
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
+use crate::view::common::{toggle_input_history_menu};
 use crate::view::frontlight::FrontlightWindow;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::dictionary::Dictionary as DictionaryApp;
@@ -38,6 +39,7 @@ use crate::device::{CURRENT_DEVICE, Orientation, FrontlightKind, INTERNAL_CARD_R
 use crate::font::Fonts;
 
 pub const APP_NAME: &str = "Plato";
+const INPUT_HISTORY_SIZE: usize = 32;
 
 const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 const BATTERY_REFRESH_INTERVAL: Duration = Duration::from_secs(299);
@@ -53,6 +55,7 @@ pub struct Context {
     pub filename: PathBuf,
     pub fonts: Fonts,
     pub dictionaries: BTreeMap<String, Dictionary>,
+    pub input_history: HashMap<ViewId, VecDeque<String>>,
     pub frontlight: Box<dyn Frontlight>,
     pub battery: Box<dyn Battery>,
     pub lightsensor: Box<dyn LightSensor>,
@@ -71,8 +74,8 @@ impl Context {
         let dims = fb.dims();
         let rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
         Context { fb, display: Display { dims, rotation },
-                  settings, metadata, filename, fonts, dictionaries: BTreeMap::new(), battery,
-                  frontlight, lightsensor, notification_index: 0, kb_rect: Rectangle::default(),
+                  settings, metadata, filename, fonts, dictionaries: BTreeMap::new(), input_history: HashMap::new(),
+                  battery, frontlight, lightsensor, notification_index: 0, kb_rect: Rectangle::default(),
                   plugged: false, covered: false, shared: false, online: false }
     }
 
@@ -94,6 +97,23 @@ impl Context {
                     self.dictionaries.insert(name, dict);
                 }
             }
+        }
+    }
+
+    pub fn remember_input(&mut self, text: &str, id: ViewId) {
+        if text.is_empty() {
+            return;
+        }
+
+        let history = self.input_history.entry(id)
+                          .or_insert_with(|| VecDeque::new());
+
+        if history.front().map(String::as_str) != Some(text) {
+            history.push_front(text.to_string());
+        }
+
+        if history.len() > INPUT_HISTORY_SIZE {
+            history.pop_back();
         }
     }
 }
@@ -830,6 +850,9 @@ pub fn run() -> Result<(), Error> {
                 let flw = FrontlightWindow::new(&mut context);
                 tx.send(Event::Render(*flw.rect(), UpdateMode::Gui)).unwrap();
                 view.children_mut().push(Box::new(flw) as Box<dyn View>);
+            },
+            Event::ToggleInputHistoryMenu(id, rect) => {
+                toggle_input_history_menu(view.as_mut(), id, rect, None, &tx, &mut context);
             },
             Event::Close(ViewId::Frontlight) => {
                 if let Some(index) = locate::<FrontlightWindow>(view.as_ref()) {
