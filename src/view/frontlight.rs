@@ -192,10 +192,10 @@ impl FrontlightWindow {
             let mut presets_list = PresetsList::new(presets_rect);
             presets_list.update(&context.settings.frontlight_presets, &tx, &mut context.fonts);
             self.children.push(Box::new(presets_list) as Box<dyn View>);
-            hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
         } else {
             self.children.pop();
-            hub.send(Event::Expose(self.rect, UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(self.rect, UpdateMode::Gui)).ok();
             shift(self, pt!(0, small_height as i32 / 2));
             self.rect.max.y -= small_height as i32;
         }
@@ -237,7 +237,7 @@ impl View for FrontlightWindow {
                 true
             },
             Event::Gesture(GestureEvent::Tap(center)) if !self.rect.includes(center) => {
-                hub.send(Event::Close(ViewId::Frontlight)).unwrap();
+                hub.send(Event::Close(ViewId::Frontlight)).ok();
                 true
             },
             Event::Gesture(..) => true,
@@ -261,7 +261,7 @@ impl View for FrontlightWindow {
                         let index = self.len() - 2;
                         if let Some(button_guess) = self.child_mut(index).downcast_mut::<Button>() {
                             button_guess.disabled = false;
-                            hub.send(Event::Render(*button_guess.rect(), UpdateMode::Gui)).unwrap();
+                            hub.send(Event::Render(*button_guess.rect(), UpdateMode::Gui)).ok();
                         }
                     }
                     self.update_presets(hub, context);
@@ -278,7 +278,7 @@ impl View for FrontlightWindow {
                             let index = self.len() - 2;
                             if let Some(button_guess) = self.child_mut(index).downcast_mut::<Button>() {
                                 button_guess.disabled = true;
-                                hub.send(Event::Render(*button_guess.rect(), UpdateMode::Gui)).unwrap();
+                                hub.send(Event::Render(*button_guess.rect(), UpdateMode::Gui)).ok();
                             }
                         }
                         self.update_presets(hub, context);

@@ -30,7 +30,7 @@ impl PageLabel {
     pub fn update(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
         self.current_page = current_page;
         self.pages_count = pages_count;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
 
     pub fn text(&self, size: u8) -> String {

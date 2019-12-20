@@ -76,12 +76,12 @@ impl Key {
 
     pub fn update(&mut self, kind: KeyKind, hub: &Hub) {
         self.kind = kind;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
 
     pub fn release(&mut self, hub: &Hub) {
         self.pressure = 0;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
 
     pub fn lock(&mut self) {
@@ -96,12 +96,12 @@ impl View for Key {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
-                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::Fast)).unwrap();
+                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::Fast)).ok();
                         true
                     },
                     FingerStatus::Up if self.active => {
                         self.active = false;
-                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).ok();
                         true
                     },
                     _ => false,
@@ -117,7 +117,7 @@ impl View for Key {
                         } else {
                             self.pressure = (self.pressure + 1) % 3;
                         }
-                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).ok();
                     },
                     _ => (),
                 }
@@ -126,8 +126,8 @@ impl View for Key {
             },
             Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => {
                 match self.kind {
-                    KeyKind::Delete(dir) => hub.send(Event::Keyboard(KeyboardEvent::Delete { target: TextKind::Word, dir })).unwrap(),
-                    KeyKind::Move(dir) => hub.send(Event::Keyboard(KeyboardEvent::Move { target: TextKind::Word, dir })).unwrap(),
+                    KeyKind::Delete(dir) => { hub.send(Event::Keyboard(KeyboardEvent::Delete { target: TextKind::Word, dir })).ok(); },
+                    KeyKind::Move(dir) => { hub.send(Event::Keyboard(KeyboardEvent::Move { target: TextKind::Word, dir })).ok(); },
                     _ => (),
                 };
                 true

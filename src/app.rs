@@ -208,7 +208,7 @@ fn schedule_task(id: TaskId, event: Event, delay: Duration, hub: &Sender<Event>,
     thread::spawn(move || {
         thread::sleep(delay);
         if ty.send(()).is_ok() {
-            hub2.send(event).unwrap();
+            hub2.send(event).ok();
         }
     });
 }
@@ -232,10 +232,10 @@ fn resume(id: TaskId, tasks: &mut Vec<Task>, view: &mut dyn View, hub: &Sender<E
         if let Some(index) = locate::<Intermission>(view) {
             let rect = *view.child(index).rect();
             view.children_mut().remove(index);
-            hub.send(Event::Expose(rect, UpdateMode::Full)).unwrap();
+            hub.send(Event::Expose(rect, UpdateMode::Full)).ok();
         }
-        hub.send(Event::ClockTick).unwrap();
-        hub.send(Event::BatteryTick).unwrap();
+        hub.send(Event::ClockTick).ok();
+        hub.send(Event::BatteryTick).ok();
     }
 }
 
@@ -297,14 +297,14 @@ pub fn run() -> Result<(), Error> {
 
     thread::spawn(move || {
         while let Ok(evt) = touch_screen.recv() {
-            tx2.send(evt).unwrap();
+            tx2.send(evt).ok();
         }
     });
 
     let tx3 = tx.clone();
     thread::spawn(move || {
         while let Ok(evt) = usb_port.recv() {
-            tx3.send(Event::Device(evt)).unwrap();
+            tx3.send(Event::Device(evt)).ok();
         }
     });
 
@@ -312,7 +312,7 @@ pub fn run() -> Result<(), Error> {
     thread::spawn(move || {
         loop {
             thread::sleep(CLOCK_REFRESH_INTERVAL);
-            tx4.send(Event::ClockTick).unwrap();
+            tx4.send(Event::ClockTick).ok();
         }
     });
 
@@ -320,7 +320,7 @@ pub fn run() -> Result<(), Error> {
     thread::spawn(move || {
         loop {
             thread::sleep(BATTERY_REFRESH_INTERVAL);
-            tx5.send(Event::BatteryTick).unwrap();
+            tx5.send(Event::BatteryTick).ok();
         }
     });
 
@@ -329,7 +329,7 @@ pub fn run() -> Result<(), Error> {
         thread::spawn(move || {
             loop {
                 thread::sleep(AUTO_SUSPEND_REFRESH_INTERVAL);
-                tx6.send(Event::MightSuspend).unwrap();
+                tx6.send(Event::MightSuspend).ok();
             }
         });
     }
@@ -380,14 +380,14 @@ pub fn run() -> Result<(), Error> {
                             resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut context);
                         } else {
                             let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
-                            tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
+                            tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).ok();
                             schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
                                           PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
                             view.children_mut().push(Box::new(interm) as Box<dyn View>);
                         }
                     },
                     DeviceEvent::Button { code: ButtonCode::Light, status: ButtonStatus::Pressed, .. } => {
-                        tx.send(Event::ToggleFrontlight).unwrap();
+                        tx.send(Event::ToggleFrontlight).ok();
                     },
                     DeviceEvent::CoverOn => {
                         context.covered = true;
@@ -399,7 +399,7 @@ pub fn run() -> Result<(), Error> {
                         }
 
                         let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
-                        tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
+                        tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).ok();
                         schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
                                       PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
                         view.children_mut().push(Box::new(interm) as Box<dyn View>);
@@ -479,13 +479,13 @@ pub fn run() -> Result<(), Error> {
                                 }
 
                                 if context.settings.auto_share {
-                                    tx.send(Event::PrepareShare).unwrap();
+                                    tx.send(Event::PrepareShare).ok();
                                 } else {
                                     let confirm = Confirmation::new(ViewId::ConfirmShare,
                                                                     Event::PrepareShare,
                                                                     "Share storage via USB?".to_string(),
                                                                     &mut context);
-                                    tx.send(Event::Render(*confirm.rect(), UpdateMode::Gui)).unwrap();
+                                    tx.send(Event::Render(*confirm.rect(), UpdateMode::Gui)).ok();
                                     view.children_mut().push(Box::new(confirm) as Box<dyn View>);
                                 }
 
@@ -493,7 +493,7 @@ pub fn run() -> Result<(), Error> {
                             },
                         }
 
-                        tx.send(Event::BatteryTick).unwrap();
+                        tx.send(Event::BatteryTick).ok();
                     },
                     DeviceEvent::Unplug(..) => {
                         if !context.plugged {
@@ -521,10 +521,10 @@ pub fn run() -> Result<(), Error> {
                             if let Some(index) = locate::<Intermission>(view.as_ref()) {
                                 let rect = *view.child(index).rect();
                                 view.children_mut().remove(index);
-                                tx.send(Event::Expose(rect, UpdateMode::Full)).unwrap();
+                                tx.send(Event::Expose(rect, UpdateMode::Full)).ok();
                             }
                             if Path::new("/mnt/onboard/.kobo/KoboRoot.tgz").exists() {
-                                tx.send(Event::Select(EntryId::Reboot)).unwrap();
+                                tx.send(Event::Select(EntryId::Reboot)).ok();
                             }
                             let path = context.settings.library_path.join(&context.filename);
                             let metadata = load_json::<Metadata, _>(path)
@@ -553,7 +553,7 @@ pub fn run() -> Result<(), Error> {
                                     resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut context);
                                 }
                             } else {
-                                tx.send(Event::BatteryTick).unwrap();
+                                tx.send(Event::BatteryTick).ok();
                             }
                         }
                     },
@@ -572,7 +572,7 @@ pub fn run() -> Result<(), Error> {
                             }
                         }
 
-                        tx.send(Event::Select(EntryId::Rotate(n))).unwrap();
+                        tx.send(Event::Select(EntryId::Rotate(n))).ok();
                     },
                     DeviceEvent::UserActivity if context.settings.auto_suspend > 0 => {
                         inactive_since = Instant::now();
@@ -647,7 +647,7 @@ pub fn run() -> Result<(), Error> {
                     if item.rotation != context.display.rotation {
                         updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                         if let Ok(dims) = context.fb.set_rotation(item.rotation) {
-                            raw_sender.send(display_rotate_event(item.rotation)).unwrap();
+                            raw_sender.send(display_rotate_event(item.rotation)).ok();
                             context.display.rotation = item.rotation;
                             context.display.dims = dims;
                         }
@@ -670,9 +670,9 @@ pub fn run() -> Result<(), Error> {
                     context.online = false;
                 }
                 let interm = Intermission::new(context.fb.rect(), IntermKind::Share, &context);
-                tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
+                tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).ok();
                 view.children_mut().push(Box::new(interm) as Box<dyn View>);
-                tx.send(Event::Share).unwrap();
+                tx.send(Event::Share).ok();
             },
             Event::Share => {
                 if context.shared {
@@ -700,9 +700,9 @@ pub fn run() -> Result<(), Error> {
                         }
                         if points[0].dist2(points[1]) >= rect.diag2() {
                             if points[0].y < points[1].y {
-                                tx.send(Event::Select(EntryId::TakeScreenshot)).unwrap();
+                                tx.send(Event::Select(EntryId::TakeScreenshot)).ok();
                             } else {
-                                tx.send(Event::Render(context.fb.rect(), UpdateMode::Full)).unwrap();
+                                tx.send(Event::Render(context.fb.rect(), UpdateMode::Full)).ok();
                             }
                         }
                     },
@@ -760,7 +760,7 @@ pub fn run() -> Result<(), Error> {
                     if CURRENT_DEVICE.orientation(n) != CURRENT_DEVICE.orientation(rotation) {
                         updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                         if let Ok(dims) = context.fb.set_rotation(n) {
-                            raw_sender.send(display_rotate_event(n)).unwrap();
+                            raw_sender.send(display_rotate_event(n)).ok();
                             context.display.rotation = n;
                             context.display.dims = dims;
                         }
@@ -819,7 +819,7 @@ pub fn run() -> Result<(), Error> {
                     if CURRENT_DEVICE.orientation(item.rotation) != CURRENT_DEVICE.orientation(context.display.rotation) {
                         updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                         if let Ok(dims) = context.fb.set_rotation(item.rotation) {
-                            raw_sender.send(display_rotate_event(item.rotation)).unwrap();
+                            raw_sender.send(display_rotate_event(item.rotation)).ok();
                             context.display.rotation = item.rotation;
                             context.display.dims = dims;
                         }
@@ -833,13 +833,13 @@ pub fn run() -> Result<(), Error> {
                 if let Some(index) = locate_by_id(view.as_ref(), ViewId::PresetMenu) {
                     let rect = *view.child(index).rect();
                     view.children_mut().remove(index);
-                    tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
+                    tx.send(Event::Expose(rect, UpdateMode::Gui)).ok();
                 } else {
                     let preset_menu = Menu::new(rect, ViewId::PresetMenu, MenuKind::Contextual,
                                                 vec![EntryKind::Command("Remove".to_string(),
                                                                         EntryId::RemovePreset(index))],
                                                 &mut context);
-                    tx.send(Event::Render(*preset_menu.rect(), UpdateMode::Gui)).unwrap();
+                    tx.send(Event::Render(*preset_menu.rect(), UpdateMode::Gui)).ok();
                     view.children_mut().push(Box::new(preset_menu) as Box<dyn View>);
                 }
             },
@@ -848,7 +848,7 @@ pub fn run() -> Result<(), Error> {
                     continue;
                 }
                 let flw = FrontlightWindow::new(&mut context);
-                tx.send(Event::Render(*flw.rect(), UpdateMode::Gui)).unwrap();
+                tx.send(Event::Render(*flw.rect(), UpdateMode::Gui)).ok();
                 view.children_mut().push(Box::new(flw) as Box<dyn View>);
             },
             Event::ToggleInputHistoryMenu(id, rect) => {
@@ -858,23 +858,23 @@ pub fn run() -> Result<(), Error> {
                 if let Some(index) = locate::<FrontlightWindow>(view.as_ref()) {
                     let rect = *view.child(index).rect();
                     view.children_mut().remove(index);
-                    tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
+                    tx.send(Event::Expose(rect, UpdateMode::Gui)).ok();
                 }
             },
             Event::Close(id) => {
                 if let Some(index) = locate_by_id(view.as_ref(), id) {
                     let rect = overlapping_rectangle(view.child(index));
-                    tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
+                    tx.send(Event::Expose(rect, UpdateMode::Gui)).ok();
                     view.children_mut().remove(index);
                 }
             },
             Event::Select(EntryId::ToggleInverted) => {
                 context.fb.toggle_inverted();
-                tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).unwrap();
+                tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).ok();
             },
             Event::Select(EntryId::ToggleMonochrome) => {
                 context.fb.toggle_monochrome();
-                tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).unwrap();
+                tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).ok();
             },
             Event::Select(EntryId::ToggleIntermissionImage(ref kind, ref path)) => {
                 let key = kind.key();
@@ -887,14 +887,14 @@ pub fn run() -> Result<(), Error> {
             Event::Select(EntryId::Rotate(n)) if n != context.display.rotation && view.might_rotate() => {
                 updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                 if let Ok(dims) = context.fb.set_rotation(n) {
-                    raw_sender.send(display_rotate_event(n)).unwrap();
+                    raw_sender.send(display_rotate_event(n)).ok();
                     context.display.rotation = n;
                     let fb_rect = Rectangle::from(dims);
                     if context.display.dims != dims {
                         context.display.dims = dims;
                         view.resize(fb_rect, &tx, &mut context);
                     } else {
-                        tx.send(Event::Render(context.fb.rect(), UpdateMode::Full)).unwrap();
+                        tx.send(Event::Render(context.fb.rect(), UpdateMode::Full)).ok();
                     }
                 }
             },
@@ -953,7 +953,7 @@ pub fn run() -> Result<(), Error> {
                 let seconds = 60 * context.settings.auto_suspend as u64;
                 if inactive_since.elapsed() > Duration::from_secs(seconds) {
                     let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
-                    tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).unwrap();
+                    tx.send(Event::Render(*interm.rect(), UpdateMode::Full)).ok();
                     schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
                                   PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
                     view.children_mut().push(Box::new(interm) as Box<dyn View>);
@@ -965,7 +965,7 @@ pub fn run() -> Result<(), Error> {
         }
 
         while let Some(ce) = bus.pop_front() {
-            tx.send(ce).unwrap();
+            tx.send(ce).ok();
         }
     }
 

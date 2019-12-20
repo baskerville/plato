@@ -30,7 +30,7 @@ impl Notification {
 
         thread::spawn(move || {
             thread::sleep(NOTIFICATION_CLOSE_DELAY);
-            hub2.send(Event::Close(id)).unwrap();
+            hub2.send(Event::Close(id)).ok();
         });
 
         let dpi = CURRENT_DEVICE.dpi;
@@ -58,7 +58,7 @@ impl Notification {
         let rect = rect![dx, dy,
                          dx + dialog_width, dy + dialog_height];
 
-        hub.send(Event::Render(rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(rect, UpdateMode::Gui)).ok();
 
         context.notification_index = index.wrapping_add(1);
 

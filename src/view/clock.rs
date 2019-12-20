@@ -32,7 +32,7 @@ impl View for Clock {
         match *evt {
             Event::ClockTick => {
                 self.time = Local::now();
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                 true
             },
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {

@@ -84,7 +84,7 @@ impl Calculator {
             let reader = BufReader::new(stdout);
             for line_res in reader.lines() {
                 if let Ok(line) = line_res {
-                    hub2.send(Event::ProcessLine(LineOrigin::Output, line.clone())).unwrap();
+                    hub2.send(Event::ProcessLine(LineOrigin::Output, line.clone())).ok();
                 } else {
                     break;
                 }
@@ -96,7 +96,7 @@ impl Calculator {
             let reader = BufReader::new(stderr);
             for line_res in reader.lines() {
                 if let Ok(line) = line_res {
-                    hub3.send(Event::ProcessLine(LineOrigin::Error, line.clone())).unwrap();
+                    hub3.send(Event::ProcessLine(LineOrigin::Error, line.clone())).ok();
                 } else {
                     break;
                 }
@@ -189,8 +189,8 @@ impl Calculator {
         let columns_count = (code_area_rect.width() as i32 - 2 * margin_width_px) / char_width;
         let lines_count = (code_area_rect.height() as i32 - 2 * margin_width_px) / line_height;
 
-        hub.send(Event::Render(rect, UpdateMode::Full)).unwrap();
-        hub.send(Event::Focus(Some(ViewId::CalculatorInput))).unwrap();
+        hub.send(Event::Render(rect, UpdateMode::Full)).ok();
+        hub.send(Event::Focus(Some(ViewId::CalculatorInput))).ok();
 
         Ok(Calculator {
             rect,
@@ -421,7 +421,7 @@ impl Calculator {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -432,7 +432,7 @@ impl Calculator {
                                                                   EntryId::SetMarginWidth(mw),
                                                                   mw == self.margin_width)).collect();
             let margin_width_menu = Menu::new(rect, ViewId::MarginWidthMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*margin_width_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*margin_width_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(margin_width_menu) as Box<dyn View>);
         }
     }
@@ -443,7 +443,7 @@ impl Calculator {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -457,7 +457,7 @@ impl Calculator {
                                        (fs - self.font_size).abs() < 0.05)
             }).collect();
             let font_size_menu = Menu::new(rect, ViewId::FontSizeMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*font_size_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*font_size_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(font_size_menu) as Box<dyn View>);
         }
     }
@@ -467,9 +467,9 @@ impl Calculator {
         if let Some(top_bar) = self.child_mut(0).downcast_mut::<TopBar>() {
             top_bar.update_frontlight_icon(&tx, context);
         }
-        hub.send(Event::ClockTick).unwrap();
-        hub.send(Event::BatteryTick).unwrap();
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::ClockTick).ok();
+        hub.send(Event::BatteryTick).ok();
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
 
     fn quit(&mut self, context: &mut Context) {
@@ -521,11 +521,11 @@ impl View for Calculator {
             Event::Gesture(GestureEvent::Rotate { quarter_turns, .. }) if quarter_turns != 0 => {
                 let (_, dir) = CURRENT_DEVICE.mirroring_scheme();
                 let n = (4 + (context.display.rotation - dir * quarter_turns)) % 4;
-                hub.send(Event::Select(EntryId::Rotate(n))).unwrap();
+                hub.send(Event::Select(EntryId::Rotate(n))).ok();
                 true
             },
             Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => {
-                hub.send(Event::Render(self.rect, UpdateMode::Full)).unwrap();
+                hub.send(Event::Render(self.rect, UpdateMode::Full)).ok();
                 true
             },
             Event::ToggleNear(ViewId::MainMenu, rect) => {
@@ -550,7 +550,7 @@ impl View for Calculator {
             },
             Event::Back | Event::Select(EntryId::Quit) => {
                 self.quit(context);
-                hub.send(Event::Back).unwrap();
+                hub.send(Event::Back).ok();
                 true
             },
             Event::Reseed => {
@@ -630,7 +630,7 @@ impl View for Calculator {
         self.refresh(context);
 
         self.rect = rect;
-        hub.send(Event::Render(self.rect, UpdateMode::Full)).unwrap();
+        hub.send(Event::Render(self.rect, UpdateMode::Full)).ok();
     }
 
 

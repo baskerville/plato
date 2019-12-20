@@ -171,7 +171,7 @@ impl Home {
                                         false);
         children.push(Box::new(bottom_bar) as Box<dyn View>);
 
-        hub.send(Event::Render(rect, UpdateMode::Full)).unwrap();
+        hub.send(Event::Render(rect, UpdateMode::Full)).ok();
 
         Ok(Home {
             rect,
@@ -263,10 +263,10 @@ impl Home {
                     process.wait().ok();
                 }
                 if let Some(sort_method) = fetcher.sort_method {
-                    hub.send(Event::Select(EntryId::Sort(sort_method))).unwrap();
+                    hub.send(Event::Select(EntryId::Sort(sort_method))).ok();
                 }
                 if let Some(second_column) = fetcher.second_column {
-                    hub.send(Event::Select(EntryId::SecondColumn(second_column))).unwrap();
+                    hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
                 }
                 false
             } else {
@@ -310,10 +310,10 @@ impl Home {
         let mut sort_method = hook.sort_method;
         let mut second_column = hook.second_column;
         if let Some(sort_method) = sort_method.replace(self.sort_method) {
-            hub.send(Event::Select(EntryId::Sort(sort_method))).unwrap();
+            hub.send(Event::Select(EntryId::Sort(sort_method))).ok();
         }
         if let Some(second_column) = second_column.replace(context.settings.home.second_column) {
-            hub.send(Event::Select(EntryId::SecondColumn(second_column))).unwrap();
+            hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
         }
         let process = hook.program.as_ref().and_then(|p| {
             self.spawn_child(&hook.name, p, context.settings.wifi, context.online, hub)
@@ -345,23 +345,23 @@ impl Home {
                         match event.get("type").and_then(JsonValue::as_str) {
                             Some("notify") => {
                                 if let Some(msg) = event.get("message").and_then(JsonValue::as_str) {
-                                    hub2.send(Event::Notify(msg.to_string())).unwrap();
+                                    hub2.send(Event::Notify(msg.to_string())).ok();
                                 }
                             },
                             Some("addDocument") => {
                                 if let Some(info) = event.get("info").map(ToString::to_string)
                                                          .and_then(|v| serde_json::from_str(&v).ok()) {
-                                    hub2.send(Event::AddDocument(Box::new(info))).unwrap();
+                                    hub2.send(Event::AddDocument(Box::new(info))).ok();
                                 }
                             },
                             Some("removeDocument") => {
                                 if let Some(path) = event.get("path").and_then(JsonValue::as_str) {
-                                    hub2.send(Event::RemoveDocument(PathBuf::from(path))).unwrap();
+                                    hub2.send(Event::RemoveDocument(PathBuf::from(path))).ok();
                                 }
                             },
                             Some("setWifi") => {
                                 if let Some(enable) = event.get("enable").and_then(JsonValue::as_bool) {
-                                    hub2.send(Event::SetWifi(enable)).unwrap();
+                                    hub2.send(Event::SetWifi(enable)).ok();
                                 }
                             },
                             _ => (),
@@ -539,9 +539,9 @@ impl Home {
                 }
             }
 
-            hub.send(Event::Focus(None)).unwrap();
+            hub.send(Event::Focus(None)).ok();
             let rect = rect![self.rect.min.x, y_min, self.rect.max.x, y_min + delta_y];
-            hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(rect, UpdateMode::Gui)).ok();
         } else {
             if !enable {
                 return;
@@ -581,17 +581,17 @@ impl Home {
             if enable {
                 if has_search_bar {
                     for i in 5..9 {
-                        hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).unwrap();
+                        hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                     }
                 } else {
                     for i in 5..7 {
-                        hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).unwrap();
+                        hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                     }
                 }
             } else {
                 if has_search_bar {
                     for i in 5..7 {
-                        hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).unwrap();
+                        hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                     }
                 }
             }
@@ -656,7 +656,7 @@ impl Home {
                 self.toggle_keyboard(true, false, Some(ViewId::HomeSearchInput), hub, context);
             }
 
-            hub.send(Event::Focus(Some(ViewId::HomeSearchInput))).unwrap();
+            hub.send(Event::Focus(Some(ViewId::HomeSearchInput))).ok();
 
             self.resize_summary(0, false, hub, context);
             search_visible = true;
@@ -666,11 +666,11 @@ impl Home {
             if search_visible {
                 // TODO: don't update if the keyboard is already present
                 for i in [3usize, 5, 6, 7, 8].iter().cloned() {
-                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).unwrap();
+                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                 }
             } else {
                 for i in [3usize, 5].iter().cloned() {
-                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).unwrap();
+                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                 }
             }
 
@@ -690,7 +690,7 @@ impl Home {
             if let Some(true) = enable {
                 return;
             }
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
             if let Some(ViewId::GoToPageInput) = self.focus {
                 self.toggle_keyboard(false, true, Some(ViewId::GoToPageInput), hub, context);
@@ -706,8 +706,8 @@ impl Home {
                                              ViewId::GoToPage,
                                              ViewId::GoToPageInput,
                                              4, context);
-            hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).unwrap();
-            hub.send(Event::Focus(Some(ViewId::GoToPageInput))).unwrap();
+            hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).ok();
+            hub.send(Event::Focus(Some(ViewId::GoToPageInput))).ok();
             self.children.push(Box::new(go_to_page) as Box<dyn View>);
         }
     }
@@ -717,7 +717,7 @@ impl Home {
             if let Some(true) = enable {
                 return;
             }
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -745,7 +745,7 @@ impl Home {
                                EntryKind::CheckBox("Reverse Order".to_string(),
                                                    EntryId::ReverseOrder, self.reverse_order)];
             let sort_menu = Menu::new(rect, ViewId::SortMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*sort_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*sort_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(sort_menu) as Box<dyn View>);
         }
     }
@@ -761,7 +761,7 @@ impl Home {
             if let Some(true) = enable {
                 return;
             }
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -816,7 +816,7 @@ impl Home {
             entries.push(EntryKind::Command("Remove".to_string(), EntryId::Remove(path.clone())));
 
             let book_menu = Menu::new(rect, ViewId::BookMenu, MenuKind::Contextual, entries, context);
-            hub.send(Event::Render(*book_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*book_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(book_menu) as Box<dyn View>);
         }
     }
@@ -826,7 +826,7 @@ impl Home {
             if let Some(true) = enable {
                 return;
             }
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -841,7 +841,7 @@ impl Home {
                                                   EntryId::RemoveCategory(categ.to_string()))];
 
             let category_menu = Menu::new(rect, ViewId::CategoryMenu, MenuKind::Contextual, entries, context);
-            hub.send(Event::Render(*category_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*category_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(category_menu) as Box<dyn View>);
         }
     }
@@ -852,7 +852,7 @@ impl Home {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -934,7 +934,7 @@ impl Home {
             }
 
             let matches_menu = Menu::new(rect, ViewId::MatchesMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*matches_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*matches_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(matches_menu) as Box<dyn View>);
         }
     }
@@ -992,7 +992,7 @@ impl Home {
         }
 
         if update {
-            hub.send(Event::Render(*self.child(3).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*self.child(3).rect(), UpdateMode::Gui)).ok();
             self.update_summary(true, hub, &mut context.fonts);
             self.update_shelf(true, hub, context);
             self.update_bottom_bar(hub);
@@ -1236,9 +1236,9 @@ impl Home {
         if let Some(top_bar) = self.child_mut(0).downcast_mut::<TopBar>() {
             top_bar.update_frontlight_icon(&tx, context);
         }
-        hub.send(Event::ClockTick).unwrap();
-        hub.send(Event::BatteryTick).unwrap();
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::ClockTick).ok();
+        hub.send(Event::BatteryTick).ok();
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
 
     fn save_as(&mut self, filename: Option<&str>, context: &mut Context) {
@@ -1312,7 +1312,7 @@ impl View for Home {
             Event::Gesture(GestureEvent::Rotate { quarter_turns, .. }) if quarter_turns != 0 => {
                 let (_, dir) = CURRENT_DEVICE.mirroring_scheme();
                 let n = (4 + (context.display.rotation - dir * quarter_turns)) % 4;
-                hub.send(Event::Select(EntryId::Rotate(n))).unwrap();
+                hub.send(Event::Select(EntryId::Rotate(n))).ok();
                 true
             },
             Event::Focus(v) => {
@@ -1406,8 +1406,8 @@ impl View for Home {
                                               ViewId::SaveAs,
                                               ViewId::SaveAsInput,
                                               12, context);
-                hub.send(Event::Render(*save_as.rect(), UpdateMode::Gui)).unwrap();
-                hub.send(Event::Focus(Some(ViewId::SaveAsInput))).unwrap();
+                hub.send(Event::Render(*save_as.rect(), UpdateMode::Gui)).ok();
+                hub.send(Event::Focus(Some(ViewId::SaveAsInput))).ok();
                 self.children.push(Box::new(save_as) as Box<dyn View>);
                 true
             },
@@ -1450,8 +1450,8 @@ impl View for Home {
                                                  ViewId::AddCategories,
                                                  ViewId::AddCategoriesInput,
                                                  21, context);
-                hub.send(Event::Render(*add_categs.rect(), UpdateMode::Gui)).unwrap();
-                hub.send(Event::Focus(Some(ViewId::AddCategoriesInput))).unwrap();
+                hub.send(Event::Render(*add_categs.rect(), UpdateMode::Gui)).ok();
+                hub.send(Event::Focus(Some(ViewId::AddCategoriesInput))).ok();
                 self.children.push(Box::new(add_categs) as Box<dyn View>);
                 true
             },
@@ -1463,8 +1463,8 @@ impl View for Home {
                                                     21, context);
                 let (tx, _rx) = mpsc::channel();
                 ren_categ.set_text(categ_old, &tx, context);
-                hub.send(Event::Render(*ren_categ.rect(), UpdateMode::Gui)).unwrap();
-                hub.send(Event::Focus(Some(ViewId::RenameCategoryInput))).unwrap();
+                hub.send(Event::Render(*ren_categ.rect(), UpdateMode::Gui)).ok();
+                hub.send(Event::Focus(Some(ViewId::RenameCategoryInput))).ok();
                 self.children.push(Box::new(ren_categ) as Box<dyn View>);
                 true
             },
@@ -1711,7 +1711,7 @@ impl View for Home {
         }
 
         self.rect = rect;
-        hub.send(Event::Render(self.rect, UpdateMode::Full)).unwrap();
+        hub.send(Event::Render(self.rect, UpdateMode::Full)).ok();
     }
 
     fn rect(&self) -> &Rectangle {

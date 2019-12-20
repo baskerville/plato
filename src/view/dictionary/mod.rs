@@ -155,12 +155,12 @@ impl Dictionary {
                                         target.as_ref().map(String::as_str).unwrap_or("All"), false, true);
         children.push(Box::new(bottom_bar) as Box<dyn View>);
 
-        hub.send(Event::Render(rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(rect, UpdateMode::Gui)).ok();
 
         if query.is_empty() {
-            hub.send(Event::Focus(Some(ViewId::DictionarySearchInput))).unwrap();
+            hub.send(Event::Focus(Some(ViewId::DictionarySearchInput))).ok();
         } else {
-            hub.send(Event::Define(query.to_string())).unwrap();
+            hub.send(Event::Define(query.to_string())).ok();
         }
 
         Dictionary {
@@ -182,7 +182,7 @@ impl Dictionary {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -190,7 +190,7 @@ impl Dictionary {
             }
             let entries = vec![EntryKind::Command("Reload Dictionaries".to_string(), EntryId::ReloadDictionaries)];
             let title_menu = Menu::new(rect, ViewId::TitleMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*title_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*title_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(title_menu) as Box<dyn View>);
         }
     }
@@ -201,7 +201,7 @@ impl Dictionary {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -211,7 +211,7 @@ impl Dictionary {
                                                    EntryId::ToggleFuzzy,
                                                    self.fuzzy)];
             let search_menu = Menu::new(rect, ViewId::SearchMenu, MenuKind::Contextual, entries, context);
-            hub.send(Event::Render(*search_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*search_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(search_menu) as Box<dyn View>);
         }
     }
@@ -222,7 +222,7 @@ impl Dictionary {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -240,7 +240,7 @@ impl Dictionary {
                                                 EntryId::SetSearchTarget(None),
                                                 self.target.is_none()));
             let search_target_menu = Menu::new(rect, ViewId::SearchTargetMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*search_target_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*search_target_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(search_target_menu) as Box<dyn View>);
         }
     }
@@ -255,8 +255,8 @@ impl Dictionary {
             rect.absorb(self.child(index-1).rect());
             self.children.drain(index - 1 ..= index);
 
-            hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
-            hub.send(Event::Focus(None)).unwrap();
+            hub.send(Event::Expose(rect, UpdateMode::Gui)).ok();
+            hub.send(Event::Focus(None)).ok();
         } else {
             if !enable {
                 return;
@@ -285,7 +285,7 @@ impl Dictionary {
             self.children.insert(index, Box::new(separator) as Box<dyn View>);
 
             for i in index..=index+1 {
-                hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).unwrap();
+                hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
             }
         }
     }
@@ -296,7 +296,7 @@ impl Dictionary {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
 
             if self.focus.map(|focus_id| focus_id == ViewId::EditLanguagesInput).unwrap_or(false) {
@@ -316,8 +316,8 @@ impl Dictionary {
                 edit_languages.set_text(&langs.join(", "), &tx, context);
             }
 
-            hub.send(Event::Render(*edit_languages.rect(), UpdateMode::Gui)).unwrap();
-            hub.send(Event::Focus(Some(ViewId::EditLanguagesInput))).unwrap();
+            hub.send(Event::Render(*edit_languages.rect(), UpdateMode::Gui)).ok();
+            hub.send(Event::Focus(Some(ViewId::EditLanguagesInput))).ok();
 
             self.children.push(Box::new(edit_languages) as Box<dyn View>);
         }
@@ -328,9 +328,9 @@ impl Dictionary {
         if let Some(top_bar) = self.child_mut(0).downcast_mut::<TopBar>() {
             top_bar.update_frontlight_icon(&tx, context);
         }
-        hub.send(Event::ClockTick).unwrap();
-        hub.send(Event::BatteryTick).unwrap();
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::ClockTick).ok();
+        hub.send(Event::BatteryTick).ok();
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
 
     fn go_to_neighbor(&mut self, dir: CycleDir, hub: &Hub) {
@@ -482,7 +482,7 @@ impl View for Dictionary {
                 false
             },
             Event::Close(ViewId::SearchBar) => {
-                hub.send(Event::Back).unwrap();
+                hub.send(Event::Back).ok();
                 true
             },
             Event::Focus(v) => {
@@ -521,7 +521,7 @@ impl View for Dictionary {
                 true
             },
             Event::Gesture(GestureEvent::Cross(_)) => {
-                hub.send(Event::Back).unwrap();
+                hub.send(Event::Back).ok();
                 true
             },
             _ => false,
@@ -594,7 +594,7 @@ impl View for Dictionary {
         }
 
         self.rect = rect;
-        hub.send(Event::Render(self.rect, UpdateMode::Full)).unwrap();
+        hub.send(Event::Render(self.rect, UpdateMode::Full)).ok();
     }
 
     fn rect(&self) -> &Rectangle {

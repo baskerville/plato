@@ -238,7 +238,7 @@ impl ToolBar {
         let name = text_align.icon_name();
         if icon.name != name {
             icon.name = name.to_string();
-            hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).ok();
         }
     }
 

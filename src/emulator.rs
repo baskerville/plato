@@ -188,7 +188,7 @@ impl Framebuffer for WindowCanvas {
         if (width < height && n % 2 == 0) || (width > height && n % 2 == 1) {
             mem::swap(&mut width, &mut height);
         }
-        self.window_mut().set_size(width, height);
+        self.window_mut().set_size(width, height).ok();
         Ok((width, height))
     }
 
@@ -233,7 +233,7 @@ pub fn run() -> Result<(), Error> {
     let tx2 = tx.clone();
     thread::spawn(move || {
         while let Ok(evt) = touch_screen.recv() {
-            tx2.send(evt).unwrap();
+            tx2.send(evt).ok();
         }
     });
 
@@ -241,7 +241,7 @@ pub fn run() -> Result<(), Error> {
     thread::spawn(move || {
         loop {
             thread::sleep(CLOCK_REFRESH_INTERVAL);
-            tx3.send(Event::ClockTick).unwrap();
+            tx3.send(Event::ClockTick).ok();
         }
     });
 
@@ -310,25 +310,25 @@ pub fn run() -> Result<(), Error> {
                         };
                         if index.is_some() {
                             let position = view.child(kb_idx).child(index.unwrap()).rect().center();
-                            ty.send(DeviceEvent::Finger { status: FingerStatus::Down, position, id: 0, time: 0.0}).unwrap();
-                            ty.send(DeviceEvent::Finger { status: FingerStatus::Up, position, id: 0, time: 0.0}).unwrap();
+                            ty.send(DeviceEvent::Finger { status: FingerStatus::Down, position, id: 0, time: 0.0}).ok();
+                            ty.send(DeviceEvent::Finger { status: FingerStatus::Up, position, id: 0, time: 0.0}).ok();
                         }
                     }
                     match scancode {
                         Scancode::LeftBracket => {
                             let rot = (3 + context.display.rotation) % 4;
-                            ty.send(DeviceEvent::RotateScreen(rot)).unwrap();
+                            ty.send(DeviceEvent::RotateScreen(rot)).ok();
                         },
                         Scancode::RightBracket => {
                             let rot = (5 + context.display.rotation) % 4;
-                            ty.send(DeviceEvent::RotateScreen(rot)).unwrap();
+                            ty.send(DeviceEvent::RotateScreen(rot)).ok();
                         },
                         _ => (),
                     }
                 },
                 _ => {
                     if let Some(dev_evt) = device_event(sdl_evt) {
-                        ty.send(dev_evt).unwrap();
+                        ty.send(dev_evt).ok();
                     }
                 },
             }
@@ -428,13 +428,13 @@ pub fn run() -> Result<(), Error> {
                     if let Some(index) = locate_by_id(view.as_ref(), ViewId::PresetMenu) {
                         let rect = *view.child(index).rect();
                         view.children_mut().remove(index);
-                        tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
+                        tx.send(Event::Expose(rect, UpdateMode::Gui)).ok();
                     } else {
                         let preset_menu = Menu::new(rect, ViewId::PresetMenu, MenuKind::Contextual,
                                                     vec![EntryKind::Command("Remove".to_string(),
                                                                             EntryId::RemovePreset(index))],
                                                     &mut context);
-                        tx.send(Event::Render(*preset_menu.rect(), UpdateMode::Gui)).unwrap();
+                        tx.send(Event::Render(*preset_menu.rect(), UpdateMode::Gui)).ok();
                         view.children_mut().push(Box::new(preset_menu) as Box<dyn View>);
                     }
                 },
@@ -443,7 +443,7 @@ pub fn run() -> Result<(), Error> {
                         continue;
                     }
                     let flw = FrontlightWindow::new(&mut context);
-                    tx.send(Event::Render(*flw.rect(), UpdateMode::Gui)).unwrap();
+                    tx.send(Event::Render(*flw.rect(), UpdateMode::Gui)).ok();
                     view.children_mut().push(Box::new(flw) as Box<dyn View>);
                 },
                 Event::ToggleInputHistoryMenu(id, rect) => {
@@ -453,13 +453,13 @@ pub fn run() -> Result<(), Error> {
                     if let Some(index) = locate::<FrontlightWindow>(view.as_ref()) {
                         let rect = *view.child(index).rect();
                         view.children_mut().remove(index);
-                        tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
+                        tx.send(Event::Expose(rect, UpdateMode::Gui)).ok();
                     }
                 },
                 Event::Close(id) => {
                     if let Some(index) = locate_by_id(view.as_ref(), id) {
                         let rect = overlapping_rectangle(view.child(index));
-                        tx.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
+                        tx.send(Event::Expose(rect, UpdateMode::Gui)).ok();
                         view.children_mut().remove(index);
                     }
                 },
@@ -476,11 +476,11 @@ pub fn run() -> Result<(), Error> {
                 },
                 Event::Select(EntryId::ToggleInverted) => {
                     context.fb.toggle_inverted();
-                    tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).unwrap();
+                    tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).ok();
                 },
                 Event::Select(EntryId::ToggleMonochrome) => {
                     context.fb.toggle_monochrome();
-                    tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).unwrap();
+                    tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).ok();
                 },
                 Event::Select(EntryId::TakeScreenshot) => {
                     let name = Local::now().format("screenshot-%Y%m%d_%H%M%S.png");
@@ -512,7 +512,7 @@ pub fn run() -> Result<(), Error> {
                             let tx2 = tx.clone();
                             thread::spawn(move || {
                                 thread::sleep(Duration::from_secs(2));
-                                tx2.send(Event::Device(DeviceEvent::NetUp)).unwrap();
+                                tx2.send(Event::Device(DeviceEvent::NetUp)).ok();
                             });
                         } else {
                             context.online = false;
@@ -528,7 +528,7 @@ pub fn run() -> Result<(), Error> {
                     };
                 },
                 Event::Device(DeviceEvent::RotateScreen(n)) => {
-                    tx.send(Event::Select(EntryId::Rotate(n))).unwrap();
+                    tx.send(Event::Select(EntryId::Rotate(n))).ok();
                 },
                 Event::Select(EntryId::Quit) => {
                     break 'outer;
@@ -539,7 +539,7 @@ pub fn run() -> Result<(), Error> {
             }
 
             while let Some(ce) = bus.pop_front() {
-                tx.send(ce).unwrap();
+                tx.send(ce).ok();
             }
         }
     }

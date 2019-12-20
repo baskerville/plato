@@ -66,7 +66,7 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
         if let Some(true) = enable {
             return;
         }
-        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).unwrap();
+        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).ok();
         view.children_mut().remove(index);
     } else {
         if let Some(false) = enable {
@@ -123,7 +123,7 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
         }
 
         let main_menu = Menu::new(rect, ViewId::MainMenu, MenuKind::DropDown, entries, context);
-        hub.send(Event::Render(*main_menu.rect(), UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(*main_menu.rect(), UpdateMode::Gui)).ok();
         view.children_mut().push(Box::new(main_menu) as Box<dyn View>);
     }
 }
@@ -133,7 +133,7 @@ pub fn toggle_battery_menu(view: &mut dyn View, rect: Rectangle, enable: Option<
         if let Some(true) = enable {
             return;
         }
-        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).unwrap();
+        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).ok();
         view.children_mut().remove(index);
     } else {
         if let Some(false) = enable {
@@ -147,7 +147,7 @@ pub fn toggle_battery_menu(view: &mut dyn View, rect: Rectangle, enable: Option<
         };
         let entries = vec![EntryKind::Message(text)];
         let battery_menu = Menu::new(rect, ViewId::BatteryMenu, MenuKind::DropDown, entries, context);
-        hub.send(Event::Render(*battery_menu.rect(), UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(*battery_menu.rect(), UpdateMode::Gui)).ok();
         view.children_mut().push(Box::new(battery_menu) as Box<dyn View>);
     }
 }
@@ -157,7 +157,7 @@ pub fn toggle_clock_menu(view: &mut dyn View, rect: Rectangle, enable: Option<bo
         if let Some(true) = enable {
             return;
         }
-        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).unwrap();
+        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).ok();
         view.children_mut().remove(index);
     } else {
         if let Some(false) = enable {
@@ -166,7 +166,7 @@ pub fn toggle_clock_menu(view: &mut dyn View, rect: Rectangle, enable: Option<bo
         let text = Local::now().format("%A, %B %-d, %Y").to_string();
         let entries = vec![EntryKind::Message(text)];
         let clock_menu = Menu::new(rect, ViewId::ClockMenu, MenuKind::DropDown, entries, context);
-        hub.send(Event::Render(*clock_menu.rect(), UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(*clock_menu.rect(), UpdateMode::Gui)).ok();
         view.children_mut().push(Box::new(clock_menu) as Box<dyn View>);
     }
 }
@@ -176,7 +176,7 @@ pub fn toggle_input_history_menu(view: &mut dyn View, id: ViewId, rect: Rectangl
         if let Some(true) = enable {
             return;
         }
-        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).unwrap();
+        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).ok();
         view.children_mut().remove(index);
     } else {
         if let Some(false) = enable {
@@ -189,7 +189,7 @@ pub fn toggle_input_history_menu(view: &mut dyn View, id: ViewId, rect: Rectangl
                                            .collect::<Vec<EntryKind>>());
         if let Some(entries) = entries {
             let input_history_menu = Menu::new(rect, ViewId::InputHistoryMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*input_history_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*input_history_menu.rect(), UpdateMode::Gui)).ok();
             view.children_mut().push(Box::new(input_history_menu) as Box<dyn View>);
         }
     }

@@ -44,12 +44,12 @@ impl View for Button {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
-                        hub.send(Event::Render(self.rect, UpdateMode::Fast)).unwrap();
+                        hub.send(Event::Render(self.rect, UpdateMode::Fast)).ok();
                         true
                     },
                     FingerStatus::Up if self.active => {
                         self.active = false;
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                         true
                     },
                     _ => false,

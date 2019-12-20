@@ -41,7 +41,7 @@ impl View for Battery {
             Event::BatteryTick => {
                 self.capacity = context.battery.capacity().unwrap_or(self.capacity);
                 self.status = context.battery.status().unwrap_or(self.status);
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                 true
             },
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {

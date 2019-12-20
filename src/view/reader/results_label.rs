@@ -25,7 +25,7 @@ impl ResultsLabel {
 
     pub fn update(&mut self, count: usize, hub: &Hub) {
         self.count = count;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
 
     fn text(&self) -> String {
@@ -49,7 +49,7 @@ impl View for ResultsLabel {
         match *evt {
             Event::EndOfSearch => {
                 self.completed = true;
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                 false
             },
             _ => false,

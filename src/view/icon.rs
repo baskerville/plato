@@ -86,12 +86,12 @@ impl View for Icon {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
-                        hub.send(Event::Render(self.rect, UpdateMode::Fast)).unwrap();
+                        hub.send(Event::Render(self.rect, UpdateMode::Fast)).ok();
                         true
                     },
                     FingerStatus::Up if self.active => {
                         self.active = false;
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                         true
                     },
                     _ => false,
@@ -105,7 +105,7 @@ impl View for Icon {
                 match self.event {
                     Event::Page(dir) => bus.push_back(Event::Chapter(dir)),
                     Event::Show(ViewId::Frontlight) => {
-                        hub.send(Event::ToggleFrontlight).unwrap();
+                        hub.send(Event::ToggleFrontlight).ok();
                     },
                     Event::Show(ViewId::MarginCropper) => {
                         bus.push_back(Event::ToggleNear(ViewId::MarginCropperMenu, self.rect));

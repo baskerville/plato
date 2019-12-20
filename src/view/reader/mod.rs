@@ -327,7 +327,7 @@ impl Reader {
 
             println!("{}", info.file.path.display());
 
-            hub.send(Event::Update(UpdateMode::Partial)).unwrap();
+            hub.send(Event::Update(UpdateMode::Partial)).ok();
 
             Some(Reader {
                 rect,
@@ -399,7 +399,7 @@ impl Reader {
             }
         }
 
-        hub.send(Event::Update(UpdateMode::Partial)).unwrap();
+        hub.send(Event::Update(UpdateMode::Partial)).ok();
 
         Reader {
             rect,
@@ -765,7 +765,7 @@ impl Reader {
                             },
                             FinishedAction::Close => {
                                 self.quit(context);
-                                hub.send(Event::Back).unwrap();
+                                hub.send(Event::Back).ok();
                             },
                         }
                     },
@@ -978,7 +978,7 @@ impl Reader {
             },
         }
 
-        hub.send(Event::Render(self.rect, update_mode)).unwrap();
+        hub.send(Event::Render(self.rect, update_mode)).ok();
         let first_location = self.chunks.first().map(|c| c.location).unwrap();
         let last_location = self.chunks.last().map(|c| c.location).unwrap();
 
@@ -1061,7 +1061,7 @@ impl Reader {
                                 for (_, rect) in rects.range(*first .. m.end()) {
                                     match_rects.push(*rect);
                                 }
-                                hub2.send(Event::SearchResult(location, match_rects)).unwrap();
+                                hub2.send(Event::SearchResult(location, match_rects)).ok();
                             }
                         }
                     }
@@ -1080,7 +1080,7 @@ impl Reader {
             }
 
             running.store(false, AtomicOrdering::Relaxed);
-            hub2.send(Event::EndOfSearch).unwrap();
+            hub2.send(Event::EndOfSearch).ok();
         });
 
         if self.search.is_some() {
@@ -1102,7 +1102,7 @@ impl Reader {
             if index == 1 {
                 rect.absorb(self.child(index+1).rect());
                 self.children.drain(index - 1 ..= index + 1);
-                hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
+                hub.send(Event::Expose(rect, UpdateMode::Gui)).ok();
             } else {
                 self.children.drain(index - 1 ..= index);
 
@@ -1113,14 +1113,14 @@ impl Reader {
                 for i in start_index..index-1 {
                     let shifted_rect = *self.child(i).rect() + pt!(0, delta_y);
                     self.child_mut(i).resize(shifted_rect, hub, context);
-                    hub.send(Event::Render(shifted_rect, UpdateMode::Gui)).unwrap();
+                    hub.send(Event::Render(shifted_rect, UpdateMode::Gui)).ok();
                 }
 
                 let rect = rect![self.rect.min.x, y_min, self.rect.max.x, y_min + delta_y];
-                hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
+                hub.send(Event::Expose(rect, UpdateMode::Gui)).ok();
             }
 
-            hub.send(Event::Focus(None)).unwrap();
+            hub.send(Event::Focus(None)).ok();
         } else {
             if !enable {
                 return;
@@ -1163,11 +1163,11 @@ impl Reader {
 
             if index == 0 {
                 for i in index..index+3 {
-                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).unwrap();
+                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                 }
             } else {
                 for i in index..index+2 {
-                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).unwrap();
+                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                 }
 
                 let delta_y = kb_rect.height() as i32 + thickness;
@@ -1176,7 +1176,7 @@ impl Reader {
                 for i in start_index..index {
                     let shifted_rect = *self.child(i).rect() + pt!(0, -delta_y);
                     self.child_mut(i).resize(shifted_rect, hub, context);
-                    hub.send(Event::Render(shifted_rect, UpdateMode::Gui)).unwrap();
+                    hub.send(Event::Render(shifted_rect, UpdateMode::Gui)).ok();
                 }
             }
         }
@@ -1191,7 +1191,7 @@ impl Reader {
             let mut rect = *self.child(index).rect();
             rect.absorb(self.child(index - 1).rect());
             self.children.drain(index - 1 ..= index);
-            hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(rect, UpdateMode::Gui)).ok();
         } else {
             if !enable {
                 return;
@@ -1227,7 +1227,7 @@ impl Reader {
             let mut rect = *self.child(index).rect();
             rect.absorb(self.child(index - 1).rect());
             self.children.drain(index - 1 ..= index);
-            hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(rect, UpdateMode::Gui)).ok();
         } else {
             if !enable {
                 return;
@@ -1252,7 +1252,7 @@ impl Reader {
                 let separator = Filler::new(sp_rect, BLACK);
                 self.children.insert(index, Box::new(separator) as Box<dyn View>);
                 rect.absorb(&sp_rect);
-                hub.send(Event::Render(rect, UpdateMode::Gui)).unwrap();
+                hub.send(Event::Render(rect, UpdateMode::Gui)).ok();
             }
         }
     }
@@ -1274,7 +1274,7 @@ impl Reader {
                 rect.absorb(self.child(index-1).rect());
                 rect.absorb(self.child(index+1).rect());
                 self.children.drain(index - 1 ..= index + 1);
-                hub.send(Event::Expose(rect, UpdateMode::Gui)).unwrap();
+                hub.send(Event::Expose(rect, UpdateMode::Gui)).ok();
             }
         } else {
             if !enable {
@@ -1308,14 +1308,14 @@ impl Reader {
             let separator = Filler::new(sp_rect, BLACK);
             self.children.insert(index, Box::new(separator) as Box<dyn View>);
 
-            hub.send(Event::Render(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
-            hub.send(Event::Render(*self.child(index+1).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*self.child(index).rect(), UpdateMode::Gui)).ok();
+            hub.send(Event::Render(*self.child(index+1).rect(), UpdateMode::Gui)).ok();
 
             if index == 0 {
-                hub.send(Event::Render(*self.child(index+2).rect(), UpdateMode::Gui)).unwrap();
+                hub.send(Event::Render(*self.child(index+2).rect(), UpdateMode::Gui)).ok();
             }
 
-            hub.send(Event::Focus(Some(ViewId::ReaderSearchInput))).unwrap();
+            hub.send(Event::Focus(Some(ViewId::ReaderSearchInput))).ok();
         }
     }
 
@@ -1335,9 +1335,9 @@ impl Reader {
 
                 self.children.drain(top_index..=bottom_index);
 
-                hub.send(Event::Expose(top_rect, UpdateMode::Gui)).unwrap();
-                hub.send(Event::Expose(bottom_rect, UpdateMode::Gui)).unwrap();
-                hub.send(Event::Focus(None)).unwrap();
+                hub.send(Event::Expose(top_rect, UpdateMode::Gui)).ok();
+                hub.send(Event::Expose(bottom_rect, UpdateMode::Gui)).ok();
+                hub.send(Event::Focus(None)).ok();
             }
         } else {
             if let Some(false) = enable {
@@ -1457,7 +1457,7 @@ impl Reader {
             self.children.insert(index, Box::new(bottom_bar) as Box<dyn View>);
 
             for i in 0..=index {
-                hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).unwrap();
+                hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
             }
         }
     }
@@ -1468,7 +1468,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if !enable {
@@ -1491,7 +1491,7 @@ impl Reader {
             let (pixmap, _) = build_pixmap(&pixmap_rect, doc.as_mut(), self.current_page);
 
             let margin_cropper = MarginCropper::new(self.rect, pixmap, &margin, context);
-            hub.send(Event::Render(*margin_cropper.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*margin_cropper.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(margin_cropper) as Box<dyn View>);
         }
     }
@@ -1502,7 +1502,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
 
             if self.focus.map(|focus_id| focus_id == ViewId::EditNoteInput).unwrap_or(false) {
@@ -1519,8 +1519,8 @@ impl Reader {
                 edit_note.set_text(text, &tx, context);
             }
 
-            hub.send(Event::Render(*edit_note.rect(), UpdateMode::Gui)).unwrap();
-            hub.send(Event::Focus(Some(ViewId::EditNoteInput))).unwrap();
+            hub.send(Event::Render(*edit_note.rect(), UpdateMode::Gui)).ok();
+            hub.send(Event::Focus(Some(ViewId::EditNoteInput))).ok();
 
             self.children.push(Box::new(edit_note) as Box<dyn View>);
         }
@@ -1532,7 +1532,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
 
             if self.focus.map(|focus_id| focus_id == ViewId::NamePageInput).unwrap_or(false) {
@@ -1544,8 +1544,8 @@ impl Reader {
             }
 
             let name_page = NamedInput::new("Name page".to_string(), ViewId::NamePage, ViewId::NamePageInput, 4, context);
-            hub.send(Event::Render(*name_page.rect(), UpdateMode::Gui)).unwrap();
-            hub.send(Event::Focus(Some(ViewId::NamePageInput))).unwrap();
+            hub.send(Event::Render(*name_page.rect(), UpdateMode::Gui)).ok();
+            hub.send(Event::Focus(Some(ViewId::NamePageInput))).ok();
 
             self.children.push(Box::new(name_page) as Box<dyn View>);
         }
@@ -1563,7 +1563,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
 
             if self.focus.map(|focus_id| focus_id == input_id).unwrap_or(false) {
@@ -1575,8 +1575,8 @@ impl Reader {
             }
 
             let go_to_page = NamedInput::new(text.to_string(), id, input_id, 4, context);
-            hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).unwrap();
-            hub.send(Event::Focus(Some(input_id))).unwrap();
+            hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).ok();
+            hub.send(Event::Focus(Some(input_id))).ok();
 
             self.children.push(Box::new(go_to_page) as Box<dyn View>);
         }
@@ -1588,7 +1588,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1610,7 +1610,7 @@ impl Reader {
             }
 
             let selection_menu = Menu::new(rect, ViewId::AnnotationMenu, MenuKind::Contextual, entries, context);
-            hub.send(Event::Render(*selection_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*selection_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(selection_menu) as Box<dyn View>);
         }
     }
@@ -1621,7 +1621,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1644,7 +1644,7 @@ impl Reader {
             entries.push(EntryKind::Command("Adjust Selection".to_string(), EntryId::AdjustSelection));
 
             let selection_menu = Menu::new(rect, ViewId::SelectionMenu, MenuKind::Contextual, entries, context);
-            hub.send(Event::Render(*selection_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*selection_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(selection_menu) as Box<dyn View>);
         }
     }
@@ -1655,7 +1655,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1675,7 +1675,7 @@ impl Reader {
             entries.push(EntryKind::Command("Metadata".to_string(),
                                             EntryId::OpenMetadata));
             let title_menu = Menu::new(rect, ViewId::TitleMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*title_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*title_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(title_menu) as Box<dyn View>);
         }
     }
@@ -1687,7 +1687,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1703,7 +1703,7 @@ impl Reader {
                                                                          EntryId::SetFontFamily(f.clone()),
                                                                          *f == current_family)).collect();
             let font_family_menu = Menu::new(rect, ViewId::FontFamilyMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*font_family_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*font_family_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(font_family_menu) as Box<dyn View>);
         }
     }
@@ -1714,7 +1714,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1736,7 +1736,7 @@ impl Reader {
                 }
             }).collect();
             let font_size_menu = Menu::new(rect, ViewId::FontSizeMenu, MenuKind::Contextual, entries, context);
-            hub.send(Event::Render(*font_size_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*font_size_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(font_size_menu) as Box<dyn View>);
         }
     }
@@ -1747,7 +1747,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1763,7 +1763,7 @@ impl Reader {
                                        text_align == *v)
             }).collect();
             let text_align_menu = Menu::new(rect, ViewId::TextAlignMenu, MenuKind::Contextual, entries, context);
-            hub.send(Event::Render(*text_align_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*text_align_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(text_align_menu) as Box<dyn View>);
         }
     }
@@ -1774,7 +1774,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1790,7 +1790,7 @@ impl Reader {
                                        (lh - line_height).abs() < 0.05)
             }).collect();
             let line_height_menu = Menu::new(rect, ViewId::LineHeightMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*line_height_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*line_height_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(line_height_menu) as Box<dyn View>);
         }
     }
@@ -1801,7 +1801,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1815,7 +1815,7 @@ impl Reader {
                                        (e - self.contrast.exponent).abs() < f32::EPSILON)
             }).collect();
             let contrast_exponent_menu = Menu::new(rect, ViewId::ContrastExponentMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*contrast_exponent_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*contrast_exponent_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(contrast_exponent_menu) as Box<dyn View>);
         }
     }
@@ -1826,7 +1826,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1840,7 +1840,7 @@ impl Reader {
                                        (g - self.contrast.gray).abs() < f32::EPSILON)
             }).collect();
             let contrast_gray_menu = Menu::new(rect, ViewId::ContrastGrayMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*contrast_gray_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*contrast_gray_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(contrast_gray_menu) as Box<dyn View>);
         }
     }
@@ -1851,7 +1851,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1866,7 +1866,7 @@ impl Reader {
                                                                   EntryId::SetMarginWidth(mw),
                                                                   mw == margin_width)).collect();
             let margin_width_menu = Menu::new(rect, ViewId::MarginWidthMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*margin_width_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*margin_width_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(margin_width_menu) as Box<dyn View>);
         }
     }
@@ -1877,7 +1877,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1902,7 +1902,7 @@ impl Reader {
             }
 
             let page_menu = Menu::new(rect, ViewId::PageMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*page_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*page_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(page_menu) as Box<dyn View>);
         }
     }
@@ -1913,7 +1913,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1941,7 +1941,7 @@ impl Reader {
             }
 
             let margin_cropper_menu = Menu::new(rect, ViewId::MarginCropperMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*margin_cropper_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*margin_cropper_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(margin_cropper_menu) as Box<dyn View>);
         }
     }
@@ -1952,7 +1952,7 @@ impl Reader {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -1967,7 +1967,7 @@ impl Reader {
                                                       self.search_direction == LinearDir::Backward)];
 
             let search_menu = Menu::new(rect, ViewId::SearchMenu, MenuKind::Contextual, entries, context);
-            hub.send(Event::Render(*search_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*search_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(search_menu) as Box<dyn View>);
         }
     }
@@ -2162,7 +2162,7 @@ impl Reader {
         let center = pt!(self.rect.max.x - 5 * radius,
                          self.rect.min.y + 5 * radius);
         let rect = Rectangle::from_disk(center, radius);
-        hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).ok();
     }
 
     fn set_contrast_exponent(&mut self, exponent: f32, hub: &Hub, context: &mut Context) {
@@ -2351,7 +2351,7 @@ impl Reader {
                         }
                     }
                     if let Some(rect) = rect_opt {
-                        hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).ok();
                     }
                 }
             }
@@ -2379,10 +2379,10 @@ impl Reader {
         if let Some(index) = locate::<TopBar>(self) {
             self.child_mut(index).downcast_mut::<TopBar>().unwrap()
                 .update_frontlight_icon(&tx, context);
-            hub.send(Event::ClockTick).unwrap();
-            hub.send(Event::BatteryTick).unwrap();
+            hub.send(Event::ClockTick).ok();
+            hub.send(Event::BatteryTick).ok();
         }
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
 
     fn quit(&mut self, context: &mut Context) {
@@ -2434,7 +2434,7 @@ impl View for Reader {
             Event::Gesture(GestureEvent::Rotate { quarter_turns, .. }) if quarter_turns != 0 => {
                 let (_, dir) = CURRENT_DEVICE.mirroring_scheme();
                 let n = (4 + (context.display.rotation - dir * quarter_turns)) % 4;
-                hub.send(Event::Select(EntryId::Rotate(n))).unwrap();
+                hub.send(Event::Select(EntryId::Rotate(n))).ok();
                 true
             },
             Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) if self.rect.includes(start) => {
@@ -2491,7 +2491,7 @@ impl View for Reader {
                     DiagDir::NorthWest => self.go_to_artefact(CycleDir::Previous, hub),
                     DiagDir::NorthEast => self.go_to_artefact(CycleDir::Next, hub),
                     DiagDir::SouthEast => {
-                        hub.send(Event::Select(EntryId::ToggleMonochrome)).unwrap();
+                        hub.send(Event::Select(EntryId::ToggleMonochrome)).ok();
                     },
                     DiagDir::SouthWest => {
                         if context.settings.frontlight_presets.len() > 1 {
@@ -2508,7 +2508,7 @@ impl View for Reader {
                                 }
                             }
                         } else {
-                            hub.send(Event::ToggleFrontlight).unwrap();
+                            hub.send(Event::ToggleFrontlight).ok();
                         }
                     },
                 };
@@ -2516,7 +2516,7 @@ impl View for Reader {
             },
             Event::Gesture(GestureEvent::Cross(_)) => {
                 self.quit(context);
-                hub.send(Event::Back).unwrap();
+                hub.send(Event::Back).ok();
                 true
             },
             Event::Gesture(GestureEvent::HoldButtonShort(code, ..)) => {
@@ -2600,12 +2600,12 @@ impl View for Reader {
                                         rect.absorb(&next_rect);
                                     }
                                 } else {
-                                    hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).unwrap();
+                                    hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).ok();
                                     rect = next_rect;
                                 }
                                 i += 1;
                             }
-                            hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).unwrap();
+                            hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).ok();
                         }
                     }
 
@@ -2627,12 +2627,12 @@ impl View for Reader {
                                         rect.absorb(&prev_rect);
                                     }
                                 } else {
-                                    hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).unwrap();
+                                    hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).ok();
                                     rect = prev_rect;
                                 }
                                 i -= 1;
                             }
-                            hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).unwrap();
+                            hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).ok();
                         }
                     }
 
@@ -2717,12 +2717,12 @@ impl View for Reader {
                                         rect.absorb(&next_rect);
                                     }
                                 } else {
-                                    hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).unwrap();
+                                    hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).ok();
                                     rect = next_rect;
                                 }
                                 i += 1;
                             }
-                            hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).unwrap();
+                            hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).ok();
                         }
                     }
 
@@ -2744,12 +2744,12 @@ impl View for Reader {
                                         rect.absorb(&prev_rect);
                                     }
                                 } else {
-                                    hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).unwrap();
+                                    hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).ok();
                                     rect = prev_rect;
                                 }
                                 i -= 1;
                             }
-                            hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).unwrap();
+                            hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).ok();
                         }
                     }
 
@@ -2794,8 +2794,8 @@ impl View for Reader {
                         };
                         if let Some(location) = loc_opt {
                             self.quit(context);
-                            hub.send(Event::Back).unwrap();
-                            hub.send(Event::GoToLocation(location)).unwrap();
+                            hub.send(Event::Back).ok();
+                            hub.send(Event::GoToLocation(location)).ok();
                         }
                     } else if let Some(caps) = pdf_page.captures(&link.text) {
                         if let Ok(index) = caps[1].parse::<usize>() {
@@ -2805,7 +2805,7 @@ impl View for Reader {
                         let mut doc = self.doc.lock().unwrap();
                         let loc = Location::LocalUri(self.current_page, link.text.clone());
                         if let Some(location) = doc.resolve_location(loc) {
-                            hub.send(Event::GoTo(location)).unwrap();
+                            hub.send(Event::GoTo(location)).ok();
                         } else {
                             println!("Can't resolve URI: {}.", link.text);
                         }
@@ -2833,9 +2833,9 @@ impl View for Reader {
                         if self.search.is_none() {
                             if self.ephemeral {
                                 self.quit(context);
-                                hub.send(Event::Back).unwrap();
+                                hub.send(Event::Back).ok();
                             } else {
-                                hub.send(Event::Show(ViewId::TableOfContents)).unwrap();
+                                hub.send(Event::Show(ViewId::TableOfContents)).ok();
                             }
                         } else {
                             self.go_to_neighbor(CycleDir::Previous, hub, context);
@@ -2856,7 +2856,7 @@ impl View for Reader {
                     // Bottom right corner.
                     } else if dc > 0 && center.y > self.rect.max.y - dc {
                         if self.search.is_none() {
-                            hub.send(Event::Toggle(ViewId::GoToPage)).unwrap();
+                            hub.send(Event::Toggle(ViewId::GoToPage)).ok();
                         } else {
                             self.go_to_neighbor(CycleDir::Next, hub, context);
                         }
@@ -2918,7 +2918,7 @@ impl View for Reader {
                             anchor,
                         });
                         self.state = State::Selection(id);
-                        hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).unwrap();
+                        hub.send(Event::RenderRegion(rect, UpdateMode::Fast)).ok();
                     }
                 }
 
@@ -2928,7 +2928,7 @@ impl View for Reader {
                 if let Some(text) = self.selected_text() {
                     let query = text.trim_matches(|c: char| !c.is_alphanumeric()).to_string();
                     let language = self.info.language.clone();
-                    hub.send(Event::Select(EntryId::Launch(AppCmd::Dictionary { query, language }))).unwrap();
+                    hub.send(Event::Select(EntryId::Launch(AppCmd::Dictionary { query, language }))).ok();
                 }
                 self.selection = None;
                 self.state = State::Idle;
@@ -2998,7 +2998,7 @@ impl View for Reader {
                         });
                     });
                     if let Some(rect) = self.text_rect(sel) {
-                        hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).ok();
                     }
                 } else {
                     if let Some(sel) = self.target_annotation.take() {
@@ -3167,7 +3167,7 @@ impl View for Reader {
                 if self.state == State::Idle && self.target_annotation.is_none() {
                     if let Some(rect) = self.selection_rect() {
                         self.selection = None;
-                        hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).ok();
                     }
                 }
                 false
@@ -3176,7 +3176,7 @@ impl View for Reader {
                 self.toggle_edit_note(None, Some(false), hub, context);
                 if let Some(rect) = self.selection_rect() {
                     self.selection = None;
-                    hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).unwrap();
+                    hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).ok();
                 }
                 self.target_annotation = None;
                 false
@@ -3196,7 +3196,7 @@ impl View for Reader {
                     let chap_index = doc.chapter(self.current_page, &toc)
                                         .map(|chap| chap.index)
                                         .unwrap_or(usize::max_value());
-                    hub.send(Event::OpenToc(toc, chap_index)).unwrap();
+                    hub.send(Event::OpenToc(toc, chap_index)).ok();
                 }
                 true
             },
@@ -3251,7 +3251,7 @@ impl View for Reader {
                                                   context);
                     self.children.push(Box::new(notif) as Box<dyn View>);
                     self.toggle_search_bar(true, hub, context);
-                    hub.send(Event::Focus(Some(ViewId::ReaderSearchInput))).unwrap();
+                    hub.send(Event::Focus(Some(ViewId::ReaderSearchInput))).ok();
                 }
                 true
             },
@@ -3271,7 +3271,7 @@ impl View for Reader {
                         });
                     });
                     if let Some(rect) = self.text_rect([sel.start, sel.end]) {
-                        hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).ok();
                     }
                     self.update_annotations();
                 }
@@ -3282,7 +3282,7 @@ impl View for Reader {
                 if let Some(text) = self.selected_text() {
                     let query = text.trim_matches(|c: char| !c.is_alphanumeric()).to_string();
                     let language = self.info.language.clone();
-                    hub.send(Event::Select(EntryId::Launch(AppCmd::Dictionary { query, language }))).unwrap();
+                    hub.send(Event::Select(EntryId::Launch(AppCmd::Dictionary { query, language }))).ok();
                 }
                 self.selection = None;
                 true
@@ -3304,7 +3304,7 @@ impl View for Reader {
                     }
                 }
                 if let Some(rect) = self.selection_rect() {
-                    hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).unwrap();
+                    hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).ok();
                 }
                 self.selection = None;
                 true
@@ -3320,7 +3320,7 @@ impl View for Reader {
                     self.go_to_page(loc, true, hub);
                 });
                 if let Some(rect) = self.selection_rect() {
-                    hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).unwrap();
+                    hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).ok();
                 }
                 self.selection = None;
                 true
@@ -3349,7 +3349,7 @@ impl View for Reader {
                     self.update_annotations();
                 }
                 if let Some(rect) = self.text_rect(sel) {
-                    hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).unwrap();
+                    hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).ok();
                 }
                 true
             },
@@ -3436,7 +3436,7 @@ impl View for Reader {
             },
             Event::Device(DeviceEvent::Button { code: ButtonCode::Home, status: ButtonStatus::Pressed, .. }) => {
                 self.quit(context);
-                hub.send(Event::Back).unwrap();
+                hub.send(Event::Back).ok();
                 true
             },
             Event::Select(EntryId::Quit) |

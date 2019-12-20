@@ -66,7 +66,7 @@ impl Sketch {
         let mut rng = XorShiftRng::seed_from_u64(Local::now().timestamp_millis() as u64);
         rng.fill(random.data_mut());
         let save_path = context.settings.library_path.join(&context.settings.sketch.save_path);
-        hub.send(Event::Render(rect, UpdateMode::Full)).unwrap();
+        hub.send(Event::Render(rect, UpdateMode::Full)).ok();
         Sketch {
             rect,
             children,
@@ -85,7 +85,7 @@ impl Sketch {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -150,7 +150,7 @@ impl Sketch {
             }
 
             let sketch_menu = Menu::new(rect, ViewId::SketchMenu, MenuKind::Contextual, entries, context);
-            hub.send(Event::Render(*sketch_menu.rect(), UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(*sketch_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(sketch_menu) as Box<dyn View>);
         }
     }
@@ -215,7 +215,7 @@ fn draw_segment(pixmap: &mut Pixmap, ts: &mut TouchState, position: Point, time:
     pixmap.draw_segment(ts.pt, position, start_radius, end_radius, pen.color);
 
     if let Some(render_rect) = rect.intersection(fb_rect) {
-        hub.send(Event::RenderNoWaitRegion(render_rect, UpdateMode::FastMono)).unwrap();
+        hub.send(Event::RenderNoWaitRegion(render_rect, UpdateMode::FastMono)).ok();
     }
 
     ts.pt = position;
@@ -266,18 +266,18 @@ impl View for Sketch {
                     let notif = Notification::new(ViewId::LoadSketchNotif, msg, hub, context);
                     self.children.push(Box::new(notif) as Box<dyn View>);
                 } else {
-                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                 }
                 true
             },
             Event::Select(EntryId::Refresh) => {
-                hub.send(Event::Render(self.rect, UpdateMode::Full)).unwrap();
+                hub.send(Event::Render(self.rect, UpdateMode::Full)).ok();
                 true
             },
             Event::Select(EntryId::New) => {
                 self.pixmap.clear(WHITE);
                 self.filename = Local::now().format(FILENAME_PATTERN).to_string();
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                 true
             },
             Event::Select(EntryId::Save) => {
@@ -300,7 +300,7 @@ impl View for Sketch {
             },
             Event::Select(EntryId::Quit) => {
                 self.quit(context);
-                hub.send(Event::Back).unwrap();
+                hub.send(Event::Back).ok();
                 true
             },
             _ => false,

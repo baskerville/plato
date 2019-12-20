@@ -52,7 +52,7 @@ impl Slider {
     pub fn update(&mut self, value: f32, hub: &Hub) {
         if (self.value - value).abs() >= f32::EPSILON {
             self.value = value;
-            hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
         }
     }
 }
@@ -65,14 +65,14 @@ impl View for Slider {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
                         self.update_value(position.x);
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                         bus.push_back(Event::Slider(self.id, self.value, status));
                         self.last_x = position.x;
                         true
                     },
                     FingerStatus::Motion if self.active && position.x != self.last_x => {
                         self.update_value(position.x);
-                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::FastMono)).unwrap();
+                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::FastMono)).ok();
                         bus.push_back(Event::Slider(self.id, self.value, status));
                         self.last_x = position.x;
                         true
@@ -83,7 +83,7 @@ impl View for Slider {
                             self.update_value(position.x);
                             self.last_x = position.x;
                         }
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                         bus.push_back(Event::Slider(self.id, self.value, status));
                         true
                     },

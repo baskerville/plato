@@ -98,7 +98,7 @@ impl ResultsBar {
                 self.children[index] = Box::new(prev_icon) as Box<dyn View>;
             }
             self.is_prev_disabled = is_prev_disabled;
-            hub.send(Event::Render(prev_rect, UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(prev_rect, UpdateMode::Gui)).ok();
         }
 
         let is_next_disabled = pages_count < 2 || current_page == pages_count - 1;
@@ -116,7 +116,7 @@ impl ResultsBar {
                 self.children[index] = Box::new(next_icon) as Box<dyn View>;
             }
             self.is_next_disabled = is_next_disabled;
-            hub.send(Event::Render(next_rect, UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(next_rect, UpdateMode::Gui)).ok();
         }
     }
 }

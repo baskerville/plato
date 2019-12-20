@@ -143,7 +143,7 @@ impl Summary {
             self.current_page = 0;
         }
 
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
 
     fn make_page<'a>(&self, start_index: usize, layout: &Layout, visible_categories: &'a BTreeSet<String>, font: &mut Font) -> Page<'a> {
@@ -377,12 +377,12 @@ impl View for Summary {
                 match dir {
                     Dir::West => {
                         self.set_current_page(CycleDir::Next);
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                         true
                     },
                     Dir::East => {
                         self.set_current_page(CycleDir::Previous);
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                         true
                     },
                     Dir::South if !self.rect.includes(end) => {
@@ -394,7 +394,7 @@ impl View for Summary {
             },
             Event::Page(dir) => {
                 self.set_current_page(dir);
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                 true
             },
             _ => false,

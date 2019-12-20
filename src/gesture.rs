@@ -84,7 +84,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
     let hold_jitter = mm_to_px(HOLD_JITTER_MM, CURRENT_DEVICE.dpi);
 
     while let Ok(evt) = rx.recv() {
-        ty.send(Event::Device(evt)).unwrap();
+        ty.send(Event::Device(evt)).ok();
         match evt {
             DeviceEvent::Finger { status: FingerStatus::Down, position, id, time } => {
                 let mut ct = contacts.lock().unwrap();
@@ -106,7 +106,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                             if (ts.time - time).abs() < f64::EPSILON && (tp[tp.len()-1] - position).length() < hold_jitter
                                                                      && (tp[tp.len()/2] - position).length() < hold_jitter {
                                 held = true;
-                                ty.send(Event::Gesture(GestureEvent::HoldFingerShort(position, id))).unwrap();
+                                ty.send(Event::Gesture(GestureEvent::HoldFingerShort(position, id))).ok();
                             }
                         }
                         if held {
@@ -128,7 +128,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                             let tp = &ts.positions;
                             if (ts.time - time).abs() < f64::EPSILON && (tp[tp.len()-1] - position).length() < hold_jitter
                                                                      && (tp[tp.len()/2] - position).length() < hold_jitter {
-                                ty.send(Event::Gesture(GestureEvent::HoldFingerLong(position, id))).unwrap();
+                                ty.send(Event::Gesture(GestureEvent::HoldFingerLong(position, id))).ok();
                             }
                         }
                     }
@@ -152,13 +152,13 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                 if ct.is_empty() && !sg.is_empty() {
                     let len = sg.len();
                     if len == 1 {
-                        ty.send(Event::Gesture(interpret_segment(&sg.pop().unwrap(), tap_jitter))).unwrap();
+                        ty.send(Event::Gesture(interpret_segment(&sg.pop().unwrap(), tap_jitter))).ok();
                     } else if len == 2 {
                         let ge1 = interpret_segment(&sg.pop().unwrap(), tap_jitter);
                         let ge2 = interpret_segment(&sg.pop().unwrap(), tap_jitter);
                         match (ge1, ge2) {
                             (GestureEvent::Tap(c1), GestureEvent::Tap(c2)) => {
-                                ty.send(Event::Gesture(GestureEvent::MultiTap([c1, c2]))).unwrap();
+                                ty.send(Event::Gesture(GestureEvent::MultiTap([c1, c2]))).ok();
                             },
                             (GestureEvent::Swipe { dir: d1, start: s1, end: e1, .. },
                              GestureEvent::Swipe { dir: d2, start: s2, end: e2, .. }) if d1 == d2 => {
@@ -190,7 +190,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                             },
                             (GestureEvent::Arrow { dir: Dir::East, start: s1, end: e1 }, GestureEvent::Arrow { dir: Dir::West, start: s2, end: e2 }) |
                             (GestureEvent::Arrow { dir: Dir::West, start: s2, end: e2 }, GestureEvent::Arrow { dir: Dir::East, start: s1, end: e1 }) if s1.x < s2.x => {
-                                ty.send(Event::Gesture(GestureEvent::Cross((s1+e1+s2+e2)/4))).unwrap();
+                                ty.send(Event::Gesture(GestureEvent::Cross((s1+e1+s2+e2)/4))).ok();
                             },
                             (GestureEvent::Tap(c), GestureEvent::Swipe { start: s, end: e, .. }) |
                             (GestureEvent::Swipe { start: s, end: e, .. }, GestureEvent::Tap(c)) |
@@ -225,7 +225,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                         let bt = buttons.lock().unwrap();
                         if let Some(&initial_time) = bt.get(&code) {
                             if (initial_time - time).abs() < f64::EPSILON {
-                                ty.send(Event::Gesture(GestureEvent::HoldButtonShort(code))).unwrap();
+                                ty.send(Event::Gesture(GestureEvent::HoldButtonShort(code))).ok();
                             }
                         }
                     }
@@ -234,7 +234,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                         let bt = buttons.lock().unwrap();
                         if let Some(&initial_time) = bt.get(&code) {
                             if (initial_time - time).abs() < f64::EPSILON {
-                                ty.send(Event::Gesture(GestureEvent::HoldButtonLong(code))).unwrap();
+                                ty.send(Event::Gesture(GestureEvent::HoldButtonLong(code))).ok();
                             }
                         }
                     }

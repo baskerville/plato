@@ -100,7 +100,7 @@ impl View for Confirmation {
                 let id = self.id;
                 thread::spawn(move || {
                     thread::sleep(CLOSE_IGNITION_DELAY);
-                    hub2.send(Event::Close(id)).unwrap();
+                    hub2.send(Event::Close(id)).ok();
                 });
                 if let Event::Validate = *evt {
                     bus.push_back(self.event.clone());
@@ -109,7 +109,7 @@ impl View for Confirmation {
                 true
             },
             Event::Gesture(GestureEvent::Tap(center)) if !self.rect.includes(center) => {
-                hub.send(Event::Close(self.id)).unwrap();
+                hub.send(Event::Close(self.id)).ok();
                 true
             },
             Event::Gesture(..) => true,

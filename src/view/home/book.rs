@@ -42,8 +42,8 @@ impl View for Book {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 self.active = true;
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
-                hub.send(Event::Open(Box::new(self.info.clone()))).unwrap();
+                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                hub.send(Event::Open(Box::new(self.info.clone()))).ok();
                 true
             },
             Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => {
@@ -54,7 +54,7 @@ impl View for Book {
             Event::Invalid(ref info) => {
                 if self.info.file.path == info.file.path {
                     self.active = false;
-                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                     true
                 } else {
                     false

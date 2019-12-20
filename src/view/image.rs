@@ -22,7 +22,7 @@ impl Image {
 
     pub fn update(&mut self, pixmap: Pixmap, hub: &Hub) {
         self.pixmap = pixmap;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
 }
 

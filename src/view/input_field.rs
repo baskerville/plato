@@ -113,7 +113,7 @@ impl InputField {
             if move_cursor {
                 self.cursor = self.text.len();
             }
-            hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
         }
     }
 
@@ -199,22 +199,22 @@ impl View for InputField {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 if !self.focused {
-                    hub.send(Event::Focus(Some(self.id))).unwrap();
+                    hub.send(Event::Focus(Some(self.id))).ok();
                 } else {
                     self.cursor = self.index_from_position(center, &mut context.fonts);
-                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                 }
                 true
             },
             Event::Gesture(GestureEvent::HoldFingerShort(center, _)) if self.rect.includes(center) => {
-                hub.send(Event::ToggleInputHistoryMenu(self.id, self.rect)).unwrap();
+                hub.send(Event::ToggleInputHistoryMenu(self.id, self.rect)).ok();
                 true
             },
             Event::Focus(id_opt) => {
                 let focused = id_opt.is_some() && id_opt.unwrap() == self.id;
                 if self.focused != focused {
                     self.focused = focused;
-                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                 }
                 false
             },
@@ -249,7 +249,7 @@ impl View for InputField {
                         context.remember_input(&self.text, self.id);
                     },
                 };
-                hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).unwrap();
+                hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).ok();
                 true
             },
             Event::Select(EntryId::SetInputText(id, ref text)) => {

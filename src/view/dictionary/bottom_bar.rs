@@ -76,7 +76,7 @@ impl BottomBar {
                 self.children[index] = Box::new(prev_filler) as Box<dyn View>;
             }
             self.has_prev = has_prev;
-            hub.send(Event::Render(prev_rect, UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(prev_rect, UpdateMode::Gui)).ok();
         }
 
         if self.has_next != has_next {
@@ -92,7 +92,7 @@ impl BottomBar {
                 self.children[index] = Box::new(next_filler) as Box<dyn View>;
             }
             self.has_next = has_next;
-            hub.send(Event::Render(next_rect, UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(next_rect, UpdateMode::Gui)).ok();
         }
     }
 

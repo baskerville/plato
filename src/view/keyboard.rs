@@ -292,15 +292,15 @@ impl View for Keyboard {
                     KeyKind::Output(ch) => {
                         if self.state.combine {
                             self.combine_buffer.push(ch);
-                            hub.send(Event::Keyboard(KeyboardEvent::Partial(ch))).unwrap();
+                            hub.send(Event::Keyboard(KeyboardEvent::Partial(ch))).ok();
                             if self.combine_buffer.len() > 1 {
                                 if let Some(&ch) = DEFAULT_COMBINATIONS.get(&self.combine_buffer[..]) {
-                                    hub.send(Event::Keyboard(KeyboardEvent::Append(ch))).unwrap();
+                                    hub.send(Event::Keyboard(KeyboardEvent::Append(ch))).ok();
                                 }
                                 self.release_combine(hub);
                             }
                         } else {
-                            hub.send(Event::Keyboard(KeyboardEvent::Append(ch))).unwrap();
+                            hub.send(Event::Keyboard(KeyboardEvent::Append(ch))).ok();
                         }
                         if ch != ' ' {
                             self.release_modifiers(hub);
@@ -318,12 +318,12 @@ impl View for Keyboard {
                             self.update(hub);
                         }
                     },
-                    KeyKind::Delete(dir) => hub.send(Event::Keyboard(KeyboardEvent::Delete { target: TextKind::Char, dir })).unwrap(),
-                    KeyKind::Move(dir) => hub.send(Event::Keyboard(KeyboardEvent::Move { target: TextKind::Char, dir })).unwrap(),
+                    KeyKind::Delete(dir) => { hub.send(Event::Keyboard(KeyboardEvent::Delete { target: TextKind::Char, dir })).ok(); },
+                    KeyKind::Move(dir) => { hub.send(Event::Keyboard(KeyboardEvent::Move { target: TextKind::Char, dir })).ok(); },
                     KeyKind::Combine => self.state.combine = !self.state.combine,
                     KeyKind::Return => {
                         self.release_combine(hub);
-                        hub.send(Event::Keyboard(KeyboardEvent::Submit)).unwrap();
+                        hub.send(Event::Keyboard(KeyboardEvent::Submit)).ok();
                     }
                 };
                 true

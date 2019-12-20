@@ -72,7 +72,7 @@ impl TopBar {
     pub fn update_root_icon(&mut self, icon_name: &str, hub: &Hub) {
         let icon = self.child_mut(0).downcast_mut::<Icon>().unwrap();
         icon.name = icon_name.to_string();
-        hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).ok();
     }
 
     pub fn update_title_label(&mut self, title: &str, hub: &Hub) {
@@ -84,7 +84,7 @@ impl TopBar {
         let name = if context.settings.frontlight { "frontlight" } else { "frontlight-disabled" };
         let icon = self.child_mut(4).downcast_mut::<Icon>().unwrap();
         icon.name = name.to_string();
-        hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).ok();
     }
 }
 

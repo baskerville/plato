@@ -251,7 +251,7 @@ impl View for Menu {
                 let id = self.id;
                 thread::spawn(move || {
                     thread::sleep(CLOSE_IGNITION_DELAY);
-                    hub2.send(Event::Close(id)).unwrap();
+                    hub2.send(Event::Close(id)).ok();
                 });
                 true
             },
@@ -267,14 +267,14 @@ impl View for Menu {
             Event::SubMenu(rect, ref entries) => {
                 let menu = Menu::new(rect, ViewId::SubMenu(self.sub_id),
                                      MenuKind::SubMenu, entries.clone(), context).root(false);
-                hub.send(Event::Render(*menu.rect(), UpdateMode::Gui)).unwrap();
+                hub.send(Event::Render(*menu.rect(), UpdateMode::Gui)).ok();
                 self.children.push(Box::new(menu) as Box<dyn View>);
                 self.sub_id = self.sub_id.wrapping_add(1);
                 true
             },
             Event::CloseSub(id) => {
                 if let Some(index) = locate_by_id(self, id) {
-                    hub.send(Event::Expose(*self.children[index].rect(), UpdateMode::Gui)).unwrap();
+                    hub.send(Event::Expose(*self.children[index].rect(), UpdateMode::Gui)).ok();
                     self.children.remove(index);
                 }
                 true

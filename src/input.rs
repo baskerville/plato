@@ -257,7 +257,7 @@ pub fn parse_raw_events(paths: &[String], tx: &Sender<InputEvent>) -> Result<(),
                     if file.read_exact(event_slice).is_err() {
                         break;
                     }
-                    tx.send(input_event.assume_init()).unwrap();
+                    tx.send(input_event.assume_init()).ok();
                 }
             }
         }
@@ -301,15 +301,15 @@ fn parse_usb_events(tx: &Sender<DeviceEvent>) {
                 if let Ok(s) = buf.to_str() {
                     for msg in s[..n as usize].lines() {
                         if msg == "usb plug add" {
-                            tx.send(DeviceEvent::Plug(PowerSource::Host)).unwrap();
+                            tx.send(DeviceEvent::Plug(PowerSource::Host)).ok();
                         } else if msg == "usb plug remove" {
-                            tx.send(DeviceEvent::Unplug(PowerSource::Host)).unwrap();
+                            tx.send(DeviceEvent::Unplug(PowerSource::Host)).ok();
                         } else if msg == "usb ac add" {
-                            tx.send(DeviceEvent::Plug(PowerSource::Wall)).unwrap();
+                            tx.send(DeviceEvent::Plug(PowerSource::Wall)).ok();
                         } else if msg == "usb ac remove" {
-                            tx.send(DeviceEvent::Unplug(PowerSource::Wall)).unwrap();
+                            tx.send(DeviceEvent::Unplug(PowerSource::Wall)).ok();
                         } else if msg.starts_with("network bound") {
-                            tx.send(DeviceEvent::NetUp).unwrap();
+                            tx.send(DeviceEvent::NetUp).ok();
                         }
                     }
                 }
@@ -374,7 +374,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
             // since `tv_sec` can't grow forever.
             if (evt.time.tv_sec - last_activity).abs() >= 60 {
                 last_activity = evt.time.tv_sec;
-                ty.send(DeviceEvent::UserActivity).unwrap();
+                ty.send(DeviceEvent::UserActivity).ok();
             }
             if evt.code == SYN_MT_REPORT || (proto == TouchProto::Single && evt.code == SYN_REPORT) {
                 if let Some(&p) = fingers.get(&id) {
@@ -421,9 +421,9 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
         } else if evt.kind == EV_KEY {
             if evt.code == SLEEP_COVER {
                 if evt.value == VAL_PRESS {
-                    ty.send(DeviceEvent::CoverOn).unwrap();
+                    ty.send(DeviceEvent::CoverOn).ok();
                 } else if evt.value == VAL_RELEASE {
-                    ty.send(DeviceEvent::CoverOff).unwrap();
+                    ty.send(DeviceEvent::CoverOff).ok();
                 }
             } else if evt.code == KEY_ROTATE_DISPLAY {
                 let next_rotation = evt.value as i8;
@@ -456,7 +456,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                     MSC_RAW_GSENSOR_LANDSCAPE_LEFT => 0,
                     _ => rotation,
                 };
-                ty.send(DeviceEvent::RotateScreen(next_rotation)).unwrap();
+                ty.send(DeviceEvent::RotateScreen(next_rotation)).ok();
             }
         }
     }

@@ -41,7 +41,7 @@ impl Label {
     pub fn update(&mut self, text: &str, hub: &Hub) {
         if self.text != text {
             self.text = text.to_string();
-            hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+            hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
         }
     }
 }

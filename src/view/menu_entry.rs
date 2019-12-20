@@ -35,7 +35,7 @@ impl MenuEntry {
         if let Some(v) = self.kind.get() {
             if v != value {
                 self.kind.set(value);
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
             }
         }
     }
@@ -48,12 +48,12 @@ impl View for MenuEntry {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
-                        hub.send(Event::Render(self.rect, UpdateMode::Fast)).unwrap();
+                        hub.send(Event::Render(self.rect, UpdateMode::Fast)).ok();
                         true
                     },
                     FingerStatus::Up if self.active => {
                         self.active = false;
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                         true
                     },
                     _ => false,
@@ -64,11 +64,11 @@ impl View for MenuEntry {
                 match self.kind {
                     EntryKind::CheckBox(_, _, ref mut value) => {
                         *value = !*value;
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                     },
                     EntryKind::RadioButton(_, _, ref mut value) if !*value => {
                         *value = true;
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                     },
                     _ => (),
                 };
@@ -96,7 +96,7 @@ impl View for MenuEntry {
                     EntryKind::RadioButton(_, ref id, ref mut value) if *value => {
                         if mem::discriminant(id) == mem::discriminant(other_id) && id != other_id {
                             *value = false;
-                            hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+                            hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                             true
                         } else {
                             false

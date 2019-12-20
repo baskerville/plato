@@ -27,7 +27,7 @@ impl MatchesLabel {
     pub fn update(&mut self, count: usize, filter: bool, hub: &Hub) {
         self.count = count;
         self.filter = filter;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).unwrap();
+        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
 
     fn text(&self) -> String {
