@@ -44,13 +44,12 @@ use crate::view::home::Home;
 use crate::view::reader::Reader;
 use crate::view::notification::Notification;
 use crate::view::frontlight::FrontlightWindow;
-use crate::view::keyboard::Keyboard;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::dictionary::Dictionary;
 use crate::view::calculator::Calculator;
 use crate::view::sketch::Sketch;
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
-use crate::view::common::{toggle_input_history_menu};
+use crate::view::common::{toggle_input_history_menu, toggle_keyboard_layout_menu};
 use crate::helpers::{load_json, save_json, load_toml, save_toml};
 use crate::metadata::{Metadata, METADATA_FILENAME, auto_import};
 use crate::settings::{Settings, SETTINGS_PATH};
@@ -226,6 +225,9 @@ pub fn run() -> Result<(), Error> {
 
     let mut context = build_context(Box::new(fb))?;
 
+    context.load_dictionaries();
+    context.load_keyboard_layouts();
+
     let (tx, rx) = mpsc::channel();
     let (ty, ry) = mpsc::channel();
     let touch_screen = gesture_events(ry);
@@ -278,42 +280,6 @@ pub fn run() -> Result<(), Error> {
                     break;
                 },
                 SdlEvent::KeyDown { scancode: Some(scancode), .. } => {
-                    if let Some(kb_idx) = locate::<Keyboard>(view.as_ref()) {
-                        let index = match scancode {
-                            Scancode::Backspace => Some(10),
-                            Scancode::Delete => Some(20),
-                            Scancode::LShift | Scancode::RShift => Some(21),
-                            Scancode::Return => Some(29),
-                            Scancode::Left => Some(30),
-                            Scancode::LGui | Scancode::RGui => Some(31),
-                            Scancode::Space => Some(32),
-                            Scancode::LAlt | Scancode::RAlt => Some(33),
-                            Scancode::Right => Some(34),
-                            _ => {
-                                let name = scancode.name();
-                                if name.len() == 1 {
-                                    let c = name.chars().next().unwrap()
-                                                .to_lowercase().next().unwrap();
-                                    if let Some(i) = "qwertyuiop".find(c) {
-                                        Some(i)
-                                    } else if let Some(i) = "asdfghjkl".find(c) {
-                                        Some(11+i)
-                                    } else if let Some(i) = "zxcvbnm".find(c) {
-                                        Some(22+i)
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            },
-                        };
-                        if index.is_some() {
-                            let position = view.child(kb_idx).child(index.unwrap()).rect().center();
-                            ty.send(DeviceEvent::Finger { status: FingerStatus::Down, position, id: 0, time: 0.0}).ok();
-                            ty.send(DeviceEvent::Finger { status: FingerStatus::Up, position, id: 0, time: 0.0}).ok();
-                        }
-                    }
                     match scancode {
                         Scancode::LeftBracket => {
                             let rot = (3 + context.display.rotation) % 4;
@@ -448,6 +414,9 @@ pub fn run() -> Result<(), Error> {
                 },
                 Event::ToggleInputHistoryMenu(id, rect) => {
                     toggle_input_history_menu(view.as_mut(), id, rect, None, &tx, &mut context);
+                },
+                Event::ToggleNear(ViewId::KeyboardLayoutMenu, rect) => {
+                    toggle_keyboard_layout_menu(view.as_mut(), rect, None, &tx, &mut context);
                 },
                 Event::Close(ViewId::Frontlight) => {
                     if let Some(index) = locate::<FrontlightWindow>(view.as_ref()) {

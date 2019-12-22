@@ -1,3 +1,4 @@
+use serde_derive::{Serialize, Deserialize};
 use std::cmp::Ordering;
 use std::f32::{self, consts};
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign};
@@ -30,7 +31,7 @@ pub enum CycleDir {
     Previous,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum LinearDir {
     Backward,
     Forward,

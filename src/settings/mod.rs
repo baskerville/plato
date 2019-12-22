@@ -43,6 +43,7 @@ pub enum ButtonScheme {
 #[serde(default, rename_all = "kebab-case")]
 pub struct Settings {
     pub library_path: PathBuf,
+    pub keyboard_layout: String,
     pub frontlight: bool,
     pub wifi: bool,
     pub sleep_cover: bool,
@@ -282,6 +283,7 @@ impl Default for Settings {
     fn default() -> Self {
         Settings {
             library_path: CURRENT_DEVICE.library_path(),
+            keyboard_layout: "English".to_string(),
             frontlight: true,
             wifi: false,
             sleep_cover: true,

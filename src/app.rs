@@ -14,9 +14,10 @@ use crate::framebuffer::{Framebuffer, KoboFramebuffer, Display, UpdateMode};
 use crate::view::{View, Event, EntryId, EntryKind, ViewId, AppCmd};
 use crate::view::{render, render_region, render_no_wait, render_no_wait_region, handle_event, expose};
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
-use crate::view::common::{toggle_input_history_menu};
+use crate::view::common::{toggle_input_history_menu, toggle_keyboard_layout_menu};
 use crate::view::frontlight::FrontlightWindow;
 use crate::view::menu::{Menu, MenuKind};
+use crate::view::keyboard::{Layout};
 use crate::view::dictionary::Dictionary as DictionaryApp;
 use crate::view::calculator::Calculator;
 use crate::view::sketch::Sketch;
@@ -55,6 +56,7 @@ pub struct Context {
     pub filename: PathBuf,
     pub fonts: Fonts,
     pub dictionaries: BTreeMap<String, Dictionary>,
+    pub keyboard_layouts: BTreeMap<String, Layout>,
     pub input_history: HashMap<ViewId, VecDeque<String>>,
     pub frontlight: Box<dyn Frontlight>,
     pub battery: Box<dyn Battery>,
@@ -74,9 +76,19 @@ impl Context {
         let dims = fb.dims();
         let rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
         Context { fb, display: Display { dims, rotation },
-                  settings, metadata, filename, fonts, dictionaries: BTreeMap::new(), input_history: HashMap::new(),
-                  battery, frontlight, lightsensor, notification_index: 0, kb_rect: Rectangle::default(),
-                  plugged: false, covered: false, shared: false, online: false }
+                  settings, metadata, filename, fonts, dictionaries: BTreeMap::new(), keyboard_layouts: BTreeMap::new(),
+                  input_history: HashMap::new(), battery, frontlight, lightsensor, notification_index: 0,
+                  kb_rect: Rectangle::default(), plugged: false, covered: false, shared: false, online: false }
+    }
+
+    pub fn load_keyboard_layouts(&mut self) {
+        if let Ok(entries) = glob("keyboard-layouts/**/*.json") {
+            for path in entries.into_iter().filter_map(|e| e.ok()) {
+                if let Ok(layout) = load_json::<Layout, _>(path) {
+                    self.keyboard_layouts.insert(layout.name.clone(), layout);
+                }
+            }
+        }
     }
 
     pub fn load_dictionaries(&mut self) {
@@ -285,6 +297,9 @@ pub fn run() -> Result<(), Error> {
     }
 
     let mut context = build_context(Box::new(fb)).context("Can't build context.")?;
+
+    context.load_dictionaries();
+    context.load_keyboard_layouts();
 
     let paths = vec!["/dev/input/event0".to_string(),
                      "/dev/input/event1".to_string()];
@@ -853,6 +868,9 @@ pub fn run() -> Result<(), Error> {
             },
             Event::ToggleInputHistoryMenu(id, rect) => {
                 toggle_input_history_menu(view.as_mut(), id, rect, None, &tx, &mut context);
+            },
+            Event::ToggleNear(ViewId::KeyboardLayoutMenu, rect) => {
+                toggle_keyboard_layout_menu(view.as_mut(), rect, None, &tx, &mut context);
             },
             Event::Close(ViewId::Frontlight) => {
                 if let Some(index) = locate::<FrontlightWindow>(view.as_ref()) {

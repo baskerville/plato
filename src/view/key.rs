@@ -2,12 +2,12 @@ use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::gesture::GestureEvent;
-use super::{View, Event, KeyboardEvent, Hub, Bus, TextKind};
+use super::{View, Event, ViewId, KeyboardEvent, Hub, Bus, TextKind};
 use super::BORDER_RADIUS_LARGE;
 use super::icon::ICONS_PIXMAPS;
 use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD, KEYBOARD_BG};
 use crate::font::{Fonts, font_from_style, KBD_CHAR, KBD_LABEL};
-use crate::geom::{Rectangle, LinearDir, CornerSpec, halves};
+use crate::geom::{Rectangle, LinearDir, CornerSpec};
 use crate::app::Context;
 use crate::unit::scale_by_dpi;
 
@@ -22,6 +22,66 @@ pub enum KeyKind {
     Alternate,
 }
 
+use std::fmt;
+use serde::{Deserializer, Deserialize};
+use serde::de::{self, Visitor};
+
+impl<'de> Deserialize<'de> for KeyKind {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct FieldVisitor;
+
+        const FIELDS: &[&str] = &[
+            "Shift", "Sft",
+            "Return", "Ret",
+            "Alternate", "Alt",
+            "Combine", "Cmb",
+            "MoveFwd", "MoveF", "MF",
+            "MoveBwd", "MoveB", "MB",
+            "DelFwd", "DelF", "DF",
+            "DelBwd", "DelB", "DB",
+            "Space", "Spc",
+        ];
+
+        impl<'de> Visitor<'de> for FieldVisitor {
+            type Value = KeyKind;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a key name or a single character")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<KeyKind, E>
+            where
+                E: de::Error,
+            {
+                match value {
+                    "Shift" | "Sft" => Ok(KeyKind::Shift),
+                    "Return" | "Ret" => Ok(KeyKind::Return),
+                    "Alternate" | "Alt" => Ok(KeyKind::Alternate),
+                    "Combine" | "Cmb" => Ok(KeyKind::Combine),
+                    "MoveFwd" | "MoveF" | "MF" => Ok(KeyKind::Move(LinearDir::Forward)),
+                    "MoveBwd" | "MoveB" | "MB" => Ok(KeyKind::Move(LinearDir::Backward)),
+                    "DelFwd" | "DelF" | "DF" => Ok(KeyKind::Delete(LinearDir::Forward)),
+                    "DelBwd" | "DelB" | "DB" => Ok(KeyKind::Delete(LinearDir::Backward)),
+                    "Space" | "Spc" => Ok(KeyKind::Output(' ')),
+                    _ => {
+                        if value.chars().count() != 1 {
+                            return Err(serde::de::Error::unknown_field(value, FIELDS));
+                        }
+                        value.chars().next().map(|c| KeyKind::Output(c))
+                             .ok_or_else(|| serde::de::Error::custom("impossible"))
+                    },
+                }
+            }
+        }
+
+        deserializer.deserialize_identifier(FieldVisitor)
+    }
+}
+
+
 #[derive(Clone, Debug)]
 pub enum KeyLabel {
     Char(char),
@@ -30,7 +90,14 @@ pub enum KeyLabel {
 }
 
 impl KeyKind {
-    pub fn label(self) -> KeyLabel {
+    pub fn is_variable_output(&self) -> bool {
+        match self {
+            KeyKind::Output(ch) if *ch != ' ' => true,
+            _ => false
+        }
+    }
+
+    pub fn label(self, ratio: f32) -> KeyLabel {
         match self {
             KeyKind::Output(ch) => KeyLabel::Char(ch),
             KeyKind::Delete(dir) => {
@@ -41,14 +108,14 @@ impl KeyKind {
             },
             KeyKind::Move(dir) => {
                 match dir {
-                    LinearDir::Forward => KeyLabel::Icon("move-forward"),
-                    LinearDir::Backward => KeyLabel::Icon("move-backward"),
+                    LinearDir::Forward => KeyLabel::Icon(if ratio <= 1.0 { "move-forward-short" } else { "move-forward" }),
+                    LinearDir::Backward => KeyLabel::Icon(if ratio <= 1.0 { "move-backward-short" } else { "move-backward"}),
                 }
             },
-            KeyKind::Shift => KeyLabel::Text("SHIFT"),
-            KeyKind::Return => KeyLabel::Text("RETURN"),
-            KeyKind::Combine => KeyLabel::Text("CMB"),
-            KeyKind::Alternate => KeyLabel::Text("ALT"),
+            KeyKind::Shift => if ratio < 2.0 { KeyLabel::Icon("shift") } else { KeyLabel::Text("SHIFT") },
+            KeyKind::Return => if ratio < 2.0 { KeyLabel::Icon("return") } else { KeyLabel::Text("RETURN") },
+            KeyKind::Combine => if ratio <= 1.0 { KeyLabel::Icon("combine") } else { KeyLabel::Text("CMB") },
+            KeyKind::Alternate => if ratio <= 1.0 { KeyLabel::Icon("alternate") } else { KeyLabel::Text("ALT") },
         }
     }
 }
@@ -57,21 +124,23 @@ pub struct Key {
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     kind: KeyKind,
-    padding: u32,
     pressure: u8,
     active: bool,
 }
 
 impl Key {
-    pub fn new(rect: Rectangle, kind: KeyKind, padding: u32) -> Key {
+    pub fn new(rect: Rectangle, kind: KeyKind) -> Key {
         Key {
             rect,
             children: vec![],
             kind,
-            padding,
             pressure: 0,
             active: false,
         }
+    }
+
+    pub fn kind(&self) -> &KeyKind {
+        &self.kind
     }
 
     pub fn update(&mut self, kind: KeyKind, hub: &Hub) {
@@ -128,6 +197,7 @@ impl View for Key {
                 match self.kind {
                     KeyKind::Delete(dir) => { hub.send(Event::Keyboard(KeyboardEvent::Delete { target: TextKind::Word, dir })).ok(); },
                     KeyKind::Move(dir) => { hub.send(Event::Keyboard(KeyboardEvent::Move { target: TextKind::Word, dir })).ok(); },
+                    KeyKind::Output(' ') => { hub.send(Event::ToggleNear(ViewId::KeyboardLayoutMenu, self.rect)).ok(); },
                     _ => (),
                 };
                 true
@@ -146,17 +216,16 @@ impl View for Key {
         };
 
         let border_radius = scale_by_dpi(BORDER_RADIUS_LARGE, dpi) as i32;
-        let (small_half_padding, big_half_padding) = halves(self.padding as i32);
-        let key_rect = rect![self.rect.min + big_half_padding, self.rect.max - small_half_padding];
-        fb.draw_rounded_rectangle(&key_rect, &CornerSpec::Uniform(border_radius), scheme[0]);
+        fb.draw_rounded_rectangle(&self.rect, &CornerSpec::Uniform(border_radius), scheme[0]);
+        let ratio = self.rect.width() as f32 / self.rect.height() as f32;
 
-        match self.kind.label() {
+        match self.kind.label(ratio) {
             KeyLabel::Char(ch) => {
                 let font = font_from_style(fonts, &KBD_CHAR, dpi);
                 let plan = font.plan(&ch.to_string(), None, None);
-                let dx = (key_rect.width() - plan.width) as i32 / 2;
-                let dy = (key_rect.height() - font.x_heights.0) as i32 / 2;
-                let pt = pt!(key_rect.min.x + dx, key_rect.max.y - dy);
+                let dx = (self.rect.width() - plan.width) as i32 / 2;
+                let dy = (self.rect.height() - font.x_heights.0) as i32 / 2;
+                let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
                 font.render(fb, scheme[1], &plan, pt);
             },
             KeyLabel::Text(label) => {
@@ -164,16 +233,16 @@ impl View for Key {
                 let mut plan = font.plan(label, None, None);
                 let letter_spacing = scale_by_dpi(4.0, dpi) as u32;
                 plan.space_out(letter_spacing);
-                let dx = (key_rect.width() - plan.width) as i32 / 2;
-                let dy = (key_rect.height() - font.x_heights.1) as i32 / 2;
-                let pt = pt!(key_rect.min.x + dx, key_rect.max.y - dy);
+                let dx = (self.rect.width() - plan.width) as i32 / 2;
+                let dy = (self.rect.height() - font.x_heights.1) as i32 / 2;
+                let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
                 font.render(fb, scheme[1], &plan, pt);
             },
             KeyLabel::Icon(name) => {
                 let pixmap = ICONS_PIXMAPS.get(name).unwrap();
-                let dx = (key_rect.width() as i32 - pixmap.width as i32) / 2;
-                let dy = (key_rect.height() as i32 - pixmap.height as i32) / 2;
-                let pt = key_rect.min + pt!(dx, dy);
+                let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
+                let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
+                let pt = self.rect.min + pt!(dx, dy);
                 fb.draw_blended_pixmap(pixmap, pt, scheme[1]);
             }
         }

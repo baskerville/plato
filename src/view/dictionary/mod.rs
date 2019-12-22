@@ -19,7 +19,7 @@ use crate::app::Context;
 use crate::view::filler::Filler;
 use crate::view::named_input::NamedInput;
 use crate::view::image::Image;
-use crate::view::keyboard::{Keyboard, DEFAULT_LAYOUT};
+use crate::view::keyboard::Keyboard;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::search_bar::SearchBar;
 use crate::view::top_bar::TopBar;
@@ -85,10 +85,6 @@ fn query_to_content(query: &str, language: &String, fuzzy: bool, target: Option<
 
 impl Dictionary {
     pub fn new(rect: Rectangle, query: &str, language: &str, hub: &Hub, context: &mut Context) -> Dictionary {
-        if context.dictionaries.is_empty() {
-            context.load_dictionaries();
-        }
-
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let (_, height) = context.display.dims;
@@ -276,7 +272,7 @@ impl Dictionary {
             let number = id == Some(ViewId::GoToPageInput);
             let index = locate::<BottomBar>(self).unwrap() + 1;
 
-            let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone(), number, context);
+            let keyboard = Keyboard::new(&mut kb_rect, number, context);
             self.children.insert(index, Box::new(keyboard) as Box<dyn View>);
 
             let separator = Filler::new(rect![self.rect.min.x, kb_rect.min.y - thickness,

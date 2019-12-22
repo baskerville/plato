@@ -24,7 +24,7 @@ use crate::settings::{Hook, SecondColumn};
 use crate::view::filler::Filler;
 use crate::view::common::{locate, locate_by_id};
 use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
-use crate::view::keyboard::{Keyboard, DEFAULT_LAYOUT};
+use crate::view::keyboard::Keyboard;
 use crate::view::named_input::NamedInput;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::menu_entry::MenuEntry;
@@ -558,7 +558,7 @@ impl Home {
                 _ => false,
             };
 
-            let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone(), number, context);
+            let keyboard = Keyboard::new(&mut kb_rect, number, context);
             self.children.insert(index, Box::new(keyboard) as Box<dyn View>);
 
             let separator = Filler::new(rect![self.rect.min.x, kb_rect.min.y - thickness,

@@ -95,9 +95,18 @@ Tap the page indicator to go a specific page.
 
 The *ALT* and *SHIFT* keys can be locked by tapping them twice.
 
-The *CMB* (combine) key can be used to enter special characters, e.g.: `CMB o e` produces `œ`.
+The *CMB* (combine) key can be used to enter special characters, e.g.: `CMB o e` produces `œ` (cf. [Combination Sequences](#combination-sequences)).
 
 A tap and hold on the delete or motion keys will act on words instead of characters.
+
+Tap and hold the space bar to bring up the keyboard layouts menu.
+
+Keyboard layouts are described through a JSON object with the following keys:
+
+- *name*: displayed in the keyboard layouts menu.
+- *outputs*: list of output keys for each modifier combination (*none*, *shift*, *alt*, *shift+alt*).
+- *keys*: description of each key on the keyboard. The following special key names (and abbreviations) are recognized: *Shift* (*Sft*), *Return* (*Ret*), *Alternate* (*Alt*), *Combine* (*Cmb*), *MoveFwd* (*MoveF*, *MF*), *MoveBwd* (*MoveB*, *MB*), *DelFwd* (*DelF*, *DF*), *DelBwd* (*DelB*, *DB*), *Space* (*Spc*). *▢* is used to indicate an output key.
+- *widths*: width/height ratio for each key. The key gap's ratio is 0.06.
 
 # Applications
 

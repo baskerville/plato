@@ -23,7 +23,8 @@ lazy_static! {
         let dir = Path::new("icons");
         for name in ["home", "search", "back", "frontlight", "frontlight-disabled", "menu",
                      "angle-left", "angle-right", "angle-left-small", "angle-right-small",
-                     "delete-backward", "delete-forward", "move-backward", "move-forward",
+                     "return", "shift", "combine", "alternate", "delete-backward", "delete-forward",
+                     "move-backward", "move-backward-short", "move-forward", "move-forward-short",
                      "close",  "check_mark-small", "check_mark","check_mark-large", "bullet",
                      "arrow-left", "arrow-right", "double_angle-left", "double_angle-right",
                      "angle-down", "angle-up", "plus", "minus", "crop", "toc", "font_family",

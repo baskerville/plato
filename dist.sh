@@ -23,12 +23,14 @@ cp libs/libmupdf.so dist/libs
 cp libs/libmupdfwrapper.so dist/libs
 
 cp -R hyphenation-patterns dist
+cp -R keyboard-layouts dist
 cp -R bin dist
 cp -R scripts dist
 cp -R icons dist
 cp -R fonts dist
 cp -R css dist
 find dist/css -name '*-user.css' -delete
+find dist/keyboard-layouts -name '*-user.json' -delete
 cp target/arm-unknown-linux-gnueabihf/release/plato dist/
 
 patchelf --remove-rpath dist/libs/*

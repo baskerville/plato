@@ -371,26 +371,3 @@ pub fn optimal_bars_setup(height: u32, dpi: u16) -> (u32, u32) {
     }
     result
 }
-
-pub fn optimal_key_setup(width: u32, height: u32, dpi: u16) -> (u32, u32) {
-    let target_side = scale_by_dpi(117.0, dpi) as u32;
-    let target_padding = scale_by_dpi(6.0, dpi) as u32;
-    let minimum_side = target_side / 3;
-    let minimum_padding = 4 * target_padding / 5;
-    let mut max_score = 0;
-    let mut result = (0, 0);
-    for side in minimum_side..=target_side {
-        for padding in minimum_padding..=target_padding {
-            let w = 11 * side + 12 * padding;
-            let h = 4 * side + 5 * padding;
-            if  w <= width && h <= height {
-                let score = side + padding;
-                if score > max_score {
-                    result = (side, padding);
-                    max_score = score;
-                }
-            }
-        }
-    }
-    result
-}

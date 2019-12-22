@@ -34,7 +34,7 @@ use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_me
 use crate::view::filler::Filler;
 use crate::view::named_input::NamedInput;
 use crate::view::search_bar::SearchBar;
-use crate::view::keyboard::{Keyboard, DEFAULT_LAYOUT};
+use crate::view::keyboard::Keyboard;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::notification::Notification;
 use crate::settings::{guess_frontlight, FinishedAction};
@@ -1153,7 +1153,7 @@ impl Reader {
                 self.children.insert(index, Box::new(separator) as Box<dyn View>);
             }
 
-            let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone(), number, context);
+            let keyboard = Keyboard::new(&mut kb_rect, number, context);
             self.children.insert(index, Box::new(keyboard) as Box<dyn View>);
 
             let separator = Filler::new(rect![self.rect.min.x, kb_rect.min.y - thickness,

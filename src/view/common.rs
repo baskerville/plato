@@ -172,7 +172,7 @@ pub fn toggle_clock_menu(view: &mut dyn View, rect: Rectangle, enable: Option<bo
 }
 
 pub fn toggle_input_history_menu(view: &mut dyn View, id: ViewId, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
-    if let Some(index) = locate_by_id(view, ViewId::ClockMenu) {
+    if let Some(index) = locate_by_id(view, ViewId::InputHistoryMenu) {
         if let Some(true) = enable {
             return;
         }
@@ -192,5 +192,26 @@ pub fn toggle_input_history_menu(view: &mut dyn View, id: ViewId, rect: Rectangl
             hub.send(Event::Render(*input_history_menu.rect(), UpdateMode::Gui)).ok();
             view.children_mut().push(Box::new(input_history_menu) as Box<dyn View>);
         }
+    }
+}
+
+pub fn toggle_keyboard_layout_menu(view: &mut dyn View, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+    if let Some(index) = locate_by_id(view, ViewId::KeyboardLayoutMenu) {
+        if let Some(true) = enable {
+            return;
+        }
+        hub.send(Event::Expose(*view.child(index).rect(), UpdateMode::Gui)).ok();
+        view.children_mut().remove(index);
+    } else {
+        if let Some(false) = enable {
+            return;
+        }
+        let entries = context.keyboard_layouts.keys()
+                             .map(|s| EntryKind::Command(s.to_string(),
+                                                         EntryId::SetKeyboardLayout(s.to_string())))
+                             .collect::<Vec<EntryKind>>();
+        let keyboard_layout_menu = Menu::new(rect, ViewId::KeyboardLayoutMenu, MenuKind::Contextual, entries, context);
+        hub.send(Event::Render(*keyboard_layout_menu.rect(), UpdateMode::Gui)).ok();
+        view.children_mut().push(Box::new(keyboard_layout_menu) as Box<dyn View>);
     }
 }

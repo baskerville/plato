@@ -18,7 +18,7 @@ use self::input_bar::InputBar;
 use self::bottom_bar::BottomBar;
 use self::code_area::CodeArea;
 use crate::view::top_bar::TopBar;
-use crate::view::keyboard::{Keyboard, DEFAULT_LAYOUT};
+use crate::view::keyboard::Keyboard;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::common::{locate_by_id};
 use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
@@ -140,7 +140,7 @@ impl Calculator {
                                 rect.max.x,
                                 rect.max.y - small_height as i32 - small_thickness];
 
-        let keyboard = Keyboard::new(&mut kb_rect, DEFAULT_LAYOUT.clone(), true, context);
+        let keyboard = Keyboard::new(&mut kb_rect, true, context);
 
         let sp_rect = rect![rect.min.x, kb_rect.min.y - thickness,
                             rect.max.x, kb_rect.min.y];
