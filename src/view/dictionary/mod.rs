@@ -152,7 +152,7 @@ impl Dictionary {
 
         let bottom_bar = BottomBar::new(rect![rect.min.x, rect.max.y - small_height as i32 + big_thickness,
                                               rect.max.x, rect.max.y],
-                                        target.as_ref().map(String::as_str).unwrap_or("All"), false, true);
+                                        target.as_ref().map(String::as_str).unwrap_or("All"), false, false);
         children.push(Box::new(bottom_bar) as Box<dyn View>);
 
         hub.send(Event::Render(rect, UpdateMode::Gui)).ok();
