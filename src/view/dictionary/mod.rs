@@ -573,6 +573,10 @@ impl View for Dictionary {
         self.children[6].resize(rect![rect.min.x, rect.max.y - small_height as i32 + big_thickness,
                                       rect.max.x, rect.max.y],
                                 hub, context);
+        if let Some(bottom_bar) = self.children[6].downcast_mut::<BottomBar>() {
+            bottom_bar.update_icons(self.doc.resolve_location(Location::Previous(self.location)).is_some(),
+                                    self.doc.resolve_location(Location::Next(self.location)).is_some(), hub);
+        }
         let mut index = 7;
         if self.len() >= 9 {
             if self.children[8].is::<Keyboard>() {
