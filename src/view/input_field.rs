@@ -201,7 +201,9 @@ impl View for InputField {
                 if !self.focused {
                     hub.send(Event::Focus(Some(self.id))).ok();
                 } else {
-                    self.cursor = self.index_from_position(center, &mut context.fonts);
+                    let index = self.index_from_position(center, &mut context.fonts);
+                    self.cursor = self.text.char_indices().nth(index)
+                                      .map(|(i, _)| i).unwrap_or_else(|| self.text.len());
                     hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                 }
                 true
