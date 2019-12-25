@@ -11,7 +11,7 @@ use crate::device::CURRENT_DEVICE;
 use crate::geom::{Point, Vec2, Dir, DiagDir, Axis, nearest_segment_point, elbow};
 
 pub const TAP_JITTER_MM: f32 = 6.0;
-pub const HOLD_JITTER_MM: f32 = 0.5;
+pub const HOLD_JITTER_MM: f32 = 1.5;
 pub const HOLD_DELAY_SHORT: Duration = Duration::from_millis(666);
 pub const HOLD_DELAY_LONG: Duration = Duration::from_millis(1333);
 
