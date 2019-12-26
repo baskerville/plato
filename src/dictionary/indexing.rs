@@ -59,8 +59,25 @@ impl<R: BufRead> IndexReader for Index<R> {
         if fuzzy {
             self.entries.iter().filter(|entry| levenshtein(headword, &entry.headword) <= 1).cloned().collect()
         } else {
-            if let Ok(i) = self.entries.binary_search_by_key(&headword, |entry| &entry.headword) {
-                vec![self.entries[i].clone()]
+            if let Ok(mut i) = self.entries.binary_search_by_key(&headword, |entry| &entry.headword) {
+                let mut results = vec![self.entries[i].clone()];
+                let j = i;
+                while i > 0 {
+                    i -= 1;
+                    if self.entries[i].headword != headword {
+                        break;
+                    }
+                    results.insert(0, self.entries[i].clone());
+                }
+                i = j;
+                while i < self.entries.len() - 1 {
+                    i += 1;
+                    if self.entries[i].headword != headword {
+                        break;
+                    }
+                    results.push(self.entries[i].clone());
+                }
+                results
             } else {
                 Vec::new()
             }
