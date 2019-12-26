@@ -28,39 +28,39 @@ use super::errors::DictError::*;
 
 /// The index is partially loaded if `state` isn't `None`.
 pub struct Index<R: BufRead> {
-    pub words: Vec<Entry>,
+    pub entries: Vec<Entry>,
     pub state: Option<R>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Entry {
-    pub word: String,
+    pub headword: String,
     pub offset: u64,
     pub size: u64,
     pub original: Option<String>,
 }
 
 pub trait IndexReader {
-    fn load_and_find(&mut self, word: &str, fuzzy: bool) -> Vec<Entry>;
-    fn find(&self, word: &str, fuzzy: bool) -> Vec<Entry>;
+    fn load_and_find(&mut self, headword: &str, fuzzy: bool) -> Vec<Entry>;
+    fn find(&self, headword: &str, fuzzy: bool) -> Vec<Entry>;
 }
 
 impl<R: BufRead> IndexReader for Index<R> {
-    fn load_and_find(&mut self, word: &str, fuzzy: bool) -> Vec<Entry> {
+    fn load_and_find(&mut self, headword: &str, fuzzy: bool) -> Vec<Entry> {
         if let Some(br) = self.state.take() {
             if let Ok(mut index) = parse_index(br, false) {
-                self.words.append(&mut index.words);
+                self.entries.append(&mut index.entries);
             }
         }
-        self.find(word, fuzzy)
+        self.find(headword, fuzzy)
     }
 
-    fn find(&self, word: &str, fuzzy: bool) -> Vec<Entry> {
+    fn find(&self, headword: &str, fuzzy: bool) -> Vec<Entry> {
         if fuzzy {
-            self.words.iter().filter(|entry| levenshtein(word, &entry.word) <= 1).cloned().collect()
+            self.entries.iter().filter(|entry| levenshtein(headword, &entry.headword) <= 1).cloned().collect()
         } else {
-            if let Ok(i) = self.words.binary_search_by_key(&word, |entry| &entry.word) {
-                vec![self.words[i].clone()]
+            if let Ok(i) = self.entries.binary_search_by_key(&headword, |entry| &entry.headword) {
+                vec![self.entries[i].clone()]
             } else {
                 Vec::new()
             }
@@ -101,7 +101,7 @@ pub fn decode_number(word: &str) -> Result<u64, DictError> {
 fn parse_line(line: &str, line_number: usize) -> Result<(&str, u64, u64, Option<&str>), DictError> {
     // First column: headword.
     let mut split = line.split('\t');
-    let word = split.next().ok_or(MissingColumnInIndex(line_number))?;
+    let headword = split.next().ok_or(MissingColumnInIndex(line_number))?;
 
     // Second column: offset into file.
     let offset = split.next().ok_or(MissingColumnInIndex(line_number))?;
@@ -114,14 +114,14 @@ fn parse_line(line: &str, line_number: usize) -> Result<(&str, u64, u64, Option<
     // Fourth column: optional original headword.
     let original = split.next();
 
-    Ok((word, offset, size, original))
+    Ok((headword, offset, size, original))
 }
 
 /// Parse the index for a dictionary from a given BufRead compatible object.
 /// When `lazy` is `true`, the loop stops once all the metadata entries are parsed.
 pub fn parse_index<B: BufRead>(mut br: B, lazy: bool) -> Result<Index<B>, DictError> {
     let mut info = false;
-    let mut words = Vec::new();
+    let mut entries = Vec::new();
     let mut line_number = 0;
     let mut line = String::new();
 
@@ -129,16 +129,16 @@ pub fn parse_index<B: BufRead>(mut br: B, lazy: bool) -> Result<Index<B>, DictEr
         if nb == 0 {
             break;
         }
-        let (word, offset, size, original) = parse_line(line.trim_end(), line_number)?;
+        let (headword, offset, size, original) = parse_line(line.trim_end(), line_number)?;
         if lazy {
-            if !info && (word.starts_with("00-database-") || word.starts_with("00database")) {
+            if !info && (headword.starts_with("00-database-") || headword.starts_with("00database")) {
                 info = true;
-            } else if info && !word.starts_with("00-database-") && !word.starts_with("00database") {
+            } else if info && !headword.starts_with("00-database-") && !headword.starts_with("00database") {
                 break;
             }
         }
-        words.push(Entry {
-            word: word.to_string(),
+        entries.push(Entry {
+            headword: headword.to_string(),
             offset,
             size,
             original: original.map(String::from),
@@ -153,7 +153,7 @@ pub fn parse_index<B: BufRead>(mut br: B, lazy: bool) -> Result<Index<B>, DictEr
         None
     };
 
-    Ok(Index { words, state })
+    Ok(Index { entries, state })
 }
 
 /// Parse the index for a dictionary from a given path.

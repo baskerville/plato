@@ -41,7 +41,7 @@ impl Dictionary {
         let entries = self.index.load_and_find(&query, fuzzy);
         let mut results = Vec::new();
         for entry in entries.into_iter() {
-            results.push([entry.original.unwrap_or(entry.word),
+            results.push([entry.original.unwrap_or(entry.headword),
                           self.content.fetch_definition(entry.offset, entry.size)?]);
         }
         Ok(results)
