@@ -188,7 +188,14 @@ pub fn toggle_input_history_menu(view: &mut dyn View, id: ViewId, rect: Rectangl
                                                     EntryId::SetInputText(id, s.to_string())))
                                            .collect::<Vec<EntryKind>>());
         if let Some(entries) = entries {
-            let input_history_menu = Menu::new(rect, ViewId::InputHistoryMenu, MenuKind::DropDown, entries, context);
+            let menu_kind = match id {
+                ViewId::HomeSearchInput |
+                ViewId::ReaderSearchInput |
+                ViewId::DictionarySearchInput |
+                ViewId::CalculatorInput => MenuKind::DropDown,
+                _ => MenuKind::Contextual,
+            };
+            let input_history_menu = Menu::new(rect, ViewId::InputHistoryMenu, menu_kind, entries, context);
             hub.send(Event::Render(*input_history_menu.rect(), UpdateMode::Gui)).ok();
             view.children_mut().push(Box::new(input_history_menu) as Box<dyn View>);
         }
