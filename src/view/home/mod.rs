@@ -639,7 +639,7 @@ impl Home {
                                                   sp_rect.max.y + delta_y - thickness],
                                             ViewId::HomeSearchInput,
                                             "Title, author, category",
-                                            "");
+                                            "", context);
 
             self.children.insert(5, Box::new(search_bar) as Box<dyn View>);
 

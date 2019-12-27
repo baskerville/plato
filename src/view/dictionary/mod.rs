@@ -107,7 +107,7 @@ impl Dictionary {
         let search_bar = SearchBar::new(rect![rect.min.x, rect.min.y + small_height as i32 + big_thickness,
                                               rect.max.x, rect.min.y + 2 * small_height as i32 - small_thickness],
                                         ViewId::DictionarySearchInput,
-                                        "", query);
+                                        "", query, context);
         children.push(Box::new(search_bar) as Box<dyn View>);
 
         let separator = Filler::new(rect![rect.min.x, rect.min.y + 2 * small_height as i32 - small_thickness,

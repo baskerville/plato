@@ -112,7 +112,7 @@ impl Context {
         }
     }
 
-    pub fn remember_input(&mut self, text: &str, id: ViewId) {
+    pub fn record_input(&mut self, text: &str, id: ViewId) {
         if text.is_empty() {
             return;
         }

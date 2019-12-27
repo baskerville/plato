@@ -19,7 +19,7 @@ pub struct InputBar {
 }
 
 impl InputBar {
-    pub fn new(rect: Rectangle, placeholder: &str, text: &str) -> InputBar {
+    pub fn new(rect: Rectangle, placeholder: &str, text: &str, context: &mut Context) -> InputBar {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
@@ -40,7 +40,7 @@ impl InputBar {
                                                 pt!(rect.max.x - side - thickness, rect.max.y)],
                                           ViewId::CalculatorInput)
                                      .border(false)
-                                     .text(text)
+                                     .text(text, context)
                                      .placeholder(placeholder);
         children.push(Box::new(input_field) as Box<dyn View>);
 

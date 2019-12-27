@@ -100,16 +100,17 @@ impl InputField {
         self
     }
 
-    pub fn text(mut self, text: &str) -> InputField {
+    pub fn text(mut self, text: &str, context: &mut Context) -> InputField {
         self.text = text.to_string();
         self.cursor = self.text.len();
+        context.record_input(text, self.id);
         self
     }
 
     pub fn set_text(&mut self, text: &str, move_cursor: bool, hub: &Hub, context: &mut Context) {
         if self.text != text {
             self.text = text.to_string();
-            context.remember_input(text, self.id);
+            context.record_input(text, self.id);
             if move_cursor {
                 self.cursor = self.text.len();
             }
@@ -248,7 +249,7 @@ impl View for InputField {
                     },
                     KeyboardEvent::Submit => {
                         bus.push_back(Event::Submit(self.id, self.text.clone()));
-                        context.remember_input(&self.text, self.id);
+                        context.record_input(&self.text, self.id);
                     },
                 };
                 hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).ok();

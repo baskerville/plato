@@ -147,8 +147,7 @@ impl Calculator {
 
         let input_bar = InputBar::new(rect![rect.min.x, sp_rect.min.y - side + thickness,
                                             rect.max.x, sp_rect.min.y],
-                                      "",
-                                      "");
+                                      "", "", context);
 
         let sp_rect2 = rect![rect.min.x, sp_rect.min.y - side,
                              rect.max.x, sp_rect.min.y - side + thickness];
