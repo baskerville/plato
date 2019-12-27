@@ -6,6 +6,7 @@
 [ -d hyphenation-patterns ] || ./download.sh 'hyphenation-patterns/*'
 
 mkdir -p dist/libs
+mkdir dist/dictionaries
 
 cp libs/libz.so dist/libs/libz.so.1
 cp libs/libbz2.so dist/libs/libbz2.so.1.0
