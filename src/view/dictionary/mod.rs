@@ -62,7 +62,9 @@ fn query_to_content(query: &str, language: &String, fuzzy: bool, target: Option<
                 content.push_str(&format!("<h1 class=\"dictname\">{}</h1>\n", name.replace('<', "&lt;").replace('>', "&gt;")));
             }
             for [head, body] in results {
-                content.push_str(&format!("<h2 class=\"headword\">{}</h2>\n", head.replace('<', "&lt;").replace('>', "&gt;")));
+                if !body.trim_start().starts_with("<h2") {
+                    content.push_str(&format!("<h2 class=\"headword\">{}</h2>\n", head.replace('<', "&lt;").replace('>', "&gt;")));
+                }
                 if body.trim_start().starts_with('<') {
                     content.push_str(&body);
                 } else {
