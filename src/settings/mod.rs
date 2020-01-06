@@ -202,6 +202,7 @@ impl Default for Hook {
 pub struct HomeSettings {
     pub summary_size: u8,
     pub second_column: SecondColumn,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub hooks: Vec<Hook>,
 }
 
