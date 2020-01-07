@@ -1,18 +1,10 @@
 FROM rust:1.39-buster
 
 RUN apt-get update && apt-get install -y libtool \
-	automake \
 	pkg-config \
-	cmake \
-	ragel \
 	jq \
-	patchelf \	
-	gcc-arm-linux-gnueabihf \
-	g++-arm-linux-gnueabihf \
 	libdjvulibre-dev \
 	libharfbuzz-dev \
-	libcairo2-dev \
-	libstdc++6 \
 	libsdl2-dev \
  	# start mupdf dependencies
 	libjbig2dec0-dev \
