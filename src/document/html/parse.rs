@@ -125,9 +125,9 @@ pub fn parse_letter_spacing(value: &str, em: f32, rem: f32, dpi: u16) -> Option<
 pub fn parse_vertical_align(value: &str, em: f32, rem: f32, line_height: i32, dpi: u16) -> Option<i32> {
     if value == "baseline" {
         Some(0)
-    } else if value == "super" {
+    } else if value == "super" || value == "top" {
         Some(pt_to_px(0.4 * em, dpi).round() as i32)
-    } else if value == "sub" {
+    } else if value == "sub" || value == "bottom" {
         Some(pt_to_px(-0.2 * em, dpi).round() as i32)
     } else if value.ends_with('%') {
         value[..value.len() - 1].parse::<f32>().ok().map(|v| {
