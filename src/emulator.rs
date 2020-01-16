@@ -443,6 +443,9 @@ pub fn run() -> Result<(), Error> {
                         }
                     }
                 },
+                Event::Select(EntryId::SetButtonScheme(button_scheme)) => {
+                    context.settings.button_scheme = button_scheme;
+                },
                 Event::Select(EntryId::ToggleInverted) => {
                     context.fb.toggle_inverted();
                     tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).ok();

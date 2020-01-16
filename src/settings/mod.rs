@@ -1,5 +1,6 @@
 mod preset;
 
+use std::fmt::{self, Debug};
 use std::path::PathBuf;
 use std::collections::{HashSet, HashMap, BTreeMap};
 use serde::{Serialize, Deserialize};
@@ -37,6 +38,12 @@ pub enum RotationLock {
 pub enum ButtonScheme {
     Natural,
     Inverted,
+}
+
+impl fmt::Display for ButtonScheme {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Debug::fmt(self, f)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
