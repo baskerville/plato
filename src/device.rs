@@ -131,7 +131,7 @@ impl Device {
 
     pub fn has_page_turn_buttons(&self) -> bool {
         match self.model {
-            Model::Forma | Model::Forma32GB => true,
+            Model::Forma | Model::Forma32GB | Model::LibraH2O => true,
             _ => false,
         }
     }
