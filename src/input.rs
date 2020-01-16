@@ -143,6 +143,7 @@ impl ButtonCode {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum ButtonDirection {
     Backward,
     Forward
@@ -480,5 +481,82 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 ty.send(DeviceEvent::RotateScreen(next_rotation)).ok();
             }
         }
+    }
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use std::option;
+    use crate::input::{ButtonStatus, VAL_RELEASE, VAL_PRESS, VAL_REPEAT, ButtonCode, KEY_POWER, KEY_LIGHT, KEY_HOME, KEY_BACKWARD, KEY_FORWARD, KEY_ROTATE_DISPLAY, ButtonDirection, display_rotate_event, EV_KEY, invert_button_scheme_event, INVERT_BUTTON_SCHEME};
+    use crate::settings::ButtonScheme;
+
+    #[test]
+    fn test_button_status_try_from_raw() {
+        assert_eq!(ButtonStatus::try_from_raw(VAL_RELEASE).unwrap(), ButtonStatus::Released);
+        assert_eq!(ButtonStatus::try_from_raw(VAL_PRESS).unwrap(), ButtonStatus::Pressed);
+        assert_eq!(ButtonStatus::try_from_raw(VAL_REPEAT).unwrap(), ButtonStatus::Repeated);
+        assert_eq!(ButtonStatus::try_from_raw(3), Option::None);
+    }
+
+    #[test]
+    fn test_button_code_from_raw() {
+        assert_eq!(ButtonCode::from_raw(KEY_POWER, 0, ButtonScheme::Natural), ButtonCode::Power);
+        assert_eq!(ButtonCode::from_raw(KEY_HOME, 0, ButtonScheme::Natural), ButtonCode::Home);
+        assert_eq!(ButtonCode::from_raw(KEY_LIGHT, 0, ButtonScheme::Natural), ButtonCode::Light);
+        assert_eq!(ButtonCode::from_raw(KEY_BACKWARD, 0, ButtonScheme::Natural), ButtonCode::Backward);
+        assert_eq!(ButtonCode::from_raw(KEY_FORWARD, 0, ButtonScheme::Natural), ButtonCode::Forward);
+        assert_eq!(ButtonCode::from_raw(KEY_ROTATE_DISPLAY, 0, ButtonScheme::Natural), ButtonCode::Raw(KEY_ROTATE_DISPLAY));
+    }
+
+    #[test]
+    fn test_button_code_directions_natural_button_scheme() {
+        assert_eq!(ButtonCode::from_raw(KEY_BACKWARD, 0, ButtonScheme::Natural), ButtonCode::Backward);
+        assert_eq!(ButtonCode::from_raw(KEY_BACKWARD, 1, ButtonScheme::Natural), ButtonCode::Backward);
+        assert_eq!(ButtonCode::from_raw(KEY_BACKWARD, 2, ButtonScheme::Natural), ButtonCode::Forward);
+        assert_eq!(ButtonCode::from_raw(KEY_BACKWARD, 3, ButtonScheme::Natural), ButtonCode::Forward);
+
+        assert_eq!(ButtonCode::from_raw(KEY_FORWARD, 0, ButtonScheme::Natural), ButtonCode::Forward);
+        assert_eq!(ButtonCode::from_raw(KEY_FORWARD, 1, ButtonScheme::Natural), ButtonCode::Forward);
+        assert_eq!(ButtonCode::from_raw(KEY_FORWARD, 2, ButtonScheme::Natural), ButtonCode::Backward);
+        assert_eq!(ButtonCode::from_raw(KEY_FORWARD, 3, ButtonScheme::Natural), ButtonCode::Backward);
+    }
+
+    #[test]
+    fn test_button_code_directions_inverted_button_scheme() {
+        assert_eq!(ButtonCode::from_raw(KEY_BACKWARD, 0, ButtonScheme::Inverted), ButtonCode::Forward);
+        assert_eq!(ButtonCode::from_raw(KEY_BACKWARD, 1, ButtonScheme::Inverted), ButtonCode::Forward);
+        assert_eq!(ButtonCode::from_raw(KEY_BACKWARD, 2, ButtonScheme::Inverted), ButtonCode::Backward);
+        assert_eq!(ButtonCode::from_raw(KEY_BACKWARD, 3, ButtonScheme::Inverted), ButtonCode::Backward);
+
+        assert_eq!(ButtonCode::from_raw(KEY_FORWARD, 0, ButtonScheme::Inverted), ButtonCode::Backward);
+        assert_eq!(ButtonCode::from_raw(KEY_FORWARD, 1, ButtonScheme::Inverted), ButtonCode::Backward);
+        assert_eq!(ButtonCode::from_raw(KEY_FORWARD, 2, ButtonScheme::Inverted), ButtonCode::Forward);
+        assert_eq!(ButtonCode::from_raw(KEY_FORWARD, 3, ButtonScheme::Inverted), ButtonCode::Forward);
+    }
+
+    #[test]
+    fn test_button_direction_flip() {
+        assert_eq!(ButtonDirection::Forward.flip(), ButtonDirection::Backward);
+        assert_eq!(ButtonDirection::Backward.flip(), ButtonDirection::Forward);
+    }
+
+    #[test]
+    fn test_display_rotate_event() {
+        let input = display_rotate_event(2);
+
+        assert_eq!(input.kind, EV_KEY);
+        assert_eq!(input.code, KEY_ROTATE_DISPLAY);
+        assert_eq!(input.value, 2);
+    }
+
+    #[test]
+    fn test_invert_button_scheme_event() {
+        let input = invert_button_scheme_event(VAL_PRESS);
+
+        assert_eq!(input.kind, EV_KEY);
+        assert_eq!(input.code, INVERT_BUTTON_SCHEME);
+        assert_eq!(input.value, VAL_PRESS);
     }
 }
