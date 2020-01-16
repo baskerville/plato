@@ -21,12 +21,12 @@ use crate::view::keyboard::{Layout};
 use crate::view::dictionary::Dictionary as DictionaryApp;
 use crate::view::calculator::Calculator;
 use crate::view::sketch::Sketch;
-use crate::input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus};
-use crate::input::{raw_events, device_events, usb_events, display_rotate_event};
+use crate::input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus, VAL_RELEASE, VAL_PRESS};
+use crate::input::{raw_events, device_events, usb_events, display_rotate_event, invert_button_scheme_event};
 use crate::gesture::{GestureEvent, gesture_events};
 use crate::helpers::{load_json, save_json, load_toml, save_toml};
 use crate::metadata::{Metadata, METADATA_FILENAME, auto_import};
-use crate::settings::{Settings, SETTINGS_PATH, RotationLock};
+use crate::settings::{ButtonScheme, Settings, SETTINGS_PATH, RotationLock};
 use crate::frontlight::{Frontlight, StandardFrontlight, NaturalFrontlight, PremixedFrontlight};
 use crate::lightsensor::{LightSensor, KoboLightSensor};
 use crate::battery::{Battery, KoboBattery};
@@ -918,6 +918,20 @@ pub fn run() -> Result<(), Error> {
             },
             Event::Select(EntryId::SetRotationLock(rotation_lock)) => {
                 context.settings.rotation_lock = rotation_lock;
+
+            },
+            Event::Select(EntryId::SetButtonScheme(button_scheme)) => {
+                context.settings.button_scheme = button_scheme;
+
+                // Sending a pseudo event into the raw_events channel toggles the inversion in the device_events channel
+                match button_scheme {
+                    ButtonScheme::Natural => {
+                        raw_sender.send(invert_button_scheme_event(VAL_RELEASE)).ok();
+                    },
+                    ButtonScheme::Inverted => {
+                        raw_sender.send(invert_button_scheme_event(VAL_PRESS)).ok();
+                    }
+                }
             },
             Event::SetWifi(enable) => {
                 set_wifi(enable, &mut context);

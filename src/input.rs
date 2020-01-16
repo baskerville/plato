@@ -52,6 +52,8 @@ pub const KEY_BACKWARD: u16 = 193;
 pub const KEY_FORWARD: u16 = 194;
 pub const KEY_ROTATE_DISPLAY: u16 = 153;
 pub const SLEEP_COVER: u16 = 59;
+// INVERT_BUTTON_SCHEME is not a real device key code and is used to support software toggles within this design
+pub const INVERT_BUTTON_SCHEME: u16 = 65535;
 
 pub const SINGLE_TOUCH_CODES: TouchCodes = TouchCodes {
     pressure: ABS_PRESSURE,
@@ -130,50 +132,50 @@ pub enum ButtonCode {
 
 impl ButtonCode {
     fn from_raw(code: u16, rotation: i8, button_scheme: ButtonScheme) -> ButtonCode {
-        if code == KEY_POWER {
-            ButtonCode::Power
-        } else if code == KEY_HOME {
-            ButtonCode::Home
-        } else if code == KEY_LIGHT {
-            ButtonCode::Light
-        } else if code == KEY_BACKWARD {
-            match rotation {
-                0 => ButtonCode::Backward,
-                1 => {
-                    match button_scheme {
-                        ButtonScheme::Natural => ButtonCode::Backward,
-                        ButtonScheme::Inverted => ButtonCode::Forward,
-                    }
-                },
-                2 => ButtonCode::Forward,
-                3 => {
-                    match button_scheme {
-                        ButtonScheme::Natural => ButtonCode::Forward,
-                        ButtonScheme::Inverted => ButtonCode::Backward,
-                    }
-                },
-                _ => ButtonCode::Backward,
+        match code {
+            KEY_POWER => ButtonCode::Power,
+            KEY_HOME => ButtonCode::Home,
+            KEY_LIGHT => ButtonCode::Light,
+            KEY_BACKWARD => resolve_button_direction(ButtonDirection::Backward, rotation, button_scheme),
+            KEY_FORWARD => resolve_button_direction(ButtonDirection::Forward, rotation, button_scheme),
+            _ => ButtonCode::Raw(code)
+        }
+    }
+}
+
+enum ButtonDirection {
+    Backward,
+    Forward
+}
+
+impl ButtonDirection {
+    fn flip(self) -> ButtonDirection {
+        match self {
+            ButtonDirection::Backward => ButtonDirection::Forward,
+            ButtonDirection::Forward => ButtonDirection::Backward,
+        }
+    }
+}
+
+fn resolve_button_direction(mut direction: ButtonDirection, rotation: i8, button_scheme: ButtonScheme) -> ButtonCode {
+    let orientation_reversed = (rotation / 2) != 0;
+
+    if orientation_reversed {
+        direction = direction.flip();
+    }
+
+    match direction {
+        ButtonDirection::Backward => {
+            match button_scheme {
+                ButtonScheme::Natural => ButtonCode::Backward,
+                ButtonScheme::Inverted => ButtonCode::Forward,
             }
-        } else if code == KEY_FORWARD {
-            match rotation {
-                0 => ButtonCode::Forward,
-                1 => {
-                    match button_scheme {
-                        ButtonScheme::Natural => ButtonCode::Forward,
-                        ButtonScheme::Inverted => ButtonCode::Backward,
-                    }
-                },
-                2 => ButtonCode::Backward,
-                3 => {
-                    match button_scheme {
-                        ButtonScheme::Natural => ButtonCode::Backward,
-                        ButtonScheme::Inverted => ButtonCode::Forward,
-                    }
-                },
-                _ => ButtonCode::Forward,
+        },
+        ButtonDirection::Forward => {
+            match button_scheme {
+                ButtonScheme::Natural => ButtonCode::Forward,
+                ButtonScheme::Inverted => ButtonCode::Backward,
             }
-        } else {
-            ButtonCode::Raw(code)
         }
     }
 }
@@ -186,6 +188,17 @@ pub fn display_rotate_event(n: i8) -> InputEvent {
         kind: EV_KEY,
         code: KEY_ROTATE_DISPLAY,
         value: n as i32,
+    }
+}
+
+pub fn invert_button_scheme_event(v: i32) -> InputEvent {
+    let mut tp = libc::timeval { tv_sec: 0, tv_usec: 0 };
+    unsafe { libc::gettimeofday(&mut tp, ptr::null_mut()); }
+    InputEvent {
+        time: tp,
+        kind: EV_KEY,
+        code: INVERT_BUTTON_SCHEME,
+        value: v,
     }
 }
 
@@ -347,6 +360,8 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
         mem::swap(&mut tc.x, &mut tc.y);
     }
 
+    let mut button_scheme = button_scheme;
+
     while let Ok(evt) = rx.recv() {
         if evt.kind == EV_ABS {
             if evt.code == ABS_MT_TRACKING_ID {
@@ -424,6 +439,12 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                     ty.send(DeviceEvent::CoverOn).ok();
                 } else if evt.value == VAL_RELEASE {
                     ty.send(DeviceEvent::CoverOff).ok();
+                }
+            } else if evt.code == INVERT_BUTTON_SCHEME {
+                if evt.value == VAL_PRESS {
+                    button_scheme = ButtonScheme::Inverted;
+                } else {
+                    button_scheme = ButtonScheme::Natural;
                 }
             } else if evt.code == KEY_ROTATE_DISPLAY {
                 let next_rotation = evt.value as i8;

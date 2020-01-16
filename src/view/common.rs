@@ -2,7 +2,7 @@ use std::env;
 use std::sync::mpsc;
 use chrono::Local;
 use crate::device::CURRENT_DEVICE;
-use crate::settings::RotationLock;
+use crate::settings::{ButtonScheme, RotationLock};
 use crate::framebuffer::UpdateMode;
 use crate::geom::{Point, Rectangle};
 use super::{View, Event, Hub, ViewId, AppCmd, EntryId, EntryKind};
@@ -108,6 +108,15 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
             entries.push(EntryKind::Command("Start Nickel".to_string(), EntryId::StartNickel));
         } else {
             entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
+        }
+
+        if CURRENT_DEVICE.has_page_turn_buttons() {
+            let button_scheme = context.settings.button_scheme;
+            let button_schemes = vec![
+                EntryKind::RadioButton(ButtonScheme::Natural.to_string(), EntryId::SetButtonScheme(ButtonScheme::Natural), button_scheme == ButtonScheme::Natural),
+                EntryKind::RadioButton(ButtonScheme::Inverted.to_string(), EntryId::SetButtonScheme(ButtonScheme::Inverted), button_scheme == ButtonScheme::Inverted),
+            ];
+            entries.insert(5, EntryKind::SubMenu("Button Scheme".to_string(), button_schemes));
         }
 
         if CURRENT_DEVICE.has_gyroscope() {

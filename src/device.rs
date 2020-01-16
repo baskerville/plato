@@ -129,6 +129,13 @@ impl Device {
         }
     }
 
+    pub fn has_page_turn_buttons(&self) -> bool {
+        match self.model {
+            Model::Forma | Model::Forma32GB => true,
+            _ => false,
+        }
+    }
+
     pub fn orientation(&self, rotation: i8) -> Orientation {
         let discriminant = match self.model {
             Model::LibraH2O => 0,
