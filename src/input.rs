@@ -11,7 +11,7 @@ use fnv::{FnvHashMap, FnvHashSet};
 use crate::framebuffer::Display;
 use crate::settings::ButtonScheme;
 use crate::device::CURRENT_DEVICE;
-use crate::geom::Point;
+use crate::geom::{Point, LinearDir, Dir};
 use failure::{Error, ResultExt};
 
 // Event types
@@ -51,9 +51,9 @@ pub const KEY_LIGHT: u16 = 90;
 pub const KEY_BACKWARD: u16 = 193;
 pub const KEY_FORWARD: u16 = 194;
 pub const KEY_ROTATE_DISPLAY: u16 = 153;
+// KEY_BUTTON_SCHEME is not a real device key code and is used to support software toggles within this design
+pub const KEY_BUTTON_SCHEME: u16 = 0xfffe;
 pub const SLEEP_COVER: u16 = 59;
-// INVERT_BUTTON_SCHEME is not a real device key code and is used to support software toggles within this design
-pub const INVERT_BUTTON_SCHEME: u16 = 65535;
 
 pub const SINGLE_TOUCH_CODES: TouchCodes = TouchCodes {
     pressure: ABS_PRESSURE,
@@ -136,49 +136,23 @@ impl ButtonCode {
             KEY_POWER => ButtonCode::Power,
             KEY_HOME => ButtonCode::Home,
             KEY_LIGHT => ButtonCode::Light,
-            KEY_BACKWARD => resolve_button_direction(ButtonDirection::Backward, rotation, button_scheme),
-            KEY_FORWARD => resolve_button_direction(ButtonDirection::Forward, rotation, button_scheme),
+            KEY_BACKWARD => resolve_button_direction(LinearDir::Backward, rotation, button_scheme),
+            KEY_FORWARD => resolve_button_direction(LinearDir::Forward, rotation, button_scheme),
             _ => ButtonCode::Raw(code)
         }
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum ButtonDirection {
-    Backward,
-    Forward
-}
-
-impl ButtonDirection {
-    fn flip(self) -> ButtonDirection {
-        match self {
-            ButtonDirection::Backward => ButtonDirection::Forward,
-            ButtonDirection::Forward => ButtonDirection::Backward,
-        }
-    }
-}
-
-fn resolve_button_direction(mut direction: ButtonDirection, rotation: i8, button_scheme: ButtonScheme) -> ButtonCode {
-    let orientation_reversed = (rotation / 2) != 0;
-
-    if orientation_reversed {
-        direction = direction.flip();
+fn resolve_button_direction(mut direction: LinearDir, rotation: i8, button_scheme: ButtonScheme) -> ButtonCode {
+    if (rotation >= 2) ^ (button_scheme == ButtonScheme::Inverted) {
+        direction = direction.opposite();
     }
 
-    match direction {
-        ButtonDirection::Backward => {
-            match button_scheme {
-                ButtonScheme::Natural => ButtonCode::Backward,
-                ButtonScheme::Inverted => ButtonCode::Forward,
-            }
-        },
-        ButtonDirection::Forward => {
-            match button_scheme {
-                ButtonScheme::Natural => ButtonCode::Forward,
-                ButtonScheme::Inverted => ButtonCode::Backward,
-            }
-        }
+    if direction == LinearDir::Forward {
+        return ButtonCode::Forward;
     }
+
+    ButtonCode::Backward
 }
 
 pub fn display_rotate_event(n: i8) -> InputEvent {
@@ -198,7 +172,7 @@ pub fn invert_button_scheme_event(v: i32) -> InputEvent {
     InputEvent {
         time: tp,
         kind: EV_KEY,
-        code: INVERT_BUTTON_SCHEME,
+        code: KEY_BUTTON_SCHEME,
         value: v,
     }
 }
@@ -441,7 +415,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 } else if evt.value == VAL_RELEASE {
                     ty.send(DeviceEvent::CoverOff).ok();
                 }
-            } else if evt.code == INVERT_BUTTON_SCHEME {
+            } else if evt.code == KEY_BUTTON_SCHEME {
                 if evt.value == VAL_PRESS {
                     button_scheme = ButtonScheme::Inverted;
                 } else {
@@ -489,7 +463,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
 #[cfg(test)]
 mod tests {
     use std::option;
-    use crate::input::{ButtonStatus, VAL_RELEASE, VAL_PRESS, VAL_REPEAT, ButtonCode, KEY_POWER, KEY_LIGHT, KEY_HOME, KEY_BACKWARD, KEY_FORWARD, KEY_ROTATE_DISPLAY, ButtonDirection, display_rotate_event, EV_KEY, invert_button_scheme_event, INVERT_BUTTON_SCHEME};
+    use crate::input::{ButtonStatus, VAL_RELEASE, VAL_PRESS, VAL_REPEAT, ButtonCode, KEY_POWER, KEY_LIGHT, KEY_HOME, KEY_BACKWARD, KEY_FORWARD, KEY_ROTATE_DISPLAY, display_rotate_event, EV_KEY, invert_button_scheme_event, KEY_BUTTON_SCHEME};
     use crate::settings::ButtonScheme;
 
     #[test]
@@ -537,12 +511,6 @@ mod tests {
     }
 
     #[test]
-    fn test_button_direction_flip() {
-        assert_eq!(ButtonDirection::Forward.flip(), ButtonDirection::Backward);
-        assert_eq!(ButtonDirection::Backward.flip(), ButtonDirection::Forward);
-    }
-
-    #[test]
     fn test_display_rotate_event() {
         let input = display_rotate_event(2);
 
@@ -556,7 +524,7 @@ mod tests {
         let input = invert_button_scheme_event(VAL_PRESS);
 
         assert_eq!(input.kind, EV_KEY);
-        assert_eq!(input.code, INVERT_BUTTON_SCHEME);
+        assert_eq!(input.code, KEY_BUTTON_SCHEME);
         assert_eq!(input.value, VAL_PRESS);
     }
 }

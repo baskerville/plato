@@ -37,6 +37,15 @@ pub enum LinearDir {
     Forward,
 }
 
+impl LinearDir {
+    pub fn opposite(self) -> LinearDir {
+        match self {
+            LinearDir::Backward => LinearDir::Forward,
+            LinearDir::Forward => LinearDir::Backward,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Point {
     pub x: i32,
@@ -1152,10 +1161,15 @@ impl DivAssign<f32> for Boundary {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::divide;
+    use super::{divide, LinearDir};
+
+    #[test]
+    fn test_linear_dir_opposite() {
+        assert_eq!(LinearDir::Forward.opposite(), LinearDir::Backward);
+        assert_eq!(LinearDir::Backward.opposite(), LinearDir::Forward);
+    }
 
     #[test]
     fn overlaping_rectangles() {
