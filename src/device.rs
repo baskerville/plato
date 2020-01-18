@@ -225,6 +225,13 @@ impl Device {
         }
     }
 
+    pub fn should_invert_buttons(&self, rotation: i8) -> bool {
+        let sr = self.startup_rotation();
+        let (_, dir) = self.mirroring_scheme();
+
+        rotation == (4 + sr - dir) % 4 || rotation == (4 + sr - 2 * dir) % 4
+    }
+
     pub fn orientation(&self, rotation: i8) -> Orientation {
         let discriminant = match self.model {
             Model::LibraH2O => 0,
@@ -411,6 +418,21 @@ mod tests {
 
         let device = Device::new("pika", "378");
         assert_eq!(device.has_page_turn_buttons(), false);
+    }
+
+    #[test]
+    fn test_device_should_invert_buttons() {
+        let device = Device::new("frost", "380");
+        assert_eq!(device.should_invert_buttons(0), false);
+        assert_eq!(device.should_invert_buttons(1), false);
+        assert_eq!(device.should_invert_buttons(2), true);
+        assert_eq!(device.should_invert_buttons(3), true);
+
+        let device = Device::new("pika", "378");
+        assert_eq!(device.should_invert_buttons(0), false);
+        assert_eq!(device.should_invert_buttons(1), true);
+        assert_eq!(device.should_invert_buttons(2), true);
+        assert_eq!(device.should_invert_buttons(3), false);
     }
 
     #[test]

@@ -144,7 +144,7 @@ impl ButtonCode {
 }
 
 fn resolve_button_direction(mut direction: LinearDir, rotation: i8, button_scheme: ButtonScheme) -> ButtonCode {
-    if (rotation >= 2) ^ (button_scheme == ButtonScheme::Inverted) {
+    if (CURRENT_DEVICE.should_invert_buttons(rotation)) ^ (button_scheme == ButtonScheme::Inverted) {
         direction = direction.opposite();
     }
 
