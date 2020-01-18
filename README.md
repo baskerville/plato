@@ -10,6 +10,7 @@ Any 4.*X*.*Y* firmware, with *X* ≥ 6, will do.
 
 ## Supported devices
 
+- *Libra H₂O*.
 - *Forma*.
 - *Clara HD*.
 - *Aura H₂O Edition 2*.
