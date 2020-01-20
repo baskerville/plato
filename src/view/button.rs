@@ -73,6 +73,7 @@ impl View for Button {
         } else {
             TEXT_NORMAL
         };
+        let foreground = if self.disabled { scheme[2] } else { scheme[1] };
 
         let border_radius = scale_by_dpi(BORDER_RADIUS_LARGE, dpi) as i32;
         let border_thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as u16;
@@ -80,7 +81,7 @@ impl View for Button {
         fb.draw_rounded_rectangle_with_border(&self.rect,
                                               &CornerSpec::Uniform(border_radius),
                                               &BorderSpec { thickness: border_thickness,
-                                                            color: BLACK },
+                                                            color: foreground },
                                               &scheme[0]);
 
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
@@ -94,7 +95,6 @@ impl View for Button {
         let dy = (self.rect.height() as i32 - x_height) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 
-        let foreground = if self.disabled { scheme[2] } else { scheme[1] };
         font.render(fb, foreground, &plan, pt);
     }
 
