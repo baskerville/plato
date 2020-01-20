@@ -34,29 +34,23 @@ impl PageLabel {
     }
 
     pub fn text(&self, size: u8) -> String {
-        if self.synthetic {
-            let current_page = self.current_page as f64 / BYTES_PER_PAGE;
-            let pages_count = self.pages_count as f64 / BYTES_PER_PAGE;
-            let percent = 100.0 * current_page / pages_count;
-            match size {
-                0 => format!("Page {:.1} of {:.1} ({:.1}%)", current_page, pages_count, percent),
-                1 => format!("P. {:.1} of {:.1} ({:.1}%)", current_page, pages_count, percent),
-                2 => format!("{:.1}/{:.1} ({:.1}%)", current_page, pages_count, percent),
-                3 => format!("{:.1} ({:.1}%)", current_page, percent),
-                _ => format!("{:.1}%", percent),
-            }
+        if self.pages_count == 0 {
+            return "No pages".to_string();
+        }
+        let (current_page, pages_count, precision) = if self.synthetic {
+            (self.current_page as f64 / BYTES_PER_PAGE,
+             self.pages_count as f64 / BYTES_PER_PAGE, 1)
         } else {
-            if self.pages_count == 0 {
-                "No pages".to_string()
-            } else {
-                match size {
-                    0 => format!("Page {} of {}", self.current_page + 1, self.pages_count),
-                    1 => format!("P. {} of {}", self.current_page + 1, self.pages_count),
-                    2 => format!("Page {}/{}", self.current_page + 1, self.pages_count),
-                    3 => format!("P. {}/{}", self.current_page + 1, self.pages_count),
-                    _ => format!("{}/{}", self.current_page + 1, self.pages_count),
-                }
-            }
+            (self.current_page as f64 + 1.0,
+             self.pages_count as f64, 0)
+        };
+        let percent = 100.0 * current_page / pages_count;
+        match size {
+            0 => format!("Page {1:.0$} of {2:.0$} ({3:.1}%)", precision, current_page, pages_count, percent),
+            1 => format!("P. {1:.0$} of {2:.0$} ({3:.1}%)", precision, current_page, pages_count, percent),
+            2 => format!("{1:.0$}/{2:.0$} ({3:.1}%)", precision, current_page, pages_count, percent),
+            3 => format!("{1:.0$} ({2:.1}%)", precision, current_page, percent),
+            _ => format!("{:.1}%", percent),
         }
     }
 }
