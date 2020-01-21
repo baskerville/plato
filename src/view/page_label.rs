@@ -44,7 +44,7 @@ impl PageLabel {
             (self.current_page as f64 + 1.0,
              self.pages_count as f64, 0)
         };
-        let percent = 100.0 * current_page / pages_count;
+        let percent = 100.0 * self.current_page as f32 / self.pages_count as f32;
         match size {
             0 => format!("Page {1:.0$} of {2:.0$} ({3:.1}%)", precision, current_page, pages_count, percent),
             1 => format!("P. {1:.0$} of {2:.0$} ({3:.1}%)", precision, current_page, pages_count, percent),
