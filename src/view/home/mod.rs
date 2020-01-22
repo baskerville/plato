@@ -18,7 +18,7 @@ use serde_json::Value as JsonValue;
 use fnv::{FnvHashSet, FnvHashMap};
 use failure::{Error, format_err};
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::metadata::{Info, Metadata, SortMethod, SimpleStatus, sort, make_query, auto_import, clean_up};
+use crate::metadata::{Info, ReaderInfo, Metadata, SortMethod, SimpleStatus, sort, make_query, auto_import, clean_up};
 use crate::view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
 use crate::settings::{Hook, SecondColumn};
 use crate::view::filler::Filler;
@@ -788,8 +788,8 @@ impl Home {
             entries.push(EntryKind::Separator);
 
             let submenu: &[SimpleStatus] = match info.simple_status() {
-                SimpleStatus::Reading => &[SimpleStatus::New, SimpleStatus::Finished],
                 SimpleStatus::New => &[SimpleStatus::Finished],
+                SimpleStatus::Reading => &[SimpleStatus::New, SimpleStatus::Finished],
                 SimpleStatus::Finished => &[SimpleStatus::New],
             };
 
@@ -1182,8 +1182,15 @@ impl Home {
             if info.file.path == *path {
                 if status == SimpleStatus::New {
                     info.reader = None;
-                } else if let Some(r) = info.reader.as_mut() {
-                    r.finished = true;
+                } else {
+                    if let Some(r) = info.reader.as_mut() {
+                        r.finished = true;
+                    } else {
+                        info.reader = Some(ReaderInfo {
+                            finished: true,
+                            .. Default::default()
+                        });
+                    }
                 }
                 break;
             }
