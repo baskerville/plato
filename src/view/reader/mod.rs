@@ -1694,7 +1694,9 @@ impl Reader {
                 return;
             }
 
-            let mut families = family_names(&context.settings.reader.font_path).unwrap_or_default();
+            let mut families = family_names(&context.settings.reader.font_path)
+                                           .map_err(|e| eprintln!("Can't load user fonts: {}", e))
+                                           .unwrap_or_default();
             let current_family = self.info.reader.as_ref()
                                      .and_then(|r| r.font_family.clone())
                                      .unwrap_or_else(|| context.settings.reader.font_family.clone());
