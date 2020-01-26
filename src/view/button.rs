@@ -6,7 +6,7 @@ use super::{THICKNESS_MEDIUM, BORDER_RADIUS_LARGE};
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::gesture::GestureEvent;
-use crate::color::{BLACK, TEXT_NORMAL, TEXT_INVERTED_HARD};
+use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::unit::scale_by_dpi;
 use crate::app::Context;
 

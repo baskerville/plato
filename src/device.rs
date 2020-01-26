@@ -3,7 +3,6 @@ use std::fmt;
 use std::path::PathBuf;
 use std::collections::HashMap;
 use lazy_static::lazy_static;
-use crate::unit::scale_by_dpi;
 use crate::input::TouchProto;
 
 pub const INTERNAL_CARD_ROOT: &str = "/mnt/onboard";
