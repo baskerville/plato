@@ -354,8 +354,9 @@ lazy_static! {
 mod tests {
     use std::env;
     use std::path::PathBuf;
-    use super::{scale_by_dpi, Device, Model};
-    use crate::device::{CURRENT_DEVICE, EXTERNAL_CARD_ROOT, INTERNAL_CARD_ROOT, FrontlightKind, Orientation};
+    use crate::unit::scale_by_dpi;
+    use super::{Device, Model, FrontlightKind, Orientation};
+    use super::{CURRENT_DEVICE, EXTERNAL_CARD_ROOT, INTERNAL_CARD_ROOT};
 
     #[test]
     fn test_global_static_current_device() {
