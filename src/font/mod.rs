@@ -244,17 +244,24 @@ pub struct FontFamily {
 }
 
 pub fn family_names<P: AsRef<Path>>(search_path: P) -> Result<BTreeSet<String>, Error> {
+    if !search_path.as_ref().exists() {
+        return Err(format_err!("The search path doesn't exist."));
+    }
+
     let opener = FontOpener::new()?;
     let end_path = Path::new("**").join("*.[ot]tf");
     let pattern_path = search_path.as_ref().join(&end_path);
-    let pattern = pattern_path.to_str().unwrap_or_default();
+    let pattern = pattern_path.to_str().ok_or_else(|| format_err!("The search path contains invalid characters."))?;
 
     let mut families = BTreeSet::new();
 
     for path in glob(pattern)?.filter_map(Result::ok) {
-        let font = opener.open(&path)?;
-        if let Some(family_name) = font.family_name() {
-            families.insert(family_name.to_string());
+        if let Ok(font) = opener.open(&path).map_err(|e| eprintln!("Can't open '{}': {}", path.display(), e)) {
+            if let Some(family_name) = font.family_name() {
+                families.insert(family_name.to_string());
+            } else {
+                eprintln!("Can't get the family name of '{}'.", path.display());
+            }
         }
     }
 
