@@ -5,7 +5,7 @@ use std::thread;
 use std::process;
 use std::fs::{self, File};
 use std::path::PathBuf;
-use reqwest::Client;
+use reqwest::blocking::Client;
 use serde_json::json;
 use chrono::{Duration, Utc, Local, DateTime};
 use serde::{Serialize, Deserialize};

@@ -31,18 +31,18 @@ failure_derive = "0.1.6"
 fnv = "1.0.6"
 lazy_static = "1.4.0"
 libc = "0.2.66"
-png = "0.15.2"
-regex = "1.3.1"
+png = "0.15.3"
+regex = "1.3.4"
 serde = "1.0.104"
 serde_derive = "1.0.104"
-serde_json = "1.0.44"
-titlecase = "0.10.0"
-unicode-normalization = "0.1.11"
+serde_json = "1.0.46"
+titlecase = "1.1.0"
+unicode-normalization = "0.1.12"
 glob = "0.3.0"
-rand = "0.7.2"
+rand = "0.7.3"
 crockford = "1.0.1"
-toml = "0.5.5"
-zip = "0.5.3"
+toml = "0.5.6"
+zip = "0.5.4"
 kl-hyphenate = "0.7.2"
 entities = "1.0.1"
 paragraph-breaker = "0.4.3"
@@ -58,8 +58,8 @@ version = "0.2.21"
 optional = true
 
 [dependencies.reqwest]
-version = "0.9.24"
-features = ["rustls-tls"]
+version = "0.10.1"
+features = ["rustls-tls", "json", "blocking"]
 default-features = false
 optional = true
 
@@ -68,7 +68,7 @@ features = ["serde"]
 version = "0.4.10"
 
 [dependencies.sdl2]
-version = "0.32.2"
+version = "0.33.0"
 optional = true
 
 [dependencies.crossbeam-channel]
@@ -76,7 +76,7 @@ version = "0.4.0"
 optional = true
 
 [dependencies.signal-hook]
-version = "0.1.12"
+version = "0.1.13"
 optional = true
 
 [features]
