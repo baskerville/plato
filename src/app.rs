@@ -38,6 +38,7 @@ use crate::view::intermission::{Intermission, IntermKind};
 use crate::view::notification::Notification;
 use crate::device::{CURRENT_DEVICE, Orientation, FrontlightKind, INTERNAL_CARD_ROOT};
 use crate::font::Fonts;
+use crate::rtc::Rtc;
 
 pub const APP_NAME: &str = "Plato";
 const INPUT_HISTORY_SIZE: usize = 32;
@@ -50,6 +51,7 @@ const PREPARE_SUSPEND_WAIT_DELAY: Duration = Duration::from_secs(3);
 
 pub struct Context {
     pub fb: Box<dyn Framebuffer>,
+    pub rtc: Option<Rtc>,
     pub display: Display,
     pub settings: Settings,
     pub metadata: Metadata,
@@ -70,12 +72,12 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(fb: Box<dyn Framebuffer>, settings: Settings, metadata: Metadata,
+    pub fn new(fb: Box<dyn Framebuffer>, rtc: Option<Rtc>, settings: Settings, metadata: Metadata,
                filename: PathBuf, fonts: Fonts, battery: Box<dyn Battery>,
                frontlight: Box<dyn Frontlight>, lightsensor: Box<dyn LightSensor>) -> Context {
         let dims = fb.dims();
         let rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
-        Context { fb, display: Display { dims, rotation },
+        Context { fb, rtc, display: Display { dims, rotation },
                   settings, metadata, filename, fonts, dictionaries: BTreeMap::new(), keyboard_layouts: BTreeMap::new(),
                   input_history: HashMap::new(), battery, frontlight, lightsensor, notification_index: 0,
                   kb_rect: Rectangle::default(), plugged: false, covered: false, shared: false, online: false }
@@ -155,6 +157,9 @@ struct HistoryItem {
 }
 
 fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
+    let rtc = Rtc::new("/dev/rtc0")
+                  .map_err(|e| eprintln!("Can't open RTC device: {}.", e))
+                  .ok();
     let path = Path::new(SETTINGS_PATH);
     let settings = load_toml::<Settings, _>(path);
     let mut initial_run = false;
@@ -209,7 +214,7 @@ fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
                                         .context("Can't create premixed frontlight.")?) as Box<dyn Frontlight>,
     };
 
-    Ok(Context::new(fb, settings, metadata, PathBuf::from(METADATA_FILENAME),
+    Ok(Context::new(fb, rtc, settings, metadata, PathBuf::from(METADATA_FILENAME),
                     fonts, battery, frontlight, lightsensor))
 }
 
@@ -640,6 +645,13 @@ pub fn run() -> Result<(), Error> {
                               SUSPEND_WAIT_DELAY, &tx, &mut tasks);
             },
             Event::Suspend => {
+                if context.settings.auto_power_off > 0 {
+                    context.rtc.iter().for_each(|rtc| {
+                        rtc.set_alarm(context.settings.auto_power_off)
+                           .map_err(|e| eprintln!("Can't set alarm: {}.", e))
+                           .ok();
+                    });
+                }
                 println!("{}", Local::now().format("Went to sleep on %B %-d, %Y at %H:%M."));
                 Command::new("scripts/suspend.sh")
                         .status()
@@ -649,6 +661,24 @@ pub fn run() -> Result<(), Error> {
                         .status()
                         .ok();
                 inactive_since = Instant::now();
+                if context.settings.auto_power_off > 0 {
+                    if let Some(enabled) = context.rtc.as_ref()
+                                                  .and_then(|rtc| rtc.is_alarm_enabled()
+                                                                     .map_err(|e| eprintln!("Can't get alarm: {}", e))
+                                                                     .ok()) {
+                        if enabled {
+                            context.rtc.iter().for_each(|rtc| {
+                                rtc.disable_alarm()
+                                   .map_err(|e| eprintln!("Can't disable alarm: {}.", e))
+                                   .ok();
+                            });
+                        } else {
+                            power_off(view.as_mut(), &mut history, &mut updating, &mut context);
+                            exit_status = ExitStatus::PowerOff;
+                            break;
+                        }
+                    }
+                }
             },
             Event::PrepareShare => {
                 if context.shared {

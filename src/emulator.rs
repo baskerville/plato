@@ -17,6 +17,7 @@ mod frontlight;
 mod lightsensor;
 mod symbolic_path;
 mod trash;
+mod rtc;
 mod app;
 
 use std::mem;
@@ -81,7 +82,7 @@ pub fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let frontlight = Box::new(LightLevels::default()) as Box<dyn Frontlight>;
     let lightsensor = Box::new(0u16) as Box<dyn LightSensor>;
     let fonts = Fonts::load()?;
-    Ok(Context::new(fb, settings, metadata, PathBuf::from(METADATA_FILENAME),
+    Ok(Context::new(fb, None, settings, metadata, PathBuf::from(METADATA_FILENAME),
                     fonts, battery, frontlight, lightsensor))
 }
 

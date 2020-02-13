@@ -13,6 +13,7 @@ mod dictionary;
 mod document;
 mod metadata;
 mod symbolic_path;
+mod rtc;
 mod settings;
 mod trash;
 mod view;

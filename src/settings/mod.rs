@@ -59,6 +59,7 @@ pub struct Settings {
     pub rotation_lock: Option<RotationLock>,
     pub button_scheme: ButtonScheme,
     pub auto_suspend: u8,
+    pub auto_power_off: u8,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub intermission_images: HashMap<String, PathBuf>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -299,6 +300,7 @@ impl Default for Settings {
             rotation_lock: None,
             button_scheme: ButtonScheme::Natural,
             auto_suspend: 30,
+            auto_power_off: 3,
             intermission_images: HashMap::new(),
             home: HomeSettings::default(),
             reader: ReaderSettings::default(),
