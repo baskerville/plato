@@ -1,14 +1,21 @@
 #![allow(unused)]
 
 use std::mem;
+use std::ptr;
+use nix::{ioctl_write_ptr, ioctl_readwrite, ioctl_read_bad, ioctl_write_ptr_bad};
+
+ioctl_read_bad!(read_variable_screen_info, FBIOGET_VSCREENINFO, VarScreenInfo);
+ioctl_write_ptr_bad!(write_variable_screen_info, FBIOPUT_VSCREENINFO, VarScreenInfo);
+ioctl_read_bad!(read_fixed_screen_info, FBIOGET_FSCREENINFO, FixScreenInfo);
 
 pub const FBIOGET_VSCREENINFO: libc::c_ulong = 0x4600;
 pub const FBIOPUT_VSCREENINFO: libc::c_ulong = 0x4601;
 pub const FBIOGET_FSCREENINFO: libc::c_ulong = 0x4602;
 
-// Platform dependent
-pub const MXCFB_SEND_UPDATE: libc::c_ulong = 0x4044_462E;
-pub const MXCFB_WAIT_FOR_UPDATE_COMPLETE: libc::c_ulong = 0x4004_462F;
+ioctl_write_ptr!(send_update_v1, b'F', 0x2E, MxcfbUpdateDataV1);
+ioctl_write_ptr!(send_update_v2, b'F', 0x2E, MxcfbUpdateDataV2);
+ioctl_write_ptr!(wait_for_update_v1, b'F', 0x2F, u32);
+ioctl_readwrite!(wait_for_update_v2, b'F', 0x2F, MxcfbUpdateMarkerData);
 
 #[repr(C)]
 #[derive(Clone, Debug)]
@@ -99,9 +106,15 @@ pub struct MxcfbRect {
     pub height: u32,
 }
 
+impl Default for MxcfbRect {
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Debug)]
-pub struct MxcfbAltBufferData {
+pub struct MxcfbAltBufferDataV1 {
     pub virt_addr: *const libc::c_void,
     pub phys_addr: u32,
     pub width: u32,
@@ -109,40 +122,81 @@ pub struct MxcfbAltBufferData {
     pub alt_update_region: MxcfbRect,
 }
 
+impl Default for MxcfbAltBufferDataV1 {
+    fn default() -> Self {
+        MxcfbAltBufferDataV1 {
+            virt_addr: ptr::null(),
+            phys_addr: 0,
+            width: 0,
+            height: 0,
+            alt_update_region: MxcfbRect::default(),
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Debug)]
-pub struct MxcfbUpdateData {
+pub struct MxcfbUpdateDataV1 {
     pub update_region: MxcfbRect,
     pub waveform_mode: u32,
     pub update_mode: u32,
     pub update_marker: u32,
     pub temp: libc::c_int,
     pub flags: libc::c_uint,
-    pub alt_buffer_data: MxcfbAltBufferData,
+    pub alt_buffer_data: MxcfbAltBufferDataV1,
+}
+
+#[repr(C)]
+#[derive(Clone, Debug)]
+pub struct MxcfbUpdateMarkerData {
+    pub update_marker: u32,
+    pub collision_test: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Debug)]
+pub struct MxcfbAltBufferDataV2 {
+    pub phys_addr: u32,
+    pub width: u32,
+    pub height: u32,
+    pub alt_update_region: MxcfbRect,
+}
+
+impl Default for MxcfbAltBufferDataV2 {
+    fn default() -> Self {
+        MxcfbAltBufferDataV2 {
+            phys_addr: 0,
+            width: 0,
+            height: 0,
+            alt_update_region: MxcfbRect::default(),
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Debug)]
+pub struct MxcfbUpdateDataV2 {
+    pub update_region: MxcfbRect,
+    pub waveform_mode: u32,
+    pub update_mode: u32,
+    pub update_marker: u32,
+    pub temp: libc::c_int,
+    pub flags: libc::c_uint,
+    pub dither_mode: libc::c_int,
+    pub quant_bit: libc::c_int,
+    pub alt_buffer_data: MxcfbAltBufferDataV2,
 }
 
 pub const WAVEFORM_MODE_AUTO: u32 = 0x101;
 
-// Table taken from ice40_eink_controller
-//
-//    Type  │ Initial State │ Final State │ Waveform Period
-//    ──────┼───────────────┼─────────────┼────────────────
-//    INIT  │      0-F      │      F      │    4000 ms 
-//    DU    │      0-F      │     0/F     │     260 ms
-//    GC16  │      0-F      │     0-F     │     760 ms
-//    GC4   │      0-F      │   0/5/A/F   │     500 ms
-//    A2    │      0/F      │     0/F     │     120 ms
-
-// Most of the comments are taken from include/linux/mxcfb.h in
-// the kindle's Oasis sources (Kindle_src_5.8.10_3202110019.tar.gz)
-pub const NTX_WFM_MODE_INIT: u32  = 0; // Screen goes to white (clears)
-pub const NTX_WFM_MODE_DU: u32    = 1; // Grey->white/grey->black
-pub const NTX_WFM_MODE_GC16: u32  = 2; // High fidelity (flashing)
+pub const NTX_WFM_MODE_INIT: u32  = 0;
+pub const NTX_WFM_MODE_DU: u32    = 1;
+pub const NTX_WFM_MODE_GC16: u32  = 2;
 pub const NTX_WFM_MODE_GC4: u32   = 3;
-pub const NTX_WFM_MODE_A2: u32    = 4; // Fast but low fidelity
-pub const NTX_WFM_MODE_GL16: u32  = 5; // High fidelity from white transition
-pub const NTX_WFM_MODE_GLR16: u32 = 6; // Used for partial REAGL updates?
-pub const NTX_WFM_MODE_GLD16: u32 = 7; // Dithering REAGL?
+pub const NTX_WFM_MODE_A2: u32    = 4;
+pub const NTX_WFM_MODE_GL16: u32  = 5;
+pub const NTX_WFM_MODE_GLR16: u32 = 6;
+pub const NTX_WFM_MODE_GLD16: u32 = 7;
 
 pub const UPDATE_MODE_PARTIAL: u32 = 0x0;
 pub const UPDATE_MODE_FULL: u32    = 0x1;
@@ -151,3 +205,19 @@ pub const TEMP_USE_AMBIENT: libc::c_int = 0x1000;
 
 pub const EPDC_FLAG_ENABLE_INVERSION: libc::c_uint = 0x01;
 pub const EPDC_FLAG_FORCE_MONOCHROME: libc::c_uint = 0x02;
+
+pub const EPDC_FLAG_TEST_COLLISION: libc::c_uint = 0x200;
+pub const EPDC_FLAG_GROUP_UPDATE: libc::c_uint = 0x400;
+
+pub const EPDC_FLAG_USE_AAD: libc::c_uint = 0x1000;
+pub const EPDC_FLAG_USE_REGAL: libc::c_uint = 0x8000;
+
+pub const EPDC_FLAG_USE_DITHERING_Y1: libc::c_uint = 0x2000;
+pub const EPDC_FLAG_USE_DITHERING_Y4: libc::c_uint = 0x4000;
+pub const EPDC_FLAG_USE_DITHERING_NTX_D8: libc::c_uint = 0x100000;
+
+pub const EPDC_FLAG_USE_DITHERING_PASSTHROUGH: libc::c_uint = 0;
+// pub const EPDC_FLAG_USE_DITHERING_FLOYD_STEINBERG: libc::c_uint = 1;
+// pub const EPDC_FLAG_USE_DITHERING_ATKINSON: libc::c_uint = 2;
+pub const EPDC_FLAG_USE_DITHERING_ORDERED: libc::c_uint = 3;
+// pub const EPDC_FLAG_USE_DITHERING_QUANT_ONLY: libc::c_uint = 4;

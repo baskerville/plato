@@ -2,4 +2,3 @@
 - Metadata view.
 - Complex/fuzzy search queries?
 - Applications: Notes, Terminal, Browser.
-- Use nix's ioctl macros.

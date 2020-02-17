@@ -67,7 +67,7 @@ impl Shelf {
         }
 
         self.max_lines = max_lines;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+        hub.send(Event::Render(self.rect, UpdateMode::Partial)).ok();
     }
 }
 

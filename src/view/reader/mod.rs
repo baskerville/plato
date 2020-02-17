@@ -912,14 +912,10 @@ impl Reader {
     fn update(&mut self, update_mode: Option<UpdateMode>, hub: &Hub) {
         self.page_turns += 1;
         let update_mode = update_mode.unwrap_or_else(|| {
-            if self.refresh_every > 0 {
-                if self.page_turns % (self.refresh_every as usize) == 0 {
-                    UpdateMode::Full
-                } else {
-                    UpdateMode::Partial
-                }
-            } else {
+            if self.refresh_every == 0 || self.page_turns % (self.refresh_every as usize) != 0 {
                 UpdateMode::Partial
+            } else {
+                UpdateMode::Full
             }
         });
 
