@@ -175,7 +175,8 @@ pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<dyn Document>> {
     file_kind(path.as_ref()).and_then(|k| {
         match k.as_ref() {
             "epub" => {
-                EpubDocument::new(path)
+                EpubDocument::new(&path)
+                             .map_err(|e| eprintln!("{}: {}.", path.as_ref().display(), e))
                              .map(|d| Box::new(d) as Box<dyn Document>).ok()
             },
             "djvu" | "djv" => {
