@@ -32,6 +32,7 @@ pub struct KoboFramebuffer {
     frame_size: libc::size_t, 
     token: u32,
     flags: u32,
+    monochrome: bool,
     set_pixel_rgb: SetPixelRgb,
     get_pixel_rgb: GetPixelRgb,
     as_rgb: AsRgb,
@@ -75,6 +76,7 @@ impl KoboFramebuffer {
                    frame_size,
                    token: 1,
                    flags: 0,
+                   monochrome: false,
                    set_pixel_rgb,
                    get_pixel_rgb,
                    as_rgb,
@@ -138,7 +140,7 @@ impl Framebuffer for KoboFramebuffer {
         let mut flags = self.flags;
         let mark = CURRENT_DEVICE.mark();
 
-        let (update_mode, waveform_mode) = match mode {
+        let (update_mode, mut waveform_mode) = match mode {
             UpdateMode::Gui => (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO),
             UpdateMode::Partial  => {
                 if mark >= 7 {
@@ -157,6 +159,15 @@ impl Framebuffer for KoboFramebuffer {
                 (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2)
             },
         };
+
+        if self.monochrome {
+            flags |= EPDC_FLAG_FORCE_MONOCHROME;
+            waveform_mode = if mark >= 7 {
+                NTX_WFM_MODE_DU
+            } else {
+                NTX_WFM_MODE_A2
+            };
+        }
 
         let result = if mark >= 7 {
             let update_data = MxcfbUpdateDataV2 {
@@ -277,15 +288,11 @@ impl Framebuffer for KoboFramebuffer {
     }
 
     fn set_monochrome(&mut self, enable: bool) {
-        if enable {
-            self.flags |= EPDC_FLAG_FORCE_MONOCHROME;
-        } else {
-            self.flags &= !EPDC_FLAG_FORCE_MONOCHROME;
-        }
+        self.monochrome = enable;
     }
 
     fn monochrome(&self) -> bool {
-        self.flags & EPDC_FLAG_FORCE_MONOCHROME != 0
+        self.monochrome
     }
 
     fn width(&self) -> u32 {
