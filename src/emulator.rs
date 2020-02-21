@@ -351,7 +351,6 @@ pub fn run() -> Result<(), Error> {
                     } else {
                         if context.display.rotation != rotation {
                             if let Ok(dims) = context.fb.set_rotation(rotation) {
-                                raw_sender.send(display_rotate_event(rotation)).ok();
                                 context.display.rotation = rotation;
                                 context.display.dims = dims;
                             }
