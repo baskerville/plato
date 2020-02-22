@@ -298,7 +298,7 @@ impl Default for Settings {
             auto_share: false,
             rotation_lock: None,
             button_scheme: ButtonScheme::Natural,
-            auto_suspend: 15,
+            auto_suspend: 30,
             intermission_images: HashMap::new(),
             home: HomeSettings::default(),
             reader: ReaderSettings::default(),
