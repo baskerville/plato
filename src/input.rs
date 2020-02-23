@@ -40,6 +40,10 @@ pub const MSC_RAW_GSENSOR_LANDSCAPE_RIGHT: i32 = 0x19;
 pub const MSC_RAW_GSENSOR_LANDSCAPE_LEFT: i32 = 0x1a;
 // pub const MSC_RAW_GSENSOR_BACK: i32 = 0x1b;
 // pub const MSC_RAW_GSENSOR_FRONT: i32 = 0x1c;
+
+pub const GYROSCOPE_ROTATIONS: [i32; 4] = [MSC_RAW_GSENSOR_LANDSCAPE_LEFT, MSC_RAW_GSENSOR_PORTRAIT_UP,
+                                           MSC_RAW_GSENSOR_LANDSCAPE_RIGHT, MSC_RAW_GSENSOR_PORTRAIT_DOWN];
+
 pub const VAL_RELEASE: i32 = 0;
 pub const VAL_PRESS: i32 = 1;
 pub const VAL_REPEAT: i32 = 2;
@@ -446,14 +450,11 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
             }
         } else if evt.kind == EV_MSC && evt.code == MSC_RAW {
             if evt.value >= MSC_RAW_GSENSOR_PORTRAIT_DOWN && evt.value <= MSC_RAW_GSENSOR_LANDSCAPE_LEFT {
-                let next_rotation = match evt.value {
-                    MSC_RAW_GSENSOR_PORTRAIT_DOWN => 3,
-                    MSC_RAW_GSENSOR_PORTRAIT_UP => 1,
-                    MSC_RAW_GSENSOR_LANDSCAPE_RIGHT => 2,
-                    MSC_RAW_GSENSOR_LANDSCAPE_LEFT => 0,
-                    _ => rotation,
-                };
-                ty.send(DeviceEvent::RotateScreen(next_rotation)).ok();
+                let next_rotation = GYROSCOPE_ROTATIONS.iter().position(|&v| v == evt.value)
+                                                       .map(|i| CURRENT_DEVICE.transformed_gyroscope_rotation(i as i8));
+                if let Some(next_rotation) = next_rotation {
+                    ty.send(DeviceEvent::RotateScreen(next_rotation)).ok();
+                }
             }
         }
     }
