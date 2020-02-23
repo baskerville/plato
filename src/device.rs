@@ -318,7 +318,7 @@ impl Device {
 
     pub fn transformed_gyroscope_rotation(&self, n: i8) -> i8 {
         match self.model {
-            Model::LibraH2O => n ^ 2,
+            Model::LibraH2O => n ^ 0x1,
             _ => n,
         }
     }
