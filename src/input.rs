@@ -41,6 +41,7 @@ pub const MSC_RAW_GSENSOR_LANDSCAPE_LEFT: i32 = 0x1a;
 // pub const MSC_RAW_GSENSOR_BACK: i32 = 0x1b;
 // pub const MSC_RAW_GSENSOR_FRONT: i32 = 0x1c;
 
+// Order of elements is such that the indices match values for DeviceEvent::RotateScreen
 pub const GYROSCOPE_ROTATIONS: [i32; 4] = [MSC_RAW_GSENSOR_LANDSCAPE_LEFT, MSC_RAW_GSENSOR_PORTRAIT_UP,
                                            MSC_RAW_GSENSOR_LANDSCAPE_RIGHT, MSC_RAW_GSENSOR_PORTRAIT_DOWN];
 
