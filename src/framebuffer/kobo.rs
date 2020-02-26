@@ -162,11 +162,7 @@ impl Framebuffer for KoboFramebuffer {
 
         if self.monochrome {
             flags |= EPDC_FLAG_FORCE_MONOCHROME;
-            waveform_mode = if mark >= 7 {
-                NTX_WFM_MODE_DU
-            } else {
-                NTX_WFM_MODE_A2
-            };
+            waveform_mode = NTX_WFM_MODE_A2;
         }
 
         let result = if mark >= 7 {
