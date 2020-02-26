@@ -216,8 +216,14 @@ pub struct HomeSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
+pub struct RefreshRateSettings {
+    pub regular: u8,
+    pub inverted: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
 pub struct ReaderSettings {
-    pub refresh_every: u8,
     pub finished: FinishedAction,
     pub font_path: String,
     pub font_family: String,
@@ -225,6 +231,7 @@ pub struct ReaderSettings {
     pub text_align: TextAlign,
     pub margin_width: i32,
     pub line_height: f32,
+    pub refresh_rate: RefreshRateSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -251,10 +258,19 @@ impl Default for HomeSettings {
     }
 }
 
+impl Default for RefreshRateSettings {
+    fn default() -> Self {
+        RefreshRateSettings {
+            regular: 8,
+            inverted: 2,
+        }
+    }
+}
+
 impl Default for ReaderSettings {
     fn default() -> Self {
         ReaderSettings {
-            refresh_every: 8,
+            refresh_rate: RefreshRateSettings::default(),
             finished: FinishedAction::Notify,
             font_path: DEFAULT_FONT_PATH.to_string(),
             font_family: DEFAULT_FONT_FAMILY.to_string(),
