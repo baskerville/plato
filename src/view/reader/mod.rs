@@ -598,7 +598,7 @@ impl Reader {
         }
     }
 
-    fn page_scroll(&mut self, delta_y: i32, hub: &Hub, _context: &mut Context) {
+    fn page_scroll(&mut self, delta_y: i32, hub: &Hub, context: &mut Context) {
         if delta_y == 0 {
             return;
         }
@@ -646,7 +646,7 @@ impl Reader {
 
         self.view_port.top_offset = next_top_offset;
         self.current_page = location;
-        self.update(None, hub, _context);
+        self.update(None, hub, context);
 
         if location_changed {
             if let Some(ref mut s) = self.search {
