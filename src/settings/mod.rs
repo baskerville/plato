@@ -218,6 +218,7 @@ pub struct HomeSettings {
 #[serde(default, rename_all = "kebab-case")]
 pub struct ReaderSettings {
     pub refresh_every: u8,
+    pub refresh_every_inverted: u8,
     pub finished: FinishedAction,
     pub font_path: String,
     pub font_family: String,
@@ -255,6 +256,7 @@ impl Default for ReaderSettings {
     fn default() -> Self {
         ReaderSettings {
             refresh_every: 8,
+            refresh_every_inverted: 2,
             finished: FinishedAction::Notify,
             font_path: DEFAULT_FONT_PATH.to_string(),
             font_family: DEFAULT_FONT_FAMILY.to_string(),
