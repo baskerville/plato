@@ -467,7 +467,11 @@ pub enum SortMethod {
 impl SortMethod {
     pub fn reverse_order(self) -> bool {
         match self {
-            SortMethod::Author | SortMethod::Title | SortMethod::Kind => false,
+            SortMethod::Author |
+            SortMethod::Title |
+            SortMethod::Kind |
+            SortMethod::FileName |
+            SortMethod::FilePath => false,
             _ => true,
         }
     }
