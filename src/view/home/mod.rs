@@ -741,6 +741,12 @@ impl Home {
                                EntryKind::RadioButton("File Type".to_string(),
                                                       EntryId::Sort(SortMethod::Kind),
                                                       self.sort_method == SortMethod::Kind),
+                               EntryKind::RadioButton("File Name".to_string(),
+                                                      EntryId::Sort(SortMethod::FileName),
+                                                      self.sort_method == SortMethod::FileName),
+                               EntryKind::RadioButton("File Path".to_string(),
+                                                      EntryId::Sort(SortMethod::FilePath),
+                                                      self.sort_method == SortMethod::FilePath),
                                EntryKind::Separator,
                                EntryKind::CheckBox("Reverse Order".to_string(),
                                                    EntryId::ReverseOrder, self.reverse_order)];
