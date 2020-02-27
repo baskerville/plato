@@ -170,7 +170,6 @@ pub fn asciify(name: &str) -> String {
         .replace('’', "'")
 }
 
-
 pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<dyn Document>> {
     file_kind(path.as_ref()).and_then(|k| {
         match k.as_ref() {

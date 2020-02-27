@@ -452,12 +452,18 @@ pub enum SortMethod {
     Size,
     Kind,
     Pages,
+    FileName,
+    FilePath,
 }
 
 impl SortMethod {
     pub fn reverse_order(self) -> bool {
         match self {
-            SortMethod::Author | SortMethod::Title | SortMethod::Kind => false,
+            SortMethod::Author |
+            SortMethod::Title |
+            SortMethod::Kind |
+            SortMethod::FileName |
+            SortMethod::FilePath => false,
             _ => true,
         }
     }
@@ -473,6 +479,8 @@ impl SortMethod {
             SortMethod::Size => "File Size",
             SortMethod::Kind => "File Type",
             SortMethod::Pages => "Pages",
+            SortMethod::FileName => "File Name",
+            SortMethod::FilePath => "File Path",
         }
     }
 
@@ -492,6 +500,8 @@ pub fn sort(md: &mut Metadata, sort_method: SortMethod, reverse_order: bool) {
         SortMethod::Size => sort_size,
         SortMethod::Kind => sort_kind,
         SortMethod::Pages => sort_pages,
+        SortMethod::FileName => sort_filename,
+        SortMethod::FilePath => sort_filepath,
     };
     if reverse_order {
         md.sort_by(|a, b| sort_fn(a, b).reverse());
@@ -508,7 +518,6 @@ pub fn sort_opened(i1: &Info, i2: &Info) -> Ordering {
         (&Some(ref r1), &Some(ref r2)) => r1.opened.cmp(&r2.opened),
     }
 }
-
 
 pub fn sort_pages(i1: &Info, i2: &Info) -> Ordering {
     match (&i1.reader, &i2.reader) {
@@ -558,6 +567,14 @@ pub fn sort_kind(i1: &Info, i2: &Info) -> Ordering {
 
 pub fn sort_year(i1: &Info, i2: &Info) -> Ordering {
     i1.year.cmp(&i2.year)
+}
+
+pub fn sort_filename(i1: &Info, i2: &Info) -> Ordering {
+    i1.file.path.file_name().cmp(&i2.file.path.file_name())
+}
+
+pub fn sort_filepath(i1: &Info, i2: &Info) -> Ordering {
+    i1.file.path.cmp(&i2.file.path)
 }
 
 lazy_static! {
