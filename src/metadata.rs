@@ -340,14 +340,6 @@ impl Info {
         }
     }
 
-    pub fn file_path(&self) -> String {
-        self.file.path.to_string_lossy().into_owned()
-    }
-
-    pub fn file_name(&self) -> String {
-        self.file.path.file_name().unwrap().to_string_lossy().into_owned()
-    }
-
     pub fn file_stem(&self) -> String {
         self.file.path.file_stem().unwrap().to_string_lossy().into_owned()
     }
@@ -578,11 +570,11 @@ pub fn sort_year(i1: &Info, i2: &Info) -> Ordering {
 }
 
 pub fn sort_filename(i1: &Info, i2: &Info) -> Ordering {
-    i1.file_name().cmp(&i2.file_name())
+    i1.file.path.file_name().cmp(&i2.file.path.file_name())
 }
 
 pub fn sort_filepath(i1: &Info, i2: &Info) -> Ordering {
-    i1.file_path().cmp(&i2.file_path())
+    i1.file.path.cmp(&i2.file.path)
 }
 
 lazy_static! {
