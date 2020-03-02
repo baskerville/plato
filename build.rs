@@ -18,7 +18,6 @@ fn main() {
         if sys == "linux" {                         //=> assume compiling for Linux host
             println!("cargo:rustc-link-search=src/wrapper/Linux");
 
-            println!("cargo:rustc-link-lib=lcms2");
             println!("cargo:rustc-link-lib=mupdf-third");
             println!("cargo:rustc-link-lib=dylib=stdc++");
 
