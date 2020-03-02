@@ -33,7 +33,8 @@ pub enum FzSeparations {}
 pub enum FzImage {}
 
 #[link(name="mupdf")]
-#[link(name="mupdfwrapper")]
+#[link(name="mupdf_wrapper", kind="static")]
+
 extern {
     pub fn fz_new_context_imp(alloc_ctx: *const FzAllocContext, locks_ctx: *const FzLocksContext, cache_size: libc::size_t, version: *const libc::c_char) -> *mut FzContext;
     pub fn fz_drop_context(ctx: *mut FzContext);

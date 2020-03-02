@@ -9,8 +9,7 @@
 /css/*-user.css
 /hyphenation-patterns
 /dictionaries
-/src/wrapper/*.so
-/src/wrapper/*.dylib
+/src/mupdf_wrapper/*/
 /dist
 /plato-*.zip
 /thirdparty/*/*
