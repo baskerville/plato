@@ -23,6 +23,8 @@ fn main() {
             println!("cargo:rustc-link-lib=dylib=stdc++");
 
         } else {                                    //=> assume compiling for MacOS host
+            println!("cargo:rustc-link-search=src/wrapper/Darwin");
+
             println!("cargo:rustc-link-lib=mupdf-third");
             println!("cargo:rustc-link-lib=dylib=c++");
         }

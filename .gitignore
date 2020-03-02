@@ -13,6 +13,7 @@
 /src/wrapper/*.dylib
 /src/wrapper/Kobo
 /src/wrapper/Linux
+/src/wrapper/Darwin
 /dist
 /plato-*.zip
 /thirdparty/*/*
