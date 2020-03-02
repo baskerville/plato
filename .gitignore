@@ -11,6 +11,8 @@
 /dictionaries
 /src/wrapper/*.so
 /src/wrapper/*.dylib
+/src/wrapper/Kobo
+/src/wrapper/Linux
 /dist
 /plato-*.zip
 /thirdparty/*/*
