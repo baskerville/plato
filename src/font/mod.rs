@@ -227,7 +227,7 @@ extern {
     pub static _binary_NotoSerifTibetan_Regular_otf: [libc::c_uchar; 333516];
 }
 
-#[cfg(all(taget_os = "linux", not(target_arch = "arm")))]
+#[cfg(all(target_os = "linux", not(target_arch = "arm")))]
 #[link(name="mupdf")]
 extern {
     pub static _binary_resources_fonts_droid_DroidSansFallback_ttf_start: [libc::c_uchar; 3556308];
@@ -704,7 +704,7 @@ unsafe fn font_data_from_script(script: HbScript) -> &'static [libc::c_uchar] {
         _ => &_binary_DroidSansFallback_ttf,
     }
 
-    #[cfg(all(taget_os = "linux", not(target_arch = "arm")))]
+    #[cfg(all(target_os = "linux", not(target_arch = "arm")))]
     match script {
 	HB_SCRIPT_HANGUL |
 	HB_SCRIPT_HIRAGANA |
