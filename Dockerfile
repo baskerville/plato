@@ -11,4 +11,4 @@ RUN rustup target add arm-unknown-linux-gnueabihf
 # Build plato
 WORKDIR /plato
 ADD . /plato
-CMD ["./build.sh"]
+CMD ["./build-kobo.sh"]

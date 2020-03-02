@@ -20,7 +20,7 @@ COPY src/wrapper/ /tmp/wrapper/
 RUN wget -qO - "https://mupdf.com/downloads/archive/mupdf-1.16.0-source.tar.gz" | tar -xz --strip-components 1 -C "/tmp/thirdparty/mupdf/" \
 	&& cp /tmp/contrib/linux/mupdf/* /tmp/thirdparty/mupdf/ \
 	&& cd /tmp/thirdparty/mupdf/ && (patch -p1 < linux.patch) && ./build-linux.sh && cp /tmp/thirdparty/mupdf/build/release/libmupdf.so /usr/lib/ \
-	&& cd /tmp/wrapper/ && CFLAGS="-I /tmp/thirdparty/mupdf/include" ./build.sh && cp /tmp/wrapper/libmupdfwrapper.so /usr/lib/
+	&& cd /tmp/wrapper/ && CFLAGS="-I /tmp/thirdparty/mupdf/include" ./build.sh && cp /tmp/wrapper/Linux/libmupdfwrapper.so /usr/lib/
 
 # Build plato
 WORKDIR /plato
