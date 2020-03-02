@@ -19,7 +19,7 @@ rustup target add arm-unknown-linux-gnueabihf
 ```sh
 git clone https://github.com/baskerville/plato.git
 cd plato
-./build.sh
+./build-kobo.sh
 ```
 
 ## Distribution
