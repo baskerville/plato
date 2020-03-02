@@ -3,9 +3,10 @@ use std::env;
 fn main() {
     if env::var("HOST") != env::var("TARGET") {   // assume cross-compiling for Kobo
         println!("cargo:rustc-env=PKG_CONFIG_ALLOW_CROSS=1");
+        println!("cargo:rustc-link-search=src/wrapper/Kobo");
         println!("cargo:rustc-link-search=libs");
-    } else {                                      // assume compiling for host
-        println!("cargo:rustc-link-search=src/wrapper");
+    } else {                                      // assume compiling for Linux host
+        println!("cargo:rustc-link-search=src/wrapper/Linux");
         println!("cargo:rustc-link-lib=lcms2");
         println!("cargo:rustc-link-lib=mupdf-third");
     }

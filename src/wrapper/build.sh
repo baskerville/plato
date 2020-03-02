@@ -10,6 +10,7 @@ else
 	LIB_EXT=so
 fi
 
-$CC $CPPFLAGS $CFLAGS -fPIC -c mupdf.c
-$CC $LDFLAGS -shared -fPIC -o libmupdfwrapper.${LIB_EXT} mupdf.o
-rm mupdf.o
+mkdir -p ${TARGET_OS}
+$CC $CPPFLAGS $CFLAGS -fPIC -c mupdf.c -o ${TARGET_OS}/mupdf.o
+$CC $LDFLAGS -shared -fPIC -o ${TARGET_OS}/libmupdfwrapper.${LIB_EXT} ${TARGET_OS}/mupdf.o
+rm ${TARGET_OS}/mupdf.o

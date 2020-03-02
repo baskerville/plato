@@ -49,7 +49,7 @@ case "$method" in
 
 		cp thirdparty/djvulibre/libdjvu/.libs/libdjvulibre.so libs
 		cp thirdparty/mupdf/build/release/libmupdf.so libs
-		cp src/wrapper/libmupdfwrapper.so libs
+		cp src/wrapper/Kobo/libmupdfwrapper.so libs
 		;;
 
 	skip)
