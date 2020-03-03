@@ -3,7 +3,6 @@
 set -e
 
 CC=${CC:-gcc}
-LD=${LD:-ld}
 AR=${AR:-ar}
 
 TARGET_OS=${TARGET_OS:-$(uname -s)}

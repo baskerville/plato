@@ -11,9 +11,7 @@
 /dictionaries
 /src/mupdf_wrapper/*.so
 /src/mupdf_wrapper/*.dylib
-/src/mupdf_wrapper/Kobo
-/src/mupdf_wrapper/Linux
-/src/mupdf_wrapper/Darwin
+/src/mupdf_wrapper/*/
 /dist
 /plato-*.zip
 /thirdparty/*/*
