@@ -61,25 +61,25 @@ pub fn decode_entities(text: &str) -> Cow<str> {
 
 pub fn load_json<T, P: AsRef<Path>>(path: P) -> Result<T, Error> where for<'a> T: Deserialize<'a> {
     let file = File::open(path.as_ref())
-        .context(format!("Cannot open file '{}'.", path.as_ref().display()))?;
+        .context(format!("'{}': Cannot open file", path.as_ref().display()))?;
     serde_json::from_reader(file)
-        .context(format!("Cannot parse file '{}'.", path.as_ref().display()))
+        .context(format!("'{}': Cannot parse file", path.as_ref().display()))
         .map_err(Into::into)
 }
 
 pub fn save_json<T, P: AsRef<Path>>(data: &T, path: P) -> Result<(), Error> where T: Serialize {
     let file = File::create(path.as_ref())
-        .context(format!("Cannot create data file '{}'.", path.as_ref().display()))?;
+        .context(format!("'{}': Cannot create data file", path.as_ref().display()))?;
     serde_json::to_writer_pretty(file, data)
-        .context(format!("Cannot serialize data to file '{}'.", path.as_ref().display()))
+        .context(format!("'{}': Cannot serialize data to file", path.as_ref().display()))
         .map_err(Into::into)
 }
 
 pub fn load_toml<T, P: AsRef<Path>>(path: P) -> Result<T, Error> where for<'a> T: Deserialize<'a> {
     let s = fs::read_to_string(path.as_ref())
-        .context(format!("Cannot read file '{}'.", path.as_ref().display()))?;
+        .context(format!("'{}': Cannot read file", path.as_ref().display()))?;
     toml::from_str(&s)
-        .context(format!("Cannot parse file '{}'.", path.as_ref().display()))
+        .context(format!("'{}': Cannot parse file", path.as_ref().display()))
         .map_err(Into::into)
 }
 
@@ -87,7 +87,7 @@ pub fn save_toml<T, P: AsRef<Path>>(data: &T, path: P) -> Result<(), Error> wher
     let s = toml::to_string(data)
         .context("Cannot serialize data.")?;
     fs::write(path.as_ref(), &s)
-        .context(format!("Cannot write to file '{}'.", path.as_ref().display()))
+        .context(format!("'{}': Cannot write to file", path.as_ref().display()))
         .map_err(Into::into)
 }
 
