@@ -11,24 +11,23 @@ fn main() {
         println!("cargo:rustc-link-lib=dylib=stdc++");
 
     } else {
-        let tokens: Vec<&str> = quadruple.split('-').collect();
-        // [0] is <arch><sub> | [1] is <vendor> | [2] is <sys> | [3] is <abi>
-        let sys = tokens[2];
-
-        if sys == "linux" {                         //=> assume compiling for Linux host
+        let target = env::var("CARGO_CFG_TARGET_OS").unwrap();
+        if target == "linux" {                      //=> assume compiling for Linux host
             println!("cargo:rustc-link-search=src/mupdf_wrapper/Linux");
 
             println!("cargo:rustc-link-lib=mupdf-third");
             println!("cargo:rustc-link-lib=dylib=stdc++");
 
-        } else {                                    //=> assume compiling for MacOS host
+        } else if target == "macos" {               //=> assume compiling for MacOS host
             println!("cargo:rustc-link-search=src/mupdf_wrapper/Darwin");
 
             println!("cargo:rustc-link-lib=mupdf-third");
             println!("cargo:rustc-link-lib=dylib=c++");
+
+        } else {
+            panic!("Only linux and macos hosts are supported for now");
         }
-    }
-    //=> In any case...
+    }    //=> In any case...
     println!("cargo:rustc-link-lib=z");
     println!("cargo:rustc-link-lib=bz2");
     println!("cargo:rustc-link-lib=jpeg");
