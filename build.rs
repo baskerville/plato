@@ -5,7 +5,7 @@ fn main() {
     if quadruple == "arm-unknown-linux-gnueabihf" { //=> assume cross-compiling for Kobo
         println!("cargo:rustc-env=PKG_CONFIG_ALLOW_CROSS=1");
 
-        println!("cargo:rustc-link-search=src/wrapper/Kobo");
+        println!("cargo:rustc-link-search=src/mupdf_wrapper/Kobo");
         println!("cargo:rustc-link-search=libs");
 
         println!("cargo:rustc-link-lib=dylib=stdc++");
@@ -16,13 +16,13 @@ fn main() {
         let sys = tokens[2];
 
         if sys == "linux" {                         //=> assume compiling for Linux host
-            println!("cargo:rustc-link-search=src/wrapper/Linux");
+            println!("cargo:rustc-link-search=src/mupdf_wrapper/Linux");
 
             println!("cargo:rustc-link-lib=mupdf-third");
             println!("cargo:rustc-link-lib=dylib=stdc++");
 
         } else {                                    //=> assume compiling for MacOS host
-            println!("cargo:rustc-link-search=src/wrapper/Darwin");
+            println!("cargo:rustc-link-search=src/mupdf_wrapper/Darwin");
 
             println!("cargo:rustc-link-lib=mupdf-third");
             println!("cargo:rustc-link-lib=dylib=c++");

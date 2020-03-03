@@ -2,7 +2,7 @@
 
 set -e
 
-cd src/wrapper
+cd src/mupdf_wrapper
 ./build.sh
 cd ../..
 

@@ -10,7 +10,7 @@ case "$method" in
 	fast)
 		./download.sh 'libs/*'
 		cd libs
-		
+
 		ln -s libz.so.1 libz.so
 		ln -s libbz2.so.1.0 libbz2.so
 
@@ -24,15 +24,13 @@ case "$method" in
 
 		ln -s libdjvulibre.so.21 libdjvulibre.so
 		;;
+
 	slow)
 		shift
 		cd thirdparty
 		./download.sh "$@"
 		./build.sh "$@"
 		cd ..
-		cd src/wrapper
-		./build-kobo.sh
-		cd ../..
 
 		[ -e libs ] || mkdir libs
 
@@ -49,7 +47,6 @@ case "$method" in
 
 		cp thirdparty/djvulibre/libdjvu/.libs/libdjvulibre.so libs
 		cp thirdparty/mupdf/build/release/libmupdf.so libs
-		cp src/wrapper/Kobo/libmupdfwrapper.so libs
 		;;
 
 	skip)
@@ -59,5 +56,9 @@ case "$method" in
 		exit 1
 		;;
 esac
+
+cd src/mupdf_wrapper
+./build-kobo.sh
+cd ../..
 
 cargo build --release --target=arm-unknown-linux-gnueabihf

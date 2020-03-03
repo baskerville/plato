@@ -9,11 +9,11 @@
 /css/*-user.css
 /hyphenation-patterns
 /dictionaries
-/src/wrapper/*.so
-/src/wrapper/*.dylib
-/src/wrapper/Kobo
-/src/wrapper/Linux
-/src/wrapper/Darwin
+/src/mupdf_wrapper/*.so
+/src/mupdf_wrapper/*.dylib
+/src/mupdf_wrapper/Kobo
+/src/mupdf_wrapper/Linux
+/src/mupdf_wrapper/Darwin
 /dist
 /plato-*.zip
 /thirdparty/*/*
