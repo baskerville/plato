@@ -39,6 +39,14 @@ h6 {
 	margin: 1.67em 0;
 }
 
+dt {
+	margin-top: 1.12em;
+}
+
+dd {
+	margin-left: 1.5em;
+}
+
 pre, code, samp, kbd {
 	font-family: monospace;
 	font-size: 0.891em;
