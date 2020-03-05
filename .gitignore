@@ -6,6 +6,7 @@
 /libs
 /bin
 /Settings.toml
+/.metadata.json
 /css/*-user.css
 /hyphenation-patterns
 /dictionaries
