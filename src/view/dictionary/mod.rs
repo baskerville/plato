@@ -2,13 +2,13 @@ mod bottom_bar;
 
 use std::sync::mpsc;
 use regex::Regex;
-use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
 use crate::geom::{Rectangle, Point, Dir, CycleDir, halves};
 use crate::unit::scale_by_dpi;
 use crate::font::Fonts;
 use crate::view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind};
-use crate::view::{THICKNESS_MEDIUM};
+use crate::view::{SMALL_BAR_HEIGHT, BIG_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::document::{Document, Location};
 use crate::document::html::HtmlDocument;
 use crate::view::common::{locate_by_id, locate};
@@ -89,31 +89,30 @@ impl Dictionary {
     pub fn new(rect: Rectangle, query: &str, language: &str, hub: &Hub, context: &mut Context) -> Dictionary {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = context.display.dims;
-        let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
 
         let top_bar = TopBar::new(rect![rect.min.x, rect.min.y,
-                                        rect.max.x, rect.min.y + small_height as i32 - small_thickness],
+                                        rect.max.x, rect.min.y + small_height - small_thickness],
                                   Event::Back,
                                   "Dictionary".to_string(),
                                   context);
         children.push(Box::new(top_bar) as Box<dyn View>);
 
-        let separator = Filler::new(rect![rect.min.x, rect.min.y + small_height as i32 - small_thickness,
-                                          rect.max.x, rect.min.y + small_height as i32 + big_thickness],
+        let separator = Filler::new(rect![rect.min.x, rect.min.y + small_height - small_thickness,
+                                          rect.max.x, rect.min.y + small_height + big_thickness],
                                     BLACK);
         children.push(Box::new(separator) as Box<dyn View>);
 
-        let search_bar = SearchBar::new(rect![rect.min.x, rect.min.y + small_height as i32 + big_thickness,
-                                              rect.max.x, rect.min.y + 2 * small_height as i32 - small_thickness],
+        let search_bar = SearchBar::new(rect![rect.min.x, rect.min.y + small_height + big_thickness,
+                                              rect.max.x, rect.min.y + 2 * small_height - small_thickness],
                                         ViewId::DictionarySearchInput,
                                         "", query, context);
         children.push(Box::new(search_bar) as Box<dyn View>);
 
-        let separator = Filler::new(rect![rect.min.x, rect.min.y + 2 * small_height as i32 - small_thickness,
-                                          rect.max.x, rect.min.y + 2 * small_height as i32 + big_thickness],
+        let separator = Filler::new(rect![rect.min.x, rect.min.y + 2 * small_height - small_thickness,
+                                          rect.max.x, rect.min.y + 2 * small_height + big_thickness],
                                     BLACK);
         children.push(Box::new(separator) as Box<dyn View>);
 
@@ -131,8 +130,8 @@ impl Dictionary {
             }
         };
 
-        let image_rect = rect![rect.min.x, rect.min.y + 2 * small_height as i32 + big_thickness,
-                               rect.max.x, rect.max.y - small_height as i32 - small_thickness];
+        let image_rect = rect![rect.min.x, rect.min.y + 2 * small_height + big_thickness,
+                               rect.max.x, rect.max.y - small_height - small_thickness];
 
         let image = Image::new(image_rect, Pixmap::new(1, 1));
         children.push(Box::new(image) as Box<dyn View>);
@@ -143,12 +142,12 @@ impl Dictionary {
         doc.set_viewer_stylesheet(VIEWER_STYLESHEET);
         doc.set_user_stylesheet(USER_STYLESHEET);
 
-        let separator = Filler::new(rect![rect.min.x, rect.max.y - small_height as i32 - small_thickness,
-                                          rect.max.x, rect.max.y - small_height as i32 + big_thickness],
+        let separator = Filler::new(rect![rect.min.x, rect.max.y - small_height - small_thickness,
+                                          rect.max.x, rect.max.y - small_height + big_thickness],
                                     BLACK);
         children.push(Box::new(separator) as Box<dyn View>);
 
-        let bottom_bar = BottomBar::new(rect![rect.min.x, rect.max.y - small_height as i32 + big_thickness,
+        let bottom_bar = BottomBar::new(rect![rect.min.x, rect.max.y - small_height + big_thickness,
                                               rect.max.x, rect.max.y],
                                         target.as_ref().map(String::as_str).unwrap_or("All"), false, false);
         children.push(Box::new(bottom_bar) as Box<dyn View>);
@@ -261,15 +260,15 @@ impl Dictionary {
             }
 
             let dpi = CURRENT_DEVICE.dpi;
-            let (_, height) = context.display.dims;
-            let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+            let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                              scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
             let (small_thickness, big_thickness) = halves(thickness);
 
             let mut kb_rect = rect![self.rect.min.x,
                                     self.rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                                     self.rect.max.x,
-                                    self.rect.max.y - small_height as i32 - small_thickness];
+                                    self.rect.max.y - small_height - small_thickness];
 
             let number = id == Some(ViewId::GoToPageInput);
             let index = locate::<BottomBar>(self).unwrap() + 1;
@@ -370,11 +369,10 @@ impl Dictionary {
 
     fn follow_link(&mut self, pt: Point, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = context.display.dims;
-        let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (_, big_thickness) = halves(thickness);
-        let offset = pt!(self.rect.min.x, self.rect.min.y + 2 * small_height as i32 + big_thickness);
+        let offset = pt!(self.rect.min.x, self.rect.min.y + 2 * small_height + big_thickness);
 
         if let Some((links, _)) = self.doc.links(Location::Exact(self.location)) {
             for link in links {
@@ -531,29 +529,29 @@ impl View for Dictionary {
 
     fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = context.display.dims;
-        let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                          scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
 
         self.children[0].resize(rect![rect.min.x, rect.min.y,
-                                      rect.max.x, rect.min.y + small_height as i32 - small_thickness],
+                                      rect.max.x, rect.min.y + small_height - small_thickness],
                                 hub, context);
 
-        self.children[1].resize(rect![rect.min.x, rect.min.y + small_height as i32 - small_thickness,
-                                      rect.max.x, rect.min.y + small_height as i32 + big_thickness],
+        self.children[1].resize(rect![rect.min.x, rect.min.y + small_height - small_thickness,
+                                      rect.max.x, rect.min.y + small_height + big_thickness],
                                 hub, context);
 
-        self.children[2].resize(rect![rect.min.x, rect.min.y + small_height as i32 + big_thickness,
-                                      rect.max.x, rect.min.y + 2 * small_height as i32 - small_thickness],
+        self.children[2].resize(rect![rect.min.x, rect.min.y + small_height + big_thickness,
+                                      rect.max.x, rect.min.y + 2 * small_height - small_thickness],
                                 hub, context);
 
-        self.children[3].resize(rect![rect.min.x, rect.min.y + 2 * small_height as i32 - small_thickness,
-                                      rect.max.x, rect.min.y + 2 * small_height as i32 + big_thickness],
+        self.children[3].resize(rect![rect.min.x, rect.min.y + 2 * small_height - small_thickness,
+                                      rect.max.x, rect.min.y + 2 * small_height + big_thickness],
                                 hub, context);
 
-        let image_rect = rect![rect.min.x, rect.min.y + 2 * small_height as i32 + big_thickness,
-                               rect.max.x, rect.max.y - small_height as i32 - small_thickness];
+        let image_rect = rect![rect.min.x, rect.min.y + 2 * small_height + big_thickness,
+                               rect.max.x, rect.max.y - small_height - small_thickness];
         self.doc.layout(image_rect.width(), image_rect.height(), context.settings.dictionary.font_size, dpi);
         if let Some(image) = self.children[4].downcast_mut::<Image>() {
             if let Some((pixmap, loc)) = self.doc.pixmap(Location::Exact(self.location), 1.0) {
@@ -564,11 +562,11 @@ impl View for Dictionary {
         }
         self.children[4].resize(image_rect, hub, context);
 
-        self.children[5].resize(rect![rect.min.x, rect.max.y - small_height as i32 - small_thickness,
-                                      rect.max.x, rect.max.y - small_height as i32 + big_thickness],
+        self.children[5].resize(rect![rect.min.x, rect.max.y - small_height - small_thickness,
+                                      rect.max.x, rect.max.y - small_height + big_thickness],
                                 hub, context);
 
-        self.children[6].resize(rect![rect.min.x, rect.max.y - small_height as i32 + big_thickness,
+        self.children[6].resize(rect![rect.min.x, rect.max.y - small_height + big_thickness,
                                       rect.max.x, rect.max.y],
                                 hub, context);
         if let Some(bottom_bar) = self.children[6].downcast_mut::<BottomBar>() {
@@ -581,7 +579,7 @@ impl View for Dictionary {
                 let kb_rect = rect![rect.min.x,
                                     rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                                     rect.max.x,
-                                    rect.max.y - small_height as i32 - small_thickness];
+                                    rect.max.y - small_height - small_thickness];
                 self.children[8].resize(kb_rect, hub, context);
                 let kb_rect = *self.children[8].rect();
                 self.children[7].resize(rect![rect.min.x, kb_rect.min.y - thickness,

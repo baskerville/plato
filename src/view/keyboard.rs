@@ -1,16 +1,18 @@
 use fnv::FnvHashMap;
 use lazy_static::lazy_static;
-use serde_derive::Deserialize;
-use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use serde::Deserialize;
+use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::gesture::GestureEvent;
 use crate::input::DeviceEvent;
 use super::{View, Event, Hub, Bus, KeyboardEvent, EntryId, TextKind};
 use super::key::{Key, KeyKind};
+use super::BIG_BAR_HEIGHT;
 use crate::color::KEYBOARD_BG;
 use crate::font::Fonts;
 use crate::app::Context;
 use crate::geom::Rectangle;
+use crate::unit::scale_by_dpi;
 
 pub type Keys = Vec<Vec<KeyKind>>;
 const PADDING_RATIO: f32 = 0.06;
@@ -73,10 +75,9 @@ impl Keyboard {
         let padding = PADDING_RATIO * key_height;
 
         let rows_height = key_height * rows_count as f32 + padding * (rows_count + 1) as f32;
-        let (_, height) = context.display.dims;
-        let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
-        let height_gap = (rect.height() - rows_height.round() as u32) / big_height;
-        rect.min.y += (height_gap * big_height) as i32;
+        let big_height = scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32;
+        let height_gap = (rect.height() - rows_height.round() as u32) / big_height as u32;
+        rect.min.y += height_gap as i32 * big_height;
         context.kb_rect = *rect;
 
         let start_y = rect.min.y as f32 + padding + (rect.height() as f32 - rows_height) / 2.0;
@@ -241,7 +242,8 @@ impl View for Keyboard {
             Event::Select(EntryId::SetKeyboardLayout(ref name)) => {
                 if *name != context.settings.keyboard_layout {
                     context.settings.keyboard_layout = name.to_string();
-                    // FIXME: the keyboard's height might change, in which case, we shall notify the root view.
+                    // FIXME: the keyboard's height might change, in which case,
+                    // we shall notify the root view.
                     *self = Keyboard::new(&mut self.rect, self.state.alternate == 2, context);
                     hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
                 }
@@ -295,10 +297,9 @@ impl View for Keyboard {
         let padding = PADDING_RATIO * key_height;
 
         let rows_height = key_height * rows_count as f32 + padding * (rows_count + 1) as f32;
-        let (_, height) = context.display.dims;
-        let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
-        let height_gap = (rect.height() - rows_height.round() as u32) / big_height;
-        rect.min.y += (height_gap * big_height) as i32;
+        let big_height = scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32;
+        let height_gap = (rect.height() - rows_height.round() as u32) / big_height as u32;
+        rect.min.y += height_gap as i32 * big_height;
 
         let start_y = rect.min.y as f32 + padding + (rect.height() as f32 - rows_height) / 2.0;
         let mut index = 0;

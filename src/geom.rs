@@ -1,6 +1,6 @@
-use serde_derive::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize};
 use std::cmp::Ordering;
-use std::f32::{self, consts};
+use std::f32::consts;
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -248,6 +248,8 @@ pub fn big_half(n: i32) -> i32 {
     n - small_half(n)
 }
 
+// Returns a Vec v, of size p, such that the sum all the elements is n.
+// Each element x in v is such that |x - n/p| < 1.
 pub fn divide(n: i32, p: i32) -> Vec<i32> {
     let size = n.checked_div(p).unwrap_or(0);
     let mut rem = n - p * size;

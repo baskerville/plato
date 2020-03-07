@@ -2,7 +2,7 @@ mod standard;
 mod natural;
 mod premixed;
 
-use serde_derive::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize};
 pub use self::standard::StandardFrontlight;
 pub use self::natural::NaturalFrontlight;
 pub use self::premixed::PremixedFrontlight;

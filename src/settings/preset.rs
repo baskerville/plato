@@ -1,4 +1,3 @@
-use std::f32;
 use chrono::{Local, Timelike};
 use serde::{Serialize, Deserialize};
 use crate::frontlight::LightLevels;
@@ -43,8 +42,8 @@ pub fn guess_frontlight(lightsensor_level: Option<u16>, light_presets: &[LightPr
         .. Default::default()
     };
 
-    let mut dmin = [u16::max_value(); 2];
-    let mut index = [usize::max_value(); 2];
+    let mut dmin = [u16::MAX; 2];
+    let mut index = [usize::MAX; 2];
 
     if light_presets[0].lightsensor_level.is_some() {
         let s = cur.lightsensor_level.unwrap_or_default();
@@ -79,11 +78,11 @@ pub fn guess_frontlight(lightsensor_level: Option<u16>, light_presets: &[LightPr
         }
     }
 
-    if dmin[0] == 0 || dmin[1] == u16::max_value() {
+    if dmin[0] == 0 || dmin[1] == u16::MAX {
         return Some(light_presets[index[0]].frontlight_levels);
     }
     
-    if dmin[1] == 0 || dmin[0] == u16::max_value() {
+    if dmin[1] == 0 || dmin[0] == u16::MAX {
         return Some(light_presets[index[1]].frontlight_levels);
     }
 

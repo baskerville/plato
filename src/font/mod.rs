@@ -13,8 +13,10 @@ use std::path::Path;
 use std::collections::{HashMap, BTreeSet};
 use std::rc::Rc;
 use bitflags::bitflags;
-use failure::{Error, Fail, format_err};
-use glob::glob;
+use anyhow::{Error, format_err};
+use thiserror::Error;
+use globset::Glob;
+use walkdir::WalkDir;
 use crate::geom::Point;
 use crate::framebuffer::Framebuffer;
 
@@ -380,14 +382,6 @@ extern {
 
 pub const SLIDER_VALUE: Style = MD_SIZE;
 
-const CATEGORY_DEPTH_LIMIT: usize = 5;
-
-pub fn category_font_size(depth: usize) -> u32 {
-    let k = (2.0 / 3.0f32).powf(CATEGORY_DEPTH_LIMIT.min(depth) as f32 /
-                                CATEGORY_DEPTH_LIMIT as f32);
-    (k * FONT_SIZES[1] as f32) as u32
-}
-
 pub struct FontFamily {
     pub regular: Font,
     pub italic: Font,
@@ -401,14 +395,16 @@ pub fn family_names<P: AsRef<Path>>(search_path: P) -> Result<BTreeSet<String>, 
     }
 
     let opener = FontOpener::new()?;
-    let end_path = Path::new("**").join("*.[ot]tf");
-    let pattern_path = search_path.as_ref().join(&end_path);
-    let pattern = pattern_path.to_str().ok_or_else(|| format_err!("The search path contains invalid characters."))?;
+    let glob = Glob::new("**/*.[ot]tf")?.compile_matcher();
 
     let mut families = BTreeSet::new();
 
-    for path in glob(pattern)?.filter_map(Result::ok) {
-        if let Ok(font) = opener.open(&path).map_err(|e| eprintln!("Can't open '{}': {}", path.display(), e)) {
+    for entry in WalkDir::new(search_path.as_ref()).min_depth(1).into_iter().filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if !glob.is_match(path) {
+            continue;
+        }
+        if let Ok(font) = opener.open(path).map_err(|e| eprintln!("Can't open '{}': {}", path.display(), e)) {
             if let Some(family_name) = font.family_name() {
                 families.insert(family_name.to_string());
             } else {
@@ -423,18 +419,19 @@ pub fn family_names<P: AsRef<Path>>(search_path: P) -> Result<BTreeSet<String>, 
 impl FontFamily {
     pub fn from_name<P: AsRef<Path>>(family_name: &str, search_path: P) -> Result<FontFamily, Error> {
         let opener = FontOpener::new()?;
-        let end_path = Path::new("**").join("*.[ot]tf");
-        let pattern_path = search_path.as_ref().join(&end_path);
-        let pattern = pattern_path.to_str().unwrap_or_default();
-
+        let glob = Glob::new("**/*.[ot]tf")?.compile_matcher();
         let mut styles = HashMap::new();
 
-        for path in glob(pattern)?.filter_map(Result::ok) {
-            let font = opener.open(&path)?;
+        for entry in WalkDir::new(search_path.as_ref()).min_depth(1).into_iter().filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if !glob.is_match(path) {
+                continue;
+            }
+            let font = opener.open(path)?;
             if font.family_name() == Some(family_name) {
                 styles.insert(font.style_name().map(String::from)
                                   .unwrap_or_else(|| "Regular".to_string()),
-                              path.clone());
+                              path.to_path_buf());
             }
         }
 
@@ -1227,11 +1224,11 @@ impl Font {
         }
     }
 
-    pub fn plan(&mut self, txt: &str, max_width: Option<u32>, features: Option<&[String]>) -> RenderPlan {
+    pub fn plan<S: AsRef<str>>(&mut self, text: S, max_width: Option<u32>, features: Option<&[String]>) -> RenderPlan {
         unsafe {
             let buf = hb_buffer_create();
-            hb_buffer_add_utf8(buf, txt.as_ptr() as *const libc::c_char,
-                               txt.len() as libc::c_int, 0, -1);
+            hb_buffer_add_utf8(buf, text.as_ref().as_ptr() as *const libc::c_char,
+                               text.as_ref().len() as libc::c_int, 0, -1);
 
             // If the direction is RTL, the clusters are given in reverse order.
             hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
@@ -1285,7 +1282,7 @@ impl Font {
                 render_plan.glyphs.push(glyph);
             }
 
-            self.patch(txt, &features_vec, &mut render_plan, missing_glyphs, buf);
+            self.patch(text.as_ref(), &features_vec, &mut render_plan, missing_glyphs, buf);
 
             hb_buffer_destroy(buf);
 
@@ -1304,6 +1301,7 @@ impl Font {
         }
 
         render_plan.width += self.ellipsis.width;
+
         while let Some(gp) = render_plan.glyphs.pop() {
             render_plan.width -= gp.advance.x as u32;
             if render_plan.width <= max_width {
@@ -1314,6 +1312,29 @@ impl Font {
         let len = render_plan.glyphs.len();
         render_plan.scripts.retain(|&k, _| k < len);
         render_plan.glyphs.extend_from_slice(&self.ellipsis.glyphs[..]);
+    }
+
+    #[inline]
+    pub fn trim_left(&self, render_plan: &mut RenderPlan) {
+        if render_plan.glyphs.is_empty() {
+            return;
+        }
+
+        let mut i = 0;
+
+        while render_plan.glyphs[i].codepoint == self.space_codepoint {
+            render_plan.width -= render_plan.glyphs[i].advance.x as u32;
+            i += 1;
+        }
+
+        render_plan.glyphs.drain(..i);
+        render_plan.scripts = render_plan.scripts.iter().filter_map(|(&k, &v)| {
+            if k < i {
+                None
+            } else {
+                Some((k - i, v))
+            }
+        }).collect();
     }
 
     #[inline]
@@ -1605,285 +1626,285 @@ fn tag(c1: u8, c2: u8, c3: u8, c4: u8) -> u32 {
     ((c1 as u32) << 24) | ((c2 as u32) << 16) | ((c3 as u32) << 8) | c4 as u32
 }
 
-#[derive(Fail, Debug)]
+#[derive(Error, Debug)]
 enum FreetypeError {
-    #[fail(display = "Unknown error with code {}.", _0)]
+    #[error("Unknown error with code {0}.")]
     UnknownError(FtError),
 
-    #[fail(display = "Cannot open resource.")]
+    #[error("Cannot open resource.")]
     CannotOpenResource,
 
-    #[fail(display = "Unknown file format.")]
+    #[error("Unknown file format.")]
     UnknownFileFormat,
 
-    #[fail(display = "Broken file.")]
+    #[error("Broken file.")]
     InvalidFileFormat,
 
-    #[fail(display = "Invalid FreeType version.")]
+    #[error("Invalid FreeType version.")]
     InvalidVersion,
 
-    #[fail(display = "Module version is too low.")]
+    #[error("Module version is too low.")]
     LowerModuleVersion,
 
-    #[fail(display = "Invalid argument.")]
+    #[error("Invalid argument.")]
     InvalidArgument,
 
-    #[fail(display = "Unimplemented feature.")]
+    #[error("Unimplemented feature.")]
     UnimplementedFeature,
 
-    #[fail(display = "Broken table.")]
+    #[error("Broken table.")]
     InvalidTable,
 
-    #[fail(display = "Broken offset within table.")]
+    #[error("Broken offset within table.")]
     InvalidOffset,
 
-    #[fail(display = "Array allocation size too large.")]
+    #[error("Array allocation size too large.")]
     ArrayTooLarge,
 
-    #[fail(display = "Missing module.")]
+    #[error("Missing module.")]
     MissingModule,
 
-    #[fail(display = "Missing property.")]
+    #[error("Missing property.")]
     MissingProperty,
 
-    #[fail(display = "Invalid glyph index.")]
+    #[error("Invalid glyph index.")]
     InvalidGlyphIndex,
 
-    #[fail(display = "Invalid character code.")]
+    #[error("Invalid character code.")]
     InvalidCharacterCode,
 
-    #[fail(display = "Unsupported glyph image format.")]
+    #[error("Unsupported glyph image format.")]
     InvalidGlyphFormat,
 
-    #[fail(display = "Cannot render this glyph format.")]
+    #[error("Cannot render this glyph format.")]
     CannotRenderGlyph,
 
-    #[fail(display = "Invalid outline.")]
+    #[error("Invalid outline.")]
     InvalidOutline,
 
-    #[fail(display = "Invalid composite glyph.")]
+    #[error("Invalid composite glyph.")]
     InvalidComposite,
 
-    #[fail(display = "Too many hints.")]
+    #[error("Too many hints.")]
     TooManyHints,
 
-    #[fail(display = "Invalid pixel size.")]
+    #[error("Invalid pixel size.")]
     InvalidPixelSize,
 
-    #[fail(display = "Invalid object handle.")]
+    #[error("Invalid object handle.")]
     InvalidHandle,
 
-    #[fail(display = "Invalid library handle.")]
+    #[error("Invalid library handle.")]
     InvalidLibraryHandle,
 
-    #[fail(display = "Invalid module handle.")]
+    #[error("Invalid module handle.")]
     InvalidDriverHandle,
 
-    #[fail(display = "Invalid face handle.")]
+    #[error("Invalid face handle.")]
     InvalidFaceHandle,
 
-    #[fail(display = "Invalid size handle.")]
+    #[error("Invalid size handle.")]
     InvalidSizeHandle,
 
-    #[fail(display = "Invalid glyph slot handle.")]
+    #[error("Invalid glyph slot handle.")]
     InvalidSlotHandle,
 
-    #[fail(display = "Invalid charmap handle.")]
+    #[error("Invalid charmap handle.")]
     InvalidCharMapHandle,
 
-    #[fail(display = "Invalid cache manager handle.")]
+    #[error("Invalid cache manager handle.")]
     InvalidCacheHandle,
 
-    #[fail(display = "Invalid stream handle.")]
+    #[error("Invalid stream handle.")]
     InvalidStreamHandle,
 
-    #[fail(display = "Too many modules.")]
+    #[error("Too many modules.")]
     TooManyDrivers,
 
-    #[fail(display = "Too many extensions.")]
+    #[error("Too many extensions.")]
     TooManyExtensions,
 
-    #[fail(display = "Out of memory.")]
+    #[error("Out of memory.")]
     OutOfMemory,
 
-    #[fail(display = "Unlisted object.")]
+    #[error("Unlisted object.")]
     UnlistedObject,
 
-    #[fail(display = "Cannot open stream.")]
+    #[error("Cannot open stream.")]
     CannotOpenStream,
 
-    #[fail(display = "Invalid stream seek.")]
+    #[error("Invalid stream seek.")]
     InvalidStreamSeek,
 
-    #[fail(display = "Invalid stream skip.")]
+    #[error("Invalid stream skip.")]
     InvalidStreamSkip,
 
-    #[fail(display = "Invalid stream read.")]
+    #[error("Invalid stream read.")]
     InvalidStreamRead,
 
-    #[fail(display = "Invalid stream operation.")]
+    #[error("Invalid stream operation.")]
     InvalidStreamOperation,
 
-    #[fail(display = "Invalid frame operation.")]
+    #[error("Invalid frame operation.")]
     InvalidFrameOperation,
 
-    #[fail(display = "Nested frame access.")]
+    #[error("Nested frame access.")]
     NestedFrameAccess,
 
-    #[fail(display = "Invalid frame read.")]
+    #[error("Invalid frame read.")]
     InvalidFrameRead,
 
-    #[fail(display = "Raster uninitialized.")]
+    #[error("Raster uninitialized.")]
     RasterUninitialized,
 
-    #[fail(display = "Raster corrupted.")]
+    #[error("Raster corrupted.")]
     RasterCorrupted,
 
-    #[fail(display = "Raster overflow.")]
+    #[error("Raster overflow.")]
     RasterOverflow,
 
-    #[fail(display = "Negative height while rastering.")]
+    #[error("Negative height while rastering.")]
     RasterNegativeHeight,
 
-    #[fail(display = "Too many registered caches.")]
+    #[error("Too many registered caches.")]
     TooManyCaches,
 
-    #[fail(display = "Invalid opcode.")]
+    #[error("Invalid opcode.")]
     InvalidOpcode,
 
-    #[fail(display = "Too few arguments.")]
+    #[error("Too few arguments.")]
     TooFewArguments,
 
-    #[fail(display = "Stack overflow.")]
+    #[error("Stack overflow.")]
     StackOverflow,
 
-    #[fail(display = "Code overflow.")]
+    #[error("Code overflow.")]
     CodeOverflow,
 
-    #[fail(display = "Bad argument.")]
+    #[error("Bad argument.")]
     BadArgument,
 
-    #[fail(display = "Division by zero.")]
+    #[error("Division by zero.")]
     DivideByZero,
 
-    #[fail(display = "Invalid reference.")]
+    #[error("Invalid reference.")]
     InvalidReference,
 
-    #[fail(display = "Found debug opcode.")]
+    #[error("Found debug opcode.")]
     DebugOpCode,
 
-    #[fail(display = "Found ENDF opcode in execution stream.")]
+    #[error("Found ENDF opcode in execution stream.")]
     ENDFInExecStream,
 
-    #[fail(display = "Nested DEFS.")]
+    #[error("Nested DEFS.")]
     NestedDEFS,
 
-    #[fail(display = "Invalid code range.")]
+    #[error("Invalid code range.")]
     InvalidCodeRange,
 
-    #[fail(display = "Execution context too long.")]
+    #[error("Execution context too long.")]
     ExecutionTooLong,
 
-    #[fail(display = "Too many function definitions.")]
+    #[error("Too many function definitions.")]
     TooManyFunctionDefs,
 
-    #[fail(display = "Too many instruction definitions.")]
+    #[error("Too many instruction definitions.")]
     TooManyInstructionDefs,
 
-    #[fail(display = "SFNT font table missing.")]
+    #[error("SFNT font table missing.")]
     TableMissing,
 
-    #[fail(display = "Horizontal header (hhea) table missing.")]
+    #[error("Horizontal header (hhea) table missing.")]
     HorizHeaderMissing,
 
-    #[fail(display = "Locations (loca) table missing.")]
+    #[error("Locations (loca) table missing.")]
     LocationsMissing,
 
-    #[fail(display = "Name table missing.")]
+    #[error("Name table missing.")]
     NameTableMissing,
 
-    #[fail(display = "Character map (cmap) table missing.")]
+    #[error("Character map (cmap) table missing.")]
     CMapTableMissing,
 
-    #[fail(display = "Horizontal metrics (hmtx) table missing.")]
+    #[error("Horizontal metrics (hmtx) table missing.")]
     HmtxTableMissing,
 
-    #[fail(display = "PostScript (post) table missing.")]
+    #[error("PostScript (post) table missing.")]
     PostTableMissing,
 
-    #[fail(display = "Invalid horizontal metrics.")]
+    #[error("Invalid horizontal metrics.")]
     InvalidHorizMetrics,
 
-    #[fail(display = "Invalid character map (cmap) format.")]
+    #[error("Invalid character map (cmap) format.")]
     InvalidCharMapFormat,
 
-    #[fail(display = "Invalid ppem value.")]
+    #[error("Invalid ppem value.")]
     InvalidPPem,
 
-    #[fail(display = "Invalid vertical metrics.")]
+    #[error("Invalid vertical metrics.")]
     InvalidVertMetrics,
 
-    #[fail(display = "Could not find context.")]
+    #[error("Could not find context.")]
     CouldNotFindContext,
 
-    #[fail(display = "Invalid PostScript (post) table format.")]
+    #[error("Invalid PostScript (post) table format.")]
     InvalidPostTableFormat,
 
-    #[fail(display = "Invalid PostScript (post) table.")]
+    #[error("Invalid PostScript (post) table.")]
     InvalidPostTable,
 
-    #[fail(display = "Found FDEF or IDEF opcode in glyf bytecode.")]
+    #[error("Found FDEF or IDEF opcode in glyf bytecode.")]
     DEFInGlyfBytecode,
 
-    #[fail(display = "Missing bitmap in strike.")]
+    #[error("Missing bitmap in strike.")]
     MissingBitmap,
 
-    #[fail(display = "Opcode syntax error.")]
+    #[error("Opcode syntax error.")]
     SyntaxError,
 
-    #[fail(display = "Argument stack underflow.")]
+    #[error("Argument stack underflow.")]
     StackUnderflow,
 
-    #[fail(display = "Ignore.")]
+    #[error("Ignore.")]
     Ignore,
 
-    #[fail(display = "No Unicode glyph name found.")]
+    #[error("No Unicode glyph name found.")]
     NoUnicodeGlyphName,
 
-    #[fail(display = "Glyph too big for hinting.")]
+    #[error("Glyph too big for hinting.")]
     GlyphTooBig,
 
-    #[fail(display = "`STARTFONT' field missing.")]
+    #[error("`STARTFONT' field missing.")]
     MissingStartfontField,
 
-    #[fail(display = "`FONT' field missing.")]
+    #[error("`FONT' field missing.")]
     MissingFontField,
 
-    #[fail(display = "`SIZE' field missing.")]
+    #[error("`SIZE' field missing.")]
     MissingSizeField,
 
-    #[fail(display = "`FONTBOUNDINGBOX' field missing.")]
+    #[error("`FONTBOUNDINGBOX' field missing.")]
     MissingFontboundingboxField,
 
-    #[fail(display = "`CHARS' field missing.")]
+    #[error("`CHARS' field missing.")]
     MissingCharsField,
 
-    #[fail(display = "`STARTCHAR' field missing.")]
+    #[error("`STARTCHAR' field missing.")]
     MissingStartcharField,
 
-    #[fail(display = "`ENCODING' field missing.")]
+    #[error("`ENCODING' field missing.")]
     MissingEncodingField,
 
-    #[fail(display = "`BBX' field missing.")]
+    #[error("`BBX' field missing.")]
     MissingBbxField,
 
-    #[fail(display = "`BBX' too big.")]
+    #[error("`BBX' too big.")]
     BbxTooBig,
 
-    #[fail(display = "Font header corrupted or missing fields.")]
+    #[error("Font header corrupted or missing fields.")]
     CorruptedFontHeader,
 
-    #[fail(display = "Font glyphs corrupted or missing fields.")]
+    #[error("Font glyphs corrupted or missing fields.")]
     CorruptedFontGlyphs,
 }
 

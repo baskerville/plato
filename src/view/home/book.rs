@@ -6,7 +6,7 @@ use crate::color::{BLACK, WHITE, READING_PROGRESS};
 use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::gesture::GestureEvent;
 use crate::metadata::{Info, Status};
-use crate::settings::SecondColumn;
+use crate::settings::{FirstColumn, SecondColumn};
 use crate::unit::scale_by_dpi;
 use crate::document::HumanSize;
 use crate::font::{Fonts, font_from_style};
@@ -20,17 +20,19 @@ pub struct Book {
     children: Vec<Box<dyn View>>,
     info: Info,
     index: usize,
+    first_column: FirstColumn,
     second_column: SecondColumn,
     active: bool,
 }
 
 impl Book {
-    pub fn new(rect: Rectangle, info: Info, index: usize, second_column: SecondColumn) -> Book {
+    pub fn new(rect: Rectangle, info: Info, index: usize, first_column: FirstColumn, second_column: SecondColumn) -> Book {
         Book {
             rect,
             children: vec![],
             info,
             index,
+            first_column,
             second_column,
             active: false,
         }
@@ -75,8 +77,15 @@ impl View for Book {
 
         fb.draw_rectangle(&self.rect, scheme[0]);
 
-        let title = self.info.title();
-        let author = self.info.author();
+        let (title, author) = if self.first_column == FirstColumn::TitleAndAuthor {
+            (self.info.title(), self.info.author.as_str())
+        } else {
+            let filename = self.info.file.path.file_stem()
+                               .map(|v| v.to_string_lossy().into_owned())
+                               .unwrap_or_default();
+            (filename, "")
+        };
+
         let year = &self.info.year;
         let file_info = &self.info.file;
 
@@ -104,6 +113,8 @@ impl View for Book {
         {
             let font = font_from_style(fonts, &MD_TITLE, dpi);
             let mut plan = font.plan(&title, None, None);
+            let mut title_lines = 1;
+
             if plan.width > width as u32 {
                 let available = width - author_width;
                 if available > 3 * padding {
@@ -111,11 +122,13 @@ impl View for Book {
                     let leftover = (plan.width - usable_width) as i32;
                     if leftover > 2 * padding {
                         let mut plan2 = plan.split_off(index, usable_width);
-                        let max_width = available - padding;
+                        let max_width = available - if author_width > 0 { padding } else { 0 };
+                        font.trim_left(&mut plan2);
                         font.crop_right(&mut plan2, max_width as u32);
                         let pt = pt!(self.rect.min.x + first_width - small_half_padding - plan2.width as i32,
                                      self.rect.max.y - baseline);
                         font.render(fb, scheme[1], &plan2, pt);
+                        title_lines += 1;
                     } else {
                         font.crop_right(&mut plan, width as u32);
                     }
@@ -123,7 +136,14 @@ impl View for Book {
                     font.crop_right(&mut plan, width as u32);
                 }
             }
-            let pt = self.rect.min + pt!(padding, baseline + x_height);
+
+            let dy = if author_width == 0 && title_lines == 1 {
+                (self.rect.height() as i32 - x_height) / 2 + x_height
+            } else {
+                baseline + x_height
+            };
+
+            let pt = self.rect.min + pt!(padding, dy);
             font.render(fb, scheme[1], &plan, pt);
         }
 

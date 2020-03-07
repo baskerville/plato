@@ -23,7 +23,7 @@ impl Button {
     pub fn new(rect: Rectangle, event: Event, text: String) -> Button {
         Button {
             rect,
-            children: vec![],
+            children: Vec::new(),
             event,
             text,
             active: false,

@@ -1,4 +1,4 @@
-use failure::Error;
+use anyhow::Error;
 use super::{Battery, Status};
 
 pub struct FakeBattery {

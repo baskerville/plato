@@ -50,7 +50,7 @@ use fnv::FnvHashMap;
 use downcast_rs::{Downcast, impl_downcast};
 use crate::font::Fonts;
 use crate::document::{Location, TextLocation, TocEntry};
-use crate::settings::{ButtonScheme, SecondColumn, RotationLock};
+use crate::settings::{ButtonScheme, FirstColumn, SecondColumn, RotationLock};
 use crate::metadata::{Info, ZoomMode, SortMethod, TextAlign, SimpleStatus, PageScheme, Margin};
 use crate::geom::{LinearDir, CycleDir, Rectangle, Boundary};
 use crate::framebuffer::{Framebuffer, UpdateMode};
@@ -61,13 +61,20 @@ use self::key::KeyKind;
 use self::intermission::IntermKind;
 use crate::app::Context;
 
+// Border thicknesses in pixels, at 300 DPI.
 pub const THICKNESS_SMALL: f32 = 1.0;
 pub const THICKNESS_MEDIUM: f32 = 2.0;
 pub const THICKNESS_LARGE: f32 = 3.0;
 
+// Border radii in pixels, at 300 DPI.
 pub const BORDER_RADIUS_SMALL: f32 = 6.0;
 pub const BORDER_RADIUS_MEDIUM: f32 = 9.0;
 pub const BORDER_RADIUS_LARGE: f32 = 12.0;
+
+// Big and small bar heights in pixels, at 300 DPI.
+// On the *Aura ONE*, the height is exactly `2 * sb + 10 * bb`.
+pub const SMALL_BAR_HEIGHT: f32 = 121.0;
+pub const BIG_BAR_HEIGHT: f32 = 163.0;
 
 pub const CLOSE_IGNITION_DELAY: Duration = Duration::from_millis(150);
 
@@ -233,13 +240,11 @@ pub enum Event {
     Keyboard(KeyboardEvent),
     Key(KeyKind),
     AddDocument(Box<Info>),
-    RemoveDocument(PathBuf),
     Open(Box<Info>),
     OpenToc(Vec<TocEntry>, usize),
     LoadPixmap(usize),
     Update(UpdateMode),
     Invalid(Box<Info>),
-    Remove(Box<Info>),
     Notify(String),
     Page(CycleDir),
     ResultsPage(CycleDir),
@@ -249,10 +254,9 @@ pub enum Event {
     CropMargins(Box<Margin>),
     Chapter(CycleDir),
     Sort(SortMethod),
-    ToggleSelectCategory(String),
-    ToggleNegateCategory(String),
-    ToggleNegateCategoryChildren(String),
-    ResizeSummary(i32),
+    SelectDirectory(PathBuf),
+    ToggleSelectDirectory(PathBuf),
+    NavigationBarResized(i32),
     Focus(Option<ViewId>),
     Select(EntryId),
     PropagateSelect(EntryId),
@@ -263,7 +267,6 @@ pub enum Event {
     ToggleNear(ViewId, Rectangle),
     ToggleInputHistoryMenu(ViewId, Rectangle),
     ToggleBookMenu(Rectangle, usize),
-    ToggleCategoryMenu(Rectangle, String),
     TogglePresetMenu(Rectangle, usize),
     SubMenu(Rectangle, Vec<EntryKind>),
     ProcessLine(LineOrigin, String),
@@ -331,9 +334,9 @@ pub enum ViewId {
     ContrastExponentMenu,
     ContrastGrayMenu,
     LineHeightMenu,
-    CategoryMenu,
+    DirectoryMenu,
     BookMenu,
-    MatchesMenu,
+    LibraryMenu,
     PageMenu,
     PresetMenu,
     MarginCropperMenu,
@@ -349,17 +352,13 @@ pub enum ViewId {
     EditNoteInput,
     EditLanguages,
     EditLanguagesInput,
-    SaveAs,
-    SaveAsInput,
-    AddCategories,
-    AddCategoriesInput,
-    RenameCategory,
-    RenameCategoryInput,
     HomeSearchInput,
     ReaderSearchInput,
     DictionarySearchInput,
     CalculatorInput,
     SearchBar,
+    AddressBar,
+    AddressBarInput,
     Keyboard,
     ConfirmShare,
     MarginCropper,
@@ -444,27 +443,20 @@ pub enum EntryKind {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EntryId {
-    Save,
-    SaveAs,
-    Import,
+    LoadLibrary(usize),
     Load(PathBuf),
-    Reload,
+    Flush,
+    Save,
+    Import,
     CleanUp,
     Sort(SortMethod),
-    StatusFilter(Option<SimpleStatus>),
     ReverseOrder,
-    EmptyTrash,
-    Remove(PathBuf),
-    RenameCategory(String),
-    RemoveCategory(String),
-    AddMatchesCategories,
-    ToggleSelectCategory(String),
-    AddBookCategories(PathBuf),
-    RemoveBookCategory(PathBuf, String),
+    AddDirectory(PathBuf),
+    ToggleSelectDirectory(PathBuf),
     SetStatus(PathBuf, SimpleStatus),
     ToggleIntermissionImage(IntermKind, PathBuf),
-    RemoveMatches,
     RemovePreset(usize),
+    FirstColumn(FirstColumn),
     SecondColumn(SecondColumn),
     ApplyCroppings(usize, PageScheme),
     RemoveCroppings,
@@ -494,6 +486,7 @@ pub enum EntryId {
     SetSearchTarget(Option<String>),
     SetInputText(ViewId, String),
     SetKeyboardLayout(String),
+    ToggleShowHidden,
     ToggleFuzzy,
     ToggleInverted,
     ToggleMonochrome,
@@ -511,7 +504,6 @@ pub enum EntryId {
     StartNickel,
     Reboot,
     Quit,
-    Undo,
 }
 
 impl EntryKind {

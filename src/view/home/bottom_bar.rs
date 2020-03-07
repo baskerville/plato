@@ -3,7 +3,7 @@ use crate::view::{View, Event, Hub, Bus};
 use crate::view::icon::Icon;
 use crate::view::filler::Filler;
 use crate::view::page_label::PageLabel;
-use super::matches_label::MatchesLabel;
+use super::library_label::LibraryLabel;
 use crate::geom::{Rectangle, CycleDir, halves};
 use crate::color::WHITE;
 use crate::app::Context;
@@ -18,7 +18,7 @@ pub struct BottomBar {
 }
 
 impl BottomBar {
-    pub fn new(rect: Rectangle, current_page: usize, pages_count: usize, count: usize, filter: bool) -> BottomBar {
+    pub fn new(rect: Rectangle, current_page: usize, pages_count: usize, name: &str, count: usize, filter: bool) -> BottomBar {
         let mut children = Vec::new();
         let side = rect.height() as i32;
         let is_prev_disabled = pages_count < 2 || current_page == 0;
@@ -37,11 +37,12 @@ impl BottomBar {
         }
 
         let (small_half_width, big_half_width) = halves(rect.width() as i32 - 2 * side);
-        let matches_label = MatchesLabel::new(rect![rect.min.x + side, rect.min.y,
+        let library_label = LibraryLabel::new(rect![rect.min.x + side, rect.min.y,
                                                     rect.min.x + side + small_half_width, rect.max.y],
+                                              name,
                                               count,
                                               filter);
-        children.push(Box::new(matches_label) as Box<dyn View>);
+        children.push(Box::new(library_label) as Box<dyn View>);
 
         let page_label = PageLabel::new(rect![rect.max.x - side - big_half_width, rect.min.y,
                                               rect.max.x - side, rect.max.y],
@@ -70,9 +71,9 @@ impl BottomBar {
         }
     }
 
-    pub fn update_matches_label(&mut self, count: usize, filter: bool, hub: &Hub) {
-        let matches_label = self.children[1].as_mut().downcast_mut::<MatchesLabel>().unwrap();
-        matches_label.update(count, filter, hub);
+    pub fn update_library_label(&mut self, name: &str, count: usize, filter: bool, hub: &Hub) {
+        let library_label = self.children[1].as_mut().downcast_mut::<LibraryLabel>().unwrap();
+        library_label.update(name, count, filter, hub);
     }
 
     pub fn update_page_label(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
@@ -132,9 +133,9 @@ impl View for BottomBar {
         let prev_rect = rect![rect.min, rect.min + side];
         self.children[0].resize(prev_rect, hub, context);
         let (small_half_width, big_half_width) = halves(rect.width() as i32 - 2 * side);
-        let matches_label_rect = rect![rect.min.x + side, rect.min.y,
+        let library_label_rect = rect![rect.min.x + side, rect.min.y,
                                        rect.min.x + side + small_half_width, rect.max.y];
-        self.children[1].resize(matches_label_rect, hub, context);
+        self.children[1].resize(library_label_rect, hub, context);
         let page_label_rect = rect![rect.max.x - side - big_half_width, rect.min.y,
                                     rect.max.x - side, rect.max.y];
 

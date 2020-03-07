@@ -1,7 +1,7 @@
 mod kobo;
 mod fake;
 
-use failure::Error;
+use anyhow::Error;
 
 pub use self::kobo::KoboBattery;
 pub use self::fake::FakeBattery;

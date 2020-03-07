@@ -4,11 +4,11 @@ use crate::gesture::GestureEvent;
 use crate::font::Fonts;
 use crate::geom::{Rectangle, Point, CornerSpec, BorderSpec};
 use crate::view::{View, Event, Hub, Bus, ViewId};
-use crate::view::THICKNESS_MEDIUM;
+use crate::view::{SMALL_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::view::rounded_button::RoundedButton;
 use crate::unit::scale_by_dpi;
 use crate::color::{BLACK, WHITE, GRAY12};
-use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use crate::device::CURRENT_DEVICE;
 use crate::app::Context;
 
 pub const BUTTON_DIAMETER: f32 = 30.0;
@@ -21,7 +21,7 @@ pub struct MarginCropper {
 }
 
 impl MarginCropper {
-    pub fn new(rect: Rectangle, pixmap: Pixmap, margin: &Margin, context: &mut Context) -> MarginCropper {
+    pub fn new(rect: Rectangle, pixmap: Pixmap, margin: &Margin, _context: &mut Context) -> MarginCropper {
         let mut children = Vec::new();
 
         let pt = pt!((rect.width() as i32 - pixmap.width as i32) / 2,
@@ -35,9 +35,8 @@ impl MarginCropper {
         let frame = rect![x_min, y_min, x_max, y_max];
 
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = context.display.dims;
-        let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
-        let big_button_diameter = small_height as i32;
+        let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
+        let big_button_diameter = small_height;
         let padding = big_button_diameter / 2;
 
         let cancel_button = RoundedButton::new("close",
@@ -66,7 +65,7 @@ impl MarginCropper {
 
     fn update(&mut self, start: Point, end: Point) {
         let mut nearest = None;
-        let mut dmin = u32::max_value();
+        let mut dmin = u32::MAX;
 
         for i in 0..3i32 {
             for j in 0..3i32 {

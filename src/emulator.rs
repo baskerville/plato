@@ -11,24 +11,23 @@ mod font;
 mod helpers;
 mod dictionary;
 mod document;
+mod library;
 mod metadata;
 mod settings;
 mod frontlight;
 mod lightsensor;
 mod symbolic_path;
-mod trash;
 mod rtc;
 mod app;
 
 use std::mem;
-use std::process;
 use std::thread;
 use std::fs::File;
 use std::sync::mpsc;
 use std::collections::VecDeque;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
-use failure::{Error, ResultExt};
+use anyhow::{Error, Context as ResultExt};
 use fnv::FnvHashMap;
 use chrono::Local;
 use sdl2::event::Event as SdlEvent;
@@ -51,8 +50,7 @@ use crate::view::calculator::Calculator;
 use crate::view::sketch::Sketch;
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
 use crate::view::common::{toggle_input_history_menu, toggle_keyboard_layout_menu};
-use crate::helpers::{load_json, save_json, load_toml, save_toml};
-use crate::metadata::{Metadata, METADATA_FILENAME, auto_import};
+use crate::helpers::{load_toml, save_toml};
 use crate::settings::{Settings, SETTINGS_PATH};
 use crate::geom::Rectangle;
 use crate::gesture::gesture_events;
@@ -60,6 +58,7 @@ use crate::device::CURRENT_DEVICE;
 use crate::battery::{Battery, FakeBattery};
 use crate::frontlight::{Frontlight, LightLevels};
 use crate::lightsensor::LightSensor;
+use crate::library::Library;
 use crate::font::Fonts;
 use crate::app::Context;
 
@@ -70,19 +69,19 @@ const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
 pub fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let settings = load_toml::<Settings, _>(SETTINGS_PATH)?;
-    let path = settings.library_path.join(METADATA_FILENAME);
-    let mut metadata = load_json::<Metadata, _>(path)?;
+    let library_settings = &settings.libraries[settings.selected_library];
+    let mut library = Library::new(&library_settings.path, library_settings.mode);
+
     if settings.import.startup_trigger {
-        let imported_metadata = auto_import(&settings.library_path,
-                                            &metadata,
-                                            &settings.import);
-        metadata.append(&mut imported_metadata.unwrap_or_default());
+        library.import(&library_settings.path, &settings.import);
     }
+
     let battery = Box::new(FakeBattery::new()) as Box<dyn Battery>;
     let frontlight = Box::new(LightLevels::default()) as Box<dyn Frontlight>;
     let lightsensor = Box::new(0u16) as Box<dyn LightSensor>;
     let fonts = Fonts::load()?;
-    Ok(Context::new(fb, None, settings, metadata, PathBuf::from(METADATA_FILENAME),
+
+    Ok(Context::new(fb, None, library, settings,
                     fonts, battery, frontlight, lightsensor))
 }
 
@@ -169,13 +168,13 @@ impl Framebuffer for WindowCanvas {
 
     fn save(&self, path: &str) -> Result<(), Error> {
         let (width, height) = self.dims();
-        let file = File::create(path).context("Can't create output file.")?;
+        let file = File::create(path).with_context(|| format!("Can't create output file {}.", path))?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set_depth(png::BitDepth::Eight);
         encoder.set_color(png::ColorType::RGB);
-        let mut writer = encoder.write_header().context("Can't write header.")?;
+        let mut writer = encoder.write_header().with_context(|| format!("Can't write PNG header for {}.", path))?;
         let data = self.read_pixels(self.viewport(), PixelFormatEnum::RGB24).unwrap_or_default();
-        writer.write_image_data(&data).context("Can't write data to file.")?;
+        writer.write_image_data(&data).with_context(|| format!("Can't write PNG data to {}.", path))?;
         Ok(())
     }
 
@@ -211,7 +210,7 @@ impl Framebuffer for WindowCanvas {
     }
 }
 
-pub fn run() -> Result<(), Error> {
+fn main() -> Result<(), Error> {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let (width, height) = CURRENT_DEVICE.dims;
@@ -481,7 +480,7 @@ pub fn run() -> Result<(), Error> {
                                                   msg, &tx, &mut context);
                     view.children_mut().push(Box::new(notif) as Box<dyn View>);
                 },
-                Event::AddDocument(..) | Event::RemoveDocument(..) => {
+                Event::AddDocument(..) => {
                     if view.is::<Home>() {
                         view.handle_event(&evt, &tx, &mut bus, &mut context);
                     } else {
@@ -540,20 +539,10 @@ pub fn run() -> Result<(), Error> {
         context.settings.frontlight_levels = context.frontlight.levels();
     }
 
-    let path = context.settings.library_path.join(&context.filename);
-    save_json(&context.metadata, path).context("Can't save metadata.")?;
+    context.library.flush();
 
     let path = Path::new(SETTINGS_PATH);
     save_toml(&context.settings, path).context("Can't save settings.")?;
 
     Ok(())
-}
-
-fn main() {
-    if let Err(e) = run() {
-        for e in e.iter_chain() {
-            eprintln!("plato-emulator: {}", e);
-        }
-        process::exit(1);
-    }
 }

@@ -2,7 +2,7 @@ use std::mem;
 use std::fs::File;
 use std::path::Path;
 use std::os::unix::io::AsRawFd;
-use failure::Error;
+use anyhow::Error;
 use nix::{ioctl_read, ioctl_write_ptr, ioctl_none};
 use chrono::{Duration, Utc, Datelike, Timelike};
 

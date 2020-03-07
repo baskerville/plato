@@ -5,7 +5,7 @@ use std::fs::OpenOptions;
 use std::path::PathBuf;
 use fnv::FnvHashMap;
 use lazy_static::lazy_static;
-use failure::Error;
+use anyhow::Error;
 use crate::device::{CURRENT_DEVICE, Model};
 use super::{Frontlight, LightLevels};
 

@@ -2,8 +2,7 @@ mod mxcfb_sys;
 mod kobo;
 mod image;
 
-use std::f32;
-use failure::Error;
+use anyhow::Error;
 use crate::geom::{Point, Rectangle, surface_area, nearest_segment_point, lerp};
 use crate::geom::{CornerSpec, BorderSpec, ColorSource, Vec2};
 use crate::color::{BLACK, WHITE};

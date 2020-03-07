@@ -2,7 +2,7 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::os::unix::io::AsRawFd;
 use nix::ioctl_write_int_bad;
-use failure::Error;
+use anyhow::Error;
 use super::{Frontlight, LightLevels};
 
 ioctl_write_int_bad!(write_frontlight_intensity, 241);

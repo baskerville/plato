@@ -1,6 +1,6 @@
 use std::io::{Read, Seek, SeekFrom};
 use std::fs::File;
-use failure::Error;
+use anyhow::Error;
 use super::LightSensor;
 
 // The Aura ONE uses a Silicon Graphics light sensor,

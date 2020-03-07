@@ -1,5 +1,5 @@
 use std::fs::File;
-use failure::{Error, ResultExt, format_err};
+use anyhow::{Error, Context, format_err};
 use super::{Framebuffer, UpdateMode};
 use crate::color::WHITE;
 use crate::geom::{Rectangle, lerp};
@@ -82,12 +82,12 @@ impl Framebuffer for Pixmap {
 
     fn save(&self, path: &str) -> Result<(), Error> {
         let (width, height) = self.dims();
-        let file = File::create(path).context("Can't create output file.")?;
+        let file = File::create(path).with_context(|| format!("Can't create output file {}.", path))?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set_depth(png::BitDepth::Eight);
         encoder.set_color(png::ColorType::Grayscale);
-        let mut writer = encoder.write_header().context("Can't write header.")?;
-        writer.write_image_data(&self.data).context("Can't write data to file.")?;
+        let mut writer = encoder.write_header().with_context(|| format!("Can't write PNG header for {}.", path))?;
+        writer.write_image_data(&self.data).with_context(|| format!("Can't write PNG data to {}.", path))?;
         Ok(())
     }
 

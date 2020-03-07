@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 use std::collections::{HashMap, BTreeSet};
 use zip::ZipArchive;
-use failure::{Error, format_err};
+use anyhow::{Error, format_err};
 use crate::framebuffer::Pixmap;
 use crate::helpers::{Normalize, decode_entities};
 use crate::document::{Document, Location, TextLocation, TocEntry, BoundedText, chapter_from_uri};
@@ -580,13 +580,13 @@ impl Document for EpubDocument {
 
     fn chapter<'a>(&mut self, offset: usize, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
         let next_offset = self.resolve_location(Location::Next(offset))
-                              .unwrap_or(usize::max_value());
+                              .unwrap_or(usize::MAX);
         let (index, _) = self.vertebra_coordinates(offset)?;
         let path = self.spine[index].path.clone();
         let mut chap_before = None;
         let mut chap_after = None;
         let mut offset_before = 0;
-        let mut offset_after = usize::max_value();
+        let mut offset_after = usize::MAX;
         self.chapter_aux(toc, offset, next_offset, &path,
                          &mut chap_before, &mut offset_before,
                          &mut chap_after, &mut offset_after);
@@ -605,7 +605,7 @@ impl Document for EpubDocument {
 
     fn chapter_relative<'a>(&mut self, offset: usize, dir: CycleDir, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
         let next_offset = self.resolve_location(Location::Next(offset))
-                              .unwrap_or(usize::max_value());
+                              .unwrap_or(usize::MAX);
         let chap = self.chapter(offset, toc);
 
         match dir {

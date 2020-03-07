@@ -12,7 +12,7 @@ use crate::framebuffer::Display;
 use crate::settings::ButtonScheme;
 use crate::device::CURRENT_DEVICE;
 use crate::geom::{Point, LinearDir};
-use failure::{Error, ResultExt};
+use anyhow::{Error, Context};
 
 // Event types
 pub const EV_SYN: u16 = 0x00;
@@ -227,7 +227,8 @@ pub fn parse_raw_events(paths: &[String], tx: &Sender<InputEvent>) -> Result<(),
     let mut pfds = Vec::new();
 
     for path in paths.iter() {
-        let file = File::open(path).context("Can't open input file.")?;
+        let file = File::open(path)
+                        .with_context(|| format!("Can't open input file {}", path))?;
         let fd = file.as_raw_fd();
         files.push(file);
         pfds.push(libc::pollfd {

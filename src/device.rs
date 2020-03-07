@@ -1,12 +1,7 @@
 use std::env;
 use std::fmt;
-use std::path::PathBuf;
-use std::collections::HashMap;
 use lazy_static::lazy_static;
 use crate::input::TouchProto;
-
-pub const INTERNAL_CARD_ROOT: &str = "/mnt/onboard";
-pub const EXTERNAL_CARD_ROOT: &str = "/mnt/sd";
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
@@ -168,19 +163,6 @@ impl Device {
         }
     }
 
-    pub fn library_path(&self) -> PathBuf {
-        match self.model {
-            Model::AuraH2O |
-            Model::Aura |
-            Model::AuraHD |
-            Model::Mini |
-            Model::Glo |
-            Model::TouchAB |
-            Model::TouchC => PathBuf::from(EXTERNAL_CARD_ROOT),
-            _ => PathBuf::from(INTERNAL_CARD_ROOT),
-        }
-    }
-
     pub fn frontlight_kind(&self) -> FrontlightKind {
         match self.model {
             Model::AuraONE |
@@ -220,6 +202,19 @@ impl Device {
     pub fn has_page_turn_buttons(&self) -> bool {
         match self.model {
             Model::Forma | Model::Forma32GB | Model::LibraH2O => true,
+            _ => false,
+        }
+    }
+
+    pub fn has_removable_storage(&self) -> bool {
+        match self.model {
+            Model::AuraH2O |
+            Model::Aura |
+            Model::AuraHD |
+            Model::Mini |
+            Model::Glo |
+            Model::TouchAB |
+            Model::TouchC => true,
             _ => false,
         }
     }
@@ -331,39 +326,13 @@ lazy_static! {
 
         Device::new(&product, &model_number)
     };
-
-    // Tuples of the form
-    // ((HEIGHT, DPI), (SMALL_HEIGHT, BIG_HEIGHT))
-    // SMALL_HEIGHT and BIG_HEIGHT are choosen such that
-    // HEIGHT = 3 * SMALL_HEIGHT + k * BIG_HEIGHT where k > 3
-    // BIG_HEIGHT / SMALL_HEIGHT is as close as possible to 83/63
-    // SMALL_HEIGHT / DPI * 2.54 is as close as possible to 1 cm
-    pub static ref BAR_SIZES: HashMap<(u32, u16), (u32, u32)> =
-        [((1920, 300), (120, 156)),
-         ((1440, 300), (126, 177)),
-         ((1872, 300), (126, 166)),
-         ((1404, 300), (126, 171)),
-         ((1264, 300), (123, 179)),
-         ((1680, 300), (120, 165)),
-         ((1448, 300), (121, 155)),
-         ((1072, 300), (124, 175)),
-         ((1440, 265), (104, 141)),
-         ((1080, 265), (110, 150)),
-         ((1024, 212), ( 87, 109)),
-         (( 758, 212), ( 81, 103)),
-         (( 800, 167), ( 66,  86)),
-         (( 600, 167), ( 65,  81)),
-         (( 800, 200), ( 80, 112)),
-         (( 600, 200), ( 84, 116))].iter().cloned().collect();
 }
 
 #[cfg(test)]
 mod tests {
     use std::env;
-    use std::path::PathBuf;
-    use crate::unit::scale_by_dpi;
     use super::{Device, Model, FrontlightKind, Orientation};
-    use super::{CURRENT_DEVICE, EXTERNAL_CARD_ROOT, INTERNAL_CARD_ROOT};
+    use super::CURRENT_DEVICE;
 
     #[test]
     fn test_global_static_current_device() {
@@ -371,15 +340,6 @@ mod tests {
         env::set_var("MODEL_NUMBER", "380");
 
         assert_eq!(CURRENT_DEVICE.model, Model::Forma32GB);
-    }
-
-    #[test]
-    fn test_device_library_path() {
-        let device = Device::new("frost", "380");
-        assert_eq!(device.library_path(), PathBuf::from(INTERNAL_CARD_ROOT));
-
-        let device = Device::new("kraken", "380");
-        assert_eq!(device.library_path(), PathBuf::from(EXTERNAL_CARD_ROOT));
     }
 
     #[test]
@@ -532,39 +492,5 @@ mod tests {
         assert_eq!(device.transformed_rotation(1), 1);
         assert_eq!(device.transformed_rotation(2), 2);
         assert_eq!(device.transformed_rotation(3), 3);
-    }
-
-    #[test]
-    fn bar_sizes() {
-        assert_eq!(optimal_bars_setup(1872, 300), (126, 166));
-        assert_eq!(optimal_bars_setup(1448, 300), (121, 155));
-    }
-
-    fn optimal_bars_setup(height: u32, dpi: u16) -> (u32, u32) {
-        let target_ratio = 83.0 / 63.0;
-        let target_small_height = scale_by_dpi(126.0, dpi) as u32;
-        let maximum_big_height = 2 * target_small_height;
-        let minimum_small_height = 2 * target_small_height / 3;
-        let mut max_score = 0;
-        let mut result = (0, 0);
-        for small_height in minimum_small_height..=target_small_height {
-            let remaining_height = height - 3 * small_height;
-            for big_height in small_height..maximum_big_height {
-                if remaining_height % big_height == 0 {
-                    let ratio = big_height as f32 / small_height as f32;
-                    let drift = if ratio > target_ratio {
-                        target_ratio / ratio
-                    } else {
-                        ratio / target_ratio
-                    };
-                    let score = (small_height as f32 * drift) as u32;
-                    if score > max_score {
-                        max_score = score;
-                        result = (small_height, big_height);
-                    }
-                }
-            }
-        }
-        result
     }
 }

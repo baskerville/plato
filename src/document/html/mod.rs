@@ -10,7 +10,7 @@ use std::io::Read;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
-use failure::Error;
+use anyhow::Error;
 use crate::framebuffer::Pixmap;
 use crate::helpers::{Normalize, decode_entities};
 use crate::document::{Document, Location, TextLocation, TocEntry, BoundedText};

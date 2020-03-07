@@ -1,8 +1,12 @@
 #! /bin/sh
 
 if ! [ -e Settings.toml ]; then
-   echo "library-path = \"${PWD}\"" > Settings.toml
-   echo "[]" > .metadata.json
+	cat <<- EOF > Settings.toml
+	[[libraries]]
+	name = "Example"
+	path = "$PWD"
+	mode = "database"
+	EOF
 fi
 
 ./service.sh run_emulator "$@"

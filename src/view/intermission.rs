@@ -57,11 +57,7 @@ impl IntermKind {
 impl Intermission {
     pub fn new(rect: Rectangle, kind: IntermKind, context: &Context) -> Intermission {
         let message = if let Some(path) = context.settings.intermission_images.get(kind.key()) {
-            if path.is_relative() {
-                Message::Image(context.settings.library_path.join(path))
-            } else {
-                Message::Image(path.clone())
-            }
+            Message::Image(context.library.home.join(path))
         } else {
             Message::Text(kind.text().to_string())
         };

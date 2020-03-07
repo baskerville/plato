@@ -2,7 +2,7 @@ use std::io::Write;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
-use failure::Error;
+use anyhow::Error;
 use crate::device::{CURRENT_DEVICE, Model};
 use super::{Frontlight, LightLevels};
 

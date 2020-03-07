@@ -1,5 +1,5 @@
 use std::thread;
-use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use crate::device::CURRENT_DEVICE;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use crate::geom::{Point, Rectangle, CornerSpec, BorderSpec, small_half, big_half};
 use crate::gesture::GestureEvent;
@@ -10,7 +10,7 @@ use super::filler::Filler;
 use super::menu_entry::MenuEntry;
 use super::common::locate_by_id;
 use super::{View, Event, Hub, Bus, EntryKind, ViewId, CLOSE_IGNITION_DELAY};
-use super::{THICKNESS_MEDIUM, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
+use super::{SMALL_BAR_HEIGHT, THICKNESS_MEDIUM, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use crate::app::Context;
 
 pub struct Menu {
@@ -42,7 +42,7 @@ impl Menu {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = context.display.dims;
-        let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
 
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let border_thickness = scale_by_dpi(THICKNESS_LARGE, dpi) as i32;
@@ -71,8 +71,8 @@ impl Menu {
             }
         };
 
-        let top_min = small_height as i32 + big_half(thickness);
-        let bottom_max = height as i32 - small_height as i32 - small_half(thickness);
+        let top_min = small_height + big_half(thickness);
+        let bottom_max = height as i32 - small_height - small_half(thickness);
 
         let usable_space = if dir.is_positive() {
             bottom_max - y_start

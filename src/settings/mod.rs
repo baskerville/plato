@@ -1,5 +1,6 @@
 mod preset;
 
+use std::env;
 use std::fmt::{self, Debug};
 use std::path::PathBuf;
 use std::collections::{HashSet, HashMap, BTreeMap};
@@ -14,6 +15,8 @@ pub use self::preset::{LightPreset, guess_frontlight};
 
 pub const SETTINGS_PATH: &str = "Settings.toml";
 pub const DEFAULT_FONT_PATH: &str = "/mnt/onboard/fonts";
+pub const INTERNAL_CARD_ROOT: &str = "/mnt/onboard";
+pub const EXTERNAL_CARD_ROOT: &str = "/mnt/sd";
 // Default font size in points.
 pub const DEFAULT_FONT_SIZE: f32 = 11.0;
 // Default margin width in millimeters.
@@ -49,7 +52,7 @@ impl fmt::Display for ButtonScheme {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct Settings {
-    pub library_path: PathBuf,
+    pub selected_library: usize,
     pub keyboard_layout: String,
     pub frontlight: bool,
     pub wifi: bool,
@@ -60,6 +63,8 @@ pub struct Settings {
     pub button_scheme: ButtonScheme,
     pub auto_suspend: u8,
     pub auto_power_off: u8,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub libraries: Vec<LibrarySettings>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub intermission_images: HashMap<String, PathBuf>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -74,19 +79,37 @@ pub struct Settings {
     pub frontlight_levels: LightLevels,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum CategoryProvider {
-    Path,
-    Subject,
+pub enum LibraryMode {
+    Database,
+    Filesystem,
 }
 
-impl CategoryProvider {
-    pub fn from_str(s: &str) -> Option<CategoryProvider> {
-        match s {
-            "path" => Some(CategoryProvider::Path),
-            "subject" => Some(CategoryProvider::Subject),
-            _ => None,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct LibrarySettings {
+    pub name: String,
+    pub path: PathBuf,
+    pub mode: LibraryMode,
+    pub sort_method: SortMethod,
+    pub first_column: FirstColumn,
+    pub second_column: SecondColumn,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub hooks: Vec<Hook>,
+}
+
+impl Default for LibrarySettings {
+    fn default() -> Self {
+        LibrarySettings {
+            name: "Unnamed".to_string(),
+            path: env::current_dir().ok()
+                      .unwrap_or_else(|| PathBuf::from("/")),
+            mode: LibraryMode::Database,
+            sort_method: SortMethod::Opened,
+            first_column: FirstColumn::TitleAndAuthor,
+            second_column: SecondColumn::Progress,
+            hooks: Vec::new(),
         }
     }
 }
@@ -97,8 +120,8 @@ pub struct ImportSettings {
     pub unshare_trigger: bool,
     pub startup_trigger: bool,
     pub traverse_hidden: bool,
+    pub extract_epub_metadata: bool,
     pub allowed_kinds: HashSet<String>,
-    pub category_providers: HashSet<CategoryProvider>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -178,6 +201,20 @@ impl Default for CalculatorSettings {
     }
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Columns {
+    first: FirstColumn,
+    second: SecondColumn,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FirstColumn {
+    TitleAndAuthor,
+    FileName,
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SecondColumn {
@@ -188,18 +225,20 @@ pub enum SecondColumn {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct Hook {
-    pub name: String,
+    pub path: PathBuf,
     pub program: Option<PathBuf>,
     pub sort_method: Option<SortMethod>,
+    pub first_column: Option<FirstColumn>,
     pub second_column: Option<SecondColumn>,
 }
 
 impl Default for Hook {
     fn default() -> Self {
         Hook {
-            name: "Unnamed".to_string(),
+            path: PathBuf::default(),
             program: None,
             sort_method: None,
+            first_column: None,
             second_column: None,
         }
     }
@@ -208,11 +247,11 @@ impl Default for Hook {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct HomeSettings {
-    pub summary_size: u8,
-    pub second_column: SecondColumn,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub hooks: Vec<Hook>,
+    pub address_bar: bool,
+    pub navigation_bar: bool,
+    pub max_levels: usize,
 }
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
@@ -248,21 +287,21 @@ pub enum FinishedAction {
     Close,
 }
 
-impl Default for HomeSettings {
-    fn default() -> Self {
-        HomeSettings {
-            summary_size: 2,
-            second_column: SecondColumn::Progress,
-            hooks: Vec::new(),
-        }
-    }
-}
-
 impl Default for RefreshRateSettings {
     fn default() -> Self {
         RefreshRateSettings {
             regular: 8,
             inverted: 2,
+        }
+    }
+}
+
+impl Default for HomeSettings {
+    fn default() -> Self {
+        HomeSettings {
+            address_bar: false,
+            navigation_bar: false,
+            max_levels: 3,
         }
     }
 }
@@ -288,9 +327,9 @@ impl Default for ImportSettings {
             unshare_trigger: true,
             startup_trigger: true,
             traverse_hidden: false,
+            extract_epub_metadata: true,
             allowed_kinds: ["pdf", "djvu", "epub",
                             "fb2", "xps", "oxps", "cbz"].iter().map(|k| k.to_string()).collect(),
-            category_providers: [CategoryProvider::Path].iter().cloned().collect(),
         }
     }
 }
@@ -307,7 +346,19 @@ impl Default for BatterySettings {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            library_path: CURRENT_DEVICE.library_path(),
+            selected_library: if CURRENT_DEVICE.has_removable_storage() { 1 } else { 0 },
+            libraries: vec![
+                LibrarySettings {
+                    name: "On Board".to_string(),
+                    path: PathBuf::from(INTERNAL_CARD_ROOT),
+                    .. Default::default()
+                },
+                LibrarySettings {
+                    name: "Removable".to_string(),
+                    path: PathBuf::from(EXTERNAL_CARD_ROOT),
+                    .. Default::default()
+                },
+            ],
             keyboard_layout: "English".to_string(),
             frontlight: true,
             wifi: false,

@@ -5,7 +5,7 @@ use std::fs::{OpenOptions, File};
 use std::slice;
 use std::os::unix::io::AsRawFd;
 use std::ops::Drop;
-use failure::{Error, ResultExt};
+use anyhow::{Error, Context};
 use crate::geom::Rectangle;
 use crate::device::{CURRENT_DEVICE, Model};
 use super::{UpdateMode, Framebuffer};
@@ -45,8 +45,8 @@ impl KoboFramebuffer {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<KoboFramebuffer, Error> {
         let file = OpenOptions::new().read(true)
                                      .write(true)
-                                     .open(path)
-                                     .context("Can't open framebuffer device.")?;
+                                     .open(&path)
+                                     .with_context(|| format!("Can't open framebuffer device {}.", path.as_ref().display()))?;
 
         let var_info = var_screen_info(&file)?;
         let fix_info = fix_screen_info(&file)?;
@@ -63,7 +63,7 @@ impl KoboFramebuffer {
         };
 
         if frame == libc::MAP_FAILED {
-            Err(Error::from(io::Error::last_os_error()).context("Can't map memory.").into())
+            Err(Error::from(io::Error::last_os_error()).context("Can't map memory."))
         } else {
             let (set_pixel_rgb, get_pixel_rgb, as_rgb): (SetPixelRgb, GetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
                 (set_pixel_rgb_32, get_pixel_rgb_32, as_rgb_32)
@@ -196,7 +196,7 @@ impl Framebuffer for KoboFramebuffer {
         };
 
         match result {
-            Err(e) => Err(Error::from(e).context("Can't send framebuffer update.").into()),
+            Err(e) => Err(Error::from(e).context("Can't send framebuffer update.")),
             _ => {
                 self.token = self.token.wrapping_add(1);
                 Ok(update_marker)
@@ -219,17 +219,17 @@ impl Framebuffer for KoboFramebuffer {
                 wait_for_update_v1(self.file.as_raw_fd(), &token)
             }
         };
-        result.map_err(|e| Error::from(e).context("Can't wait for framebuffer update.").into())
+        result.context("Can't wait for framebuffer update.")
     }
 
     fn save(&self, path: &str) -> Result<(), Error> {
         let (width, height) = self.dims();
-        let file = File::create(path).context("Can't create output file.")?;
+        let file = File::create(path).with_context(|| format!("Can't create output file {}.", path))?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set_depth(png::BitDepth::Eight);
         encoder.set_color(png::ColorType::RGB);
-        let mut writer = encoder.write_header().context("Can't write header.")?;
-        writer.write_image_data(&(self.as_rgb)(self)).context("Can't write data to file.")?;
+        let mut writer = encoder.write_header().with_context(|| format!("Can't write PNG header for {}.", path))?;
+        writer.write_image_data(&(self.as_rgb)(self)).with_context(|| format!("Can't write PNG data to {}.", path))?;
         Ok(())
     }
 
@@ -254,7 +254,7 @@ impl Framebuffer for KoboFramebuffer {
 
             if let Err(e) = result {
                 return Err(Error::from(e)
-                                 .context("Can't set variable screen info.").into());
+                                 .context("Can't set variable screen info."));
             }
 
             // If the first call changed the rotation value, we can exit the loop.
@@ -386,7 +386,7 @@ pub fn fix_screen_info(file: &File) -> Result<FixScreenInfo, Error> {
         read_fixed_screen_info(file.as_raw_fd(), &mut info)
     };
     match result {
-        Err(e) => Err(Error::from(e).context("Can't get fixed screen info.").into()),
+        Err(e) => Err(Error::from(e).context("Can't get fixed screen info.")),
         _ => Ok(info),
     }
 }
@@ -397,7 +397,7 @@ pub fn var_screen_info(file: &File) -> Result<VarScreenInfo, Error> {
         read_variable_screen_info(file.as_raw_fd(), &mut info)
     };
     match result {
-        Err(e) => Err(Error::from(e).context("Can't get variable screen info.").into()),
+        Err(e) => Err(Error::from(e).context("Can't get variable screen info.")),
         _ => Ok(info),
     }
 }

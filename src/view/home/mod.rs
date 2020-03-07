@@ -1,29 +1,31 @@
-mod matches_label;
-mod summary;
-mod category;
+mod library_label;
+mod address_bar;
+mod navigation_bar;
+mod directories_bar;
+mod directory;
 mod shelf;
 mod book;
 mod bottom_bar;
 
-use std::f32;
+use std::mem;
 use std::thread;
 use std::sync::mpsc;
 use std::path::{Path, PathBuf};
-use std::collections::{BTreeSet, VecDeque};
 use std::process::{Command, Child, Stdio};
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
-use glob::glob;
 use regex::Regex;
 use serde_json::Value as JsonValue;
-use fnv::{FnvHashSet, FnvHashMap};
-use failure::{Error, format_err};
+use anyhow::{Error, format_err};
+use crate::library::Library;
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::metadata::{Info, ReaderInfo, Metadata, SortMethod, SimpleStatus, sort, make_query, auto_import, clean_up};
-use crate::view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind, THICKNESS_MEDIUM};
-use crate::settings::{Hook, SecondColumn};
-use crate::view::filler::Filler;
-use crate::view::common::{locate, locate_by_id};
+use crate::metadata::{Info, Metadata, SortMethod, SimpleStatus, sort, make_query};
+use crate::view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind};
+use crate::view::{SMALL_BAR_HEIGHT, BIG_BAR_HEIGHT, THICKNESS_MEDIUM};
+use crate::settings::{Hook, LibraryMode, FirstColumn, SecondColumn};
 use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
+use crate::view::common::{locate, rlocate, locate_by_id};
+use crate::view::filler::Filler;
 use crate::view::keyboard::Keyboard;
 use crate::view::named_input::NamedInput;
 use crate::view::menu::{Menu, MenuKind};
@@ -31,23 +33,19 @@ use crate::view::menu_entry::MenuEntry;
 use crate::view::search_bar::SearchBar;
 use crate::view::notification::Notification;
 use crate::view::intermission::IntermKind;
-use crate::gesture::GestureEvent;
-use crate::input::{DeviceEvent, ButtonCode, ButtonStatus};
-use crate::device::{CURRENT_DEVICE, BAR_SIZES};
-use crate::symbolic_path::SymbolicPath;
-use crate::helpers::{load_json, save_json};
-use crate::unit::scale_by_dpi;
-use crate::trash::{self, trash, untrash};
-use crate::app::Context;
-use crate::color::BLACK;
-use crate::geom::{Rectangle, CycleDir, halves};
-use crate::font::Fonts;
 use super::top_bar::TopBar;
-use self::bottom_bar::BottomBar;
-use self::summary::Summary;
+use self::address_bar::AddressBar;
+use self::navigation_bar::NavigationBar;
 use self::shelf::Shelf;
-
-const HISTORY_SIZE: usize = 8;
+use self::bottom_bar::BottomBar;
+use crate::gesture::GestureEvent;
+use crate::geom::{Rectangle, Dir, CycleDir, halves};
+use crate::input::{DeviceEvent, ButtonCode, ButtonStatus};
+use crate::device::CURRENT_DEVICE;
+use crate::unit::scale_by_dpi;
+use crate::color::BLACK;
+use crate::font::Fonts;
+use crate::app::Context;
 
 #[derive(Debug)]
 pub struct Home {
@@ -55,32 +53,21 @@ pub struct Home {
     children: Vec<Box<dyn View>>,
     current_page: usize,
     pages_count: usize,
-    summary_size: u8,
+    shelf_index: usize,
     focus: Option<ViewId>,
     query: Option<Regex>,
-    target_path: Option<PathBuf>,
-    target_category: Option<String>,
     sort_method: SortMethod,
-    status_filter: Option<SimpleStatus>,
     reverse_order: bool,
     visible_books: Metadata,
-    visible_categories: BTreeSet<String>,
-    selected_categories: BTreeSet<String>,
-    negated_categories: BTreeSet<String>,
-    background_fetchers: FnvHashMap<String, Fetcher>,
-    history: VecDeque<HistoryEntry>,
-}
-
-#[derive(Debug)]
-struct HistoryEntry {
-    metadata: Metadata,
-    restore_books: bool,
+    current_directory: PathBuf,
+    background_fetchers: HashMap<PathBuf, Fetcher>,
 }
 
 #[derive(Debug)]
 struct Fetcher {
     process: Option<Child>,
     sort_method: Option<SortMethod>,
+    first_column: Option<FirstColumn>,
     second_column: Option<SecondColumn>,
 }
 
@@ -91,82 +78,103 @@ impl Home {
 
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
-        let (_, height) = context.display.dims;
-        let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                          scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
 
-        let sort_method = SortMethod::Opened;
+        let selected_library = context.settings.selected_library;
+        let library_settings = &context.settings.libraries[selected_library];
+
+        let current_directory = context.library.home.clone();
+        let sort_method = library_settings.sort_method;
         let reverse_order = sort_method.reverse_order();
 
-        sort(&mut context.metadata, sort_method, reverse_order);
+        context.library.sort(sort_method, reverse_order);
 
-        let visible_books = context.metadata.clone();
-        let visible_categories = context.metadata.iter()
-                                        .flat_map(|info| info.categories.iter())
-                                        .map(|categ| categ.first_component().to_string())
-                                        .collect::<BTreeSet<String>>();
-
-        let selected_categories = BTreeSet::default();
-        let negated_categories = BTreeSet::default();
-
-        let max_lines = ((height - 3 * small_height) / big_height) as usize;
-        let summary_size = context.settings.home.summary_size.max(1).min(max_lines as u8);
-        let max_lines = max_lines - summary_size as usize + 1;
+        let (visible_books, dirs) = context.library.list(&current_directory, None, false);
         let count = visible_books.len();
-        let pages_count = (visible_books.len() as f32 / max_lines as f32).ceil() as usize;
         let current_page = 0;
+        let mut shelf_index = 2;
+        let (tx, _rx) = mpsc::channel();
+
 
         let top_bar = TopBar::new(rect![rect.min.x, rect.min.y,
-                                        rect.max.x, rect.min.y + small_height as i32 - small_thickness],
+                                        rect.max.x, rect.min.y + small_height - small_thickness],
                                   Event::Toggle(ViewId::SearchBar),
                                   sort_method.title(),
                                   context);
         children.push(Box::new(top_bar) as Box<dyn View>);
 
-        let separator = Filler::new(rect![rect.min.x, rect.min.y + small_height as i32 - small_thickness,
-                                          rect.max.x, rect.min.y + small_height as i32 + big_thickness],
+        let separator = Filler::new(rect![rect.min.x, rect.min.y + small_height - small_thickness,
+                                          rect.max.x, rect.min.y + small_height + big_thickness],
                                     BLACK);
         children.push(Box::new(separator) as Box<dyn View>);
 
-        let summary_height = small_height as i32 - thickness +
-                             (summary_size - 1) as i32 * big_height as i32;
-        let s_min_y = rect.min.y + small_height as i32 + big_thickness;
-        let s_max_y = s_min_y + summary_height;
+        let mut y_start = rect.min.y + small_height + big_thickness;
 
-        let mut summary = Summary::new(rect![rect.min.x, s_min_y,
-                                             rect.max.x, s_max_y]);
+        if context.settings.home.address_bar {
+            let addr_bar = AddressBar::new(rect![rect.min.x, y_start,
+                                                 rect.max.x, y_start + small_height - thickness],
+                                           current_directory.to_string_lossy(),
+                                           context);
+            children.push(Box::new(addr_bar) as Box<dyn View>);
+            y_start += small_height - thickness;
 
-        let (tx, _rx) = mpsc::channel();
+            let separator = Filler::new(rect![rect.min.x, y_start,
+                                              rect.max.x, y_start + thickness],
+                                        BLACK);
+            children.push(Box::new(separator) as Box<dyn View>);
+            y_start += thickness;
+            shelf_index += 2;
+        }
 
-        summary.update(&visible_categories, &selected_categories,
-                       &negated_categories, false, &tx, &mut context.fonts);
+        if context.settings.home.navigation_bar {
+            let mut nav_bar = NavigationBar::new(rect![rect.min.x, y_start,
+                                                       rect.max.x, y_start + small_height - thickness],
+                                                 rect.max.y - small_height - big_height - small_thickness,
+                                                 context.settings.home.max_levels);
 
-        children.push(Box::new(summary) as Box<dyn View>);
+            nav_bar.set_path(&current_directory, &dirs, &tx, context);
+            y_start = nav_bar.rect().max.y;
 
-        let separator = Filler::new(rect![rect.min.x, s_max_y,
-                                          rect.max.x, s_max_y + thickness],
-                                    BLACK);
-        children.push(Box::new(separator) as Box<dyn View>);
+            children.push(Box::new(nav_bar) as Box<dyn View>);
 
-        let mut shelf = Shelf::new(rect![rect.min.x, s_max_y + thickness,
-                                         rect.max.x, rect.max.y - small_height as i32 - small_thickness],
-                                   context.settings.home.second_column);
+            let separator = Filler::new(rect![rect.min.x, y_start,
+                                              rect.max.x, y_start + thickness],
+                                        BLACK);
+            children.push(Box::new(separator) as Box<dyn View>);
+            y_start += thickness;
+            shelf_index += 2;
+        }
 
+
+        let selected_library = context.settings.selected_library;
+        let library_settings = &context.settings.libraries[selected_library];
+
+        let mut shelf = Shelf::new(rect![rect.min.x, y_start,
+                                         rect.max.x, rect.max.y - small_height - small_thickness],
+                                   library_settings.first_column,
+                                   library_settings.second_column);
+
+
+        let max_lines = shelf.max_lines;
+        let pages_count = (visible_books.len() as f32 / max_lines as f32).ceil() as usize;
         let index_lower = current_page * max_lines;
         let index_upper = (index_lower + max_lines).min(visible_books.len());
 
-        shelf.update(&visible_books[index_lower..index_upper], &tx, context);
+        shelf.update(&visible_books[index_lower..index_upper], &tx);
 
         children.push(Box::new(shelf) as Box<dyn View>);
 
-        let separator = Filler::new(rect![rect.min.x, rect.max.y - small_height as i32 - small_thickness,
-                                          rect.max.x, rect.max.y - small_height as i32 + big_thickness],
+        let separator = Filler::new(rect![rect.min.x, rect.max.y - small_height - small_thickness,
+                                          rect.max.x, rect.max.y - small_height + big_thickness],
                                     BLACK);
         children.push(Box::new(separator) as Box<dyn View>);
 
-        let bottom_bar = BottomBar::new(rect![rect.min.x, rect.max.y - small_height as i32 + big_thickness,
+        let bottom_bar = BottomBar::new(rect![rect.min.x, rect.max.y - small_height + big_thickness,
                                               rect.max.x, rect.max.y],
                                         current_page,
                                         pages_count,
+                                        &library_settings.name,
                                         count,
                                         false);
         children.push(Box::new(bottom_bar) as Box<dyn View>);
@@ -178,241 +186,75 @@ impl Home {
             children,
             current_page,
             pages_count,
-            summary_size,
+            shelf_index,
             focus: None,
             query: None,
-            target_path: None,
-            target_category: None,
             sort_method,
-            status_filter: None,
             reverse_order,
             visible_books,
-            visible_categories,
-            selected_categories,
-            negated_categories,
-            background_fetchers: FnvHashMap::default(),
-            history: VecDeque::new(),
+            current_directory,
+            background_fetchers: HashMap::new(),
         })
     }
 
-    fn refresh_visibles(&mut self, update: bool, reset_page: bool, hub: &Hub, context: &mut Context) {
-        self.visible_books = context.metadata.iter().filter(|info| {
-            info.is_match(&self.query) &&
-            (self.status_filter.is_none() || info.simple_status() == self.status_filter.unwrap()) &&
-            (self.selected_categories.is_subset(&info.categories) ||
-             self.selected_categories.iter()
-                                     .all(|s| info.categories
-                                                  .iter().any(|c| c == s || c.is_descendant_of(s)))) &&
-            (self.negated_categories.is_empty() ||
-             (self.negated_categories.is_disjoint(&info.categories) &&
-              info.categories.iter().all(|c| c.ancestors().all(|a| !self.negated_categories.contains(a)))))
-        }).cloned().collect();
+    fn select_directory(&mut self, path: &Path, hub: &Hub, context: &mut Context) {
+        if self.current_directory == path {
+            return;
+        }
 
-        self.visible_categories = self.visible_books.iter()
-                                      .flat_map(|info| info.categories.clone()).collect();
+        let old_path = mem::replace(&mut self.current_directory, path.to_path_buf());
+        if !self.background_fetchers.is_empty() {
+            self.terminate_fetchers(&old_path, hub);
+        }
 
-        self.visible_categories = self.visible_categories.iter().map(|c| {
-            let mut c: &str = c;
-            while let Some(p) = c.parent() {
-                if self.selected_categories.contains(p) {
-                    break;
-                }
-                c = p;
-            }
-            c.to_string()
-        }).collect();
-
-        for s in &self.selected_categories {
-            self.visible_categories.insert(s.clone());
-            for a in s.ancestors() {
-                self.visible_categories.insert(a.to_string());
+        let selected_library = context.settings.selected_library;
+        for hook in &context.settings.libraries[selected_library].hooks {
+            if context.library.home.join(&hook.path) == path {
+                self.insert_fetcher(hook, hub, context);
             }
         }
 
-        for n in &self.negated_categories {
-            self.visible_categories.insert(n.clone());
-            for a in n.ancestors() {
-                self.visible_categories.insert(a.to_string());
-            }
+        let (files, dirs) = context.library.list(&self.current_directory,
+                                                 self.query.as_ref(),
+                                                 false);
+        self.visible_books = files;
+
+        let mut index = 2;
+
+        if context.settings.home.address_bar {
+            let addr_bar = self.children[index].as_mut().downcast_mut::<AddressBar>().unwrap();
+            addr_bar.set_text(self.current_directory.to_string_lossy(), hub, context);
+            index += 2;
         }
 
-        let max_lines = {
-            let shelf = self.child(4).downcast_ref::<Shelf>().unwrap();
-            shelf.max_lines
-        };
-        self.pages_count = (self.visible_books.len() as f32 / max_lines as f32).ceil() as usize;
-
-        if reset_page  {
-            self.current_page = 0;
-        } else if self.current_page >= self.pages_count {
-            self.current_page = self.pages_count.saturating_sub(1);
+        if context.settings.home.navigation_bar {
+            let nav_bar = self.children[index].as_mut().downcast_mut::<NavigationBar>().unwrap();
+            nav_bar.set_path(&self.current_directory, &dirs, hub, context);
+            self.adjust_shelf_top_edge();
+            hub.send(Event::Render(*self.child(index+1).rect(), UpdateMode::Gui)).ok();
+            hub.send(Event::Render(*self.child(index).rect(), UpdateMode::Partial)).ok();
         }
 
-        if update {
-            self.update_summary(false, hub, &mut context.fonts);
-            self.update_shelf(false, hub, context);
-            self.update_bottom_bar(hub);
+        self.update_shelf(true, hub);
+        self.update_bottom_bar(hub, context);
+    }
+
+    fn adjust_shelf_top_edge(&mut self) {
+        let index = self.shelf_index - 2;
+        let y_shift = self.children[index].rect().max.y - self.children[index+1].rect().min.y;
+        if y_shift != 0 {
+            *self.children[index+1].rect_mut() += pt!(0, y_shift);
+            self.children[index+2].rect_mut().min.y = self.children[index+1].rect().max.y;
         }
     }
 
-    fn terminate_fetchers(&mut self, categ: &str, hub: &Hub) {
-        self.background_fetchers.retain(|name, fetcher| {
-            if name == categ {
-                if let Some(process) = fetcher.process.as_mut() {
-                    unsafe { libc::kill(process.id() as libc::pid_t, libc::SIGTERM) };
-                    process.wait().ok();
-                }
-                if let Some(sort_method) = fetcher.sort_method {
-                    hub.send(Event::Select(EntryId::Sort(sort_method))).ok();
-                }
-                if let Some(second_column) = fetcher.second_column {
-                    hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
-                }
-                false
-            } else {
-                true
+    fn toggle_select_directory(&mut self, path: &Path, hub: &Hub, context: &mut Context) {
+        if self.current_directory.starts_with(path) {
+            if let Some(parent) = path.parent() {
+                self.select_directory(parent, hub, context);
             }
-        });
-    }
-
-    fn toggle_select_category(&mut self, categ: &str, hub: &Hub, context: &mut Context) {
-        if self.selected_categories.contains(categ) {
-            self.selected_categories.remove(categ);
-            self.terminate_fetchers(categ, hub);
         } else {
-            self.selected_categories = self.selected_categories.iter().filter_map(|s| {
-                if s.is_descendant_of(categ) || categ.is_descendant_of(s) {
-                    None
-                } else {
-                    Some(s.clone())
-                }
-            }).collect();
-
-            self.negated_categories = self.negated_categories.iter().filter_map(|n| {
-                if n == categ || categ.is_descendant_of(n) {
-                    None
-                } else {
-                    Some(n.clone())
-                }
-            }).collect();
-
-            self.selected_categories.insert(categ.to_string());
-
-            for hook in &context.settings.home.hooks {
-                if hook.name == categ {
-                    self.insert_fetcher(hook, hub, context);
-                }
-            }
-        }
-    }
-
-    fn insert_fetcher(&mut self, hook: &Hook, hub: &Hub, context: &Context) {
-        let mut sort_method = hook.sort_method;
-        let mut second_column = hook.second_column;
-        if let Some(sort_method) = sort_method.replace(self.sort_method) {
-            hub.send(Event::Select(EntryId::Sort(sort_method))).ok();
-        }
-        if let Some(second_column) = second_column.replace(context.settings.home.second_column) {
-            hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
-        }
-        let process = hook.program.as_ref().and_then(|p| {
-            self.spawn_child(&hook.name, p, context.settings.wifi, context.online, hub)
-                .map_err(|e| eprintln!("Can't spawn child: {}.", e)).ok()
-        });
-        self.background_fetchers.insert(hook.name.clone(),
-                                        Fetcher { process, sort_method, second_column });
-    }
-
-    fn spawn_child(&mut self, name: &str, program: &PathBuf, wifi: bool, online: bool, hub: &Hub) -> Result<Child, Error> {
-        let parent = program.parent()
-                            .unwrap_or_else(|| Path::new(""));
-        let path = program.canonicalize()?;
-        let mut process = Command::new(path)
-                                 .current_dir(parent)
-                                 .arg(name)
-                                 .arg(wifi.to_string())
-                                 .arg(online.to_string())
-                                 .stdout(Stdio::piped())
-                                 .spawn()?;
-        let stdout = process.stdout.take()
-                            .ok_or_else(|| format_err!("Can't take stdout."))?;
-        let hub2 = hub.clone();
-        thread::spawn(move || {
-            let reader = BufReader::new(stdout);
-            for line_res in reader.lines() {
-                if let Ok(line) = line_res {
-                    if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
-                        match event.get("type").and_then(JsonValue::as_str) {
-                            Some("notify") => {
-                                if let Some(msg) = event.get("message").and_then(JsonValue::as_str) {
-                                    hub2.send(Event::Notify(msg.to_string())).ok();
-                                }
-                            },
-                            Some("addDocument") => {
-                                if let Some(info) = event.get("info").map(ToString::to_string)
-                                                         .and_then(|v| serde_json::from_str(&v).ok()) {
-                                    hub2.send(Event::AddDocument(Box::new(info))).ok();
-                                }
-                            },
-                            Some("removeDocument") => {
-                                if let Some(path) = event.get("path").and_then(JsonValue::as_str) {
-                                    hub2.send(Event::RemoveDocument(PathBuf::from(path))).ok();
-                                }
-                            },
-                            Some("setWifi") => {
-                                if let Some(enable) = event.get("enable").and_then(JsonValue::as_bool) {
-                                    hub2.send(Event::SetWifi(enable)).ok();
-                                }
-                            },
-                            _ => (),
-                        }
-                    }
-                } else {
-                    break;
-                }
-            }
-        });
-        Ok(process)
-    }
-
-    fn toggle_negate_category(&mut self, categ: &str, hub: &Hub) {
-        if self.negated_categories.contains(categ) {
-            self.negated_categories.remove(categ);
-        } else {
-            self.negated_categories = self.negated_categories.iter().filter_map(|s| {
-                if s.is_descendant_of(categ) || categ.is_descendant_of(s) {
-                    None
-                } else {
-                    Some(s.clone())
-                }
-            }).collect();
-            let mut deselected_categories = Vec::new();
-            self.selected_categories = self.selected_categories.iter().filter_map(|s| {
-                if s == categ || s.is_descendant_of(categ) {
-                    deselected_categories.push(s.clone());
-                    None
-                } else {
-                    Some(s.clone())
-                }
-            }).collect();
-            for s in deselected_categories {
-                self.terminate_fetchers(&s, hub);
-            }
-            self.negated_categories.insert(categ.to_string());
-        }
-    }
-
-    fn toggle_negate_category_children(&mut self, parent: &str, hub: &Hub) {
-        let mut children = Vec::new();
-
-        for c in &self.visible_categories {
-            if c.is_child_of(parent) {
-                children.push(c.to_string());
-            }
-        }
-
-        while let Some(c) = children.pop() {
-            self.toggle_negate_category(&c, hub);
+            self.select_directory(path, hub, context);
         }
     }
 
@@ -421,8 +263,8 @@ impl Home {
             return;
         }
         self.current_page = index;
-        self.update_shelf(false, hub, context);
-        self.update_bottom_bar(hub);
+        self.update_shelf(false, hub);
+        self.update_bottom_bar(hub, context);
     }
 
     fn go_to_neighbor(&mut self, dir: CycleDir, hub: &Hub, context: &Context) {
@@ -436,33 +278,57 @@ impl Home {
             _ => return,
         }
 
-        self.update_shelf(false, hub, context);
-        self.update_bottom_bar(hub);
+        self.update_shelf(false, hub);
+        self.update_bottom_bar(hub, context);
     }
 
-    fn update_summary(&mut self, was_resized: bool, hub: &Hub, fonts: &mut Fonts) {
-        let summary = self.children[2].as_mut().downcast_mut::<Summary>().unwrap();
-        summary.update(&self.visible_categories, &self.selected_categories, &self.negated_categories,
-                       was_resized, hub, fonts);
+    // NOTE: This function assumes that the shelf wasn't resized.
+    fn refresh_visibles(&mut self, update: bool, reset_page: bool, hub: &Hub, context: &mut Context) {
+        let (files, _) = context.library.list(&self.current_directory,
+                                              self.query.as_ref(),
+                                              false);
+        self.visible_books = files;
+
+        let max_lines = {
+            let shelf = self.child(self.shelf_index).downcast_ref::<Shelf>().unwrap();
+            shelf.max_lines
+        };
+
+        self.pages_count = (self.visible_books.len() as f32 / max_lines as f32).ceil() as usize;
+
+        if reset_page  {
+            self.current_page = 0;
+        } else if self.current_page >= self.pages_count {
+            self.current_page = self.pages_count.saturating_sub(1);
+        }
+
+        if update {
+            self.update_shelf(false, hub);
+            self.update_bottom_bar(hub, context);
+        }
+    }
+
+    fn update_first_column(&mut self, hub: &Hub, context: &mut Context) {
+        let selected_library = context.settings.selected_library;
+        self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>().unwrap()
+           .set_first_column(context.settings.libraries[selected_library].first_column);
+        self.update_shelf(false, hub);
     }
 
     fn update_second_column(&mut self, hub: &Hub, context: &mut Context) {
-        self.children[4].as_mut().downcast_mut::<Shelf>().unwrap()
-           .set_second_column(context.settings.home.second_column);
-        self.update_shelf(false, hub, context);
+        let selected_library = context.settings.selected_library;
+        self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>().unwrap()
+           .set_second_column(context.settings.libraries[selected_library].second_column);
+        self.update_shelf(false, hub);
     }
 
-    fn update_shelf(&mut self, was_resized: bool, hub: &Hub, context: &Context) {
+    fn update_shelf(&mut self, was_resized: bool, hub: &Hub) {
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = context.display.dims;
-        let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let big_height = scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
+        let shelf = self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>().unwrap();
+        let max_lines = ((shelf.rect.height() as i32 + thickness) / big_height) as usize;
 
-        let shelf = self.children[4].as_mut().downcast_mut::<Shelf>().unwrap();
-        let max_lines = ((shelf.rect.height() + thickness as u32) / big_height) as usize;
-
-        // TODO: extract this into a function and call this when the shelf is resized to avoid the
-        // temporal dependency between update_shelf and update_bottom_bar
         if was_resized {
             let page_position = if self.visible_books.is_empty() {
                 0.0
@@ -485,26 +351,26 @@ impl Home {
         let index_lower = self.current_page * max_lines;
         let index_upper = (index_lower + max_lines).min(self.visible_books.len());
 
-        shelf.update(&self.visible_books[index_lower..index_upper], hub, context);
+        shelf.update(&self.visible_books[index_lower..index_upper], hub);
     }
 
     fn update_top_bar(&mut self, search_visible: bool, hub: &Hub) {
         if let Some(index) = locate::<TopBar>(self) {
             let top_bar = self.children[index].as_mut().downcast_mut::<TopBar>().unwrap();
-            let name = if search_visible { "home" } else { "search" };
+            let name = if search_visible { "back" } else { "search" };
             top_bar.update_root_icon(name, hub);
             top_bar.update_title_label(&self.sort_method.title(), hub);
         }
     }
 
-    fn update_bottom_bar(&mut self, hub: &Hub) {
-        if let Some(index) = locate::<BottomBar>(self) {
+    fn update_bottom_bar(&mut self, hub: &Hub, context: &Context) {
+        if let Some(index) = rlocate::<BottomBar>(self) {
             let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
             let filter = self.query.is_some() ||
-                         self.status_filter.is_some() ||
-                         !self.selected_categories.is_empty() ||
-                         !self.negated_categories.is_empty();
-            bottom_bar.update_matches_label(self.visible_books.len(), filter, hub);
+                         self.current_directory != context.library.home;
+            let selected_library = context.settings.selected_library;
+            let library_settings = &context.settings.libraries[selected_library];
+            bottom_bar.update_library_label(&library_settings.name, self.visible_books.len(), filter, hub);
             bottom_bar.update_page_label(self.current_page, self.pages_count, hub);
             bottom_bar.update_icons(self.current_page, self.pages_count, hub);
         }
@@ -512,18 +378,18 @@ impl Home {
 
     fn toggle_keyboard(&mut self, enable: bool, update: bool, id: Option<ViewId>, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = context.display.dims;
-        let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                          scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
-        let mut has_search_bar = false;
+        let has_search_bar = self.children[self.shelf_index+2].is::<SearchBar>();
 
-        if let Some(index) = locate::<Keyboard>(self) {
+        if let Some(index) = rlocate::<Keyboard>(self) {
             if enable {
                 return;
             }
 
-            let y_min = self.child(5).rect().min.y;
+            let y_min = self.child(self.shelf_index+1).rect().min.y;
             let mut rect = *self.child(index).rect();
             rect.absorb(self.child(index-1).rect());
 
@@ -531,27 +397,29 @@ impl Home {
 
             let delta_y = rect.height() as i32;
 
-            if index > 6 {
-                has_search_bar = true;
-                for i in 5..=6 {
+            if has_search_bar {
+                for i in self.shelf_index+1..=self.shelf_index+2 {
                     let shifted_rect = *self.child(i).rect() + pt!(0, delta_y);
                     self.child_mut(i).resize(shifted_rect, hub, context);
                 }
             }
 
             hub.send(Event::Focus(None)).ok();
-            let rect = rect![self.rect.min.x, y_min, self.rect.max.x, y_min + delta_y];
-            hub.send(Event::Expose(rect, UpdateMode::Gui)).ok();
+            if update {
+                let rect = rect![self.rect.min.x, y_min,
+                                 self.rect.max.x, y_min + delta_y];
+                hub.send(Event::Expose(rect, UpdateMode::Gui)).ok();
+            }
         } else {
             if !enable {
                 return;
             }
 
-            let index = locate::<BottomBar>(self).unwrap() - 1;
+            let index = rlocate::<BottomBar>(self).unwrap() - 1;
             let mut kb_rect = rect![self.rect.min.x,
                                     self.rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                                     self.rect.max.x,
-                                    self.rect.max.y - small_height as i32 - small_thickness];
+                                    self.rect.max.y - small_height - small_thickness];
 
             let number = match id {
                 Some(ViewId::GoToPageInput) => true,
@@ -568,9 +436,8 @@ impl Home {
 
             let delta_y = kb_rect.height() as i32 + thickness;
 
-            if index > 5 {
-                has_search_bar = true;
-                for i in 5..=6 {
+            if has_search_bar {
+                for i in self.shelf_index+1..=self.shelf_index+2 {
                     let shifted_rect = *self.child(i).rect() + pt!(0, -delta_y);
                     self.child_mut(i).resize(shifted_rect, hub, context);
                 }
@@ -580,33 +447,177 @@ impl Home {
         if update {
             if enable {
                 if has_search_bar {
-                    for i in 5..9 {
+                    for i in self.shelf_index+1..=self.shelf_index+4 {
                         hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                     }
                 } else {
-                    for i in 5..7 {
+                    for i in self.shelf_index+1..=self.shelf_index+2 {
                         hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                     }
                 }
-            } else {
-                if has_search_bar {
-                    for i in 5..7 {
-                        hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
-                    }
+            } else if has_search_bar {
+                for i in self.shelf_index+1..=self.shelf_index+2 {
+                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                 }
             }
         }
     }
 
+    fn toggle_address_bar(&mut self, enable: Option<bool>, update: bool, hub: &Hub, context: &mut Context) {
+        let dpi = CURRENT_DEVICE.dpi;
+        let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                          scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
+        let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
+
+        if let Some(index) = locate::<AddressBar>(self) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            if let Some(ViewId::AddressBarInput) = self.focus {
+                self.toggle_keyboard(false, false, Some(ViewId::AddressBarInput), hub, context);
+            }
+
+            // Remove the address bar and its separator.
+            self.children.drain(index ..= index + 1);
+            self.shelf_index -= 2;
+            context.settings.home.address_bar = false;
+
+            // Move the navigation bar up.
+            if context.settings.home.navigation_bar {
+                let nav_bar = self.children[self.shelf_index-2]
+                                  .downcast_mut::<NavigationBar>().unwrap();
+                nav_bar.shift(pt!(0, -small_height));
+            }
+
+            // Move the separator above the shelf up.
+            *self.children[self.shelf_index-1].rect_mut() += pt!(0, -small_height);
+
+            // Move the shelf's top edge up.
+            self.children[self.shelf_index].rect_mut().min.y -= small_height;
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let sp_rect = *self.child(1).rect() + pt!(0, small_height);
+
+            let separator = Filler::new(sp_rect, BLACK);
+            self.children.insert(2, Box::new(separator) as Box<dyn View>);
+
+            let addr_bar = AddressBar::new(rect![self.rect.min.x,
+                                                 sp_rect.min.y - small_height + thickness,
+                                                 self.rect.max.x,
+                                                 sp_rect.min.y],
+                                           self.current_directory.to_string_lossy(),
+                                           context);
+            self.children.insert(2, Box::new(addr_bar) as Box<dyn View>);
+
+            self.shelf_index += 2;
+            context.settings.home.address_bar = true;
+
+            // Move the separator above the shelf down.
+            *self.children[self.shelf_index-1].rect_mut() += pt!(0, small_height);
+
+            // Move the shelf's top edge down.
+            self.children[self.shelf_index].rect_mut().min.y += small_height;
+
+            if context.settings.home.navigation_bar {
+                let rect = *self.children[self.shelf_index].rect();
+                let y_shift = rect.height() as i32 - (big_height - thickness);
+                let nav_bar = self.children[self.shelf_index-2]
+                                  .downcast_mut::<NavigationBar>().unwrap();
+                // Move the navigation bar down.
+                nav_bar.shift(pt!(0, small_height));
+
+                // Shrink the nav bar.
+                if y_shift < 0 {
+                    let y_shift = nav_bar.shrink(y_shift, &mut context.fonts);
+                    self.children[self.shelf_index].rect_mut().min.y += y_shift;
+                    *self.children[self.shelf_index-1].rect_mut() += pt!(0, y_shift);
+                }
+            }
+        }
+
+        if update {
+            for i in 2..self.shelf_index {
+                hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
+            }
+
+            self.update_shelf(true, hub);
+            self.update_bottom_bar(hub, context);
+        }
+    }
+
+    fn toggle_navigation_bar(&mut self, enable: Option<bool>, update: bool, hub: &Hub, context: &mut Context) {
+        let dpi = CURRENT_DEVICE.dpi;
+        let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                          scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
+        let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
+        let (small_thickness, _) = halves(thickness);
+
+        if let Some(index) = locate::<NavigationBar>(self) {
+            if let Some(true) = enable {
+                return;
+            }
+
+            let mut rect = *self.child(index).rect();
+            rect.absorb(self.child(index+1).rect());
+            let delta_y = rect.height() as i32;
+
+            // Remove the navigation bar and its separator.
+            self.children.drain(index ..= index + 1);
+            self.shelf_index -= 2;
+            context.settings.home.navigation_bar = false;
+
+            // Move the shelf's top edge up.
+            self.children[self.shelf_index].rect_mut().min.y -= delta_y;
+        } else {
+            if let Some(false) = enable {
+                return;
+            }
+
+            let sep_index = if context.settings.home.address_bar { 3 } else { 1 };
+            let sp_rect = *self.child(sep_index).rect() + pt!(0, small_height);
+
+            let separator = Filler::new(sp_rect, BLACK);
+            self.children.insert(sep_index+1, Box::new(separator) as Box<dyn View>);
+
+            let mut nav_bar = NavigationBar::new(rect![self.rect.min.x,
+                                                       sp_rect.min.y - small_height + thickness,
+                                                       self.rect.max.x,
+                                                       sp_rect.min.y],
+                                                 self.rect.max.y - small_height - big_height - small_thickness,
+                                                 context.settings.home.max_levels);
+            let (_, dirs) = context.library.list(&self.current_directory, None, true);
+            nav_bar.set_path(&self.current_directory, &dirs, hub, context);
+            self.children.insert(sep_index+1, Box::new(nav_bar) as Box<dyn View>);
+
+            self.shelf_index += 2;
+            context.settings.home.navigation_bar = true;
+
+            self.adjust_shelf_top_edge();
+        }
+
+        if update {
+            for i in 2..self.shelf_index {
+                hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
+            }
+
+            self.update_shelf(true, hub);
+            self.update_bottom_bar(hub, context);
+        }
+    }
+
     fn toggle_search_bar(&mut self, enable: Option<bool>, update: bool, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = context.display.dims;
-        let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                          scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
-        let delta_y = small_height as i32;
+        let delta_y = small_height;
         let search_visible: bool;
 
-        if let Some(index) = locate::<SearchBar>(self) {
+        if let Some(index) = rlocate::<SearchBar>(self) {
             if let Some(true) = enable {
                 return;
             }
@@ -615,73 +626,89 @@ impl Home {
                 self.toggle_keyboard(false, false, Some(ViewId::HomeSearchInput), hub, context);
             }
 
+            // Remove the search bar and its separator.
             self.children.drain(index - 1 ..= index);
 
-            {
-                let shelf = self.child_mut(4).downcast_mut::<Shelf>().unwrap();
-                shelf.rect.max.y += delta_y;
+            // Move the shelf's bottom edge.
+            self.children[self.shelf_index].rect_mut().max.y += delta_y;
+
+            if context.settings.home.navigation_bar {
+                let nav_bar = self.children[self.shelf_index-2]
+                                  .downcast_mut::<NavigationBar>().unwrap();
+                nav_bar.vertical_limit += delta_y;
             }
 
-            self.resize_summary(0, false, hub, context);
-
             self.query = None;
-
             search_visible = false;
         } else {
             if let Some(false) = enable {
                 return;
             }
 
-            let sp_rect = *self.child(5).rect() - pt!(0, delta_y);
-
+            let sp_rect = *self.child(self.shelf_index+1).rect() - pt!(0, delta_y);
             let search_bar = SearchBar::new(rect![self.rect.min.x, sp_rect.max.y,
                                                   self.rect.max.x,
                                                   sp_rect.max.y + delta_y - thickness],
                                             ViewId::HomeSearchInput,
-                                            "Title, author, category",
+                                            "Title, author, series",
                                             "", context);
-
-            self.children.insert(5, Box::new(search_bar) as Box<dyn View>);
+            self.children.insert(self.shelf_index+1, Box::new(search_bar) as Box<dyn View>);
 
             let separator = Filler::new(sp_rect, BLACK);
-            self.children.insert(5, Box::new(separator) as Box<dyn View>);
+            self.children.insert(self.shelf_index+1, Box::new(separator) as Box<dyn View>);
 
-            // move the shelf's bottom edge
-            {
-                let shelf = self.child_mut(4).downcast_mut::<Shelf>().unwrap();
-                shelf.rect.max.y -= delta_y;
+            // Move the shelf's bottom edge.
+            self.children[self.shelf_index].rect_mut().max.y -= delta_y;
+
+            if context.settings.home.navigation_bar {
+                let rect = *self.children[self.shelf_index].rect();
+                let y_shift = rect.height() as i32 - (big_height - thickness);
+                let nav_bar = self.children[self.shelf_index-2]
+                                  .downcast_mut::<NavigationBar>().unwrap();
+                nav_bar.vertical_limit -= delta_y;
+
+                // Shrink the nav bar.
+                if y_shift < 0 {
+                    let y_shift = nav_bar.shrink(y_shift, &mut context.fonts);
+                    self.children[self.shelf_index].rect_mut().min.y += y_shift;
+                    *self.children[self.shelf_index-1].rect_mut() += pt!(0, y_shift);
+                }
             }
 
-            if locate::<Keyboard>(self).is_none() {
+            if rlocate::<Keyboard>(self).is_none() {
                 self.toggle_keyboard(true, false, Some(ViewId::HomeSearchInput), hub, context);
             }
 
             hub.send(Event::Focus(Some(ViewId::HomeSearchInput))).ok();
 
-            self.resize_summary(0, false, hub, context);
             search_visible = true;
         }
 
         if update {
             if search_visible {
-                // TODO: don't update if the keyboard is already present
-                for i in [3usize, 5, 6, 7, 8].iter().cloned() {
+                for i in self.shelf_index - 1 ..= self.shelf_index + 4 {
+                    if i == self.shelf_index {
+                        continue;
+                    }
                     hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                 }
             } else {
-                for i in [3usize, 5].iter().cloned() {
+                for i in self.shelf_index - 1 ..= self.shelf_index + 1 {
+                    if i == self.shelf_index {
+                        continue;
+                    }
                     hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                 }
             }
 
-            self.update_top_bar(search_visible, hub);
-            self.update_summary(true, hub, &mut context.fonts);
-            self.update_shelf(true, hub, context);
-            self.update_bottom_bar(hub);
-
             if !search_visible {
-                self.refresh_visibles(true, true, hub, context);
+                self.refresh_visibles(false, true, hub, context);
             }
+
+            self.update_top_bar(search_visible, hub);
+            self.update_shelf(true, hub);
+            self.update_bottom_bar(hub, context);
+
         }
     }
 
@@ -735,6 +762,9 @@ impl Home {
                                EntryKind::RadioButton("Author".to_string(),
                                                       EntryId::Sort(SortMethod::Author),
                                                       self.sort_method == SortMethod::Author),
+                               EntryKind::RadioButton("Year".to_string(),
+                                                      EntryId::Sort(SortMethod::Year),
+                                                      self.sort_method == SortMethod::Year),
                                EntryKind::RadioButton("File Size".to_string(),
                                                       EntryId::Sort(SortMethod::Size),
                                                       self.sort_method == SortMethod::Size),
@@ -757,7 +787,7 @@ impl Home {
     }
 
     fn book_index(&self, index: usize) -> usize {
-        let max_lines = self.child(4).downcast_ref::<Shelf>().unwrap().max_lines;
+        let max_lines = self.child(self.shelf_index).downcast_ref::<Shelf>().unwrap().max_lines;
         let index_lower = self.current_page * max_lines;
         (index_lower + index).min(self.visible_books.len())
     }
@@ -778,32 +808,12 @@ impl Home {
             let info = &self.visible_books[book_index];
             let path = &info.file.path;
 
-            let mut entries = vec![EntryKind::Command("Add Categories".to_string(),
-                                                      EntryId::AddBookCategories(path.clone()))];
-
-            if !info.categories.is_empty() {
-                let remove_categories =
-                    info.categories.iter()
-                        .map(|c| EntryKind::Command(c.to_string(),
-                                                    EntryId::RemoveBookCategory(path.clone(),
-                                                                                c.to_string())))
-                        .collect::<Vec<EntryKind>>();
-                let toggle_categories =
-                    info.categories.iter()
-                        .map(|c| EntryKind::Command(c.to_string(),
-                                                    EntryId::ToggleSelectCategory(c.to_string())))
-                        .collect::<Vec<EntryKind>>();
-
-                entries.push(EntryKind::SubMenu("Remove Category".to_string(), remove_categories));
-                entries.push(EntryKind::SubMenu("Toggle Category".to_string(), toggle_categories));
-            }
-
-            entries.push(EntryKind::Separator);
+            let mut entries = Vec::new();
 
             let submenu: &[SimpleStatus] = match info.simple_status() {
-                SimpleStatus::New => &[SimpleStatus::Finished],
+                SimpleStatus::New => &[SimpleStatus::Reading, SimpleStatus::Finished],
                 SimpleStatus::Reading => &[SimpleStatus::New, SimpleStatus::Finished],
-                SimpleStatus::Finished => &[SimpleStatus::New],
+                SimpleStatus::Finished => &[SimpleStatus::New, SimpleStatus::Reading],
             };
 
             let submenu = submenu.iter().map(|s| EntryKind::Command(s.to_string(),
@@ -825,42 +835,14 @@ impl Home {
                 entries.push(EntryKind::SubMenu("Set As".to_string(), submenu))
             }
 
-            entries.push(EntryKind::Separator);
-            entries.push(EntryKind::Command("Remove".to_string(), EntryId::Remove(path.clone())));
-
             let book_menu = Menu::new(rect, ViewId::BookMenu, MenuKind::Contextual, entries, context);
             hub.send(Event::Render(*book_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(book_menu) as Box<dyn View>);
         }
     }
 
-    fn toggle_category_menu(&mut self, categ: &str, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
-        if let Some(index) = locate_by_id(self, ViewId::CategoryMenu) {
-            if let Some(true) = enable {
-                return;
-            }
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
-            self.children.remove(index);
-        } else {
-            if let Some(false) = enable {
-                return;
-            }
-
-            let entries = vec![EntryKind::Command("Add".to_string(),
-                                                  EntryId::AddMatchesCategories),
-                               EntryKind::Command("Rename".to_string(),
-                                                  EntryId::RenameCategory(categ.to_string())),
-                               EntryKind::Command("Remove".to_string(),
-                                                  EntryId::RemoveCategory(categ.to_string()))];
-
-            let category_menu = Menu::new(rect, ViewId::CategoryMenu, MenuKind::Contextual, entries, context);
-            hub.send(Event::Render(*category_menu.rect(), UpdateMode::Gui)).ok();
-            self.children.push(Box::new(category_menu) as Box<dyn View>);
-        }
-    }
-
-    fn toggle_matches_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
-        if let Some(index) = locate_by_id(self, ViewId::MatchesMenu) {
+    fn toggle_library_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+        if let Some(index) = locate_by_id(self, ViewId::LibraryMenu) {
             if let Some(true) = enable {
                 return;
             }
@@ -872,343 +854,80 @@ impl Home {
                 return;
             }
 
-            let loadables: Vec<PathBuf> = context.settings.library_path.join(".metadata*.json").to_str().and_then(|s| {
-                glob(s).ok().map(|paths| {
-                    paths.filter_map(|x| x.ok().and_then(|p| p.file_name().map(PathBuf::from))
-                                                              .filter(|p| *p != context.filename)).collect()
-                })
-            }).unwrap_or_default();
+            let selected_library = context.settings.selected_library;
+            let library_settings = &context.settings.libraries[selected_library];
 
+            let libraries: Vec<EntryKind> = context.settings.libraries.iter().enumerate().map(|(index, lib)| {
+                EntryKind::RadioButton(lib.name.clone(), EntryId::LoadLibrary(index), index == selected_library)
+            }).collect();
 
-            let mut entries = vec![EntryKind::Command("Save".to_string(), EntryId::Save),
-                                   EntryKind::Command("Save As".to_string(), EntryId::SaveAs),
-                                   EntryKind::Command("Import".to_string(), EntryId::Import)];
+            let database = if library_settings.mode == LibraryMode::Database {
+                vec![EntryKind::Command("Import".to_string(), EntryId::Import),
+                     EntryKind::Command("Clean Up".to_string(), EntryId::CleanUp),
+                     EntryKind::Command("Flush".to_string(), EntryId::Flush)]
+            } else {
+                Vec::new()
+            };
 
-            if !loadables.is_empty() {
-                entries.push(EntryKind::SubMenu("Load".to_string(),
-                                                loadables.into_iter().map(|e| EntryKind::Command(e.to_string_lossy().into_owned(),
-                                                                                                 EntryId::Load(e))).collect()));
+            let filesystem = if library_settings.mode == LibraryMode::Filesystem {
+               vec![EntryKind::CheckBox("Show Hidden".to_string(), EntryId::ToggleShowHidden, context.library.show_hidden),
+                    EntryKind::Separator,
+                    EntryKind::Command("Clean Up".to_string(), EntryId::CleanUp),
+                    EntryKind::Command("Flush".to_string(), EntryId::Flush)]
+            } else {
+                Vec::new()
+            };
+
+            let mut entries = vec![EntryKind::SubMenu("Library".to_string(), libraries)];
+
+            if !database.is_empty() {
+                entries.push(EntryKind::SubMenu("Database".to_string(), database));
             }
 
-            entries.push(EntryKind::Command("Reload".to_string(), EntryId::Reload));
-            entries.push(EntryKind::Command("Clean Up".to_string(), EntryId::CleanUp));
+            if !filesystem.is_empty() {
+                entries.push(EntryKind::SubMenu("Filesystem".to_string(), filesystem));
+            }
 
             let hooks: Vec<EntryKind> =
-                context.settings.home.hooks.iter()
-                       .map(|v| EntryKind::Command(v.name.clone(),
-                                                   EntryId::ToggleSelectCategory(v.name.clone()))).collect();
-
-            if !self.visible_books.is_empty() || !hooks.is_empty() {
-                entries.push(EntryKind::Separator);
-            }
-
-            if !self.visible_books.is_empty() {
-                entries.push(EntryKind::Command("Add Categories".to_string(), EntryId::AddMatchesCategories));
-                let categories: BTreeSet<String> = self.visible_books.iter().flat_map(|info| info.categories.clone()).collect();
-                let categories: Vec<EntryKind> = categories.iter().map(|c| EntryKind::Command(c.clone(), EntryId::RemoveCategory(c.clone()))).collect();
-
-                if !categories.is_empty() {
-                    entries.push(EntryKind::SubMenu("Remove Category".to_string(), categories));
-                }
-            }
+                context.settings.libraries[selected_library].hooks.iter()
+                       .map(|v| EntryKind::Command(v.path.to_string_lossy().into_owned(),
+                                                   EntryId::ToggleSelectDirectory(context.library.home.join(&v.path)))).collect();
 
             if !hooks.is_empty() {
-                entries.push(EntryKind::SubMenu("Toggle Hook".to_string(), hooks));
+                entries.push(EntryKind::SubMenu("Toggle Select".to_string(), hooks));
             }
 
             entries.push(EntryKind::Separator);
 
-            let status_filter = self.status_filter;
-            entries.push(EntryKind::SubMenu("Show".to_string(),
-                vec![EntryKind::RadioButton("All".to_string(), EntryId::StatusFilter(None), status_filter == None),
-                     EntryKind::Separator,
-                     EntryKind::RadioButton("Reading".to_string(), EntryId::StatusFilter(Some(SimpleStatus::Reading)), status_filter == Some(SimpleStatus::Reading)),
-                     EntryKind::RadioButton("New".to_string(), EntryId::StatusFilter(Some(SimpleStatus::New)), status_filter == Some(SimpleStatus::New)),
-                     EntryKind::RadioButton("Finished".to_string(), EntryId::StatusFilter(Some(SimpleStatus::Finished)), status_filter == Some(SimpleStatus::Finished))]));
-            let second_column = context.settings.home.second_column;
+            let first_column = library_settings.first_column;
+            entries.push(EntryKind::SubMenu("First Column".to_string(),
+                vec![EntryKind::RadioButton("Title and Author".to_string(), EntryId::FirstColumn(FirstColumn::TitleAndAuthor), first_column == FirstColumn::TitleAndAuthor),
+                     EntryKind::RadioButton("File Name".to_string(), EntryId::FirstColumn(FirstColumn::FileName), first_column == FirstColumn::FileName)]));
+
+            let second_column = library_settings.second_column;
             entries.push(EntryKind::SubMenu("Second Column".to_string(),
                 vec![EntryKind::RadioButton("Progress".to_string(), EntryId::SecondColumn(SecondColumn::Progress), second_column == SecondColumn::Progress),
                      EntryKind::RadioButton("Year".to_string(), EntryId::SecondColumn(SecondColumn::Year), second_column == SecondColumn::Year)]));
 
-            if !self.visible_books.is_empty() || !self.history.is_empty() || !trash::is_empty(context) {
-                entries.push(EntryKind::Separator);
-            }
-
-            if !trash::is_empty(context) {
-                entries.push(EntryKind::Command("Empty Trash".to_string(), EntryId::EmptyTrash));
-            }
-
-            if !self.visible_books.is_empty() {
-                entries.push(EntryKind::Command("Remove".to_string(), EntryId::RemoveMatches));
-            }
-
-            if !self.history.is_empty() {
-                entries.push(EntryKind::Command("Undo".to_string(), EntryId::Undo));
-            }
-
-            let matches_menu = Menu::new(rect, ViewId::MatchesMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*matches_menu.rect(), UpdateMode::Gui)).ok();
-            self.children.push(Box::new(matches_menu) as Box<dyn View>);
+            let library_menu = Menu::new(rect, ViewId::LibraryMenu, MenuKind::DropDown, entries, context);
+            hub.send(Event::Render(*library_menu.rect(), UpdateMode::Gui)).ok();
+            self.children.push(Box::new(library_menu) as Box<dyn View>);
         }
-    }
-
-    // Relatively moves the bottom edge of the summary
-    // And consequently moves the top edge of the shelf
-    // and the separator between them.
-    fn resize_summary(&mut self, delta_y: i32, update: bool, hub: &Hub, context: &mut Context) {
-        let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = context.display.dims;
-        let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
-        let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
-
-        let min_height = if locate::<SearchBar>(self).is_some() {
-            big_height as i32 - thickness
-        } else {
-            small_height as i32 - thickness
-        };
-
-        let (current_height, next_height) = {
-            let summary = self.child(2).downcast_ref::<Summary>().unwrap();
-            let shelf = self.child(4).downcast_ref::<Shelf>().unwrap();
-            let max_height = min_height.max(shelf.rect.max.y - summary.rect.min.y - big_height as i32);
-            let current_height = summary.rect.height() as i32;
-            let size_factor = ((current_height + delta_y - min_height) as f32 / big_height as f32).round() as i32;
-            let next_height = max_height.min(min_height.max(min_height + size_factor * big_height as i32));
-            (current_height, next_height)
-        };
-
-        if current_height == next_height {
-            return;
-        }
-
-        self.summary_size = (1 + (next_height - min_height) / big_height as i32) as u8;
-
-        // Move the summary's bottom edge.
-        let delta_y = {
-            let summary = self.child_mut(2).downcast_mut::<Summary>().unwrap();
-            let last_max_y = summary.rect.max.y;
-            summary.rect.max.y = summary.rect.min.y + next_height;
-            summary.rect.max.y - last_max_y
-        };
-
-        // Move the separator.
-        {
-            let separator = self.child_mut(3).downcast_mut::<Filler>().unwrap();
-            separator.rect += pt!(0, delta_y);
-        }
-
-        // Move the shelf's top edge.
-        {
-            let shelf = self.child_mut(4).downcast_mut::<Shelf>().unwrap();
-
-            shelf.rect.min.y += delta_y;
-        }
-
-        if update {
-            hub.send(Event::Render(*self.child(3).rect(), UpdateMode::Gui)).ok();
-            self.update_summary(true, hub, &mut context.fonts);
-            self.update_shelf(true, hub, context);
-            self.update_bottom_bar(hub);
-        }
-    }
-
-    fn history_push(&mut self, restore_books: bool, context: &mut Context) {
-        self.history.push_back(HistoryEntry { metadata: context.metadata.clone(),
-                                              restore_books });
-        if self.history.len() > HISTORY_SIZE {
-            self.history.pop_front();
-        }
-    }
-
-    fn undo(&mut self, hub: &Hub, context: &mut Context) {
-        if let Some(entry) = self.history.pop_back() {
-            context.metadata = entry.metadata;
-            if entry.restore_books {
-                untrash(context).map_err(|e| eprintln!("Can't restore books from trash: {}", e)).ok();
-            }
-            sort(&mut context.metadata, self.sort_method, self.reverse_order);
-            self.refresh_visibles(true, false, hub, context);
-        }
-    }
-
-    fn remove_matches(&mut self, hub: &Hub, context: &mut Context) {
-        let paths: FnvHashSet<PathBuf> = self.visible_books.drain(..)
-                                             .map(|info| info.file.path).collect();
-        if trash(&paths, context).map_err(|e| eprintln!("Can't trash matches: {}", e)).is_ok() {
-            self.history_push(true, context);
-            context.metadata.retain(|info| !paths.contains(&info.file.path));
-            context.settings.intermission_images.retain(|_, path| !paths.contains(path));
-            self.refresh_visibles(true, false, hub, context);
-        }
-    }
-
-    fn add_matches_categories(&mut self, categs: &Vec<String>, hub: &Hub, context: &mut Context) {
-        if categs.is_empty() {
-            return;
-        }
-
-        self.history_push(false, context);
-        let mut paths: FnvHashSet<PathBuf> = self.visible_books.drain(..)
-                                                 .map(|info| info.file.path).collect();
-
-        for info in &mut context.metadata {
-            if paths.remove(&info.file.path) {
-                info.categories.extend(categs.clone());
-                if paths.is_empty() {
-                    break;
-                }
-            }
-        }
-
-        self.refresh_visibles(true, false, hub, context);
-    }
-
-    fn remove_category(&mut self, categ: &str, hub: &Hub, context: &mut Context) {
-        self.history_push(false, context);
-
-        self.selected_categories = self.selected_categories.iter().filter_map(|c| {
-            if c == categ || c.is_descendant_of(categ) {
-                None
-            } else {
-                Some(c.clone())
-            }
-        }).collect();
-
-        self.negated_categories = self.negated_categories.iter().filter_map(|c| {
-            if c == categ || c.is_descendant_of(categ) {
-                None
-            } else {
-                Some(c.clone())
-            }
-        }).collect();
-
-        for info in &mut context.metadata {
-            info.categories = info.categories.iter().filter_map(|c| {
-                if c == categ || c.is_descendant_of(categ) {
-                    None
-                } else {
-                    Some(c.clone())
-                }
-            }).collect();
-        }
-
-        self.refresh_visibles(true, false, hub, context);
-    }
-
-    fn rename_category(&mut self, categ_old: &str, categ_new: &str, hub: &Hub, context: &mut Context) {
-        if categ_old == categ_new {
-            return;
-        }
-
-        self.history_push(false, context);
-
-        self.selected_categories = self.selected_categories.iter().map(|c| {
-            if c == categ_old {
-                categ_new.to_string()
-            } else if c.is_descendant_of(categ_old) {
-                categ_new.join(&c[categ_old.len()+1..])
-            } else {
-                c.clone()
-            }
-        }).collect();
-
-        self.negated_categories = self.negated_categories.iter().map(|c| {
-            if c == categ_old {
-                categ_new.to_string()
-            } else if c.is_descendant_of(categ_old) {
-                categ_new.join(&c[categ_old.len()+1..])
-            } else {
-                c.clone()
-            }
-        }).collect();
-
-        for info in &mut context.metadata {
-            info.categories = info.categories.iter().map(|c| {
-                if c == categ_old {
-                    categ_new.to_string()
-                } else if c.is_descendant_of(categ_old) {
-                    categ_new.join(&c[categ_old.len()+1..])
-                } else {
-                    c.clone()
-                }
-            }).collect();
-        }
-
-        self.refresh_visibles(true, false, hub, context);
     }
 
     fn add_document(&mut self, mut info: Info, hub: &Hub, context: &mut Context) {
-        if let Ok(path) = info.file.path.strip_prefix(&context.settings.library_path) {
+        if let Ok(path) = info.file.path.strip_prefix(&context.library.home) {
             info.file.path = path.to_path_buf();
-            context.metadata.push(info);
-            // TODO: Only update bars and shelves once.
-            self.refresh_visibles(true, false, hub, context);
+            context.library.add_document(info);
             self.sort(false, hub, context);
-        }
-    }
-
-    fn remove_document(&mut self, path: &PathBuf, hub: &Hub, context: &mut Context) {
-        let paths: FnvHashSet<PathBuf> = [path.clone()].iter().cloned().collect();
-        if trash(&paths, context).map_err(|e| eprintln!("Can't trash {}: {}", path.display(), e)).is_ok() {
-            self.history_push(true, context);
-            context.metadata.retain(|info| info.file.path != *path);
-            context.settings.intermission_images.retain(|_, path| !paths.contains(path));
             self.refresh_visibles(true, false, hub, context);
         }
     }
 
-    fn add_book_categories(&mut self, path: &PathBuf, categs: &Vec<String>, hub: &Hub, context: &mut Context) {
-        if categs.is_empty() {
-            return;
-        }
+    fn set_status(&mut self, path: &Path, status: SimpleStatus, hub: &Hub, context: &mut Context) {
+        context.library.set_status(path, status);
 
-        self.history_push(false, context);
-
-        for info in &mut context.metadata {
-            if info.file.path == *path {
-                info.categories.extend(categs.clone());
-                break;
-            }
-        }
-
-        self.refresh_visibles(true, false, hub, context);
-    }
-
-
-    fn remove_book_category(&mut self, path: &PathBuf, categ: &str, hub: &Hub, context: &mut Context) {
-        self.history_push(false, context);
-
-        for info in &mut context.metadata {
-            if info.file.path == *path {
-                info.categories.remove(categ);
-                break;
-            }
-        }
-
-        self.refresh_visibles(true, false, hub, context);
-    }
-
-    fn set_status(&mut self, path: &PathBuf, status: SimpleStatus, hub: &Hub, context: &mut Context) {
-        self.history_push(false, context);
-
-        for info in &mut context.metadata {
-            if info.file.path == *path {
-                if status == SimpleStatus::New {
-                    info.reader = None;
-                } else {
-                    if let Some(r) = info.reader.as_mut() {
-                        r.finished = true;
-                    } else {
-                        info.reader = Some(ReaderInfo {
-                            finished: true,
-                            .. Default::default()
-                        });
-                    }
-                }
-                break;
-            }
-        }
-
+        // Is the current sort method affected by this change?
         if self.sort_method == SortMethod::Progress ||
            self.sort_method == SortMethod::Opened {
             self.sort(false, hub, context);
@@ -1219,6 +938,7 @@ impl Home {
 
     fn set_reverse_order(&mut self, value: bool, hub: &Hub, context: &mut Context) {
         self.reverse_order = value;
+        self.current_page = 0;
         self.sort(true, hub, context);
     }
 
@@ -1233,106 +953,224 @@ impl Home {
                 .update(sort_method.reverse_order(), hub);
         }
 
+        self.current_page = 0;
         self.sort(true, hub, context);
     }
 
-    fn sort(&mut self, reset_page: bool, hub: &Hub, context: &mut Context) {
-        if reset_page {
-            self.current_page = 0;
-        }
-
-        sort(&mut context.metadata, self.sort_method, self.reverse_order);
+    fn sort(&mut self, update: bool, hub: &Hub, context: &mut Context) {
+        context.library.sort(self.sort_method, self.reverse_order);
         sort(&mut self.visible_books, self.sort_method, self.reverse_order);
-        self.update_shelf(false, hub, context);
-        let search_visible = locate::<SearchBar>(self).is_some();
-        self.update_top_bar(search_visible, hub);
-        self.update_bottom_bar(hub);
+
+        if update {
+            self.update_shelf(false, hub);
+            let search_visible = rlocate::<SearchBar>(self).is_some();
+            self.update_top_bar(search_visible, hub);
+            self.update_bottom_bar(hub, context);
+        }
     }
 
-    fn reseed(&mut self, reset_page: bool, hub: &Hub, context: &mut Context) {
+    fn load_library(&mut self, index: usize, hub: &Hub, context: &mut Context) {
+        if index == context.settings.selected_library {
+            return;
+        }
+
+        context.library.flush();
+
+        let library_settings = &context.settings.libraries[index];
+        let library = Library::new(&library_settings.path,
+                                   library_settings.mode);
+
+        context.library = library;
+        context.settings.selected_library = index;
+
+        if self.sort_method != library_settings.sort_method {
+            self.sort_method = library_settings.sort_method;
+            self.reverse_order = library_settings.sort_method.reverse_order();
+            let search_visible = rlocate::<SearchBar>(self).is_some();
+            self.update_top_bar(search_visible, hub);
+        }
+
+        context.library.sort(self.sort_method, self.reverse_order);
+
+        let home = context.library.home.clone();
+        self.current_directory = PathBuf::default();
+        self.select_directory(&home, hub, context);
+    }
+
+    fn import(&mut self, hub: &Hub, context: &mut Context) {
+        let home = context.library.home.clone();
+        let settings = context.settings.import.clone();
+        context.library.import(&home, &settings);
+        context.library.sort(self.sort_method, self.reverse_order);
+        self.refresh_visibles(true, false, hub, context);
+    }
+
+    fn clean_up(&mut self, hub: &Hub, context: &mut Context) {
+        context.library.clean_up();
+        self.refresh_visibles(true, false, hub, context);
+    }
+
+    fn flush(&mut self, context: &mut Context) {
+        context.library.flush();
+    }
+
+    fn terminate_fetchers(&mut self, path: &Path, hub: &Hub) {
+        self.background_fetchers.retain(|dir, fetcher| {
+            if dir == path {
+                if let Some(process) = fetcher.process.as_mut() {
+                    unsafe { libc::kill(process.id() as libc::pid_t, libc::SIGTERM) };
+                    process.wait().ok();
+                }
+                if let Some(sort_method) = fetcher.sort_method {
+                    hub.send(Event::Select(EntryId::Sort(sort_method))).ok();
+                }
+                if let Some(first_column) = fetcher.first_column {
+                    hub.send(Event::Select(EntryId::FirstColumn(first_column))).ok();
+                }
+                if let Some(second_column) = fetcher.second_column {
+                    hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
+                }
+                false
+            } else {
+                true
+            }
+        });
+    }
+
+    fn insert_fetcher(&mut self, hook: &Hook, hub: &Hub, context: &Context) {
+        let mut sort_method = hook.sort_method;
+        let mut first_column = hook.first_column;
+        let mut second_column = hook.second_column;
+        if let Some(sort_method) = sort_method.replace(self.sort_method) {
+            hub.send(Event::Select(EntryId::Sort(sort_method))).ok();
+        }
+        let selected_library = context.settings.selected_library;
+        if let Some(first_column) = first_column.replace(context.settings.libraries[selected_library].first_column) {
+            hub.send(Event::Select(EntryId::FirstColumn(first_column))).ok();
+        }
+        if let Some(second_column) = second_column.replace(context.settings.libraries[selected_library].second_column) {
+            hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
+        }
+        let process = hook.program.as_ref().and_then(|p| {
+            let dir = context.library.home.join(&hook.path);
+            self.spawn_child(&dir, p, context.settings.wifi, context.online, hub)
+                .map_err(|e| eprintln!("Can't spawn child: {}.", e)).ok()
+        });
+        self.background_fetchers.insert(hook.path.clone(),
+                                        Fetcher { process, sort_method, first_column, second_column });
+    }
+
+    fn spawn_child(&mut self, dir: &Path, program: &PathBuf, wifi: bool, online: bool, hub: &Hub) -> Result<Child, Error> {
+        let parent = program.parent()
+                            .unwrap_or_else(|| Path::new(""));
+        let path = program.canonicalize()?;
+        let mut process = Command::new(path)
+                                 .current_dir(parent)
+                                 .arg(dir)
+                                 .arg(wifi.to_string())
+                                 .arg(online.to_string())
+                                 .stdout(Stdio::piped())
+                                 .spawn()?;
+        let stdout = process.stdout.take()
+                            .ok_or_else(|| format_err!("Can't take stdout."))?;
+        let hub2 = hub.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line_res in reader.lines() {
+                if let Ok(line) = line_res {
+                    if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
+                        match event.get("type").and_then(JsonValue::as_str) {
+                            Some("notify") => {
+                                if let Some(msg) = event.get("message").and_then(JsonValue::as_str) {
+                                    hub2.send(Event::Notify(msg.to_string())).ok();
+                                }
+                            },
+                            Some("addDocument") => {
+                                if let Some(info) = event.get("info").map(ToString::to_string)
+                                                         .and_then(|v| serde_json::from_str(&v).ok()) {
+                                    hub2.send(Event::AddDocument(Box::new(info))).ok();
+                                }
+                            },
+                            Some("setWifi") => {
+                                if let Some(enable) = event.get("enable").and_then(JsonValue::as_bool) {
+                                    hub2.send(Event::SetWifi(enable)).ok();
+                                }
+                            },
+                            _ => (),
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+        });
+        Ok(process)
+    }
+
+    fn reseed(&mut self, hub: &Hub, context: &mut Context) {
         let (tx, _rx) = mpsc::channel();
-        self.refresh_visibles(true, reset_page, &tx, context);
-        self.sort(false, &tx, context);
+
+        if self.sort_method == SortMethod::Progress ||
+           self.sort_method == SortMethod::Opened {
+            self.sort(false, hub, context);
+        }
+
+        self.refresh_visibles(true, false, &tx, context);
+
         if let Some(top_bar) = self.child_mut(0).downcast_mut::<TopBar>() {
             top_bar.update_frontlight_icon(&tx, context);
         }
+
         hub.send(Event::ClockTick).ok();
         hub.send(Event::BatteryTick).ok();
         hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
-
-    fn save_as(&mut self, filename: Option<&str>, context: &mut Context) {
-        let path = if let Some(filename) = filename.as_ref() {
-            context.settings.library_path.join(format!(".metadata-{}.json", filename))
-        } else {
-            context.settings.library_path.join(&context.filename)
-        };
-        save_json(&self.visible_books, path).map_err(|e| {
-            eprintln!("Can't save: {}.", e);
-        }).ok();
-    }
-
-    fn load(&mut self, filename: &PathBuf, hub: &Hub, context: &mut Context) {
-        let md = load_json::<Metadata, _>(context.settings.library_path.join(filename))
-                           .map_err(|e| eprintln!("Can't load: {}", e));
-        if let Ok(metadata) = md {
-            let saved = save_json(&context.metadata,
-                                  context.settings.library_path.join(&context.filename))
-                                 .map_err(|e| eprintln!("Can't save: {}", e)).is_ok();
-            if saved {
-                context.filename = filename.clone();
-                context.metadata = metadata;
-                self.history.clear();
-                self.selected_categories.clear();
-                self.negated_categories.clear();
-                self.reseed(true, hub, context);
-            }
-        }
-    }
-
-    fn reload(&mut self, hub: &Hub, context: &mut Context) {
-        let md = load_json::<Metadata, _>(context.settings.library_path.join(&context.filename))
-                           .map_err(|e| eprintln!("Can't load: {}", e));
-        if let Ok(metadata) = md {
-            context.metadata = metadata;
-            self.history.clear();
-            self.selected_categories.clear();
-            self.negated_categories.clear();
-            self.reseed(true, hub, context);
-        }
-    }
-
-    fn clean_up(&mut self, hub: &Hub, context: &mut Context) {
-        self.history_push(false, context);
-        let library_path = &context.settings.library_path;
-        clean_up(library_path, &mut context.metadata);
-        self.refresh_visibles(true, false, hub, context);
-    }
-
-    fn import(&mut self, hub: &Hub, context: &mut Context) {
-        let imd = auto_import(&context.settings.library_path,
-                              &context.metadata,
-                              &context.settings.import)
-                             .map_err(|e| eprintln!("Can't import: {}", e));
-        if let Ok(mut imported_metadata) = imd {
-            context.metadata.append(&mut imported_metadata);
-            sort(&mut context.metadata, self.sort_method, self.reverse_order);
-            self.refresh_visibles(true, false, hub, context);
-        }
-    }
 }
-
-// TODO: make the update_* and resize_* methods take a mutable bit fields as argument and make a
-// generic method for updating everything based on the bit field to avoid needlessly updating
-// things multiple times?
 
 impl View for Home {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
         match *evt {
+            Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) => {
+                match dir {
+                    Dir::South if self.children[0].rect().includes(start) &&
+                                  self.children[self.shelf_index].rect().includes(end) => {
+                        if !context.settings.home.navigation_bar {
+                            self.toggle_navigation_bar(Some(true), true, hub, context);
+                        } else if !context.settings.home.address_bar {
+                            self.toggle_address_bar(Some(true), true, hub, context);
+                        }
+                    },
+                    Dir::North if self.children[self.shelf_index].rect().includes(start) &&
+                                  self.children[0].rect().includes(end) => {
+                        if context.settings.home.address_bar {
+                            self.toggle_address_bar(Some(false), true, hub, context);
+                        } else if context.settings.home.navigation_bar {
+                            self.toggle_navigation_bar(Some(false), true, hub, context);
+                        }
+                    },
+                    _ => (),
+                }
+                true
+            },
             Event::Gesture(GestureEvent::Rotate { quarter_turns, .. }) if quarter_turns != 0 => {
                 let (_, dir) = CURRENT_DEVICE.mirroring_scheme();
                 let n = (4 + (context.display.rotation - dir * quarter_turns)) % 4;
                 hub.send(Event::Select(EntryId::Rotate(n))).ok();
+                true
+            },
+            Event::Gesture(GestureEvent::Arrow { dir, .. }) => {
+                match dir {
+                    Dir::West => self.go_to_page(0, hub, context),
+                    Dir::East => {
+                        let pages_count = self.pages_count;
+                        self.go_to_page(pages_count.saturating_sub(1), hub, context);
+                    },
+                    Dir::North => {
+                        let path = context.library.home.clone();
+                        self.select_directory(&path, hub, context);
+                    },
+                    Dir::South => self.toggle_search_bar(None, true, hub, context),
+                };
                 true
             },
             Event::Focus(v) => {
@@ -1358,10 +1196,6 @@ impl View for Home {
                 self.toggle_sort_menu(rect, None, hub, context);
                 true
             },
-            Event::ToggleCategoryMenu(rect, ref categ) => {
-                self.toggle_category_menu(categ, rect, None, hub, context);
-                true
-            },
             Event::ToggleBookMenu(rect, index) => {
                 self.toggle_book_menu(index, rect, None, hub, context);
                 true
@@ -1378,8 +1212,12 @@ impl View for Home {
                 toggle_clock_menu(self, rect, None, hub, context);
                 true
             },
-            Event::ToggleNear(ViewId::MatchesMenu, rect) => {
-                self.toggle_matches_menu(rect, None, hub, context);
+            Event::ToggleNear(ViewId::LibraryMenu, rect) => {
+                self.toggle_library_menu(rect, None, hub, context);
+                true
+            },
+            Event::Close(ViewId::AddressBar) => {
+                self.toggle_address_bar(Some(false), true, hub, context);
                 true
             },
             Event::Close(ViewId::SearchBar) => {
@@ -1390,8 +1228,8 @@ impl View for Home {
                 self.toggle_sort_menu(Rectangle::default(), Some(false), hub, context);
                 true
             },
-            Event::Close(ViewId::MatchesMenu) => {
-                self.toggle_matches_menu(Rectangle::default(), Some(false), hub, context);
+            Event::Close(ViewId::LibraryMenu) => {
+                self.toggle_library_menu(Rectangle::default(), Some(false), hub, context);
                 true
             },
             Event::Close(ViewId::MainMenu) => {
@@ -1402,12 +1240,6 @@ impl View for Home {
                 self.toggle_go_to_page(Some(false), hub, context);
                 true
             },
-            Event::Close(ViewId::AddCategories) |
-            Event::Close(ViewId::RenameCategory) |
-            Event::Close(ViewId::SaveAs) => {
-                self.toggle_keyboard(false, true, None, hub, context);
-                false
-            },
             Event::Select(EntryId::Sort(sort_method)) => {
                 self.set_sort_method(sort_method, hub, context);
                 true
@@ -1417,34 +1249,20 @@ impl View for Home {
                 self.set_reverse_order(next_value, hub, context);
                 true
             },
-            Event::Select(EntryId::Save) => {
-                self.save_as(None, context);
-                true
-            },
-            Event::Select(EntryId::SaveAs) => {
-                let save_as = NamedInput::new("Save as".to_string(),
-                                              ViewId::SaveAs,
-                                              ViewId::SaveAsInput,
-                                              12, context);
-                hub.send(Event::Render(*save_as.rect(), UpdateMode::Gui)).ok();
-                hub.send(Event::Focus(Some(ViewId::SaveAsInput))).ok();
-                self.children.push(Box::new(save_as) as Box<dyn View>);
+            Event::Select(EntryId::LoadLibrary(index)) => {
+                self.load_library(index, hub, context);
                 true
             },
             Event::Select(EntryId::Import) => {
                 self.import(hub, context);
                 true
             },
-            Event::Select(EntryId::Load(ref filename)) => {
-                self.load(filename, hub, context);
-                true
-            },
-            Event::Select(EntryId::Reload) => {
-                self.reload(hub, context);
-                true
-            },
             Event::Select(EntryId::CleanUp) => {
                 self.clean_up(hub, context);
+                true
+            },
+            Event::Select(EntryId::Flush) => {
+                self.flush(context);
                 true
             },
             Event::AddDocument(ref info) => {
@@ -1452,108 +1270,35 @@ impl View for Home {
                 self.add_document(*info2, hub, context);
                 true
             },
-            Event::Select(EntryId::Remove(ref path)) |
-            Event::RemoveDocument(ref path) => {
-                self.remove_document(path, hub, context);
-                true
-            },
-            Event::Select(EntryId::RemoveBookCategory(ref path, ref categ)) => {
-                self.remove_book_category(path, categ, hub, context);
-                true
-            },
-            Event::Select(ref id @ EntryId::AddBookCategories(..)) |
-            Event::Select(ref id @ EntryId::AddMatchesCategories) => {
-                if let EntryId::AddBookCategories(ref path) = *id {
-                    self.target_path = Some(path.clone());
-                }
-                let add_categs = NamedInput::new("Add categories".to_string(),
-                                                 ViewId::AddCategories,
-                                                 ViewId::AddCategoriesInput,
-                                                 21, context);
-                hub.send(Event::Render(*add_categs.rect(), UpdateMode::Gui)).ok();
-                hub.send(Event::Focus(Some(ViewId::AddCategoriesInput))).ok();
-                self.children.push(Box::new(add_categs) as Box<dyn View>);
-                true
-            },
-            Event::Select(EntryId::RenameCategory(ref categ_old)) => {
-                self.target_category = Some(categ_old.to_string());
-                let mut ren_categ = NamedInput::new("Rename category".to_string(),
-                                                    ViewId::RenameCategory,
-                                                    ViewId::RenameCategoryInput,
-                                                    21, context);
-                let (tx, _rx) = mpsc::channel();
-                ren_categ.set_text(categ_old, &tx, context);
-                hub.send(Event::Render(*ren_categ.rect(), UpdateMode::Gui)).ok();
-                hub.send(Event::Focus(Some(ViewId::RenameCategoryInput))).ok();
-                self.children.push(Box::new(ren_categ) as Box<dyn View>);
-                true
-            },
-            Event::Select(EntryId::RemoveMatches) => {
-                self.remove_matches(hub, context);
-                true
-            },
-            Event::Select(EntryId::RemoveCategory(ref categ)) => {
-                self.remove_category(categ, hub, context);
-                true
-            },
             Event::Select(EntryId::SetStatus(ref path, status)) => {
                 self.set_status(path, status, hub, context);
                 true
             },
-            Event::Select(EntryId::EmptyTrash) => {
-                trash::empty(context).map_err(|e| eprintln!("Can't empty the trash: {}", e)).ok();
-                true
-            },
-            Event::Select(EntryId::Undo) => {
-                self.undo(hub, context);
+            Event::Select(EntryId::FirstColumn(first_column)) => {
+                let selected_library = context.settings.selected_library;
+                context.settings.libraries[selected_library].first_column = first_column;
+                self.update_first_column(hub, context);
                 true
             },
             Event::Select(EntryId::SecondColumn(second_column)) => {
-                context.settings.home.second_column = second_column;
+                let selected_library = context.settings.selected_library;
+                context.settings.libraries[selected_library].second_column = second_column;
                 self.update_second_column(hub, context);
                 true
             },
-            Event::Select(EntryId::StatusFilter(status_filter)) => {
-                if self.status_filter != status_filter {
-                    self.status_filter = status_filter;
-                    self.refresh_visibles(true, true, hub, context);
-                }
-                true
-            },
-            Event::Submit(ViewId::SaveAsInput, ref text) => {
-                if !text.is_empty() {
-                    self.save_as(Some(text), context);
-                }
+            Event::Submit(ViewId::AddressBarInput, ref addr) => {
                 self.toggle_keyboard(false, true, None, hub, context);
-                true
-            },
-            Event::Submit(ViewId::AddCategoriesInput, ref text) => {
-                let categs = text.split(',')
-                                 .map(|s| s.trim().to_string())
-                                 .filter(|s| !s.is_empty())
-                                 .collect();
-                if let Some(ref path) = self.target_path.take() {
-                    self.add_book_categories(path, &categs, hub, context);
-                } else {
-                    self.add_matches_categories(&categs, hub, context);
-                }
-                self.toggle_keyboard(false, true, None, hub, context);
-                true
-            },
-            Event::Submit(ViewId::RenameCategoryInput, ref categ_new) => {
-                if !categ_new.is_empty() {
-                    if let Some(ref categ_old) = self.target_category.take() {
-                        self.rename_category(categ_old, categ_new, hub, context);
-                    }
-                }
-                self.toggle_keyboard(false, true, None, hub, context);
+                self.select_directory(&Path::new(addr), hub, context);
                 true
             },
             Event::Submit(ViewId::HomeSearchInput, ref text) => {
                 self.query = make_query(text);
                 if self.query.is_some() {
-                    // TODO: avoid updating things twice
-                    self.toggle_keyboard(false, true, None, hub, context);
+                    self.toggle_keyboard(false, false, None, hub, context);
+                    // Render the search bar and its separator.
+                    for i in self.shelf_index + 1 ..= self.shelf_index + 2 {
+                        hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
+                    }
                     self.refresh_visibles(true, true, hub, context);
                 } else {
                     let notif = Notification::new(ViewId::InvalidSearchQueryNotif,
@@ -1570,24 +1315,26 @@ impl View for Home {
                 }
                 true
             },
-            Event::ResizeSummary(delta_y) => {
-                self.resize_summary(delta_y, true, hub, context);
+            Event::NavigationBarResized(_) => {
+                self.adjust_shelf_top_edge();
+                self.update_shelf(true, hub);
+                for i in self.shelf_index - 2..=self.shelf_index - 1 {
+                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
+                }
                 true
             },
-            Event::ToggleSelectCategory(ref categ) |
-            Event::Select(EntryId::ToggleSelectCategory(ref categ)) => {
-                self.toggle_select_category(categ, hub, context);
-                self.refresh_visibles(true, true, hub, context);
+            Event::Select(EntryId::ToggleShowHidden) => {
+                context.library.show_hidden = !context.library.show_hidden;
+                self.refresh_visibles(true, false, hub, context);
                 true
             },
-            Event::ToggleNegateCategory(ref categ) => {
-                self.toggle_negate_category(categ, hub);
-                self.refresh_visibles(true, true, hub, context);
+            Event::SelectDirectory(ref path) => {
+                self.select_directory(path, hub, context);
                 true
             },
-            Event::ToggleNegateCategoryChildren(ref categ) => {
-                self.toggle_negate_category_children(categ, hub);
-                self.refresh_visibles(true, true, hub, context);
+            Event::ToggleSelectDirectory(ref path) |
+            Event::Select(EntryId::ToggleSelectDirectory(ref path)) => {
+                self.toggle_select_directory(path, hub, context);
                 true
             },
             Event::GoTo(location) => {
@@ -1630,7 +1377,7 @@ impl View for Home {
                 true
             },
             Event::Reseed => {
-                self.reseed(false, hub, context);
+                self.reseed(hub, context);
                 true
             },
             _ => false,
@@ -1644,61 +1391,81 @@ impl View for Home {
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
-        let (_, height) = context.display.dims;
-        let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                          scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
         let (tx, _rx) = mpsc::channel();
 
         self.children.retain(|child| !child.is::<Menu>());
 
         // Top bar.
         let top_bar_rect = rect![rect.min.x, rect.min.y,
-                                 rect.max.x, rect.min.y + small_height as i32 - small_thickness];
+                                 rect.max.x, rect.min.y + small_height - small_thickness];
         self.children[0].resize(top_bar_rect, hub, context);
 
-        let separator_rect = rect![rect.min.x, rect.min.y + small_height as i32 - small_thickness,
-                                   rect.max.x, rect.min.y + small_height as i32 + big_thickness];
+        let separator_rect = rect![rect.min.x, rect.min.y + small_height - small_thickness,
+                                   rect.max.x, rect.min.y + small_height + big_thickness];
         self.children[1].resize(separator_rect, hub, context);
 
-        // Summary.
-        let min_height = if locate::<SearchBar>(self).is_some() {
-            big_height as i32 - thickness
-        } else {
-            small_height as i32 - thickness
-        };
+        let mut shelf_min_y = rect.min.y + small_height + big_thickness;
+        let mut index = 2;
 
-        let summary_height = min_height + (self.summary_size - 1) as i32 * big_height as i32;
-        let sm_min_y = rect.min.y + small_height as i32 + big_thickness;
-        let sm_max_y = sm_min_y + summary_height;
-        let summary_rect = rect![rect.min.x, sm_min_y, rect.max.x, sm_max_y];
-        self.children[2].resize(summary_rect, hub, context);
-        self.update_summary(true, &tx, &mut context.fonts);
+        // Address bar.
+        if context.settings.home.address_bar {
+            self.children[index].resize(rect![rect.min.x, shelf_min_y,
+                                              rect.max.x, shelf_min_y + small_height - thickness],
+                                        hub, context);
+            shelf_min_y += small_height - thickness;
+            index += 1;
 
-        let separator_rect = rect![rect.min.x, sm_max_y,
-                                   rect.max.x, sm_max_y + thickness];
-        self.children[3].resize(separator_rect, hub, context);
+            self.children[index].resize(rect![rect.min.x, shelf_min_y,
+                                              rect.max.x, shelf_min_y + thickness],
+                                        hub, context);
+            shelf_min_y += thickness;
+            index += 1;
+        }
+
+        // Navigation bar.
+        if context.settings.home.navigation_bar {
+            let count = if self.children[self.shelf_index+2].is::<SearchBar>() { 2 } else { 1 };
+            let nav_bar = self.children[index].as_mut().downcast_mut::<NavigationBar>().unwrap();
+            let (_, dirs) = context.library.list(&self.current_directory, None, true);
+            nav_bar.clear();
+            nav_bar.resize(rect![rect.min.x, shelf_min_y,
+                                 rect.max.x, shelf_min_y + small_height - thickness],
+                           hub, context);
+            nav_bar.vertical_limit = rect.max.y - count * small_height - big_height - small_thickness;
+            nav_bar.set_path(&self.current_directory, &dirs, &tx, context);
+            shelf_min_y += nav_bar.rect().height() as i32;
+            index += 1;
+
+            self.children[index].resize(rect![rect.min.x, shelf_min_y,
+                                              rect.max.x, shelf_min_y + thickness],
+                                        hub, context);
+            shelf_min_y += thickness;
+        }
 
         // Bottom bar.
-        let bottom_bar_index = locate::<BottomBar>(self).unwrap_or(6);
-        let mut index = bottom_bar_index;
+        let bottom_bar_index = rlocate::<BottomBar>(self).unwrap();
+        index = bottom_bar_index;
 
-        let separator_rect = rect![rect.min.x, rect.max.y - small_height as i32 - small_thickness,
-                                   rect.max.x, rect.max.y - small_height as i32 + big_thickness];
+        let separator_rect = rect![rect.min.x, rect.max.y - small_height - small_thickness,
+                                   rect.max.x, rect.max.y - small_height + big_thickness];
         self.children[index-1].resize(separator_rect, hub, context);
 
-        let bottom_bar_rect = rect![rect.min.x, rect.max.y - small_height as i32 + big_thickness,
+        let bottom_bar_rect = rect![rect.min.x, rect.max.y - small_height + big_thickness,
                                     rect.max.x, rect.max.y];
         self.children[index].resize(bottom_bar_rect, hub, context);
 
-        let mut shelf_max_y = rect.max.y - small_height as i32 - small_thickness;
+        let mut shelf_max_y = rect.max.y - small_height - small_thickness;
 
-        if index > 6 {
+        if index - self.shelf_index > 2 {
             index -= 2;
             // Keyboard.
             if self.children[index].is::<Keyboard>() {
                 let kb_rect = rect![rect.min.x,
                                     rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                                     rect.max.x,
-                                    rect.max.y - small_height as i32 - small_thickness];
+                                    rect.max.y - small_height - small_thickness];
                 self.children[index].resize(kb_rect, hub, context);
                 let s_max_y = self.children[index].rect().min.y;
                 self.children[index-1].resize(rect![rect.min.x, s_max_y - thickness,
@@ -1708,24 +1475,26 @@ impl View for Home {
             }
             // Search bar.
             if self.children[index].is::<SearchBar>() {
-                let sp_rect = *self.children[index+1].rect() - pt!(0, small_height as i32);
+                let sp_rect = *self.children[index+1].rect() - pt!(0, small_height);
                 self.children[index].resize(rect![rect.min.x,
                                                   sp_rect.max.y,
                                                   rect.max.x,
-                                                  sp_rect.max.y + small_height as i32 - thickness],
+                                                  sp_rect.max.y + small_height - thickness],
                                             hub, context);
                 self.children[index-1].resize(sp_rect, hub, context);
-                shelf_max_y -= small_height as i32;
+                shelf_max_y -= small_height;
             }
         }
 
-        let shelf_rect = rect![rect.min.x, sm_max_y + thickness,
+        // Shelf.
+        let shelf_rect = rect![rect.min.x, shelf_min_y,
                                rect.max.x, shelf_max_y];
-        self.children[4].resize(shelf_rect, hub, context);
+        self.children[self.shelf_index].resize(shelf_rect, hub, context);
 
-        self.update_shelf(true, &tx, context);
-        self.update_bottom_bar(&tx);
+        self.update_shelf(true, &tx);
+        self.update_bottom_bar(&tx, context);
 
+        // Floating windows.
         for i in bottom_bar_index+1..self.children.len() {
             self.children[i].resize(rect, hub, context);
         }

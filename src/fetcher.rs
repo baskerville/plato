@@ -2,7 +2,6 @@ mod helpers;
 
 use std::env;
 use std::thread;
-use std::process;
 use std::fs::{self, File};
 use std::path::PathBuf;
 use reqwest::blocking::Client;
@@ -10,7 +9,7 @@ use serde_json::json;
 use chrono::{Duration, Utc, Local, DateTime};
 use serde::{Serialize, Deserialize};
 use serde_json::Value as JsonValue;
-use failure::{Error, ResultExt, format_err};
+use anyhow::{Error, Context, format_err};
 use self::helpers::{load_toml, load_json, save_json, decode_entities};
 
 const SETTINGS_PATH: &str = "Settings.toml";
@@ -31,7 +30,6 @@ struct Settings {
     password: String,
     client_id: String,
     client_secret: String,
-    save_path: PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,10 +106,10 @@ fn update_token(client: &Client, session: &mut Session, settings: &Settings) -> 
     Ok(())
 }
 
-fn run() -> Result<(), Error> {
+fn main() -> Result<(), Error> {
     let mut args = env::args().skip(1);
-    let category = args.next()
-                       .ok_or_else(|| format_err!("Missing argument: category name."))?;
+    let save_path = PathBuf::from(args.next()
+                                      .ok_or_else(|| format_err!("Missing argument: save path."))?);
     let wifi = args.next()
                    .ok_or_else(|| format_err!("Missing argument: wifi status."))
                    .and_then(|v| v.parse::<bool>().map_err(Into::into))?;
@@ -119,7 +117,7 @@ fn run() -> Result<(), Error> {
                      .ok_or_else(|| format_err!("Missing argument: online status."))
                      .and_then(|v| v.parse::<bool>().map_err(Into::into))?;
     let settings = load_toml::<Settings, _>(SETTINGS_PATH)
-                             .context("Can't load settings.")?;
+                             .with_context(|| format!("Can't load settings from {}", SETTINGS_PATH))?;
     let mut session = load_json::<Session, _>(SESSION_PATH)
                                 .unwrap_or_default();
     let signals = signal_receiver(LISTENED_SIGNALS)?;
@@ -133,8 +131,8 @@ fn run() -> Result<(), Error> {
         signals.recv()?;
     }
 
-    if !settings.save_path.exists() {
-        fs::create_dir(&settings.save_path)?;
+    if !save_path.exists() {
+        fs::create_dir(&save_path)?;
     }
 
     let client = Client::new();
@@ -243,7 +241,7 @@ fn run() -> Result<(), Error> {
 
                 session.since = updated_at.timestamp();
 
-                let epub_path = settings.save_path.join(&format!("{}.epub", id));
+                let epub_path = save_path.join(&format!("{}.epub", id));
                 if epub_path.exists() {
                     continue;
                 }
@@ -279,7 +277,6 @@ fn run() -> Result<(), Error> {
                     "added": updated_at.with_timezone(&Local)
                                        .format("%Y-%m-%d %H:%M:%S")
                                        .to_string(),
-                    "categories": [category],
                     "file": file_info,
                 });
 
@@ -319,13 +316,4 @@ fn run() -> Result<(), Error> {
 
     save_json(&session, SESSION_PATH).context("Can't save session.")?;
     Ok(())
-}
-
-fn main() {
-    if let Err(e) = run() {
-        for e in e.iter_chain() {
-            eprintln!("article_fetcher: {}", e);
-        }
-        process::exit(1);
-    }
 }

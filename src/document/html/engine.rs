@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use std::convert::TryFrom;
-use failure::Error;
+use anyhow::Error;
 use kl_hyphenate::{Standard, Hyphenator, Iter};
 use paragraph_breaker::{Item as ParagraphItem, Breakpoint, INFINITE_PENALTY};
 use paragraph_breaker::{total_fit, standard_fit};
@@ -1640,7 +1640,7 @@ impl Engine {
                         start_index = s;
                         end_index = e;
                     } else {
-                        start_index = usize::max_value();
+                        start_index = usize::MAX;
                         end_index = 0;
                     }
                     let mut merged_width = 0;

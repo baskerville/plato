@@ -1,22 +1,25 @@
-use std::f32;
+use std::path::{PathBuf, Path};
 use crate::device::CURRENT_DEVICE;
 use std::collections::BTreeSet;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::view::{View, Event, Hub, Bus, Align};
 use crate::view::icon::{Icon, ICONS_PIXMAPS};
+use crate::view::{SMALL_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::view::filler::Filler;
-use super::category::{Category, Status};
+use super::directory::Directory;
 use crate::gesture::GestureEvent;
+use crate::font::{Font, Fonts, font_from_style, NORMAL_STYLE};
+use crate::geom::{Point, Rectangle, Dir, CycleDir, divide, small_half, big_half};
 use crate::color::TEXT_BUMP_SMALL;
+use crate::unit::scale_by_dpi;
 use crate::app::Context;
-use crate::symbolic_path::SymbolicPath;
-use crate::font::{Font, Fonts, font_from_style, category_font_size, NORMAL_STYLE};
-use crate::geom::{Rectangle, Dir, CycleDir, divide, small_half, big_half};
 
 #[derive(Debug)]
-pub struct Summary {
+pub struct DirectoriesBar {
     pub rect: Rectangle,
+    pub path: PathBuf,
     pages: Vec<Vec<Box<dyn View>>>,
+    selection_page: Option<usize>,
     current_page: usize,
 }
 
@@ -64,7 +67,7 @@ impl<'a> Default for Line<'a> {
 
 #[derive(Debug, Clone)]
 enum Item<'a> {
-    Label { text: &'a str, width: i32, max_width: Option<u32> },
+    Label { path: &'a Path, width: i32, max_width: Option<u32> },
     Icon { name: &'a str, width: i32 },
 }
 
@@ -77,13 +80,32 @@ impl<'a> Item<'a> {
     }
 }
 
-impl Summary {
-    pub fn new(rect: Rectangle) -> Summary {
-        Summary {
+impl DirectoriesBar {
+    pub fn new<P: AsRef<Path>>(rect: Rectangle, path: P) -> DirectoriesBar {
+        DirectoriesBar {
             rect,
+            path: path.as_ref().to_path_buf(),
             current_page: 0,
-            pages: vec![],
+            selection_page: None,
+            pages: vec![vec![]],
         }
+    }
+
+    pub fn shift(&mut self, delta: Point) {
+        for children in &mut self.pages {
+            for child in children {
+                *child.rect_mut() += delta;
+            }
+        }
+        self.rect += delta;
+    }
+
+    pub fn dirs(&self) -> BTreeSet<PathBuf> {
+        self.pages.iter().flatten()
+            .filter_map(|child| child.downcast_ref::<Directory>())
+            .map(|dir| &dir.path)
+            .cloned()
+            .collect()
     }
 
     pub fn set_current_page(&mut self, dir: CycleDir) {
@@ -98,56 +120,65 @@ impl Summary {
         }
     }
 
-    pub fn update(&mut self, visible_categories: &BTreeSet<String>, selected_categories: &BTreeSet<String>, negated_categories: &BTreeSet<String>, was_resized: bool, hub: &Hub, fonts: &mut Fonts) {
+    pub fn update_selected(&mut self, current_directory: &Path) {
+        for (index, children) in self.pages.iter_mut().enumerate() {
+            for child in children.iter_mut() {
+                if let Some(dir) = child.downcast_mut::<Directory>() {
+                    if dir.update_selected(current_directory) {
+                        self.selection_page = Some(index);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn update_content(&mut self, directories: &BTreeSet<PathBuf>, current_directory: &Path, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
+        let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
+        let min_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32 - thickness;
         let mut start_index = 0;
         let mut font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let x_height = font.x_heights.0 as i32;
         let padding = font.em() as i32;
+        let vertical_padding = min_height - x_height;
         let max_line_width = self.rect.width() as i32 - 2 * padding;
-        // Have at least 2 *x* heights between a line's baseline and the next line's mean line.
-        let max_lines = ((self.rect.height() as f32 / x_height as f32 - 2.0) / 3.0).max(1.0) as usize;
+        let max_lines = ((self.rect.height() as i32 - vertical_padding / 2) /
+                         (x_height + vertical_padding / 2)) as usize;
         let layout = Layout { x_height, padding, max_line_width, max_lines };
         
-        let last_pages_count = self.pages.len();
+        let pages_count = self.pages.len();
         self.pages.clear();
+        self.selection_page = None;
 
         loop {
+            let mut has_selection = false;
             let (children, end_index) = {
-                let page = self.make_page(start_index, &layout, visible_categories, &mut font);
-                let children = self.make_children(&page, &layout, visible_categories,
-                                                  selected_categories, negated_categories);
+                let page = self.make_page(start_index, &layout, directories, &mut font);
+                let children = self.make_children(&page, &layout, current_directory, directories, &mut has_selection);
                 (children, page.end_index)
             };
+            if has_selection {
+                self.selection_page = Some(self.pages.len());
+            }
             self.pages.push(children);
-            if end_index == visible_categories.len() {
+            if end_index == directories.len() {
                 break;
             }
             start_index = end_index;
         }
 
-        if was_resized {
-            let page_position = if last_pages_count == 0 {
-                0.0
-            } else {
-                self.current_page as f32 / last_pages_count as f32
-            };
-            let mut page_guess = page_position * self.pages.len() as f32;
-            let page_ceil = page_guess.ceil();
-            if (page_ceil - page_guess) < f32::EPSILON {
-                page_guess = page_ceil;
-            }
-            self.current_page = (page_guess as usize).min(self.pages.len() - 1);
+        let previous_position = if pages_count > 0 {
+            self.current_page as f32 / pages_count as f32
         } else {
-            // TODO: restore current_page so that the last *manipulated* category is visible?
-            self.current_page = 0;
-        }
+            0.0
+        };
 
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+        self.current_page = self.selection_page.unwrap_or_else(|| {
+            (previous_position * self.pages.len() as f32) as usize
+        });
     }
 
-    fn make_page<'a>(&self, start_index: usize, layout: &Layout, visible_categories: &'a BTreeSet<String>, font: &mut Font) -> Page<'a> {
-        let dpi = CURRENT_DEVICE.dpi;
+    fn make_page<'a>(&self, start_index: usize, layout: &Layout, directories: &'a BTreeSet<PathBuf>, font: &mut Font) -> Page<'a> {
         let Layout { padding, max_line_width, max_lines, .. } = *layout;
         let mut end_index = start_index;
         let mut line = Line::default();
@@ -160,24 +191,23 @@ impl Summary {
                                          width: pixmap.width as i32 });
         }
 
-        for categ in visible_categories.iter().skip(start_index) {
-            font.set_size(category_font_size(categ.depth()), dpi);
-            let mut categ_width = font.plan(categ.last_component(),
-                                            None,
-                                            None).width as i32;
-            let mut max_categ_width = None;
+        for dir in directories.iter().skip(start_index) {
+            let mut dir_width = font.plan(dir.file_name().unwrap().to_string_lossy(),
+                                          None,
+                                          None).width as i32;
+            let mut max_dir_width = None;
 
-            if categ_width > max_line_width {
-                max_categ_width = Some(max_line_width as u32);
-                categ_width = max_line_width;
+            if dir_width > max_line_width {
+                max_dir_width = Some(max_line_width as u32);
+                dir_width = max_line_width;
             }
 
             line.labels_count += 1;
-            line.width += categ_width;
+            line.width += dir_width;
             end_index += 1;
-            let label = Item::Label { text: categ,
-                                      width: categ_width,
-                                      max_width: max_categ_width };
+            let label = Item::Label { path: &dir.as_path(),
+                                      width: dir_width,
+                                      max_width: max_dir_width };
             line.items.push(label);
 
             if line.width >= max_line_width {
@@ -218,7 +248,7 @@ impl Summary {
             end_index -= line.items.len();
         }
 
-        if end_index < visible_categories.len() {
+        if end_index < directories.len() {
 
             if let Some(mut line) = page.lines.pop() {
                 let pixmap = ICONS_PIXMAPS.get("angle-right-small").unwrap();
@@ -255,20 +285,20 @@ impl Summary {
         page
     }
 
-    fn make_children(&self, page: &Page, layout: &Layout, visible_categories: &BTreeSet<String>, selected_categories: &BTreeSet<String>, negated_categories: &BTreeSet<String>) -> Vec<Box<dyn View>> {
+    fn make_children(&self, page: &Page, layout: &Layout, current_directory: &Path, directories: &BTreeSet<PathBuf>, has_selection: &mut bool) -> Vec<Box<dyn View>> {
         let mut children = vec![];
         let Layout { x_height, padding, max_line_width, max_lines } = *layout;
         let background = TEXT_BUMP_SMALL[0];
         let vertical_space = self.rect.height() as i32 - max_lines as i32 * x_height;
         let baselines = divide(vertical_space, max_lines as i32 + 1);
-        let categories_count = visible_categories.len();
+        let directories_count = directories.len();
         let lines_count = page.lines.len();
         let mut pos = pt!(self.rect.min.x + small_half(padding),
                           self.rect.min.y + small_half(baselines[0]));
 
         for (line_index, line) in page.lines.iter().enumerate() {
 
-            let paddings = if line_index == lines_count - 1 && page.end_index == categories_count {
+            let paddings = if line_index == lines_count - 1 && page.end_index == directories_count {
                 vec![padding; line.items.len() + 1]
             } else {
                 let horizontal_space = (line.items.len() as i32 - 1) * padding +
@@ -289,19 +319,16 @@ impl Summary {
                 let sop = pos + pt!(rect_width, rect_height);
 
                 match *item {
-                    Item::Label { text, max_width, .. } => {
-                        let status = if selected_categories.contains(text) {
-                            Status::Selected
-                        } else if negated_categories.contains(text) {
-                            Status::Negated
-                        } else {
-                            Status::Normal
-                        };
-                        let child = Category::new(rect![pos, sop],
-                                                  text.to_string(),
-                                                  status,
-                                                  Align::Left(left_padding),
-                                                  max_width);
+                    Item::Label { path, max_width, .. } => {
+                        let selected = current_directory.starts_with(path);
+                        if selected {
+                            *has_selection = true;
+                        }
+                        let child = Directory::new(rect![pos, sop],
+                                                   path.to_path_buf(),
+                                                   selected,
+                                                   Align::Left(left_padding),
+                                                   max_width);
                         children.push(Box::new(child) as Box<dyn View>);
                     },
                     Item::Icon { name, .. } => {
@@ -321,7 +348,8 @@ impl Summary {
             pos.y += rect_height;
         }
 
-        if page.end_index == categories_count {
+        // End of line filler.
+        if page.end_index == directories_count {
             let last_width = page.lines[lines_count - 1].width;
             let x_offset = last_width + small_half(padding);
             let y_offset = baselines.iter().take(lines_count).sum::<i32>() -
@@ -333,6 +361,7 @@ impl Summary {
             children.push(Box::new(filler) as Box<dyn View>);
         }
 
+        // End of page filler.
         if lines_count < max_lines {
             let y_offset = baselines.iter().take(lines_count+1).sum::<i32>() -
                            big_half(baselines[lines_count]) + lines_count as i32 * x_height;
@@ -344,12 +373,14 @@ impl Summary {
             children.push(Box::new(filler) as Box<dyn View>);
         }
         
+        // Top filler.
         let filler = Filler::new(rect![self.rect.min,
                                        pt!(self.rect.max.x,
                                            self.rect.min.y + small_half(baselines[0]))],
                                  background);
         children.push(Box::new(filler) as Box<dyn View>);
 
+        // Left filler.
         let filler = Filler::new(rect![pt!(self.rect.min.x,
                                            self.rect.min.y + small_half(baselines[0])),
                                        pt!(self.rect.min.x + small_half(padding),
@@ -357,11 +388,13 @@ impl Summary {
                                  background);
         children.push(Box::new(filler) as Box<dyn View>);
 
+        // Bottom filler.
         let filler = Filler::new(rect![pt!(self.rect.min.x, self.rect.max.y - big_half(baselines[max_lines])),
                                        self.rect.max],
                                  background);
         children.push(Box::new(filler) as Box<dyn View>);
 
+        // Right filler.
         let filler = Filler::new(rect![pt!(self.rect.max.x - big_half(padding), self.rect.min.y + small_half(baselines[0])),
                                        pt!(self.rect.max.x, self.rect.max.y - big_half(baselines[max_lines]))],
                                  background);
@@ -370,10 +403,10 @@ impl Summary {
     }
 }
 
-impl View for Summary {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+impl View for DirectoriesBar {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) if self.rect.includes(start) => {
+            Event::Gesture(GestureEvent::Swipe { dir, start, .. }) if self.rect.includes(start) => {
                 match dir {
                     Dir::West => {
                         self.set_current_page(CycleDir::Next);
@@ -383,10 +416,6 @@ impl View for Summary {
                     Dir::East => {
                         self.set_current_page(CycleDir::Previous);
                         hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
-                        true
-                    },
-                    Dir::South if !self.rect.includes(end) => {
-                        bus.push_back(Event::ResizeSummary(end.y - self.rect.max.y));
                         true
                     },
                     _ => false,

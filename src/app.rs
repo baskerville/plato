@@ -1,14 +1,15 @@
-use std::thread;
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::thread;
 use std::process::Command;
+use std::path::Path;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::collections::{HashMap, BTreeMap, VecDeque};
 use std::time::{Duration, Instant};
-use failure::{Error, ResultExt};
+use anyhow::{Error, Context as ResultExt, format_err};
 use fnv::FnvHashMap;
 use chrono::Local;
-use glob::glob;
+use globset::Glob;
+use walkdir::WalkDir;
 use crate::dictionary::{Dictionary, load_dictionary_from_file};
 use crate::framebuffer::{Framebuffer, KoboFramebuffer, Display, UpdateMode};
 use crate::view::{View, Event, EntryId, EntryKind, ViewId, AppCmd};
@@ -24,8 +25,7 @@ use crate::view::sketch::Sketch;
 use crate::input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus, VAL_RELEASE, VAL_PRESS};
 use crate::input::{raw_events, device_events, usb_events, display_rotate_event, button_scheme_event};
 use crate::gesture::{GestureEvent, gesture_events};
-use crate::helpers::{load_json, save_json, load_toml, save_toml};
-use crate::metadata::{Metadata, METADATA_FILENAME, auto_import};
+use crate::helpers::{load_json, load_toml, save_toml};
 use crate::settings::{ButtonScheme, Settings, SETTINGS_PATH, RotationLock};
 use crate::frontlight::{Frontlight, StandardFrontlight, NaturalFrontlight, PremixedFrontlight};
 use crate::lightsensor::{LightSensor, KoboLightSensor};
@@ -36,11 +36,19 @@ use crate::view::reader::Reader;
 use crate::view::confirmation::Confirmation;
 use crate::view::intermission::{Intermission, IntermKind};
 use crate::view::notification::Notification;
-use crate::device::{CURRENT_DEVICE, Orientation, FrontlightKind, INTERNAL_CARD_ROOT};
+use crate::device::{CURRENT_DEVICE, Orientation, FrontlightKind};
+use crate::library::Library;
 use crate::font::Fonts;
 use crate::rtc::Rtc;
 
 pub const APP_NAME: &str = "Plato";
+const FB_DEVICE: &str = "/dev/fb0";
+const RTC_DEVICE: &str = "/dev/rtc0";
+const EVENT_BUTTONS: &str = "/dev/input/event0";
+const EVENT_TOUCH_SCREEN: &str = "/dev/input/event1";
+const KOBO_UPDATE_BUNDLE: &str = "/mnt/onboard/.kobo/KoboRoot.tgz";
+const KEYBOARD_LAYOUTS_DIRNAME: &str = "keyboard-layouts";
+const DICTIONARIES_DIRNAME: &str = "dictionaries";
 const INPUT_HISTORY_SIZE: usize = 32;
 
 const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
@@ -54,8 +62,7 @@ pub struct Context {
     pub rtc: Option<Rtc>,
     pub display: Display,
     pub settings: Settings,
-    pub metadata: Metadata,
-    pub filename: PathBuf,
+    pub library: Library,
     pub fonts: Fonts,
     pub dictionaries: BTreeMap<String, Dictionary>,
     pub keyboard_layouts: BTreeMap<String, Layout>,
@@ -72,44 +79,51 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(fb: Box<dyn Framebuffer>, rtc: Option<Rtc>, settings: Settings, metadata: Metadata,
-               filename: PathBuf, fonts: Fonts, battery: Box<dyn Battery>,
+    pub fn new(fb: Box<dyn Framebuffer>, rtc: Option<Rtc>, library: Library,
+               settings: Settings, fonts: Fonts, battery: Box<dyn Battery>,
                frontlight: Box<dyn Frontlight>, lightsensor: Box<dyn LightSensor>) -> Context {
         let dims = fb.dims();
         let rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
         Context { fb, rtc, display: Display { dims, rotation },
-                  settings, metadata, filename, fonts, dictionaries: BTreeMap::new(), keyboard_layouts: BTreeMap::new(),
-                  input_history: HashMap::new(), battery, frontlight, lightsensor, notification_index: 0,
-                  kb_rect: Rectangle::default(), plugged: false, covered: false, shared: false, online: false }
+                  library, settings, fonts, dictionaries: BTreeMap::new(),
+                  keyboard_layouts: BTreeMap::new(), input_history: HashMap::new(),
+                  battery, frontlight, lightsensor, notification_index: 0,
+                  kb_rect: Rectangle::default(), plugged: false, covered: false,
+                  shared: false, online: false }
     }
 
     pub fn load_keyboard_layouts(&mut self) {
-        if let Ok(entries) = glob("keyboard-layouts/**/*.json") {
-            for path in entries.into_iter().filter_map(|e| e.ok()) {
-                if let Ok(layout) = load_json::<Layout, _>(path) {
-                    self.keyboard_layouts.insert(layout.name.clone(), layout);
-                }
+        let glob = Glob::new("**/*.json").unwrap().compile_matcher();
+        for entry in WalkDir::new(Path::new(KEYBOARD_LAYOUTS_DIRNAME)).min_depth(1).into_iter().filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if !glob.is_match(path) {
+                continue;
+            }
+            if let Ok(layout) = load_json::<Layout, _>(path) {
+                self.keyboard_layouts.insert(layout.name.clone(), layout);
             }
         }
     }
 
     pub fn load_dictionaries(&mut self) {
-        if let Ok(entries) = glob("dictionaries/**/*.index") {
-            for entry in entries.into_iter().filter_map(|e| e.ok()) {
-                let index_path = entry;
-                let mut content_path = index_path.clone();
-                content_path.set_extension("dict.dz");
-                if !content_path.exists() {
-                    content_path.set_extension("");
-                }
-                if let Ok(mut dict) = load_dictionary_from_file(&content_path, &index_path) {
-                    let name = dict.short_name().ok().unwrap_or_else(|| {
-                        index_path.file_stem()
-                                  .map(|s| s.to_string_lossy().into_owned())
-                                  .unwrap_or_default()
-                    });
-                    self.dictionaries.insert(name, dict);
-                }
+        let glob = Glob::new("**/*.index").unwrap().compile_matcher();
+        for entry in WalkDir::new(Path::new(DICTIONARIES_DIRNAME)).min_depth(1).into_iter().filter_map(|e| e.ok()) {
+            if !glob.is_match(entry.path()) {
+                continue;
+            }
+            let index_path = entry.path().to_path_buf();
+            let mut content_path = index_path.clone();
+            content_path.set_extension("dict.dz");
+            if !content_path.exists() {
+                content_path.set_extension("");
+            }
+            if let Ok(mut dict) = load_dictionary_from_file(&content_path, &index_path) {
+                let name = dict.short_name().ok().unwrap_or_else(|| {
+                    index_path.file_stem()
+                        .map(|s| s.to_string_lossy().into_owned())
+                        .unwrap_or_default()
+                });
+                self.dictionaries.insert(name, dict);
             }
         }
     }
@@ -171,41 +185,33 @@ struct HistoryItem {
 }
 
 fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
-    let rtc = Rtc::new("/dev/rtc0")
-                  .map_err(|e| eprintln!("Can't open RTC device: {}.", e))
+    let rtc = Rtc::new(RTC_DEVICE)
+                  .map_err(|e| eprintln!("Can't open RTC device: {}", e))
                   .ok();
     let path = Path::new(SETTINGS_PATH);
     let settings = load_toml::<Settings, _>(path);
-    let mut initial_run = false;
 
     if let Err(ref e) = settings {
         if path.exists() {
-            eprintln!("Warning: can't load settings: {}", e);
-        } else {
-            initial_run = true;
+            eprintln!("Can't load settings: {}", e);
         }
     }
 
     let mut settings = settings.unwrap_or_default();
 
-    let path = settings.library_path.join(METADATA_FILENAME);
-    let mut metadata = load_json::<Metadata, _>(path)
-                                 .map_err(|e| eprintln!("Can't load metadata: {}", e))
-                                 .or_else(|_| auto_import(&settings.library_path,
-                                                          &Vec::new(),
-                                                          &settings.import))
-                                 .unwrap_or_default();
-
-    if initial_run && metadata.is_empty() && settings.library_path != PathBuf::from(INTERNAL_CARD_ROOT) {
-        settings.library_path = PathBuf::from(INTERNAL_CARD_ROOT);
-        metadata = auto_import(&settings.library_path, &Vec::new(), &settings.import).unwrap_or_default();
+    if settings.libraries.is_empty() {
+        return Err(format_err!("No libraries found."));
     }
 
+    if settings.selected_library >= settings.libraries.len() {
+        settings.selected_library = 0;
+    }
+
+    let library_settings = &settings.libraries[settings.selected_library];
+    let mut library = Library::new(&library_settings.path, library_settings.mode);
+
     if settings.import.startup_trigger {
-        let imported_metadata = auto_import(&settings.library_path,
-                                            &metadata,
-                                            &settings.import);
-        metadata.append(&mut imported_metadata.unwrap_or_default());
+        library.import(&library_settings.path, &settings.import);
     }
 
     let fonts = Fonts::load().context("Can't load fonts.")?;
@@ -228,7 +234,7 @@ fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
                                         .context("Can't create premixed frontlight.")?) as Box<dyn Frontlight>,
     };
 
-    Ok(Context::new(fb, rtc, settings, metadata, PathBuf::from(METADATA_FILENAME),
+    Ok(Context::new(fb, rtc, library, settings,
                     fonts, battery, frontlight, lightsensor))
 }
 
@@ -308,7 +314,7 @@ enum ExitStatus {
 pub fn run() -> Result<(), Error> {
     let mut inactive_since = Instant::now();
     let mut exit_status = ExitStatus::Quit;
-    let mut fb = KoboFramebuffer::new("/dev/fb0").context("Can't create framebuffer.")?;
+    let mut fb = KoboFramebuffer::new(FB_DEVICE).context("Can't create framebuffer.")?;
     let initial_rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
     let startup_rotation = CURRENT_DEVICE.startup_rotation();
     if initial_rotation != startup_rotation {
@@ -320,8 +326,7 @@ pub fn run() -> Result<(), Error> {
     context.load_dictionaries();
     context.load_keyboard_layouts();
 
-    let paths = vec!["/dev/input/event0".to_string(),
-                     "/dev/input/event1".to_string()];
+    let paths = vec![EVENT_BUTTONS.to_string(), EVENT_TOUCH_SCREEN.to_string()];
     let (raw_sender, raw_receiver) = raw_events(paths);
     let touch_screen = gesture_events(device_events(raw_receiver, context.display, context.settings.button_scheme));
     let usb_port = usb_events();
@@ -557,21 +562,14 @@ pub fn run() -> Result<(), Error> {
                                 view.children_mut().remove(index);
                                 tx.send(Event::Expose(rect, UpdateMode::Full)).ok();
                             }
-                            if Path::new("/mnt/onboard/.kobo/KoboRoot.tgz").exists() {
+                            if Path::new(KOBO_UPDATE_BUNDLE).exists() {
                                 tx.send(Event::Select(EntryId::Reboot)).ok();
                             }
-                            let path = context.settings.library_path.join(&context.filename);
-                            let metadata = load_json::<Metadata, _>(path)
-                                                     .map_err(|e| eprintln!("Can't load metadata: {}", e))
-                                                     .unwrap_or_default();
-                            if !metadata.is_empty() {
-                                context.metadata = metadata;
-                            }
+                            context.library.reload();
                             if context.settings.import.unshare_trigger {
-                                let metadata = auto_import(&context.settings.library_path,
-                                                           &context.metadata,
-                                                           &context.settings.import);
-                                context.metadata.append(&mut metadata.unwrap_or_default());
+                                let prefix = context.library.home.clone();
+                                let settings = context.settings.import.clone();
+                                context.library.import(&prefix, &settings);
                             }
                             view.handle_event(&Event::Reseed, &tx, &mut bus, &mut context);
                         } else {
@@ -641,8 +639,8 @@ pub fn run() -> Result<(), Error> {
                 updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                 let path = Path::new(SETTINGS_PATH);
                 save_toml(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {}", e)).ok();
-                let path = context.settings.library_path.join(&context.filename);
-                save_json(&context.metadata, path).map_err(|e| eprintln!("Can't save metadata: {}", e)).ok();
+                context.library.flush();
+
                 if context.settings.frontlight {
                     context.settings.frontlight_levels = context.frontlight.levels();
                     context.frontlight.set_intensity(0.0);
@@ -715,8 +713,8 @@ pub fn run() -> Result<(), Error> {
                 }
                 let path = Path::new(SETTINGS_PATH);
                 save_toml(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {}", e)).ok();
-                let path = context.settings.library_path.join(&context.filename);
-                save_json(&context.metadata, path).map_err(|e| eprintln!("Can't save metadata: {}", e)).ok();
+                context.library.flush();
+
                 if context.settings.frontlight {
                     context.settings.frontlight_levels = context.frontlight.levels();
                     context.frontlight.set_intensity(0.0);
@@ -992,7 +990,7 @@ pub fn run() -> Result<(), Error> {
                                               msg, &tx, &mut context);
                 view.children_mut().push(Box::new(notif) as Box<dyn View>);
             },
-            Event::AddDocument(..) | Event::RemoveDocument(..) => {
+            Event::AddDocument(..) => {
                 if view.is::<Home>() {
                     view.handle_event(&evt, &tx, &mut bus, &mut context);
                 } else {
@@ -1052,8 +1050,7 @@ pub fn run() -> Result<(), Error> {
         context.settings.frontlight_levels = context.frontlight.levels();
     }
 
-    let path = context.settings.library_path.join(&context.filename);
-    save_json(&context.metadata, path).context("Can't save metadata.")?;
+    context.library.flush();
 
     let path = Path::new(SETTINGS_PATH);
     save_toml(&context.settings, path).context("Can't save settings.")?;

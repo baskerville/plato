@@ -9,8 +9,8 @@ use std::collections::VecDeque;
 use std::io::Write;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Child, Stdio};
-use failure::{Error, format_err};
-use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use anyhow::{Error, format_err};
+use crate::device::CURRENT_DEVICE;
 use crate::gesture::GestureEvent;
 use crate::geom::{Rectangle, CycleDir, halves};
 use crate::view::filler::Filler;
@@ -23,7 +23,7 @@ use crate::view::menu::{Menu, MenuKind};
 use crate::view::common::{locate_by_id};
 use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
 use crate::view::{View, Event, Hub, Bus, EntryKind, EntryId, ViewId};
-use crate::view::{THICKNESS_MEDIUM};
+use crate::view::{SMALL_BAR_HEIGHT, BIG_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::unit::{scale_by_dpi, mm_to_px};
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::font::Fonts;
@@ -111,11 +111,11 @@ impl Calculator {
 
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = context.display.dims;
-        let (small_height, big_height) = *BAR_SIZES.get(&(height, dpi)).unwrap();
+        let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                          scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
-        let side = small_height as i32;
+        let side = small_height;
 
         let font_size = context.settings.calculator.font_size;
         let margin_width = context.settings.calculator.margin_width;
@@ -138,7 +138,7 @@ impl Calculator {
         let mut kb_rect = rect![rect.min.x,
                                 rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                                 rect.max.x,
-                                rect.max.y - small_height as i32 - small_thickness];
+                                rect.max.y - small_height - small_thickness];
 
         let keyboard = Keyboard::new(&mut kb_rect, true, context);
 
@@ -565,11 +565,11 @@ impl View for Calculator {
 
     fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = context.display.dims;
-        let (small_height, big_height) = *BAR_SIZES.get(&(height, dpi)).unwrap();
+        let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                          scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
-        let side = small_height as i32;
+        let side = small_height;
         let (tx, _rx) = mpsc::channel();
 
         self.children.retain(|child| !child.is::<Menu>());
@@ -588,7 +588,7 @@ impl View for Calculator {
         let kb_rect = rect![rect.min.x,
                             rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                             rect.max.x,
-                            rect.max.y - small_height as i32 - small_thickness];
+                            rect.max.y - small_height - small_thickness];
         self.children[6].resize(kb_rect, hub, context);
         let kb_rect = *self.children[6].rect();
 

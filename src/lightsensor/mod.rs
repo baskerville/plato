@@ -1,6 +1,6 @@
 mod kobo;
 
-use failure::Error;
+use anyhow::Error;
 
 pub use self::kobo::KoboLightSensor;
 

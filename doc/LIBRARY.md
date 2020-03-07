@@ -1,32 +1,33 @@
+## Modes
+
+With both modes, the reading states are stored within the `.reading-states` directory.
+
+### Database
+
+The files and directories are read from a cached portion of the filesystem — the database — built and updated during the import phase, stored in `.metadata.json`.
+
+The shelf displays the descendants of the current directory.
+
+### Filesystem
+
+The files and directories are read directly from the filesystem.
+
+The shelf displays the direct children of the current directory.
+
 ## Import Metadata
 
-Create an empty database with `plato-import -Z LIBRARY_PATH`.
+You can use `plato-import` to off-load the import task to a computer.
 
-If the command runs successfully, a file named `.metadata.json` will appear in the given directory.
+You can import with `plato-import -I LIBRARY_PATH`.
 
-The initial import is done with `plato-import -I LIBRARY_PATH`. What this does is to search for files in `LIBRARY_PATH` that aren't referenced by `.metadata.json` and save the results in `.metadata-imported.json`.
+If new entries were added, you might populate the metadata with `plato-import -a ADDED_DATETIME -E LIBRARY_PATH` where the argument passed to `-a` is the added date-time of the first added entry (the new entries are at the bottom of the database).
 
-At this stage the imported metadata contains the following keys:
+You can then edit the database with your text editor to manually fix the metadata.
 
-- `added`: the date of import.
-- `file`: an object with the following keys:
-	- `path`: the path of the document relative to `LIBRARY_PATH`.
-	- `kind`: the lowercased file extension.
-	- `size`: the file size in bytes.
-- `categories`: if the document isn't a direct child of `LIBRARY_PATH`, then its relative path will be converted into a category.
+## Library Backups
 
-The next step is to extract metadata from the ePUB documents: `plato-import -M LIBRARY_PATH`. (Subsequent commands read from **and** write to `.metadata-imported.json`.)
+You can make a backup of a library with:
 
-The final step, cleaning up, is achieved with `plato-import -C LIBRARY_PATH`.
-
-I would recommend adding binding to your text editor to open files at the cursor position (using the double quote characters as boundary) so you can quickly fill out missing information in `.metadata-imported.json`.
-
-## Library Synchronization
-
-Connect your e-reader to your computer. If you're importing for the first time, create and empty database: `plato -Z EREADER_LIBRARY_PATH`. You can then synchronize you device with:
 ```sh
-plato-import -G LIBRARY_PATH EREADER_LIBRARY_PATH`
-plato-import -Y LIBRARY_PATH EREADER_LIBRARY_PATH`
+rsync -vurt --delete EREADER_LIBRARY_PATH/ COMPUTER_LIBRARY_PATH/`
 ```
-
-Once you've synchronized all your devices, you might update the local library with `plato-import -G LIBRARY_PATH`.

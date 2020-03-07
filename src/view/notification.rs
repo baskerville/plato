@@ -1,12 +1,12 @@
 use std::thread;
 use std::time::Duration;
-use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::geom::{Rectangle, CornerSpec, BorderSpec};
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use crate::color::{BLACK, WHITE, TEXT_NORMAL};
 use super::{View, Event, Hub, Bus, ViewId};
-use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
+use super::{SMALL_BAR_HEIGHT, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use crate::gesture::GestureEvent;
 use crate::input::DeviceEvent;
 use crate::unit::scale_by_dpi;
@@ -34,8 +34,8 @@ impl Notification {
         });
 
         let dpi = CURRENT_DEVICE.dpi;
-        let (width, height) = context.display.dims;
-        let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let (width, _) = context.display.dims;
+        let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
 
         let font = font_from_style(&mut context.fonts, &NORMAL_STYLE, dpi);
         let x_height = font.x_heights.0 as i32;
@@ -53,7 +53,7 @@ impl Notification {
         } else {
             padding
         };
-        let dy = small_height as i32 + padding + (index % 3) as i32 * (dialog_height + padding);
+        let dy = small_height + padding + (index % 3) as i32 * (dialog_height + padding);
 
         let rect = rect![dx, dy,
                          dx + dialog_width, dy + dialog_height];
@@ -109,7 +109,7 @@ impl View for Notification {
     fn resize(&mut self, _rect: Rectangle, _hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = context.display.dims;
-        let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
+        let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
         let side = (self.index / 3) % 2;
         let padding = if side == 0 {
             height as i32 - self.rect.max.x
@@ -123,7 +123,7 @@ impl View for Notification {
         } else {
             padding
         };
-        let dy = small_height as i32 + padding + (self.index % 3) as i32 * (dialog_height + padding);
+        let dy = small_height + padding + (self.index % 3) as i32 * (dialog_height + padding);
         let rect = rect![dx, dy,
                          dx + dialog_width, dy + dialog_height];
         self.rect = rect;

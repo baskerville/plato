@@ -1,25 +1,19 @@
 use std::fs;
 use std::fmt;
-use std::path::{self, Path, PathBuf};
 use std::ffi::OsStr;
-use std::cmp::Ordering;
 use std::collections::{BTreeSet, BTreeMap};
-use fnv::{FnvHashMap, FnvHashSet};
+use std::path::{Path, PathBuf};
+use std::cmp::Ordering;
+use regex::Regex;
 use chrono::{Local, DateTime};
+use fnv::FnvHashMap;
 use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
-use regex::Regex;
-use failure::{Error, ResultExt};
+use titlecase::titlecase;
 use crate::document::{Document, SimpleTocEntry, TextLocation};
+use crate::document::asciify;
 use crate::document::epub::EpubDocument;
-use crate::helpers::simple_date_format;
-use crate::settings::{ImportSettings, CategoryProvider};
-use crate::document::file_kind;
-use crate::symbolic_path;
-
-pub const METADATA_FILENAME: &str = ".metadata.json";
-pub const IMPORTED_MD_FILENAME: &str = ".metadata-imported.json";
-pub const TRASH_NAME: &str = ".trash";
+use crate::helpers::datetime_format;
 
 pub const DEFAULT_CONTRAST_EXPONENT: f32 = 1.0;
 pub const DEFAULT_CONTRAST_GRAY: f32 = 224.0;
@@ -54,11 +48,11 @@ pub struct Info {
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     pub categories: BTreeSet<String>,
     pub file: FileInfo,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip)]
     pub reader: Option<ReaderInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub toc: Option<Vec<SimpleTocEntry>>,
-    #[serde(with = "simple_date_format")]
+    #[serde(with = "datetime_format")]
     pub added: DateTime<Local>,
 }
 
@@ -88,7 +82,7 @@ pub struct Annotation {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub text: String,
     pub selection: [TextLocation; 2],
-    #[serde(with = "simple_date_format")]
+    #[serde(with = "datetime_format")]
     pub modified: DateTime<Local>,
 }
 
@@ -197,7 +191,7 @@ impl fmt::Display for TextAlign {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReaderInfo {
-    #[serde(with = "simple_date_format")]
+    #[serde(with = "datetime_format")]
     pub opened: DateTime<Local>,
     pub current_page: usize,
     pub pages_count: usize,
@@ -344,14 +338,6 @@ impl Info {
         self.file.path.file_stem().unwrap().to_string_lossy().into_owned()
     }
 
-    pub fn author(&self) -> &str {
-        if self.author.is_empty() {
-            "Unknown Author"
-        } else {
-            &self.author
-        }
-    }
-
     pub fn title(&self) -> String {
         if self.title.is_empty() {
             return self.file_stem();
@@ -398,9 +384,10 @@ impl Info {
     }
 
     // TODO: handle the following case: *Walter M. Miller Jr.*?
-    // NOTE: e.g.: John Le Carré: the space between *Le* and *Carré* is a non-breaking space
+    // NOTE: e.g.: John Le Carré: the space between *Le* and *Carré*
+    // is a non-breaking space
     pub fn alphabetic_author(&self) -> &str {
-        self.author().split(',').next()
+        self.author.split(',').next()
                      .and_then(|a| a.split(' ').last())
                      .unwrap_or_default()
     }
@@ -416,7 +403,11 @@ impl Info {
     }
 
     pub fn label(&self) -> String {
-        format!("{} · {}", self.title(), self.author())
+        if !self.author.is_empty() {
+            format!("{} · {}", self.title(), &self.author)
+        } else {
+            self.title()
+        }
     }
 }
 
@@ -446,12 +437,12 @@ pub enum SortMethod {
     Opened,
     Added,
     Progress,
-    Author,
     Title,
     Year,
+    Author,
+    Pages,
     Size,
     Kind,
-    Pages,
     FileName,
     FilePath,
 }
@@ -478,7 +469,7 @@ impl SortMethod {
             SortMethod::Year => "Year",
             SortMethod::Size => "File Size",
             SortMethod::Kind => "File Type",
-            SortMethod::Pages => "Pages",
+            SortMethod::Pages => "Pages Count",
             SortMethod::FileName => "File Name",
             SortMethod::FilePath => "File Path",
         }
@@ -490,7 +481,18 @@ impl SortMethod {
 }
 
 pub fn sort(md: &mut Metadata, sort_method: SortMethod, reverse_order: bool) {
-    let sort_fn: fn(&Info, &Info) -> Ordering = match sort_method {
+    let sort_fn = sorter(sort_method);
+
+    if reverse_order {
+        md.sort_by(|a, b| sort_fn(a, b).reverse());
+    } else {
+        md.sort_by(sort_fn);
+    }
+}
+
+#[inline]
+pub fn sorter(sort_method: SortMethod) -> fn(&Info, &Info) -> Ordering {
+    match sort_method {
         SortMethod::Opened => sort_opened,
         SortMethod::Added => sort_added,
         SortMethod::Progress => sort_progress,
@@ -502,34 +504,21 @@ pub fn sort(md: &mut Metadata, sort_method: SortMethod, reverse_order: bool) {
         SortMethod::Pages => sort_pages,
         SortMethod::FileName => sort_filename,
         SortMethod::FilePath => sort_filepath,
-    };
-    if reverse_order {
-        md.sort_by(|a, b| sort_fn(a, b).reverse());
-    } else {
-        md.sort_by(sort_fn);
     }
 }
 
 pub fn sort_opened(i1: &Info, i2: &Info) -> Ordering {
-    match (&i1.reader, &i2.reader) {
-        (&None, &None) => Ordering::Equal,
-        (&None, &Some(_)) => Ordering::Less,
-        (&Some(_), &None) => Ordering::Greater,
-        (&Some(ref r1), &Some(ref r2)) => r1.opened.cmp(&r2.opened),
-    }
-}
-
-pub fn sort_pages(i1: &Info, i2: &Info) -> Ordering {
-    match (&i1.reader, &i2.reader) {
-        (&None, &None) => Ordering::Equal,
-        (&None, &Some(_)) => Ordering::Less,
-        (&Some(_), &None) => Ordering::Greater,
-        (&Some(ref r1), &Some(ref r2)) => r1.pages_count.cmp(&r2.pages_count),
-    }
+    i1.reader.as_ref().map(|r1| r1.opened)
+      .cmp(&i2.reader.as_ref().map(|r2| r2.opened))
 }
 
 pub fn sort_added(i1: &Info, i2: &Info) -> Ordering {
     i1.added.cmp(&i2.added)
+}
+
+pub fn sort_pages(i1: &Info, i2: &Info) -> Ordering {
+    i1.reader.as_ref().map(|r1| r1.pages_count)
+      .cmp(&i2.reader.as_ref().map(|r2| r2.pages_count))
 }
 
 // FIXME: 'Z'.cmp('É') equals Ordering::Less
@@ -541,7 +530,7 @@ pub fn sort_title(i1: &Info, i2: &Info) -> Ordering {
     i1.alphabetic_title().cmp(i2.alphabetic_title())
 }
 
-// Ordering: Finished < New < Reading
+// Ordering: Finished < New < Reading.
 pub fn sort_progress(i1: &Info, i2: &Info) -> Ordering {
     match (i1.status(), i2.status()) {
         (Status::Finished, Status::Finished) => Ordering::Equal,
@@ -580,178 +569,144 @@ pub fn sort_filepath(i1: &Info, i2: &Info) -> Ordering {
 lazy_static! {
     pub static ref TITLE_PREFIXES: FnvHashMap<&'static str, Regex> = {
         let mut p = FnvHashMap::default();
-        p.insert("", Regex::new(r"^(The|An?)\s").unwrap());
-        p.insert("french", Regex::new(r"^(Les?\s|La\s|L['’]|Une?\s|Des?\s|Du\s)").unwrap());
+        p.insert("en", Regex::new(r"^(The|An?)\s").unwrap());
+        p.insert("fr", Regex::new(r"^(Les?\s|La\s|L['’]|Une?\s|Des?\s|Du\s)").unwrap());
         p
     };
-
-    pub static ref RESERVED_DIRECTORIES: FnvHashSet<&'static str> = [
-        TRASH_NAME,
-    ].iter().cloned().collect();
 }
 
-pub fn auto_import(dir: &Path, metadata: &Metadata, settings: &ImportSettings) -> Result<Metadata, Error> {
-    let mut imported_metadata = import(dir, metadata, settings)?;
-    extract_metadata_from_epub(dir, &mut imported_metadata, settings);
-    Ok(imported_metadata)
-}
-
-pub fn import(dir: &Path, metadata: &Metadata, settings: &ImportSettings) -> Result<Metadata, Error> {
-    let files = find_files(dir, dir, settings.traverse_hidden)?;
-    let known: FnvHashSet<PathBuf> = metadata.iter()
-                                             .map(|info| info.file.path.clone())
-                                             .collect();
-    let mut metadata = Vec::new();
-    let path_as_category = settings.category_providers.contains(&CategoryProvider::Path);
-
-    for file_info in &files {
-        if !known.contains(&file_info.path) && settings.allowed_kinds.contains(&file_info.kind) {
-            println!("{}", file_info.path.display());
-            let mut info = Info::default();
-            info.file = file_info.clone();
-            if path_as_category {
-                if let Some(p) = info.file.path.parent() {
-                    let categ = p.to_string_lossy()
-                                 .replace(symbolic_path::PATH_SEPARATOR, "")
-                                 .replace(path::MAIN_SEPARATOR, &symbolic_path::PATH_SEPARATOR.to_string());
-                    if !categ.is_empty() {
-                        info.categories = [categ].iter().cloned().collect();
-                    }
-                }
-            }
-            metadata.push(info);
-        }
+#[inline]
+pub fn extract_metadata_from_epub(path: &Path, info: &mut Info) {
+    if !info.title.is_empty() || info.file.kind != "epub" {
+        return;
     }
 
-    Ok(metadata)
-}
-
-pub fn extract_metadata_from_epub(dir: &Path, metadata: &mut Metadata, settings: &ImportSettings) {
-    let subjects_as_categories = settings.category_providers.contains(&CategoryProvider::Subject);
-
-    for info in metadata {
-        if !info.title.is_empty() || info.file.kind != "epub" {
-            continue;
-        }
-
-        let path = dir.join(&info.file.path);
-
-        match EpubDocument::new(&path) {
-            Ok(doc) => {
-                info.title = doc.title().unwrap_or_default();
-                info.author = doc.author().unwrap_or_default();
-                info.year = doc.year().unwrap_or_default();
-                info.publisher = doc.publisher().unwrap_or_default();
-                info.series = doc.series().unwrap_or_default();
-                if !info.series.is_empty() {
-                    info.number = doc.series_index().unwrap_or_default();
-                }
-                info.language = doc.language().unwrap_or_default();
-                if subjects_as_categories {
-                    info.categories.append(&mut doc.categories());
-                }
-                println!("{}", info.label());
-            },
-            Err(e) => eprintln!("{}: {}", info.file.path.display(), e),
-        }
+    match EpubDocument::new(&path) {
+        Ok(doc) => {
+            info.title = doc.title().unwrap_or_default();
+            info.author = doc.author().unwrap_or_default();
+            info.year = doc.year().unwrap_or_default();
+            info.publisher = doc.publisher().unwrap_or_default();
+            info.series = doc.series().unwrap_or_default();
+            if !info.series.is_empty() {
+                info.number = doc.series_index().unwrap_or_default();
+            }
+            info.language = doc.language().unwrap_or_default();
+            info.categories.append(&mut doc.categories());
+        },
+        Err(e) => eprintln!("Can't open {}: {}", info.file.path.display(), e),
     }
 }
 
-pub fn extract_metadata_from_filename(metadata: &mut Metadata) {
-    for info in metadata {
-        if !info.title.is_empty() {
-            continue;
-        }
+pub fn extract_metadata_from_filename(path: &Path, info: &mut Info) {
+    if !info.title.is_empty() {
+        return;
+    }
 
-        if let Some(filename) = info.file.path.file_name().and_then(OsStr::to_str) {
-            let mut start_index = 0;
+    if let Some(filename) = path.file_name().and_then(OsStr::to_str) {
+        let mut start_index = 0;
 
-            if filename.starts_with('(') {
-                start_index += 1;
-                if let Some(index) = filename[start_index..].find(')') {
-                    info.series = filename[start_index..start_index+index].trim_end().to_string();
-                    start_index += index + 1;
-                }
-            }
-
-            if let Some(index) = filename[start_index..].find("- ") {
-                info.author = filename[start_index..start_index+index].trim().to_string();
-                start_index += index + 1;
-            }
-
-            let title_start = start_index;
-
-            if let Some(index) = filename[start_index..].find('_') {
-                info.title = filename[start_index..start_index+index].trim_start().to_string();
-                start_index += index + 1;
-            }
-
-            if let Some(index) = filename[start_index..].find('-') {
-                if title_start == start_index {
-                    info.title = filename[start_index..start_index+index].trim_start().to_string();
-                } else {
-                    info.subtitle = filename[start_index..start_index+index].trim_start().to_string();
-                }
-                start_index += index + 1;
-            }
-
-            if let Some(index) = filename[start_index..].find('(') {
-                info.publisher = filename[start_index..start_index+index].trim_end().to_string();
-                start_index += index + 1;
-            }
-
+        if filename.starts_with('(') {
+            start_index += 1;
             if let Some(index) = filename[start_index..].find(')') {
-                info.year = filename[start_index..start_index+index].to_string();
+                info.series = filename[start_index..start_index+index].trim_end().to_string();
+                start_index += index + 1;
             }
+        }
 
-            println!("{}", info.label());
+        if let Some(index) = filename[start_index..].find("- ") {
+            info.author = filename[start_index..start_index+index].trim().to_string();
+            start_index += index + 1;
+        }
+
+        let title_start = start_index;
+
+        if let Some(index) = filename[start_index..].find('_') {
+            info.title = filename[start_index..start_index+index].trim_start().to_string();
+            start_index += index + 1;
+        }
+
+        if let Some(index) = filename[start_index..].find('-') {
+            if title_start == start_index {
+                info.title = filename[start_index..start_index+index].trim_start().to_string();
+            } else {
+                info.subtitle = filename[start_index..start_index+index].trim_start().to_string();
+            }
+            start_index += index + 1;
+        }
+
+        if let Some(index) = filename[start_index..].find('(') {
+            info.publisher = filename[start_index..start_index+index].trim_end().to_string();
+            start_index += index + 1;
+        }
+
+        if let Some(index) = filename[start_index..].find(')') {
+            info.year = filename[start_index..start_index+index].to_string();
         }
     }
 }
 
-pub fn clean_up(dir: &Path, metadata: &mut Metadata) {
-    metadata.retain(|info| {
-        let path = &info.file.path;
-        if !dir.join(path).exists() {
-            println!("{}", path.display());
-            false
-        } else {
-            true
-        }
-    });
-}
-
-fn find_files(root: &Path, dir: &Path, traverse_hidden: bool) -> Result<Vec<FileInfo>, Error> {
-    let mut result = Vec::new();
-
-    for entry in fs::read_dir(dir).context("Can't read directory.")? {
-        let entry = entry.context("Can't read directory entry.")?;
-        let path = entry.path();
-
-        if path.is_dir() {
-            if let Some(name) = entry.file_name().to_str() {
-                if (!traverse_hidden && name.starts_with('.')) || RESERVED_DIRECTORIES.contains(name) {
-                    continue;
-                }
-            }
-            result.extend_from_slice(&find_files(root, path.as_path(), traverse_hidden)?);
-        } else {
-            if entry.file_name().to_string_lossy().starts_with('.') {
-                continue;
-            }
-            let relat = path.strip_prefix(root).unwrap().to_path_buf();
-            let kind = file_kind(path).unwrap_or_default();
-            let size = entry.metadata().map(|m| m.len()).unwrap_or_default();
-
-            result.push(
-                FileInfo {
-                    path: relat,
-                    kind,
-                    size,
-                }
-            );
+pub fn consolidate(_path: &Path, info: &mut Info) {
+    if info.subtitle.is_empty() {
+        if let Some(index) = info.title.find(':') {
+            let cur_title = info.title.clone();
+            let (title, subtitle) = cur_title.split_at(index);
+            info.title = title.trim_end().to_string();
+            info.subtitle = subtitle[1..].trim_start().to_string();
         }
     }
 
-    Ok(result)
+    if info.language.is_empty() {
+        info.title = titlecase(&info.title);
+        info.subtitle = titlecase(&info.subtitle);
+    }
+
+    info.title = info.title.replace('\'', "’");
+    info.subtitle = info.subtitle.replace('\'', "’");
+    info.author = info.author.replace('\'', "’");
+    if info.year.len() > 4 {
+        info.year = info.year[..4].to_string();
+    }
+    info.series = info.series.replace('\'', "’");
+    info.publisher = info.publisher.replace('\'', "’");
+}
+
+pub fn rename_from_info(old_path: &Path, info: &mut Info) {
+    let new_file_name = file_name_from_info(info);
+    if !new_file_name.is_empty() {
+        let new_path = old_path.with_file_name(&new_file_name);
+        if old_path != new_path {
+            match fs::rename(old_path, &new_path) {
+                Err(e) => eprintln!("Can't rename {} to {}: {}.",
+                                    old_path.display(),
+                                    new_path.display(), e),
+                Ok(..) => info.file.path = new_path.to_path_buf(),
+            }
+        }
+    }
+}
+
+pub fn file_name_from_info(info: &Info) -> String {
+    if info.title.is_empty() {
+        return "".to_string();
+    }
+    let mut base = asciify(&info.title);
+    if !info.subtitle.is_empty() {
+        base = format!("{} - {}", base, asciify(&info.subtitle));
+    }
+    if !info.volume.is_empty() {
+        base = format!("{} - {}", base, info.volume);
+    }
+    if !info.number.is_empty() && info.series.is_empty() {
+        base = format!("{} - {}", base, info.number);
+    }
+    if !info.author.is_empty() {
+        base = format!("{} - {}", base, asciify(&info.author));
+    }
+    base = format!("{}.{}", base, info.file.kind);
+    base.replace("..", ".")
+        .replace('/', " ")
+        .replace('?', "")
+        .replace('!', "")
+        .replace(':', "")
 }

@@ -69,10 +69,12 @@ impl TopBar {
         }
     }
 
-    pub fn update_root_icon(&mut self, icon_name: &str, hub: &Hub) {
+    pub fn update_root_icon(&mut self, name: &str, hub: &Hub) {
         let icon = self.child_mut(0).downcast_mut::<Icon>().unwrap();
-        icon.name = icon_name.to_string();
-        hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).ok();
+        if icon.name != name {
+            icon.name = name.to_string();
+            hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).ok();
+        }
     }
 
     pub fn update_title_label(&mut self, title: &str, hub: &Hub) {
@@ -93,7 +95,6 @@ impl View for TopBar {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) |
             Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => true,
-            Event::Gesture(GestureEvent::Swipe { start, .. }) if self.rect.includes(start) => true,
             Event::Device(DeviceEvent::Finger { position, .. }) if self.rect.includes(position) => true,
             _ => false,
         }

@@ -1,57 +1,48 @@
+use std::path::{PathBuf, Path};
 use crate::device::CURRENT_DEVICE;
 use crate::gesture::GestureEvent;
-use crate::font::{Fonts, font_from_style, category_font_size, NORMAL_STYLE};
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use crate::color::{WHITE, BLACK, TEXT_BUMP_SMALL};
-use crate::geom::{Rectangle, CornerSpec, BorderSpec, Dir};
+use crate::geom::{Rectangle, CornerSpec, BorderSpec};
 use crate::framebuffer::Framebuffer;
 use crate::view::{View, Event, Hub, Bus, Align};
 use crate::view::{THICKNESS_SMALL, BORDER_RADIUS_SMALL};
-use crate::symbolic_path::SymbolicPath;
 use crate::unit::scale_by_dpi;
 use crate::app::Context;
 
-pub struct Category {
+pub struct Directory {
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
-    text: String,
-    status: Status,
+    pub path: PathBuf,
+    selected: bool,
     align: Align,
     max_width: Option<u32>,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Status {
-    Normal,
-    Selected,
-    Negated,
-}
-
-impl Category {
-    pub fn new(rect: Rectangle, text: String, status: Status, align: Align, max_width: Option<u32>) -> Category {
-        Category {
+impl Directory {
+    pub fn new(rect: Rectangle, path: PathBuf, selected: bool, align: Align, max_width: Option<u32>) -> Directory {
+        Directory {
             rect,
             children: vec![],
-            text,
-            status,
+            path,
+            selected,
             align,
             max_width,
         }
     }
+
+    pub fn update_selected(&mut self, current_directory: &Path) -> bool {
+        let selected = current_directory.starts_with(&self.path);
+        self.selected = selected;
+        selected
+    }
 }
 
-impl View for Category {
+impl View for Directory {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
-                bus.push_back(Event::ToggleSelectCategory(self.text.clone()));
-                true
-            },
-            Event::Gesture(GestureEvent::Swipe { dir: Dir::North, start, .. }) if self.rect.includes(start) => {
-                bus.push_back(Event::ToggleNegateCategory(self.text.clone()));
-                true
-            },
-            Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => {
-                bus.push_back(Event::ToggleCategoryMenu(self.rect, self.text.clone()));
+                bus.push_back(Event::ToggleSelectDirectory(self.path.clone()));
                 true
             },
             _ => false,
@@ -63,13 +54,13 @@ impl View for Category {
         fb.draw_rectangle(&self.rect, TEXT_BUMP_SMALL[0]);
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let x_height = font.x_heights.0 as i32;
-        font.set_size(category_font_size(self.text.depth()), dpi);
-        let plan = font.plan(self.text.last_component(), self.max_width, None);
+        let text = self.path.file_name().unwrap().to_string_lossy();
+        let plan = font.plan(text, self.max_width, None);
 
         let dx = self.align.offset(plan.width as i32, self.rect.width() as i32);
         let dy = (self.rect.height() as i32 - x_height) / 2;
 
-        if self.status == Status::Selected {
+        if self.selected {
             let padding = font.em() as i32 / 2 - scale_by_dpi(3.0, dpi) as i32;
             let small_x_height = font.x_heights.0 as i32;
             let bg_width = plan.width as i32 + 2 * padding;
@@ -88,8 +79,7 @@ impl View for Category {
         }
 
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
-        let color_index = if self.status == Status::Negated { 2 } else { 1 };
-        font.render(fb, TEXT_BUMP_SMALL[color_index], &plan, pt);
+        font.render(fb, TEXT_BUMP_SMALL[1], &plan, pt);
     }
 
     fn rect(&self) -> &Rectangle {

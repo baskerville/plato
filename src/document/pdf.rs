@@ -9,7 +9,7 @@ use std::io::Read;
 use std::fs::File;
 use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
-use failure::Error;
+use anyhow::Error;
 use super::{Document, Location, TextLocation, BoundedText, TocEntry};
 use super::{chapter, chapter_relative};
 use crate::metadata::TextAlign;

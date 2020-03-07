@@ -4,9 +4,10 @@ use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use fnv::FnvHashMap;
 use chrono::Local;
-use glob::glob;
-use failure::Error;
-use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use walkdir::WalkDir;
+use globset::Glob;
+use anyhow::Error;
+use crate::device::CURRENT_DEVICE;
 use crate::geom::{Point, Rectangle, CornerSpec};
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::view::icon::Icon;
@@ -14,10 +15,11 @@ use crate::view::notification::Notification;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::common::{locate_by_id};
 use crate::view::{View, Event, Hub, Bus, EntryKind, EntryId, ViewId};
+use crate::view::SMALL_BAR_HEIGHT;
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
-use crate::metadata::import;
 use crate::settings::{ImportSettings, Pen};
 use crate::font::Fonts;
+use crate::unit::scale_by_dpi;
 use crate::color::{BLACK, WHITE};
 use crate::app::Context;
 
@@ -52,9 +54,8 @@ impl Sketch {
     pub fn new(rect: Rectangle, hub: &Hub, context: &mut Context) -> Sketch {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
-        let (_, height) = context.display.dims;
-        let (small_height, _) = *BAR_SIZES.get(&(height, dpi)).unwrap();
-        let side = small_height as i32;
+        let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
+        let side = small_height;
         let icon_rect = rect![rect.min.x, rect.max.y - side,
                               rect.min.x + side, rect.max.y];
         let icon = Icon::new("ellipsis",
@@ -65,7 +66,7 @@ impl Sketch {
         let mut random = Pixmap::new(rect.width(), rect.height());
         let mut rng = XorShiftRng::seed_from_u64(Local::now().timestamp_millis() as u64);
         rng.fill(random.data_mut());
-        let save_path = context.settings.library_path.join(&context.settings.sketch.save_path);
+        let save_path = context.library.home.join(&context.settings.sketch.save_path);
         hub.send(Event::Render(rect, UpdateMode::Full)).ok();
         Sketch {
             rect,
@@ -92,12 +93,12 @@ impl Sketch {
                 return;
             }
 
-            let mut loadables: Vec<PathBuf> = self.save_path.join("*.png").to_str().and_then(|s| {
-                glob(s).ok().map(|paths| {
-                    paths.filter_map(|x| x.ok().and_then(|p| p.file_name().map(PathBuf::from))).collect()
-                })
-            }).unwrap_or_default();
-
+            let glob = Glob::new("**/*.png").unwrap().compile_matcher();
+            let mut loadables: Vec<PathBuf> =
+                WalkDir::new(&self.save_path).min_depth(1).into_iter()
+                        .filter_map(|e| e.ok().and_then(|e| e.path().file_name().map(PathBuf::from)))
+                        .filter(|p| glob.is_match(p))
+                        .collect();
             loadables.sort_by(|a, b| b.cmp(a));
 
             let mut sizes = vec![
@@ -174,19 +175,11 @@ impl Sketch {
     }
 
     fn quit(&self, context: &mut Context) {
-        if let Ok(suffix) = self.save_path.strip_prefix(&context.settings.library_path) {
-            let import_settings = ImportSettings {
-                allowed_kinds: ["png".to_string()].iter().cloned().collect(),
-                .. Default::default()
-            };
-            let imported_metadata = import(&context.settings.library_path,
-                                           &context.metadata,
-                                           &import_settings);
-            if let Ok(mut imported_metadata) = imported_metadata {
-                imported_metadata.retain(|info| info.file.path.starts_with(&suffix));
-                context.metadata.append(&mut imported_metadata);
-            }
-        }
+        let import_settings = ImportSettings {
+            allowed_kinds: ["png".to_string()].iter().cloned().collect(),
+            .. Default::default()
+        };
+        context.library.import(&self.save_path, &import_settings);
     }
 }
 

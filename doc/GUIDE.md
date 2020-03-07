@@ -24,9 +24,6 @@ unzip plato-launcher-fmon-VERSION.zip -d SD_ROOT
 
 ## Configure
 
-The default library path is `/mnt/onboard` on devices without an external SD card, and `/mnt/sd` otherwise. If your library lives somewhere else, you'll need to create a file named `Settings.toml` in the same directory as the program's binary with the following content:
-```toml
-library-path = "LIBRARY_PATH"
-```
+The settings are saved in and read from `Settings.toml`. You can edit this file when *Plato* isn't running or is in shared mode. You can enter the shared mode by connecting your device to a computer.
 
 The default ePUB stylesheet, `css/epub.css`, can be overriden via `css/epub-user.css`.

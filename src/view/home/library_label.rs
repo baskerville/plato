@@ -7,31 +7,36 @@ use crate::geom::{Rectangle};
 use crate::view::{View, Event, Hub, Bus, ViewId};
 use crate::app::Context;
 
-pub struct MatchesLabel {
+pub struct LibraryLabel {
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
+    name: String,
     count: usize,
     filter: bool,
 }
 
-impl MatchesLabel {
-    pub fn new(rect: Rectangle, count: usize, filter: bool)  -> MatchesLabel {
-        MatchesLabel {
+impl LibraryLabel {
+    pub fn new(rect: Rectangle, name: &str, count: usize, filter: bool)  -> LibraryLabel {
+        LibraryLabel {
             rect,
             children: vec![],
+            name: name.to_string(),
             count,
             filter,
         }
     }
 
-    pub fn update(&mut self, count: usize, filter: bool, hub: &Hub) {
+    pub fn update(&mut self, name: &str, count: usize, filter: bool, hub: &Hub) {
+        if self.name != name {
+            self.name = name.to_string();
+        }
         self.count = count;
         self.filter = filter;
         hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
     }
 
     fn text(&self) -> String {
-        let qualifier = if self.filter {
+        let subject = if self.filter {
             if self.count != 1 {
                 "matches"
             } else {
@@ -46,19 +51,19 @@ impl MatchesLabel {
         };
 
         if self.count == 0 {
-            format!("No {}", qualifier)
+            format!("{} (No {})", self.name, subject)
         } else {
-            format!("{} {}", self.count, qualifier)
+            format!("{} ({} {})", self.name, self.count, subject)
         }
     }
 }
 
 
-impl View for MatchesLabel {
+impl View for LibraryLabel {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
-                bus.push_back(Event::ToggleNear(ViewId::MatchesMenu, self.rect));
+                bus.push_back(Event::ToggleNear(ViewId::LibraryMenu, self.rect));
                 true
             },
             _ => false,

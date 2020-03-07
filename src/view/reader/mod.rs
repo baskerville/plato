@@ -4,7 +4,6 @@ mod results_bar;
 mod margin_cropper;
 mod results_label;
 
-use std::f32;
 use std::thread;
 use std::cmp::Ordering;
 use std::sync::{Arc, Mutex, mpsc};
@@ -18,9 +17,10 @@ use septem::prelude::*;
 use septem::{Roman, Digit};
 use crate::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
-use crate::view::{View, Event, AppCmd, Hub, Bus, ViewId, EntryKind, EntryId, SliderId, THICKNESS_MEDIUM};
+use crate::view::{View, Event, AppCmd, Hub, Bus, ViewId, EntryKind, EntryId, SliderId};
+use crate::view::{SMALL_BAR_HEIGHT, BIG_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::unit::{scale_by_dpi, mm_to_px};
-use crate::device::{CURRENT_DEVICE, BAR_SIZES};
+use crate::device::CURRENT_DEVICE;
 use crate::helpers::AsciiExtension;
 use crate::font::Fonts;
 use crate::font::family_names;
@@ -236,7 +236,7 @@ fn find_cut(frame: &Rectangle, y_pos: i32, scale: f32, dir: LinearDir, lines: &[
 impl Reader {
     pub fn new(rect: Rectangle, mut info: Info, hub: &Hub, context: &mut Context) -> Option<Reader> {
         let settings = &context.settings;
-        let path = settings.library_path.join(&info.file.path);
+        let path = context.library.home.join(&info.file.path);
 
         open(&path).and_then(|mut doc| {
             let (width, height) = context.display.dims;
@@ -1125,15 +1125,15 @@ impl Reader {
             }
 
             let dpi = CURRENT_DEVICE.dpi;
-            let (_, height) = context.display.dims;
-            let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+            let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                              scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
             let (small_thickness, big_thickness) = halves(thickness);
 
             let mut kb_rect = rect![self.rect.min.x,
                                     self.rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                                     self.rect.max.x,
-                                    self.rect.max.y - small_height as i32 - small_thickness];
+                                    self.rect.max.y - small_height - small_thickness];
 
             let number = match id {
                 Some(ViewId::GoToPageInput) |
@@ -1196,8 +1196,7 @@ impl Reader {
             }
 
             let dpi = CURRENT_DEVICE.dpi;
-            let (_, height) = context.display.dims;
-            let &(_, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+            let big_height = scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32;
             let tb_height = 2 * big_height;
 
             let sp_rect = *self.child(2).rect() - pt!(0, tb_height as i32);
@@ -1216,7 +1215,7 @@ impl Reader {
         }
     }
 
-    fn toggle_results_bar(&mut self, enable: bool, hub: &Hub, context: &mut Context) {
+    fn toggle_results_bar(&mut self, enable: bool, hub: &Hub, _context: &mut Context) {
         if let Some(index) = locate::<ResultsBar>(self) {
             if enable {
                 return;
@@ -1232,15 +1231,14 @@ impl Reader {
             }
 
             let dpi = CURRENT_DEVICE.dpi;
-            let (_, height) = context.display.dims;
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
-            let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
+            let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
             let index = locate::<TopBar>(self).map(|index| index+2).unwrap_or(0);
 
-            let sp_rect = *self.child(index).rect() - pt!(0, small_height as i32);
+            let sp_rect = *self.child(index).rect() - pt!(0, small_height);
             let y_min = sp_rect.max.y;
             let mut rect = rect![self.rect.min.x, y_min,
-                                 self.rect.max.x, y_min + small_height as i32 - thickness];
+                                 self.rect.max.x, y_min + small_height - thickness];
 
             if let Some(ref s) = self.search {
                 let results_bar = ResultsBar::new(rect, s.current_page,
@@ -1284,22 +1282,21 @@ impl Reader {
             let dpi = CURRENT_DEVICE.dpi;
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
             let (small_thickness, big_thickness) = halves(thickness);
-            let (_, height) = context.display.dims;
-            let &(small_height, _) = BAR_SIZES.get(&(height, dpi)).unwrap();
+            let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
             let index = locate::<TopBar>(self).map(|index| index+2).unwrap_or(0);
 
             if index == 0 {
-                let sp_rect = rect![self.rect.min.x, self.rect.max.y - small_height as i32 - small_thickness,
-                                    self.rect.max.x, self.rect.max.y - small_height as i32 + big_thickness];
+                let sp_rect = rect![self.rect.min.x, self.rect.max.y - small_height - small_thickness,
+                                    self.rect.max.x, self.rect.max.y - small_height + big_thickness];
                 let separator = Filler::new(sp_rect, BLACK);
                 self.children.insert(index, Box::new(separator) as Box<dyn View>);
             }
 
-            let sp_rect = rect![self.rect.min.x, self.rect.max.y - 2 * small_height as i32 - small_thickness,
-                                self.rect.max.x, self.rect.max.y - 2 * small_height as i32 + big_thickness];
+            let sp_rect = rect![self.rect.min.x, self.rect.max.y - 2 * small_height - small_thickness,
+                                self.rect.max.x, self.rect.max.y - 2 * small_height + big_thickness];
             let y_min = sp_rect.max.y;
             let rect = rect![self.rect.min.x, y_min,
-                             self.rect.max.x, y_min + small_height as i32 - thickness];
+                             self.rect.max.x, y_min + small_height - thickness];
             let search_bar = SearchBar::new(rect, ViewId::ReaderSearchInput, "", "", context);
             self.children.insert(index, Box::new(search_bar) as Box<dyn View>);
 
@@ -1343,10 +1340,10 @@ impl Reader {
             }
 
             let dpi = CURRENT_DEVICE.dpi;
-            let (_, height) = context.display.dims;
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
             let (small_thickness, big_thickness) = halves(thickness);
-            let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+            let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                              scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
 
             let mut doc = self.doc.lock().unwrap();
             let mut index = 0;
@@ -1354,7 +1351,7 @@ impl Reader {
             let top_bar = TopBar::new(rect![self.rect.min.x,
                                             self.rect.min.y,
                                             self.rect.max.x,
-                                            self.rect.min.y + small_height as i32 - small_thickness],
+                                            self.rect.min.y + small_height - small_thickness],
                                       Event::Back,
                                       self.info.title(),
                                       context);
@@ -1363,9 +1360,9 @@ impl Reader {
             index += 1;
 
             let separator = Filler::new(rect![self.rect.min.x,
-                                              self.rect.min.y + small_height as i32 - small_thickness,
+                                              self.rect.min.y + small_height - small_thickness,
                                               self.rect.max.x,
-                                              self.rect.min.y + small_height as i32 + big_thickness],
+                                              self.rect.min.y + small_height + big_thickness],
                                         BLACK);
             self.children.insert(index, Box::new(separator) as Box<dyn View>);
             index += 1;
@@ -1375,34 +1372,34 @@ impl Reader {
                     index = sindex + 2;
                 } else {
                     let separator = Filler::new(rect![self.rect.min.x,
-                                                      self.rect.max.y - 3 * small_height as i32 - small_thickness,
+                                                      self.rect.max.y - 3 * small_height - small_thickness,
                                                       self.rect.max.x,
-                                                      self.rect.max.y - 3 * small_height as i32 + big_thickness],
+                                                      self.rect.max.y - 3 * small_height + big_thickness],
                                                 BLACK);
                     self.children.insert(index, Box::new(separator) as Box<dyn View>);
                     index += 1;
 
                     let results_bar = ResultsBar::new(rect![self.rect.min.x,
-                                                            self.rect.max.y - 3 * small_height as i32 + big_thickness,
+                                                            self.rect.max.y - 3 * small_height + big_thickness,
                                                             self.rect.max.x,
-                                                            self.rect.max.y - 2 * small_height as i32 - small_thickness],
+                                                            self.rect.max.y - 2 * small_height - small_thickness],
                                                       s.current_page, s.highlights.len(),
                                                       s.results_count, !s.running.load(AtomicOrdering::Relaxed));
                     self.children.insert(index, Box::new(results_bar) as Box<dyn View>);
                     index += 1;
 
                     let separator = Filler::new(rect![self.rect.min.x,
-                                                      self.rect.max.y - 2 * small_height as i32 - small_thickness,
+                                                      self.rect.max.y - 2 * small_height - small_thickness,
                                                       self.rect.max.x,
-                                                      self.rect.max.y - 2 * small_height as i32 + big_thickness],
+                                                      self.rect.max.y - 2 * small_height + big_thickness],
                                                 BLACK);
                     self.children.insert(index, Box::new(separator) as Box<dyn View>);
                     index += 1;
 
                     let search_bar = SearchBar::new(rect![self.rect.min.x,
-                                                          self.rect.max.y - 2 * small_height as i32 + big_thickness,
+                                                          self.rect.max.y - 2 * small_height + big_thickness,
                                                           self.rect.max.x,
-                                                          self.rect.max.y - small_height as i32 - small_thickness],
+                                                          self.rect.max.y - small_height - small_thickness],
                                                     ViewId::ReaderSearchInput,
                                                     "", &s.query, context);
                     self.children.insert(index, Box::new(search_bar) as Box<dyn View>);
@@ -1421,7 +1418,7 @@ impl Reader {
                 let tool_bar = ToolBar::new(rect![self.rect.min.x,
                                                   self.rect.max.y - (small_height + tb_height) as i32 + big_thickness,
                                                   self.rect.max.x,
-                                                  self.rect.max.y - small_height as i32 - small_thickness],
+                                                  self.rect.max.y - small_height - small_thickness],
                                             self.reflowable,
                                             self.info.reader.as_ref(),
                                             &context.settings.reader);
@@ -1430,9 +1427,9 @@ impl Reader {
             }
 
             let separator = Filler::new(rect![self.rect.min.x,
-                                              self.rect.max.y - small_height as i32 - small_thickness,
+                                              self.rect.max.y - small_height - small_thickness,
                                               self.rect.max.x,
-                                              self.rect.max.y - small_height as i32 + big_thickness],
+                                              self.rect.max.y - small_height + big_thickness],
                                         BLACK);
             self.children.insert(index, Box::new(separator) as Box<dyn View>);
             index += 1;
@@ -1443,7 +1440,7 @@ impl Reader {
             };
 
             let bottom_bar = BottomBar::new(rect![self.rect.min.x,
-                                                  self.rect.max.y - small_height as i32 + big_thickness,
+                                                  self.rect.max.y - small_height + big_thickness,
                                                   self.rect.max.x,
                                                   self.rect.max.y],
                                             doc.as_mut(),
@@ -2398,6 +2395,7 @@ impl Reader {
             r.current_page = self.current_page;
             r.pages_count = self.pages_count;
             r.finished = self.finished;
+
             if self.view_port.zoom_mode == ZoomMode::FitToPage {
                 r.zoom_mode = None;
                 r.top_offset = None;
@@ -2405,7 +2403,9 @@ impl Reader {
                 r.zoom_mode = Some(self.view_port.zoom_mode);
                 r.top_offset = Some(self.view_port.top_offset);
             }
+
             r.rotation = Some(context.display.rotation);
+
             if (self.contrast.exponent - DEFAULT_CONTRAST_EXPONENT).abs() > f32::EPSILON {
                 r.contrast_exponent = Some(self.contrast.exponent);
                 if (self.contrast.gray - DEFAULT_CONTRAST_GRAY).abs() > f32::EPSILON {
@@ -2417,14 +2417,16 @@ impl Reader {
                 r.contrast_exponent = None;
                 r.contrast_gray = None;
             }
+
+            context.library.sync_reader_info(&self.info.file.path, r);
         }
 
-        for i in &mut context.metadata {
-            if i.file.path == self.info.file.path {
-                *i = self.info.clone();
-                break;
-            }
-        }
+        // for i in &mut context.metadata {
+        //     if i.file.path == self.info.file.path {
+        //         *i = self.info.clone();
+        //         break;
+        //     }
+        // }
     }
 }
 
@@ -2552,7 +2554,7 @@ impl View for Reader {
             },
             Event::Device(DeviceEvent::Finger { position, status: FingerStatus::Motion, id, .. }) if self.state == State::Selection(id) => {
                 let mut nearest_word = None;
-                let mut dmin = u32::max_value();
+                let mut dmin = u32::MAX;
                 let dmax = (scale_by_dpi(RECT_DIST_JITTER, CURRENT_DEVICE.dpi) as i32).pow(2) as u32;
                 let mut rects = Vec::new();
 
@@ -2649,7 +2651,7 @@ impl View for Reader {
             },
             Event::Gesture(GestureEvent::Tap(center)) if self.state == State::AdjustSelection && self.rect.includes(center) => {
                 let mut found = None;
-                let mut dmin = u32::max_value();
+                let mut dmin = u32::MAX;
                 let dmax = (scale_by_dpi(RECT_DIST_JITTER, CURRENT_DEVICE.dpi) as i32).pow(2) as u32;
                 let mut rects = Vec::new();
 
@@ -2764,7 +2766,7 @@ impl View for Reader {
                 }
 
                 let mut nearest_link = None;
-                let mut dmin = u32::max_value();
+                let mut dmin = u32::MAX;
                 let dmax = (scale_by_dpi(RECT_DIST_JITTER, CURRENT_DEVICE.dpi) as i32).pow(2) as u32;
 
                 for chunk in &self.chunks {
@@ -2807,7 +2809,7 @@ impl View for Reader {
                         if let Some(location) = doc.resolve_location(loc) {
                             hub.send(Event::GoTo(location)).ok();
                         } else {
-                            println!("Can't resolve URI: {}.", link.text);
+                            eprintln!("Can't resolve URI: {}.", link.text);
                         }
                     }
                     return true;
@@ -2881,7 +2883,7 @@ impl View for Reader {
                 }
 
                 let mut found = None;
-                let mut dmin = u32::max_value();
+                let mut dmin = u32::MAX;
                 let dmax = (scale_by_dpi(RECT_DIST_JITTER, CURRENT_DEVICE.dpi) as i32).pow(2) as u32;
 
                 if let Some(rect) = self.selection_rect() {
@@ -3195,7 +3197,7 @@ impl View for Reader {
                                        .filter(|toc| !toc.is_empty()) {
                     let chap_index = doc.chapter(self.current_page, &toc)
                                         .map(|chap| chap.index)
-                                        .unwrap_or(usize::max_value());
+                                        .unwrap_or(usize::MAX);
                     hub.send(Event::OpenToc(toc, chap_index)).ok();
                 }
                 true
@@ -3243,7 +3245,7 @@ impl View for Reader {
             },
             Event::EndOfSearch => {
                 let results_count = self.search.as_ref().map(|s| s.results_count)
-                                        .unwrap_or(usize::max_value());
+                                        .unwrap_or(usize::MAX);
                 if results_count == 0 {
                     let notif = Notification::new(ViewId::NoSearchResultsNotif,
                                                   "No search results.".to_string(),
@@ -3584,22 +3586,22 @@ impl View for Reader {
     fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
         if !self.children.is_empty() {
             let dpi = CURRENT_DEVICE.dpi;
-            let (_, height) = context.display.dims;
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
             let (small_thickness, big_thickness) = halves(thickness);
-            let &(small_height, big_height) = BAR_SIZES.get(&(height, dpi)).unwrap();
+            let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
+                                              scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
             let mut floating_layer_start = 0;
 
             self.children.retain(|child| !child.is::<Menu>());
 
             if self.children[0].is::<TopBar>() {
                 let top_bar_rect = rect![rect.min.x, rect.min.y,
-                                         rect.max.x, small_height as i32 - small_thickness];
+                                         rect.max.x, small_height - small_thickness];
                 self.children[0].resize(top_bar_rect, hub, context);
                 let separator_rect = rect![rect.min.x,
-                                           small_height as i32 - small_thickness,
+                                           small_height - small_thickness,
                                            rect.max.x,
-                                           small_height as i32 + big_thickness];
+                                           small_height + big_thickness];
                 self.children[1].resize(separator_rect, hub, context);
             } else if self.children[0].is::<Filler>() {
                 let mut index = 1;
@@ -3618,7 +3620,7 @@ impl View for Reader {
                     let kb_rect = rect![rect.min.x,
                                         rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                                         rect.max.x,
-                                        rect.max.y - small_height as i32 - small_thickness];
+                                        rect.max.y - small_height - small_thickness];
                     self.children[index].resize(kb_rect, hub, context);
                     self.children[index+1].resize(rect![rect.min.x, kb_rect.max.y,
                                                         rect.max.x, kb_rect.max.y + thickness],
@@ -3635,12 +3637,12 @@ impl View for Reader {
             if let Some(mut index) = locate::<BottomBar>(self) {
                 floating_layer_start = index + 1;
                 let separator_rect = rect![rect.min.x,
-                                           rect.max.y - small_height as i32 - small_thickness,
+                                           rect.max.y - small_height - small_thickness,
                                            rect.max.x,
-                                           rect.max.y - small_height as i32 + big_thickness];
+                                           rect.max.y - small_height + big_thickness];
                 self.children[index-1].resize(separator_rect, hub, context);
                 let bottom_bar_rect = rect![rect.min.x,
-                                            rect.max.y - small_height as i32 + big_thickness,
+                                            rect.max.y - small_height + big_thickness,
                                             rect.max.x,
                                             rect.max.y];
                 self.children[index].resize(bottom_bar_rect, hub, context);

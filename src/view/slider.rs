@@ -1,4 +1,3 @@
-use std::f32;
 use crate::device::CURRENT_DEVICE;
 use crate::unit::scale_by_dpi;
 use crate::framebuffer::{Framebuffer, UpdateMode};

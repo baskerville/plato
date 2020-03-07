@@ -1,14 +1,28 @@
 # Home
 
-## Summary
+The following swipe sequences are recognized:
 
-- Tap to select/de-select a category.
-- Swipe north to negate/un-negate a category.
-- Swipe south from the inside to the outside of the bar to grow it.
-- Swipe north from the outside to the inside of the bar to shrink it.
+- Arrow west/east: go to the first/last page.
+- Arrow north: set the current directory to the library's path.
+- Arrow south: toggle the search bar.
+
+## Address bar
+
+When the navigation bar is present, this optional bar can be shown by swipping from the top bar to the shelf, and hidden by swipping from the shelf to the top bar.
+
+## Navigation bar
+
+This optional bar can be shown by swipping from the top bar to the shelf, and hidden by swipping from the shelf to the top bar.
+
+This bar shows at most `max-levels` directory levels starting at the current directory. It can be used to navigate within the directory hierarchy.
+
+- Tap to select/de-select a directory.
+- Swipe north/south to resize.
 - Swipe west/east to go to the next/previous page.
 
 ## Shelf
+
+This is a view of the books within the current directory.
 
 - Swipe west/east to go to the next/previous page.
 - Tap on a book entry to open it.
@@ -17,7 +31,7 @@
 
 Tap and hold the next/previous page icon to go the last/first page.
 
-Tap the matches count label to bring up the library menu.
+Tap the library label to bring up the library menu.
 
 # Reader
 

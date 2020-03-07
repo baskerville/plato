@@ -1,13 +1,14 @@
+use std::io;
 use std::char;
 use std::borrow::Cow;
-use std::cmp::Ordering;
-use std::fs::{self, File};
+use std::time::SystemTime;
+use std::fs::{self, File, Metadata};
 use std::path::{Path, PathBuf, Component};
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use entities::ENTITIES;
-use failure::{Error, ResultExt};
+use anyhow::{Error, Context};
 
 lazy_static! {
     pub static ref CHARACTER_ENTITIES: HashMap<&'static str, &'static str> = {
@@ -61,42 +62,46 @@ pub fn decode_entities(text: &str) -> Cow<str> {
 
 pub fn load_json<T, P: AsRef<Path>>(path: P) -> Result<T, Error> where for<'a> T: Deserialize<'a> {
     let file = File::open(path.as_ref())
-        .context(format!("'{}': Cannot open file", path.as_ref().display()))?;
+                    .with_context(|| format!("Cannot open file {}.", path.as_ref().display()))?;
     serde_json::from_reader(file)
-        .context(format!("'{}': Cannot parse JSON file", path.as_ref().display()))
-        .map_err(Into::into)
+               .with_context(|| format!("Cannot parse JSON from {}.", path.as_ref().display()))
+               .map_err(Into::into)
 }
 
 pub fn save_json<T, P: AsRef<Path>>(data: &T, path: P) -> Result<(), Error> where T: Serialize {
     let file = File::create(path.as_ref())
-        .context(format!("'{}': Cannot create file", path.as_ref().display()))?;
+                    .with_context(|| format!("Cannot create file {}.", path.as_ref().display()))?;
     serde_json::to_writer_pretty(file, data)
-        .context(format!("'{}': Cannot serialize to JSON file", path.as_ref().display()))
-        .map_err(Into::into)
+               .with_context(|| format!("Cannot serialize to JSON file {}.", path.as_ref().display()))
+               .map_err(Into::into)
 }
 
 pub fn load_toml<T, P: AsRef<Path>>(path: P) -> Result<T, Error> where for<'a> T: Deserialize<'a> {
     let s = fs::read_to_string(path.as_ref())
-        .context(format!("'{}': Cannot read file", path.as_ref().display()))?;
+               .with_context(|| format!("Cannot read file {}.", path.as_ref().display()))?;
     toml::from_str(&s)
-        .context(format!("'{}': Cannot parse TOML content", path.as_ref().display()))
-        .map_err(Into::into)
+         .with_context(|| format!("Cannot parse TOML content from {}.", path.as_ref().display()))
+         .map_err(Into::into)
 }
 
 pub fn save_toml<T, P: AsRef<Path>>(data: &T, path: P) -> Result<(), Error> where T: Serialize {
     let s = toml::to_string(data)
-        .context("Cannot convert to TOML format")?;
+                 .context("Cannot convert to TOML format.")?;
     fs::write(path.as_ref(), &s)
-        .context(format!("'{}': Cannot write to file", path.as_ref().display()))
-        .map_err(Into::into)
+       .with_context(|| format!("Cannot write to file {}.", path.as_ref().display()))
+       .map_err(Into::into)
 }
 
-pub fn combine_sort_methods<'a, T, F1, F2>(mut f1: F1, mut f2: F2) -> Box<dyn FnMut(&T, &T) -> Ordering + 'a>
-where F1: FnMut(&T, &T) -> Ordering + 'a,
-      F2: FnMut(&T, &T) -> Ordering + 'a {
-    Box::new(move |x, y| {
-        f1(x, y).then_with(|| f2(x, y))
-    })
+pub trait Fingerprint {
+    fn fingerprint(&self, epoch: SystemTime) -> io::Result<u64>;
+}
+
+impl Fingerprint for Metadata {
+    fn fingerprint(&self, epoch: SystemTime) -> io::Result<u64> {
+        let m = self.modified()?.duration_since(epoch)
+                    .map_or_else(|e| e.duration().as_secs(), |v| v.as_secs());
+        Ok(m.rotate_left(32) ^ self.len())
+    }
 }
 
 pub trait Normalize: ToOwned {
@@ -133,11 +138,11 @@ impl AsciiExtension for char {
     }
 }
 
-pub mod simple_date_format {
+pub mod datetime_format {
     use chrono::{DateTime, Local, TimeZone};
     use serde::{self, Deserialize, Serializer, Deserializer};
 
-    const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
+    pub const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
     pub fn serialize<S>(date: &DateTime<Local>, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         let s = format!("{}", date.format(FORMAT));
