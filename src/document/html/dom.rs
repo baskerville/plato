@@ -83,27 +83,18 @@ impl Node {
         }
     }
 
-    pub fn is_inline(&self) -> bool {
+    pub fn is_block(&self) -> bool {
         match *self {
-            Node::Text(..) => true,
             Node::Element(ElementData { ref name, .. }) => {
                 match name.as_str() {
-                    "span" | "em" | "strong" | "i" | "b" | "img" |
-                    "a" | "br" | "code" | "sub" | "sup" | "dfn" |
-                    "big" | "small" | "abbr" | "cite" | "var" |
-                    "del" | "ins" | "samp" | "kbd" | "q" |
-                    "image" | "svg:image" => true,
+                    "address" | "article" | "aside" | "blockquote" | "details" | "dialog" |
+                    "dd" | "div" | "dl" | "dt" | "fieldset" | "figcaption" | "figure" | "footer" |
+                    "form" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "header" | "hgroup" | "hr" |
+                    "li" | "main" | "nav" | "ol" | "p" | "pre" | "section" | "table" | "ul" => true,
                     _ => false,
                 }
             },
             _ => false,
-        }
-    }
-
-    pub fn is_block(&self) -> bool {
-        match *self {
-            Node::Whitespace(..) => false,
-            _ => !self.is_inline(),
         }
     }
 
