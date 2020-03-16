@@ -23,6 +23,8 @@ case "$method" in
 		ln -s libharfbuzz.so.0 libharfbuzz.so
 
 		ln -s libdjvulibre.so.21 libdjvulibre.so
+
+		cd ..
 		;;
 
 	slow)
