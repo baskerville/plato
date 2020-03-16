@@ -1,0 +1,26 @@
+FROM rust:1.42-buster
+
+RUN apt-get update && apt-get install -y libtool \
+        pkg-config \
+        jq \
+        libdjvulibre-dev \
+        libharfbuzz-dev \
+        libsdl2-dev \
+        # start mupdf dependencies
+        libjbig2dec0-dev \
+        patch
+        # end mupdf dependencies
+
+RUN echo "deb http://deb.debian.org/debian testing main" > /etc/apt/sources.list \
+	&& apt-get update \
+	&& apt-get install -y mupdf libmupdf-dev
+
+# Referenced in build.rs for mupdf_wrapper
+ENV CARGO_TARGET_OS=linux
+
+# Build plato
+WORKDIR /plato
+
+ADD . /plato
+
+CMD ["bash", "-c", "cd /plato/src/mupdf_wrapper && ./build.sh && cd /plato/ && cargo test && cargo build --all-features"]
