@@ -1,29 +1,26 @@
-FROM rust:1.39-buster
+FROM rust:1.42-buster
 
 RUN apt-get update && apt-get install -y libtool \
-	pkg-config \
-	jq \
-	libdjvulibre-dev \
-	libharfbuzz-dev \
-	libsdl2-dev \
-	# start mupdf dependencies
-	libjbig2dec0-dev \
-	patch
-	# end mupdf dependencies
+        pkg-config \
+        jq \
+        libdjvulibre-dev \
+        libharfbuzz-dev \
+        libsdl2-dev \
+        # start mupdf dependencies
+        libjbig2dec0-dev \
+        patch
+        # end mupdf dependencies
 
-WORKDIR /tmp
+RUN echo "deb http://deb.debian.org/debian testing main" > /etc/apt/sources.list \
+	&& apt-get update \
+	&& apt-get install -y mupdf libmupdf-dev
 
-# Build modified mupdf and wrapper
-COPY contrib/ /tmp/contrib/
-COPY thirdparty/ /tmp/thirdparty/
-COPY src/wrapper/ /tmp/wrapper/
-RUN wget -qO - "https://mupdf.com/downloads/archive/mupdf-1.16.0-source.tar.gz" | tar -xz --strip-components 1 -C "/tmp/thirdparty/mupdf/" \
-	&& cp /tmp/contrib/linux/mupdf/* /tmp/thirdparty/mupdf/ \
-	&& cd /tmp/thirdparty/mupdf/ && (patch -p1 < linux.patch) && ./build-linux.sh && cp /tmp/thirdparty/mupdf/build/release/libmupdf.so /usr/lib/ \
-	&& cd /tmp/wrapper/ && CFLAGS="-I /tmp/thirdparty/mupdf/include" ./build.sh && cp /tmp/wrapper/libmupdfwrapper.so /usr/lib/
+# Referenced in build.rs for mupdf_wrapper
+ENV CARGO_TARGET_OS=linux
 
 # Build plato
 WORKDIR /plato
 
 ADD . /plato
-CMD ["bash", "-c", "cargo test && cargo build --all-features"]
+
+CMD ["bash", "-c", "cd /plato/src/mupdf_wrapper && ./build.sh && cd /plato/ && cargo test && cargo build --all-features"]
