@@ -55,21 +55,6 @@ impl ::std::fmt::Display for DictError {
 }
 
 impl error::Error for DictError {
-    fn description(&self) -> &str {
-        match *self {
-            DictError::InvalidCharacter(_, _, _) => "invalid character",
-            DictError::MemoryError => "not enough memory available",
-            DictError::WordNotFound(_) => "word not found",
-            DictError::MissingColumnInIndex(_) =>
-                    "not enough <tab>-separated columns given",
-            DictError::InvalidFileFormat(ref _explanation, ref _path) => "could not \
-                    determine file format",
-            DictError::IoError(ref err) => err.description(),
-            DictError::DeflateError(_) => "invalid data, couldn't inflate",
-            DictError::Utf8Error(ref err) => err.description(),
-        }
-    }
-
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
             DictError::IoError(ref err) => err.source(),
