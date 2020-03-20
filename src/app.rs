@@ -130,6 +130,20 @@ impl Context {
             history.pop_back();
         }
     }
+
+    pub fn set_frontlight(&mut self, enable: bool) {
+        self.settings.frontlight = enable;
+
+        if enable {
+            let levels = self.settings.frontlight_levels;
+            self.frontlight.set_warmth(levels.warmth);
+            self.frontlight.set_intensity(levels.intensity);
+        } else {
+            self.settings.frontlight_levels = self.frontlight.levels();
+            self.frontlight.set_intensity(0.0);
+            self.frontlight.set_warmth(0.0);
+        }
+    }
 }
 
 struct Task {
@@ -757,16 +771,7 @@ pub fn run() -> Result<(), Error> {
                 }
             },
             Event::ToggleFrontlight => {
-                context.settings.frontlight = !context.settings.frontlight;
-                if context.settings.frontlight {
-                    let levels = context.settings.frontlight_levels;
-                    context.frontlight.set_warmth(levels.warmth);
-                    context.frontlight.set_intensity(levels.intensity);
-                } else {
-                    context.settings.frontlight_levels = context.frontlight.levels();
-                    context.frontlight.set_intensity(0.0);
-                    context.frontlight.set_warmth(0.0);
-                }
+                context.set_frontlight(!context.settings.frontlight);
                 view.handle_event(&Event::ToggleFrontlight, &tx, &mut bus, &mut context);
             },
             Event::Render(mut rect, mode) => {
@@ -897,7 +902,8 @@ pub fn run() -> Result<(), Error> {
             },
             Event::Show(ViewId::Frontlight) => {
                 if !context.settings.frontlight {
-                    continue;
+                    context.set_frontlight(true);
+                    view.handle_event(&Event::ToggleFrontlight, &tx, &mut bus, &mut context);
                 }
                 let flw = FrontlightWindow::new(&mut context);
                 tx.send(Event::Render(*flw.rect(), UpdateMode::Gui)).ok();

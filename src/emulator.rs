@@ -413,11 +413,16 @@ pub fn run() -> Result<(), Error> {
                 },
                 Event::Show(ViewId::Frontlight) => {
                     if !context.settings.frontlight {
-                        continue;
+                        context.set_frontlight(true);
+                        view.handle_event(&Event::ToggleFrontlight, &tx, &mut bus, &mut context);
                     }
                     let flw = FrontlightWindow::new(&mut context);
                     tx.send(Event::Render(*flw.rect(), UpdateMode::Gui)).ok();
                     view.children_mut().push(Box::new(flw) as Box<dyn View>);
+                },
+                Event::ToggleFrontlight => {
+                    context.set_frontlight(!context.settings.frontlight);
+                    view.handle_event(&Event::ToggleFrontlight, &tx, &mut bus, &mut context);
                 },
                 Event::ToggleInputHistoryMenu(id, rect) => {
                     toggle_input_history_menu(view.as_mut(), id, rect, None, &tx, &mut context);
