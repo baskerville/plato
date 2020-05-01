@@ -15,6 +15,11 @@ export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"
 
 [ -e info.log ] && [ "$(stat -c '%s' info.log)" -gt $((1<<18)) ] && mv info.log archive.log
 
+ORIG_BPP=$(./bin/utils/fbdepth -g)
+./bin/utils/fbdepth -d 8
+
 RUST_BACKTRACE=1 ./plato >> info.log 2>&1 || mv info.log crash.log
+
+./bin/utils/fbdepth -d "$ORIG_BPP"
 
 ./nickel.sh &
