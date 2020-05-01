@@ -45,3 +45,9 @@ Page names can also be used instead of page numbers:
 ```
 
 For the page names to be resolved, you'll need to name the first page of each category.
+
+## Special Notations
+
+`-` or `+` can be prepended to a page number to jump to a relative page.
+
+You can jump to a random page by specifying `_` as the page number.

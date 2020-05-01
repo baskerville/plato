@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Child, Stdio};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
+use rand::Rng;
 use regex::Regex;
 use serde_json::Value as JsonValue;
 use anyhow::{Error, format_err};
@@ -1313,7 +1314,11 @@ impl View for Home {
                 true
             },
             Event::Submit(ViewId::GoToPageInput, ref text) => {
-                if let Ok(index) = text.parse::<usize>() {
+                if text == "_" {
+                    let mut rng = rand::thread_rng();
+                    let index = rng.gen::<usize>() % self.pages_count;
+                    self.go_to_page(index, hub, context);
+                } else if let Ok(index) = text.parse::<usize>() {
                     self.go_to_page(index.saturating_sub(1), hub, context);
                 }
                 true

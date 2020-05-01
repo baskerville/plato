@@ -15,6 +15,7 @@ use chrono::Local;
 use regex::Regex;
 use septem::prelude::*;
 use septem::{Roman, Digit};
+use rand::Rng;
 use crate::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
 use crate::view::{View, Event, AppCmd, Hub, Bus, ViewId, EntryKind, EntryId, SliderId};
@@ -2953,7 +2954,11 @@ impl View for Reader {
                             self.go_to_page(location, true, hub, context);
                         }
                     } else {
-                        if let Ok(number) = caps[2].parse::<f64>() {
+                        if text == "_" {
+                            let mut rng = rand::thread_rng();
+                            let location = rng.gen::<usize>() % self.pages_count;
+                            self.go_to_page(location, true, hub, context);
+                        } else if let Ok(number) = caps[2].parse::<f64>() {
                             let location = if !self.synthetic {
                                 let mut index = number.max(0.0) as usize;
                                 match prefix {
