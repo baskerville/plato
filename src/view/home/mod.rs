@@ -992,6 +992,11 @@ impl Home {
 
         context.library.sort(self.sort_method, self.reverse_order);
 
+        if let Some(shelf) = self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>() {
+            shelf.set_first_column(library_settings.first_column);
+            shelf.set_second_column(library_settings.second_column);
+        }
+
         let home = context.library.home.clone();
         self.current_directory = PathBuf::default();
         self.select_directory(&home, hub, context);
