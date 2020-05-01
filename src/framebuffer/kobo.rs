@@ -67,8 +67,10 @@ impl KoboFramebuffer {
         } else {
             let (set_pixel_rgb, get_pixel_rgb, as_rgb): (SetPixelRgb, GetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
                 (set_pixel_rgb_32, get_pixel_rgb_32, as_rgb_32)
-            } else {
+            } else if var_info.bits_per_pixel > 8 {
                 (set_pixel_rgb_16, get_pixel_rgb_16, as_rgb_16)
+            } else {
+                (set_pixel_rgb_8, get_pixel_rgb_8, as_rgb_8)
             };
             Ok(KoboFramebuffer {
                    file,
@@ -300,7 +302,19 @@ impl Framebuffer for KoboFramebuffer {
     }
 }
 
-pub fn set_pixel_rgb_16(fb: &mut KoboFramebuffer, x: u32, y: u32, rgb: [u8; 3]) {
+fn set_pixel_rgb_8(fb: &mut KoboFramebuffer, x: u32, y: u32, rgb: [u8; 3]) {
+    let addr = (fb.var_info.xoffset as isize + x as isize) * (fb.bytes_per_pixel as isize) +
+               (fb.var_info.yoffset as isize + y as isize) * (fb.fix_info.line_length as isize);
+
+    debug_assert!(addr < fb.frame_size as isize);
+
+    unsafe {
+        let spot = fb.frame.offset(addr) as *mut u8;
+        *spot = rgb[0];
+    }
+}
+
+fn set_pixel_rgb_16(fb: &mut KoboFramebuffer, x: u32, y: u32, rgb: [u8; 3]) {
     let addr = (fb.var_info.xoffset as isize + x as isize) * (fb.bytes_per_pixel as isize) +
                (fb.var_info.yoffset as isize + y as isize) * (fb.fix_info.line_length as isize);
 
@@ -313,7 +327,7 @@ pub fn set_pixel_rgb_16(fb: &mut KoboFramebuffer, x: u32, y: u32, rgb: [u8; 3]) 
     }
 }
 
-pub fn set_pixel_rgb_32(fb: &mut KoboFramebuffer, x: u32, y: u32, rgb: [u8; 3]) {
+fn set_pixel_rgb_32(fb: &mut KoboFramebuffer, x: u32, y: u32, rgb: [u8; 3]) {
     let addr = (fb.var_info.xoffset as isize + x as isize) * (fb.bytes_per_pixel as isize) +
                (fb.var_info.yoffset as isize + y as isize) * (fb.fix_info.line_length as isize);
 
@@ -326,6 +340,13 @@ pub fn set_pixel_rgb_32(fb: &mut KoboFramebuffer, x: u32, y: u32, rgb: [u8; 3]) 
         *spot.offset(2) = rgb[0];
         // *spot.offset(3) = 0x00;
     }
+}
+
+fn get_pixel_rgb_8(fb: &KoboFramebuffer, x: u32, y: u32) -> [u8; 3] {
+    let addr = (fb.var_info.xoffset as isize + x as isize) * (fb.bytes_per_pixel as isize) +
+               (fb.var_info.yoffset as isize + y as isize) * (fb.fix_info.line_length as isize);
+    let gray = unsafe { *(fb.frame.offset(addr) as *const u8) };
+    [gray, gray, gray]
 }
 
 fn get_pixel_rgb_16(fb: &KoboFramebuffer, x: u32, y: u32) -> [u8; 3] {
@@ -348,6 +369,18 @@ fn get_pixel_rgb_32(fb: &KoboFramebuffer, x: u32, y: u32) -> [u8; 3] {
         let spot = fb.frame.offset(addr) as *mut u8;
         [*spot.offset(2), *spot.offset(1), *spot.offset(0)]
     }
+}
+
+fn as_rgb_8(fb: &KoboFramebuffer) -> Vec<u8> {
+    let (width, height) = fb.dims();
+    let mut rgb888 = Vec::with_capacity((width * height * 3) as usize);
+    let rgb8 = fb.as_bytes();
+    let virtual_width = fb.var_info.xres_virtual as usize;
+    for (_, &gray) in rgb8.iter().take(height as usize * virtual_width).enumerate()
+                          .filter(|&(i, _)| i % virtual_width < width as usize) {
+        rgb888.extend_from_slice(&[gray, gray, gray]);
+    }
+    rgb888
 }
 
 fn as_rgb_16(fb: &KoboFramebuffer) -> Vec<u8> {
@@ -380,7 +413,7 @@ fn as_rgb_32(fb: &KoboFramebuffer) -> Vec<u8> {
     rgb888
 }
 
-pub fn fix_screen_info(file: &File) -> Result<FixScreenInfo, Error> {
+fn fix_screen_info(file: &File) -> Result<FixScreenInfo, Error> {
     let mut info: FixScreenInfo = Default::default();
     let result = unsafe {
         read_fixed_screen_info(file.as_raw_fd(), &mut info)
@@ -391,7 +424,7 @@ pub fn fix_screen_info(file: &File) -> Result<FixScreenInfo, Error> {
     }
 }
 
-pub fn var_screen_info(file: &File) -> Result<VarScreenInfo, Error> {
+fn var_screen_info(file: &File) -> Result<VarScreenInfo, Error> {
     let mut info: VarScreenInfo = Default::default();
     let result = unsafe {
         read_variable_screen_info(file.as_raw_fd(), &mut info)
