@@ -242,10 +242,8 @@ impl Home {
     fn adjust_shelf_top_edge(&mut self) {
         let index = self.shelf_index - 2;
         let y_shift = self.children[index].rect().max.y - self.children[index+1].rect().min.y;
-        if y_shift != 0 {
-            *self.children[index+1].rect_mut() += pt!(0, y_shift);
-            self.children[index+2].rect_mut().min.y = self.children[index+1].rect().max.y;
-        }
+        *self.children[index+1].rect_mut() += pt!(0, y_shift);
+        self.children[index+2].rect_mut().min.y = self.children[index+1].rect().max.y;
     }
 
     fn toggle_select_directory(&mut self, path: &Path, hub: &Hub, context: &mut Context) {
