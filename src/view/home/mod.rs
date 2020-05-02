@@ -219,6 +219,7 @@ impl Home {
                                                  self.query.as_ref(),
                                                  false);
         self.visible_books = files;
+        self.current_page = 0;
 
         let mut index = 2;
 
