@@ -576,10 +576,12 @@ lazy_static! {
 }
 
 #[inline]
-pub fn extract_metadata_from_epub(path: &Path, info: &mut Info) {
+pub fn extract_metadata_from_epub(prefix: &Path, info: &mut Info) {
     if !info.title.is_empty() || info.file.kind != "epub" {
         return;
     }
+
+    let path = prefix.join(&info.file.path);
 
     match EpubDocument::new(&path) {
         Ok(doc) => {
@@ -598,12 +600,12 @@ pub fn extract_metadata_from_epub(path: &Path, info: &mut Info) {
     }
 }
 
-pub fn extract_metadata_from_filename(path: &Path, info: &mut Info) {
+pub fn extract_metadata_from_filename(_prefix: &Path, info: &mut Info) {
     if !info.title.is_empty() {
         return;
     }
 
-    if let Some(filename) = path.file_name().and_then(OsStr::to_str) {
+    if let Some(filename) = info.file.path.file_name().and_then(OsStr::to_str) {
         let mut start_index = 0;
 
         if filename.starts_with('(') {
@@ -646,7 +648,7 @@ pub fn extract_metadata_from_filename(path: &Path, info: &mut Info) {
     }
 }
 
-pub fn consolidate(_path: &Path, info: &mut Info) {
+pub fn consolidate(_prefix: &Path, info: &mut Info) {
     if info.subtitle.is_empty() {
         if let Some(index) = info.title.find(':') {
             let cur_title = info.title.clone();
@@ -671,16 +673,21 @@ pub fn consolidate(_path: &Path, info: &mut Info) {
     info.publisher = info.publisher.replace('\'', "’");
 }
 
-pub fn rename_from_info(old_path: &Path, info: &mut Info) {
+pub fn rename_from_info(prefix: &Path, info: &mut Info) {
     let new_file_name = file_name_from_info(info);
     if !new_file_name.is_empty() {
+        let old_path = prefix.join(&info.file.path);
         let new_path = old_path.with_file_name(&new_file_name);
         if old_path != new_path {
-            match fs::rename(old_path, &new_path) {
+            match fs::rename(&old_path, &new_path) {
                 Err(e) => eprintln!("Can't rename {} to {}: {}.",
                                     old_path.display(),
                                     new_path.display(), e),
-                Ok(..) => info.file.path = new_path.to_path_buf(),
+                Ok(..) => {
+                    let relat = new_path.strip_prefix(prefix)
+                                        .unwrap_or(&new_path);
+                    info.file.path = relat.to_path_buf();
+                },
             }
         }
     }

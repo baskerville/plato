@@ -377,8 +377,7 @@ impl Library {
         }
 
         for (_, info) in &mut self.db {
-            let path = self.home.join(&info.file.path);
-            f(&path, info);
+            f(&self.home, info);
         }
 
         self.has_db_changed = true;
