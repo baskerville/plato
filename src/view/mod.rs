@@ -502,8 +502,8 @@ pub enum EntryId {
     Refresh,
     OpenMetadata,
     TakeScreenshot,
-    StartNickel,
     Reboot,
+    RebootInNickel,
     Quit,
 }
 

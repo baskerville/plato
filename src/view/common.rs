@@ -105,7 +105,7 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
                                EntryKind::Command("Reboot".to_string(), EntryId::Reboot)];
 
         if env::var("PLATO_STANDALONE").is_ok() {
-            entries.push(EntryKind::Command("Start Nickel".to_string(), EntryId::StartNickel));
+            entries.push(EntryKind::Command("Reboot in Nickel".to_string(), EntryId::RebootInNickel));
         } else {
             entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
         }

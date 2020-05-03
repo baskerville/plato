@@ -1010,7 +1010,7 @@ pub fn run() -> Result<(), Error> {
             Event::Select(EntryId::Quit) => {
                 break;
             },
-            Event::Select(EntryId::StartNickel) => {
+            Event::Select(EntryId::RebootInNickel) => {
                 fs::remove_file("bootlock").map_err(|e| {
                     eprintln!("Couldn't remove the bootlock file: {}", e);
                 }).ok();
