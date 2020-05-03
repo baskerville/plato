@@ -54,7 +54,8 @@ use crate::app::Context;
 
 const HISTORY_SIZE: usize = 32;
 const RECT_DIST_JITTER: f32 = 24.0;
-const ANNOTATION_DRIFT: u8 =  32;
+const ANNOTATION_DRIFT: u8 =  0x44;
+const HIGHLIGHT_DRIFT: u8 =  0x22;
 
 pub struct Reader {
     rect: Rectangle,
@@ -3013,6 +3014,9 @@ impl View for Reader {
                             annot.note = note.to_string();
                             annot.modified = Local::now();
                         }
+                        if let Some(rect) = self.text_rect(sel) {
+                            hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).ok();
+                        }
                     }
                 }
 
@@ -3346,8 +3350,11 @@ impl View for Reader {
                 if let Some(annot) = self.find_annotation_mut(sel) {
                     annot.note.clear();
                     annot.modified = Local::now();
+                    self.update_annotations();
                 }
-                self.update_annotations();
+                if let Some(rect) = self.text_rect(sel) {
+                    hub.send(Event::RenderRegion(rect, UpdateMode::Gui)).ok();
+                }
                 true
             },
             Event::Select(EntryId::RemoveAnnotation(sel)) => {
@@ -3513,13 +3520,14 @@ impl View for Reader {
 
                 if let Some(annotations) = self.annotations.get(&chunk.location) {
                     for annot in annotations {
+                        let drift = if annot.note.is_empty() { HIGHLIGHT_DRIFT } else { ANNOTATION_DRIFT };
                         let [start, end] = annot.selection;
                         if let Some(text) = self.text.get(&chunk.location) {
                             let mut last_rect: Option<Rectangle> = None;
                             for word in text.iter().filter(|w| w.location >= start && w.location <= end) {
                                 let rect = (word.rect * scale).to_rect() - chunk.frame.min + chunk.position;
                                 if let Some(ref sel_rect) = rect.intersection(&region_rect) {
-                                    fb.shift_region(sel_rect, ANNOTATION_DRIFT);
+                                    fb.shift_region(sel_rect, drift);
                                 }
                                 if let Some(last) = last_rect {
                                     if rect.min.y < last.max.y && last.min.y < rect.max.y && (last.max.x < rect.min.x || rect.max.x < last.min.x) {
@@ -3531,7 +3539,7 @@ impl View for Reader {
                                                   last.min.x, (last.max.y + rect.max.y) / 2]
                                         };
                                         if let Some(ref sel_rect) = space.intersection(&region_rect) {
-                                            fb.shift_region(sel_rect, ANNOTATION_DRIFT);
+                                            fb.shift_region(sel_rect, drift);
                                         }
                                     }
                                 }
