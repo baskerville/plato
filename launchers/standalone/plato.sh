@@ -55,13 +55,7 @@ export PLATO_STANDALONE=1
 ORIG_BPP=$(./bin/utils/fbdepth -g)
 ./bin/utils/fbdepth -d 8
 
-LIBC_FATAL_STDERR_=1 ./plato >> info.log 2>&1
-
-# Deactivate ourselves if we crashed
-if [ $? -ne 0 ] ; then
-	rm bootlock
-	mv info.log crash.log
-fi
+LIBC_FATAL_STDERR_=1 ./plato >> info.log 2>&1 || rm bootlock
 
 ./bin/utils/fbdepth -d "$ORIG_BPP"
 

@@ -18,7 +18,7 @@ export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"
 ORIG_BPP=$(./bin/utils/fbdepth -g)
 ./bin/utils/fbdepth -d 8
 
-RUST_BACKTRACE=1 ./plato >> info.log 2>&1 || mv info.log crash.log
+RUST_BACKTRACE=1 ./plato >> info.log 2>&1
 
 ./bin/utils/fbdepth -d "$ORIG_BPP"
 
