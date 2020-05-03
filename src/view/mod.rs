@@ -452,6 +452,7 @@ pub enum EntryId {
     Sort(SortMethod),
     ReverseOrder,
     AddDirectory(PathBuf),
+    SelectDirectory(PathBuf),
     ToggleSelectDirectory(PathBuf),
     SetStatus(PathBuf, SimpleStatus),
     ToggleIntermissionImage(IntermKind, PathBuf),

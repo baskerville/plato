@@ -810,6 +810,12 @@ impl Home {
 
             let mut entries = Vec::new();
 
+            if let Some(parent) = path.parent() {
+                entries.push(EntryKind::Command("Select Parent".to_string(),
+                                                EntryId::SelectDirectory(context.library.home.join(parent))));
+                entries.push(EntryKind::Separator);
+            }
+
             let submenu: &[SimpleStatus] = match info.simple_status() {
                 SimpleStatus::New => &[SimpleStatus::Reading, SimpleStatus::Finished],
                 SimpleStatus::Reading => &[SimpleStatus::New, SimpleStatus::Finished],
@@ -1337,7 +1343,8 @@ impl View for Home {
                 self.refresh_visibles(true, false, hub, context);
                 true
             },
-            Event::SelectDirectory(ref path) => {
+            Event::SelectDirectory(ref path) |
+            Event::Select(EntryId::SelectDirectory(ref path)) => {
                 self.select_directory(path, hub, context);
                 true
             },
