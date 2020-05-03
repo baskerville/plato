@@ -57,13 +57,13 @@ ORIG_BPP=$(./bin/utils/fbdepth -g)
 
 LIBC_FATAL_STDERR_=1 ./plato >> info.log 2>&1
 
-./bin/utils/fbdepth -d "$ORIG_BPP"
-
 # Deactivate ourselves if we crashed
 if [ $? -ne 0 ] ; then
 	rm bootlock
 	mv info.log crash.log
 fi
+
+./bin/utils/fbdepth -d "$ORIG_BPP"
 
 sync
 reboot
