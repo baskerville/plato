@@ -19,8 +19,7 @@ echo "dc 0" > "$LEDS_INTERFACE"
 # Remount the SD card read-write if it's mounted read-only
 grep -q ' /mnt/sd .*[ ,]ro[ ,]' /proc/mounts && mount -o remount,rw /mnt/sd
 
-# Define environment variables used by
-# /usr/local/Kobo/udev/usb
+# Define environment variables used by `scripts/usb-*.sh`
 KOBO_TAG=/mnt/onboard/.kobo/version
 if [ -e "$KOBO_TAG" ] ; then
 	SERIAL_NUMBER=$(cut -f 1 -d ',' "$KOBO_TAG")
