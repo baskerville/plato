@@ -25,6 +25,8 @@ if [ -e "$KOBO_TAG" ] ; then
 	SERIAL_NUMBER=$(cut -f 1 -d ',' "$KOBO_TAG")
 	FIRMWARE_VERSION=$(cut -f 3 -d ',' "$KOBO_TAG")
 	MODEL_NUMBER=$(cut -f 6 -d ',' "$KOBO_TAG" | sed -e 's/^[0-]*//')
+
+	# Taken from `KSM09/adds/kbmenu/onstart/ksmhome.sh`
 	case "$MODEL_NUMBER" in
 		310|320) PRODUCT_ID=0x4163 ;;
 		330) PRODUCT_ID=0x4173 ;;
@@ -37,9 +39,11 @@ if [ -e "$KOBO_TAG" ] ; then
 		373) PRODUCT_ID=0x4225 ;;
 		374) PRODUCT_ID=0x4227 ;;
 		375) PRODUCT_ID=0x4226 ;;
-		381) PRODUCT_ID=0x4228 ;;
+		376) PRODUCT_ID=0x4228 ;;
+		381) PRODUCT_ID=0x4225 ;;
 		*) PRODUCT_ID=0x6666 ;;
 	esac
+
 	export SERIAL_NUMBER FIRMWARE_VERSION MODEL_NUMBER PRODUCT_ID
 fi
 
