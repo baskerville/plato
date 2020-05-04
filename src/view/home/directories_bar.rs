@@ -125,6 +125,7 @@ impl DirectoriesBar {
             for child in children.iter_mut() {
                 if let Some(dir) = child.downcast_mut::<Directory>() {
                     if dir.update_selected(current_directory) {
+                        self.current_page = index;
                         self.selection_page = Some(index);
                     }
                 }
