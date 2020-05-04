@@ -92,6 +92,21 @@ impl Context {
                   shared: false, online: false }
     }
 
+    pub fn batch_import(&mut self) {
+        let prefix = self.library.home.clone();
+        let import_settings = self.settings.import.clone();
+        self.library.import(&prefix, &import_settings);
+        let selected_library = self.settings.selected_library;
+        for (index, library_settings) in self.settings.libraries.iter().enumerate() {
+            if index == selected_library {
+                continue;
+            }
+            let mut library = Library::new(&library_settings.path, library_settings.mode);
+            library.import(&library_settings.path, &import_settings);
+            library.flush();
+        }
+    }
+
     pub fn load_keyboard_layouts(&mut self) {
         let glob = Glob::new("**/*.json").unwrap().compile_matcher();
         for entry in WalkDir::new(Path::new(KEYBOARD_LAYOUTS_DIRNAME)).min_depth(1).into_iter().filter_map(|e| e.ok()) {
@@ -208,11 +223,7 @@ fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     }
 
     let library_settings = &settings.libraries[settings.selected_library];
-    let mut library = Library::new(&library_settings.path, library_settings.mode);
-
-    if settings.import.startup_trigger {
-        library.import(&library_settings.path, &settings.import);
-    }
+    let library = Library::new(&library_settings.path, library_settings.mode);
 
     let fonts = Fonts::load().context("Can't load fonts.")?;
 
@@ -322,7 +333,9 @@ pub fn run() -> Result<(), Error> {
     }
 
     let mut context = build_context(Box::new(fb)).context("Can't build context.")?;
-
+    if context.settings.import.startup_trigger {
+        context.batch_import();
+    }
     context.load_dictionaries();
     context.load_keyboard_layouts();
 
@@ -567,9 +580,7 @@ pub fn run() -> Result<(), Error> {
                             }
                             context.library.reload();
                             if context.settings.import.unshare_trigger {
-                                let prefix = context.library.home.clone();
-                                let settings = context.settings.import.clone();
-                                context.library.import(&prefix, &settings);
+                                context.batch_import();
                             }
                             view.handle_event(&Event::Reseed, &tx, &mut bus, &mut context);
                         } else {

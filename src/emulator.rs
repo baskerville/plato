@@ -70,11 +70,7 @@ const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 pub fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let settings = load_toml::<Settings, _>(SETTINGS_PATH)?;
     let library_settings = &settings.libraries[settings.selected_library];
-    let mut library = Library::new(&library_settings.path, library_settings.mode);
-
-    if settings.import.startup_trigger {
-        library.import(&library_settings.path, &settings.import);
-    }
+    let library = Library::new(&library_settings.path, library_settings.mode);
 
     let battery = Box::new(FakeBattery::new()) as Box<dyn Battery>;
     let frontlight = Box::new(LightLevels::default()) as Box<dyn Frontlight>;
@@ -224,6 +220,10 @@ fn main() -> Result<(), Error> {
     fb.set_blend_mode(BlendMode::Blend);
 
     let mut context = build_context(Box::new(fb))?;
+
+    if context.settings.import.startup_trigger {
+        context.batch_import();
+    }
 
     context.load_dictionaries();
     context.load_keyboard_layouts();
