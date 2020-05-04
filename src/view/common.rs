@@ -101,12 +101,13 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
                                                   EntryId::TakeScreenshot),
                                EntryKind::Separator,
                                EntryKind::SubMenu("Applications".to_string(), apps),
-                               EntryKind::Separator,
-                               EntryKind::Command("Reboot".to_string(), EntryId::Reboot)];
+                               EntryKind::Separator];
 
         if env::var("PLATO_STANDALONE").is_ok() {
             entries.push(EntryKind::Command("Reboot in Nickel".to_string(), EntryId::RebootInNickel));
+            entries.push(EntryKind::Command("Reboot".to_string(), EntryId::Reboot));
         } else {
+            entries.push(EntryKind::Command("Reboot".to_string(), EntryId::Reboot));
             entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
         }
 
