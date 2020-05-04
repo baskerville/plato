@@ -1333,6 +1333,7 @@ impl View for Home {
             Event::NavigationBarResized(_) => {
                 self.adjust_shelf_top_edge();
                 self.update_shelf(true, hub);
+                self.update_bottom_bar(hub, context);
                 for i in self.shelf_index - 2..=self.shelf_index - 1 {
                     hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
                 }
