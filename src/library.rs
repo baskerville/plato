@@ -264,7 +264,7 @@ impl Library {
                     .. Default::default()
                 };
                 if settings.extract_epub_metadata {
-                    extract_metadata_from_epub(path, &mut info);
+                    extract_metadata_from_epub(prefix.as_ref(), &mut info);
                 }
                 self.db.insert(fp, info);
                 self.has_db_changed = true;
