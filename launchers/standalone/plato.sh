@@ -40,6 +40,7 @@ if [ -e "$KOBO_TAG" ] ; then
 		374) PRODUCT_ID=0x4227 ;;
 		375) PRODUCT_ID=0x4226 ;;
 		376) PRODUCT_ID=0x4228 ;;
+		377) PRODUCT_ID=0x4229 ;;
 		381) PRODUCT_ID=0x4225 ;;
 		*) PRODUCT_ID=0x6666 ;;
 	esac
