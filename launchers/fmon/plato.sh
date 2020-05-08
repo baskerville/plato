@@ -16,23 +16,24 @@ if [ -e "$KOBO_TAG" ] ; then
 	FIRMWARE_VERSION=$(cut -f 3 -d ',' "$KOBO_TAG")
 	MODEL_NUMBER=$(cut -f 6 -d ',' "$KOBO_TAG" | sed -e 's/^[0-]*//')
 
-	# Taken from `KSM09/adds/kbmenu/onstart/ksmhome.sh`
+	# This is a combination of the information given in `FBInk/fbink_device_id.c`
+	# and `calibre/src/calibre/devices/kobo/driver.py`.
 	case "$MODEL_NUMBER" in
-		310|320) PRODUCT_ID=0x4163 ;;
-		330) PRODUCT_ID=0x4173 ;;
-		340) PRODUCT_ID=0x4183 ;;
-		350) PRODUCT_ID=0x4193 ;;
-		360) PRODUCT_ID=0x4203 ;;
-		370) PRODUCT_ID=0x4213 ;;
-		371) PRODUCT_ID=0x4223 ;;
-		372) PRODUCT_ID=0x4224 ;;
-		373) PRODUCT_ID=0x4225 ;;
-		374) PRODUCT_ID=0x4227 ;;
-		375) PRODUCT_ID=0x4226 ;;
-		376) PRODUCT_ID=0x4228 ;;
-		377) PRODUCT_ID=0x4229 ;;
-		381) PRODUCT_ID=0x4225 ;;
-		*) PRODUCT_ID=0x6666 ;;
+		310|320) PRODUCT_ID=0x4163 ;; # Touch A/B, Touch C
+		330)     PRODUCT_ID=0x4173 ;; # Glo
+		340)     PRODUCT_ID=0x4183 ;; # Mini
+		350)     PRODUCT_ID=0x4193 ;; # Aura HD
+		360)     PRODUCT_ID=0x4203 ;; # Aura
+		370)     PRODUCT_ID=0x4213 ;; # Aura H₂O
+		371)     PRODUCT_ID=0x4223 ;; # Glo HD
+		372)     PRODUCT_ID=0x4224 ;; # Touch 2.0
+		373|381) PRODUCT_ID=0x4225 ;; # Aura ONE, Aura ONE Limited Edition
+		374)     PRODUCT_ID=0x4227 ;; # Aura H₂O Edition 2
+		375)     PRODUCT_ID=0x4226 ;; # Aura Edition 2
+		376)     PRODUCT_ID=0x4228 ;; # Clara HD
+		377|380) PRODUCT_ID=0x4229 ;; # Forma, Forma 32GB
+		384)     PRODUCT_ID=0x4232 ;; # Libra H₂O
+		*)       PRODUCT_ID=0x6666 ;;
 	esac
 
 	export SERIAL_NUMBER FIRMWARE_VERSION MODEL_NUMBER PRODUCT_ID
