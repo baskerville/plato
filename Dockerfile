@@ -1,4 +1,4 @@
-FROM rust:1.42-buster
+FROM rust:1.43-stretch
 
 RUN /usr/bin/dpkg --add-architecture armhf
 RUN apt-get update && apt-get install -y pkg-config \

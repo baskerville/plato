@@ -1,4 +1,4 @@
-FROM rust:1.42-buster
+FROM rust:1.43-buster
 
 RUN apt-get update && apt-get install -y libtool \
         pkg-config \
