@@ -55,11 +55,11 @@ export PLATO_STANDALONE=1
 [ -e info.log ] && [ $(stat -c '%s' info.log) -gt $((1<<18)) ] && mv info.log archive.log
 
 ORIG_BPP=$(./bin/utils/fbdepth -g)
-./bin/utils/fbdepth -d 8
+./bin/utils/fbdepth -q -d 8
 
 LIBC_FATAL_STDERR_=1 ./plato >> info.log 2>&1 || rm bootlock
 
-./bin/utils/fbdepth -d "$ORIG_BPP"
+./bin/utils/fbdepth -q -d "$ORIG_BPP"
 
 sync
 reboot
