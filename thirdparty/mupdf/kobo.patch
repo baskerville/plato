@@ -1,6 +1,6 @@
 diff -ru a/Makefile b/Makefile
---- a/Makefile	2019-07-26 16:10:07.000000000 +0200
-+++ b/Makefile	2019-08-01 10:22:40.000000000 +0200
+--- a/Makefile	2020-05-10 12:02:22.000000000 +0200
++++ b/Makefile	2020-05-10 12:02:33.000000000 +0200
 @@ -199,7 +199,7 @@
  $(THREAD_LIB) : $(THREAD_OBJ)
  $(PKCS7_LIB) : $(PKCS7_OBJ)
@@ -10,7 +10,7 @@ diff -ru a/Makefile b/Makefile
  
  # --- Main tools and viewers ---
  
-@@ -372,7 +372,7 @@
+@@ -374,7 +374,7 @@
  cscope.out: cscope.files
  	cscope -b
  
@@ -20,9 +20,9 @@ diff -ru a/Makefile b/Makefile
  clean:
  	rm -rf $(OUT)
 diff -ru a/Makerules b/Makerules
---- a/Makerules	2019-07-26 16:10:07.000000000 +0200
-+++ b/Makerules	2019-08-01 10:22:40.000000000 +0200
-@@ -184,6 +184,34 @@
+--- a/Makerules	2020-05-10 12:02:22.000000000 +0200
++++ b/Makerules	2020-05-10 12:02:33.000000000 +0200
+@@ -191,6 +191,34 @@
    HAVE_WIN32=yes
  endif
  
@@ -57,15 +57,3 @@ diff -ru a/Makerules b/Makerules
  # Most variables when building for iOS are set up in ios/build_libs.sh,
  # which is called from the Xcode project as a "Run Script" build step.
  # The following section works for both device and simulator builds.
-diff -ru a/source/fitz/store.c b/source/fitz/store.c
---- a/source/fitz/store.c	2019-09-25 22:07:15.000000000 +0200
-+++ b/source/fitz/store.c	2019-09-25 22:08:48.000000000 +0200
-@@ -336,7 +336,7 @@
- 	}
- 
- 	/* If we ran out of items to search, then we can never free enough */
--	if (item == NULL)
-+	if (count == 0)
- 	{
- 		return 0;
- 	}
