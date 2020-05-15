@@ -5,7 +5,6 @@ mod margin_cropper;
 mod results_label;
 
 use std::thread;
-use std::cmp::Ordering;
 use std::sync::{Arc, Mutex, mpsc};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering as AtomicOrdering;
@@ -195,44 +194,20 @@ fn find_cut(frame: &Rectangle, y_pos: i32, scale: f32, dir: LinearDir, lines: &[
     let max_line_height = frame_u.height() / 10.0;
 
     for line in lines {
-        if frame_u.overlaps(&line.rect) && line.rect.height() <= max_line_height && y_pos_u >= line.rect.min.y && y_pos_u < line.rect.max.y {
+        if frame_u.contains(&line.rect) && line.rect.height() <= max_line_height &&
+           y_pos_u >= line.rect.min.y && y_pos_u < line.rect.max.y {
             rect_a = Some(line.rect);
             break;
         }
     }
 
-    let ra = rect_a?;
-
-    let mut rect_b: Option<Boundary> = None;
-    let target_ordering = if dir == LinearDir::Backward {
-        Some(Ordering::Less)
-    } else {
-        Some(Ordering::Greater)
-    };
-
-    for line in lines {
-        if line.rect.min.x < ra.max.x && ra.min.x < line.rect.max.x &&
-           line.rect.min.y.partial_cmp(&ra.min.y) == target_ordering &&
-           (rect_b.is_none() || rect_b.unwrap().min.y.partial_cmp(&line.rect.min.y) == target_ordering) {
-            rect_b = Some(line.rect);
-        }
-    }
-
-    if let Some(rb) = rect_b {
-        let sum = if dir == LinearDir::Backward {
-            rb.max.y + ra.min.y
-        } else {
-            ra.max.y + rb.min.y
-        };
-
-        Some((scale * sum / 2.0) as i32)
-    } else {
+    rect_a.map(|ra| {
         if dir == LinearDir::Backward {
-            Some((scale * ra.min.y).floor() as i32 - 1)
+            (scale * ra.min.y).floor() as i32
         } else {
-            Some((scale * ra.max.y).ceil() as i32 + 1)
+            (scale * ra.max.y).ceil() as i32
         }
-    }
+    })
 }
 
 impl Reader {
