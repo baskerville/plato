@@ -1633,19 +1633,19 @@ impl Reader {
             if let Some(false) = enable {
                 return;
             }
-            let mut entries = Vec::new();
-            if !self.reflowable {
-                let zoom_mode = self.view_port.zoom_mode;
-                entries.push(EntryKind::SubMenu("Zoom Mode".to_string(), vec![
-                                      EntryKind::RadioButton("Fit to Page".to_string(),
-                                                             EntryId::SetZoomMode(ZoomMode::FitToPage),
-                                                             zoom_mode == ZoomMode::FitToPage),
-                                      EntryKind::RadioButton("Fit to Width".to_string(),
-                                                             EntryId::SetZoomMode(ZoomMode::FitToWidth),
-                                                             zoom_mode == ZoomMode::FitToWidth)]));
+
+            if self.reflowable {
+                return;
             }
-            entries.push(EntryKind::Command("Metadata".to_string(),
-                                            EntryId::OpenMetadata));
+
+            let zoom_mode = self.view_port.zoom_mode;
+            let entries = vec![EntryKind::SubMenu("Zoom Mode".to_string(), vec![
+                               EntryKind::RadioButton("Fit to Page".to_string(),
+                                                      EntryId::SetZoomMode(ZoomMode::FitToPage),
+                                                      zoom_mode == ZoomMode::FitToPage),
+                               EntryKind::RadioButton("Fit to Width".to_string(),
+                                                      EntryId::SetZoomMode(ZoomMode::FitToWidth),
+                                                      zoom_mode == ZoomMode::FitToWidth)])];
             let title_menu = Menu::new(rect, ViewId::TitleMenu, MenuKind::DropDown, entries, context);
             hub.send(Event::Render(*title_menu.rect(), UpdateMode::Gui)).ok();
             self.children.push(Box::new(title_menu) as Box<dyn View>);

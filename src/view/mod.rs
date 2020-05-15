@@ -500,7 +500,6 @@ pub enum EntryId {
     ReloadDictionaries,
     New,
     Refresh,
-    OpenMetadata,
     TakeScreenshot,
     Reboot,
     RebootInNickel,
