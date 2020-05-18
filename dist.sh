@@ -32,6 +32,7 @@ cp -R css dist
 find dist/css -name '*-user.css' -delete
 find dist/keyboard-layouts -name '*-user.json' -delete
 cp target/arm-unknown-linux-gnueabihf/release/plato dist/
+cp contrib/*.sh dist
 
 patchelf --remove-rpath dist/libs/*
 

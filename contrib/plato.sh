@@ -3,10 +3,27 @@
 WORKDIR=$(dirname "$0")
 cd "$WORKDIR" || exit 1
 
-eval "$(xargs -n 1 -0 < /proc/"$(pidof nickel)"/environ | grep -E 'INTERFACE|WIFI_MODULE|DBUS_SESSION|NICKEL_HOME|LANG' | sed -e 's/^/export /')"
-sync
-killall -TERM nickel hindenburg sickel fickel fmon > /dev/null 2>&1
+if [ "$PLATO_STANDALONE" ] ; then
+	# Stop the animation started by rcS
+	while true ; do
+		usleep 400000
+		killall on-animator.sh && break
+	done
 
+	# Turn off the blinking LEDs
+	# https://www.tablix.org/~avian/blog/archives/2013/03/blinken_kindle/
+	LEDS_INTERFACE=/sys/devices/platform/pmic_light.1/lit
+	echo "ch 4" > "$LEDS_INTERFACE"
+	echo "cur 0" > "$LEDS_INTERFACE"
+	echo "dc 0" > "$LEDS_INTERFACE"
+else
+	# shellcheck disable=SC2046
+	export $(grep -sE '^(INTERFACE|WIFI_MODULE|DBUS_SESSION|NICKEL_HOME|LANG)=' /proc/"$(pidof nickel)"/environ)
+	sync
+	killall -TERM nickel hindenburg sickel fickel fmon > /dev/null 2>&1
+fi
+
+# Remount the SD card read-write if it's mounted read-only
 grep -q ' /mnt/sd .*[ ,]ro[ ,]' /proc/mounts && mount -o remount,rw /mnt/sd
 
 # Define environment variables used by `scripts/usb-*.sh`
@@ -46,8 +63,13 @@ export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"
 ORIG_BPP=$(./bin/utils/fbdepth -g)
 ./bin/utils/fbdepth -q -d 8
 
-RUST_BACKTRACE=1 ./plato >> info.log 2>&1
+LIBC_FATAL_STDERR_=1 ./plato >> info.log 2>&1 || rm bootlock
 
 ./bin/utils/fbdepth -q -d "$ORIG_BPP"
 
-./nickel.sh &
+if [ "$PLATO_STANDALONE" ] ; then
+	sync
+	reboot
+else
+	./nickel.sh &
+fi

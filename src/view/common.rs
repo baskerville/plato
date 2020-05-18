@@ -103,7 +103,7 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
                                EntryKind::SubMenu("Applications".to_string(), apps),
                                EntryKind::Separator];
 
-        if env::var("PLATO_STANDALONE").is_ok() {
+        if env::var_os("PLATO_STANDALONE").is_some() {
             entries.push(EntryKind::Command("Reboot in Nickel".to_string(), EntryId::RebootInNickel));
             entries.push(EntryKind::Command("Reboot".to_string(), EntryId::Reboot));
         } else {

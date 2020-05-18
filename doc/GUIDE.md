@@ -13,14 +13,8 @@ unzip plato-VERSION.zip -d SD_ROOT/.adds/plato
 
 Pick one launcher:
 
+- [NickelMenu](https://github.com/geek1011/NickelMenu).
 - [kfmon](https://github.com/niluje/kfmon).
-- [fmon](https://github.com/baskerville/fmon).
-- [KSM 09](https://www.mobileread.com/forums/showthread.php?t=293804).
-
-If you choose *kfmon* or *fmon*, you'll need to extract the relevant archive:
-```sh
-unzip plato-launcher-fmon-VERSION.zip -d SD_ROOT
-```
 
 ## Configure
 

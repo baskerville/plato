@@ -10,7 +10,7 @@ export LD_LIBRARY_PATH=/usr/local/Kobo
 # Reset PWD to a sane value, outside of onboard, so that USBMS behaves properly
 cd /
 # And clear up our own stuff from the env while we're there
-unset OLDPWD MODEL_NUMBER
+unset OLDPWD SERIAL_NUMBER FIRMWARE_VERSION MODEL_NUMBER PRODUCT_ID
 
 /usr/local/Kobo/hindenburg &
 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &

@@ -1,6 +1,6 @@
 diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
---- a/etc/init.d/rcS	2018-12-07 10:12:39.000000000 +0100
-+++ b/etc/init.d/rcS	2018-12-07 10:44:40.000000000 +0100
+--- a/etc/init.d/rcS	2020-05-18 09:43:19.000000000 +0200
++++ b/etc/init.d/rcS	2020-05-18 09:43:30.000000000 +0200
 @@ -70,7 +70,12 @@
  FS_CORRUPT=0
  dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || FS_CORRUPT=1
@@ -14,15 +14,15 @@ diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
 +fi
  if [ $? != 0 ] || [ $FS_CORRUPT == 1 ] || [ $FORCE_FACTORY_RESET == 1 ]; then
  	case $PRODUCT in
- 		kraken|phoenix|star)
-@@ -178,7 +183,12 @@
+ 		kraken|phoenix)
+@@ -186,7 +191,12 @@
  /bin/dbus-daemon --system &
  export DBUS_SESSION_BUS_ADDRESS=`/bin/dbus-daemon --session --print-address --fork`
  
 -/usr/local/Kobo/hindenburg &
 -LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &
 +if [ -e "$PLATO_HOME"/bootlock -a -x "$PLATO_HOME"/plato.sh ]; then
-+	"$PLATO_HOME"/plato.sh &
++	PLATO_STANDALONE=1 "$PLATO_HOME"/plato.sh &
 +else
 +	[ -e "$PLATO_HOME"/bootlock ] && rm "$PLATO_HOME"/bootlock
 +	/usr/local/Kobo/hindenburg &
