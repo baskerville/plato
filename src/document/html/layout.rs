@@ -486,6 +486,7 @@ pub static ref HYPHENATION_LANGUAGES: FnvHashMap<&'static str, Language> = [
     ("la-x-liturgic", Language::LatinLiturgical),
     ("lv", Language::Latvian),
     ("lt", Language::Lithuanian),
+    ("mk", Language::Macedonian),
     ("ml", Language::Malayalam),
     ("mr", Language::Marathi),
     ("mn-cyrl", Language::Mongolian),
