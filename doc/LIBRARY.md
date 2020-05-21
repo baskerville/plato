@@ -29,5 +29,5 @@ You can then edit the database with your text editor to manually fix the metadat
 You can make a backup of a library with:
 
 ```sh
-rsync -vurt --delete EREADER_LIBRARY_PATH/ COMPUTER_LIBRARY_PATH/`
+rsync -vurt --delete EREADER_LIBRARY_PATH/ COMPUTER_LIBRARY_PATH/
 ```
