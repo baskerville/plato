@@ -20,7 +20,7 @@ else
 	# shellcheck disable=SC2046
 	export $(grep -sE '^(INTERFACE|WIFI_MODULE|DBUS_SESSION_BUS_ADDRESS|NICKEL_HOME|LANG)=' /proc/"$(pidof nickel)"/environ)
 	sync
-	killall -TERM nickel hindenburg sickel fickel fmon > /dev/null 2>&1
+	killall -TERM nickel hindenburg sickel fickel adobehost fmon > /dev/null 2>&1
 fi
 
 # Remount the SD card read-write if it's mounted read-only
