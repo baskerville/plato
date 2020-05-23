@@ -18,7 +18,7 @@ if [ "$PLATO_STANDALONE" ] ; then
 	echo "dc 0" > "$LEDS_INTERFACE"
 else
 	# shellcheck disable=SC2046
-	export $(grep -sE '^(INTERFACE|WIFI_MODULE|WIFI_MODULE_PATH|DBUS_SESSION_BUS_ADDRESS|NICKEL_HOME|LANG)=' /proc/"$(pidof nickel)"/environ)
+	export $(grep -sE '^(INTERFACE|WIFI_MODULE|WIFI_MODULE_PATH|DBUS_SESSION_BUS_ADDRESS|NICKEL_HOME|LANG)=' /proc/"$(pidof -s nickel)"/environ)
 	sync
 	killall -TERM nickel hindenburg sickel fickel adobehost fmon > /dev/null 2>&1
 fi
