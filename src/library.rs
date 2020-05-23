@@ -444,29 +444,51 @@ impl Library {
     }
 
     pub fn reload(&mut self) {
-        if self.mode == LibraryMode::Filesystem {
-            return;
+        if self.mode == LibraryMode::Database {
+            let path = self.home.join(METADATA_FILENAME);
+
+            match load_json(&path) {
+                Err(e) => {
+                    if path.exists() {
+                        eprintln!("Can't load {}: {}", path.display(), e);
+                    }
+                    return;
+                },
+                Ok(v) => {
+                    self.db = v;
+                    self.has_db_changed = false;
+                },
+            }
         }
 
-        let path = self.home.join(METADATA_FILENAME);
+        let path = self.home.join(READING_STATES_DIRNAME);
 
-        match load_json(&path) {
-            Err(e) => {
-                if path.exists() {
-                    eprintln!("Can't load {}: {}", path.display(), e);
+        self.modified_reading_states.clear();
+        if self.mode == LibraryMode::Filesystem {
+            self.reading_states.clear();
+        }
+
+        for entry in fs::read_dir(&path).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if let Some(fp) = path.file_stem().and_then(|v| v.to_str())
+                                  .and_then(|v| u64::from_str_radix(v, 16).ok()) {
+                if let Ok(reader_info) = load_json(path).map_err(|e| eprintln!("{}", e)) {
+                    if self.mode == LibraryMode::Database {
+                        if let Some(info) = self.db.get_mut(&fp) {
+                            info.reader = Some(reader_info);
+                        } else {
+                            eprintln!("Unknown fingerprint: {:016X}.", fp);
+                        }
+                    } else {
+                        self.reading_states.insert(fp, reader_info);
+                    }
                 }
-                return;
-            },
-            Ok(v) => {
-                let mut readers = self.db.drain(..)
-                                      .filter_map(|(fp, info)| info.reader.map(|r| (fp, r)))
-                                      .collect::<HashMap<u64, ReaderInfo, RandomXxHashBuilder64>>();
-                self.db = v;
-                for (fp, info) in self.db.iter_mut() {
-                    info.reader = readers.remove(fp);
-                }
-                self.has_db_changed = false;
-            },
+            }
+        }
+
+        if self.mode == LibraryMode::Database {
+            self.paths = self.db.iter().map(|(fp, info)| (info.file.path.clone(), *fp)).collect();
         }
     }
 
