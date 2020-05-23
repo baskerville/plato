@@ -2,7 +2,12 @@
 
 export LD_LIBRARY_PATH=/usr/local/Kobo
 
-( usleep 400000; /etc/init.d/on-animator.sh ) &
+(
+	if [ "${PLATFORM}" = "freescale" ] || [ "${PLATFORM}" = "mx50-ntx" ] || [ "${PLATFORM}" = "mx6sl-ntx" ]; then
+		usleep 400000
+	fi
+	/etc/init.d/on-animator.sh
+) &
 
 # Nickel wants the WiFi to be down when it starts
 ./scripts/wifi-disable.sh
