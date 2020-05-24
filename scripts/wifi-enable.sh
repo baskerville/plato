@@ -5,7 +5,10 @@ lsmod | grep -q sdio_wifi_pwr && exit 1
 insmod /drivers/"${PLATFORM}"/wifi/sdio_wifi_pwr.ko
 insmod "$WIFI_MODULE_PATH"
 
-while [ ! -e /sys/class/net/"${INTERFACE}" ] ; do
+REM_TRIES=20
+while [ "$REM_TRIES" -gt 0 ] ; do
+	[ -e /sys/class/net/"${INTERFACE}" ] && break
+	REM_TRIES=$((REM_TRIES-1))
 	sleep 0.2
 done
 

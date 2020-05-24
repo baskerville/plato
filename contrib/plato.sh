@@ -5,9 +5,11 @@ cd "$WORKDIR" || exit 1
 
 if [ "$PLATO_STANDALONE" ] ; then
 	# Stop the animation started by rcS
-	while true ; do
-		usleep 400000
+	REM_TRIES=10
+	while [ "$REM_TRIES" -gt 0 ] ; do
 		killall on-animator.sh && break
+		REM_TRIES=$((REM_TRIES-1))
+		usleep 400000
 	done
 
 	# Turn off the blinking LEDs
