@@ -1,4 +1,4 @@
-use fnv::FnvHashMap;
+use fxhash::FxHashMap;
 use lazy_static::lazy_static;
 use serde::Deserialize;
 use crate::device::CURRENT_DEVICE;
@@ -353,8 +353,8 @@ lazy_static! {
     // The chosen characters come from the layout described by
     // Robert Bringhurst in *The Elements of Typographic Style*,
     // version 3.1, p. 92.
-    pub static ref DEFAULT_COMBINATIONS: FnvHashMap<&'static str, char> = {
-        let mut m = FnvHashMap::default();
+    pub static ref DEFAULT_COMBINATIONS: FxHashMap<&'static str, char> = {
+        let mut m = FxHashMap::default();
         m.insert("oe", 'œ');
         m.insert("Oe", 'Œ');
         m.insert("ae", 'æ');

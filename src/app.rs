@@ -3,13 +3,15 @@ use std::thread;
 use std::process::Command;
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::collections::{HashMap, BTreeMap, VecDeque};
+use std::collections::{BTreeMap, VecDeque};
 use std::time::{Duration, Instant};
 use anyhow::{Error, Context as ResultExt, format_err};
-use fnv::FnvHashMap;
+use fxhash::FxHashMap;
 use chrono::Local;
 use globset::Glob;
 use walkdir::WalkDir;
+use rand_core::SeedableRng;
+use rand_xoshiro::Xoroshiro128Plus;
 use crate::dictionary::{Dictionary, load_dictionary_from_file};
 use crate::framebuffer::{Framebuffer, KoboFramebuffer, Display, UpdateMode};
 use crate::view::{View, Event, EntryId, EntryKind, ViewId, AppCmd};
@@ -66,12 +68,13 @@ pub struct Context {
     pub fonts: Fonts,
     pub dictionaries: BTreeMap<String, Dictionary>,
     pub keyboard_layouts: BTreeMap<String, Layout>,
-    pub input_history: HashMap<ViewId, VecDeque<String>>,
+    pub input_history: FxHashMap<ViewId, VecDeque<String>>,
     pub frontlight: Box<dyn Frontlight>,
     pub battery: Box<dyn Battery>,
     pub lightsensor: Box<dyn LightSensor>,
     pub notification_index: u8,
     pub kb_rect: Rectangle,
+    pub rng: Xoroshiro128Plus,
     pub plugged: bool,
     pub covered: bool,
     pub shared: bool,
@@ -84,11 +87,12 @@ impl Context {
                frontlight: Box<dyn Frontlight>, lightsensor: Box<dyn LightSensor>) -> Context {
         let dims = fb.dims();
         let rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
+        let rng = Xoroshiro128Plus::seed_from_u64(Local::now().timestamp_nanos() as u64);
         Context { fb, rtc, display: Display { dims, rotation },
                   library, settings, fonts, dictionaries: BTreeMap::new(),
-                  keyboard_layouts: BTreeMap::new(), input_history: HashMap::new(),
+                  keyboard_layouts: BTreeMap::new(), input_history: FxHashMap::default(),
                   battery, frontlight, lightsensor, notification_index: 0,
-                  kb_rect: Rectangle::default(), plugged: false, covered: false,
+                  kb_rect: Rectangle::default(), rng, plugged: false, covered: false,
                   shared: false, online: false }
     }
 
@@ -287,7 +291,7 @@ fn resume(id: TaskId, tasks: &mut Vec<Task>, view: &mut dyn View, hub: &Sender<E
     }
 }
 
-fn power_off(view: &mut dyn View, history: &mut Vec<HistoryItem>, updating: &mut FnvHashMap<u32, Rectangle>, context: &mut Context) {
+fn power_off(view: &mut dyn View, history: &mut Vec<HistoryItem>, updating: &mut FxHashMap<u32, Rectangle>, context: &mut Context) {
     let (tx, _rx) = mpsc::channel();
     view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), context);
     while let Some(mut item) = history.pop() {
@@ -405,7 +409,7 @@ pub fn run() -> Result<(), Error> {
     let mut history: Vec<HistoryItem> = Vec::new();
     let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &tx, &mut context)?);
 
-    let mut updating = FnvHashMap::default();
+    let mut updating = FxHashMap::default();
 
     println!("{} is running on a Kobo {}.", APP_NAME,
                                             CURRENT_DEVICE.model);

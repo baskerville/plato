@@ -7,7 +7,7 @@ use std::fs::File;
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::os::unix::io::AsRawFd;
 use std::ffi::CString;
-use fnv::{FnvHashMap, FnvHashSet};
+use fxhash::{FxHashMap, FxHashSet};
 use crate::framebuffer::Display;
 use crate::settings::ButtonScheme;
 use crate::device::CURRENT_DEVICE;
@@ -327,8 +327,8 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
     let mut pressure = 0;
     let mut last_activity = -60;
     let Display { mut dims, mut rotation } = display;
-    let mut fingers: FnvHashMap<i32, Point> = FnvHashMap::default();
-    let mut packet_ids: FnvHashSet<i32> = FnvHashSet::default();
+    let mut fingers: FxHashMap<i32, Point> = FxHashMap::default();
+    let mut packet_ids: FxHashSet<i32> = FxHashSet::default();
     let proto = CURRENT_DEVICE.proto;
 
     let mut tc = match proto {

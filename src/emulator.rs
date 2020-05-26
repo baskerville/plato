@@ -28,7 +28,7 @@ use std::collections::VecDeque;
 use std::path::Path;
 use std::time::Duration;
 use anyhow::{Error, Context as ResultExt};
-use fnv::FnvHashMap;
+use fxhash::FxHashMap;
 use chrono::Local;
 use sdl2::event::Event as SdlEvent;
 use sdl2::keyboard::{Scancode, Keycode};
@@ -250,7 +250,7 @@ fn main() -> Result<(), Error> {
     let mut history: Vec<Box<dyn View>> = Vec::new();
     let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &tx, &mut context)?);
 
-    let mut updating = FnvHashMap::default();
+    let mut updating = FxHashMap::default();
 
     if context.settings.frontlight {
         let levels = context.settings.frontlight_levels;

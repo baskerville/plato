@@ -1,4 +1,4 @@
-use fnv::FnvHashSet;
+use fxhash::FxHashSet;
 use regex::Regex;
 use super::layout::{FontKind, FontStyle, FontWeight, TextAlign, Display, Float, ListStyleType};
 use super::layout::{InlineMaterial, GlueMaterial, PenaltyMaterial};
@@ -308,7 +308,7 @@ pub fn parse_font_features(value: &str) -> Vec<String> {
 }
 
 pub fn parse_font_variant(value: &str) -> Vec<String> {
-    let mut features = FnvHashSet::default();
+    let mut features = FxHashSet::default();
 
     for name in value.split_whitespace() {
         match name {

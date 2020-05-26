@@ -1,10 +1,10 @@
 use std::fs::{self, File};
 use std::time::SystemTime;
 use std::path::{PathBuf, Path};
-use std::collections::{HashMap, HashSet, BTreeSet};
+use std::collections::BTreeSet;
 use regex::Regex;
 use indexmap::IndexMap;
-use twox_hash::RandomXxHashBuilder64;
+use fxhash::{FxHashMap, FxHashSet, FxBuildHasher};
 use walkdir::{WalkDir, DirEntry};
 use chrono::{Local, TimeZone};
 use filetime::{FileTime, set_file_handle_times};
@@ -21,10 +21,10 @@ pub const READING_STATES_DIRNAME: &str = ".reading-states";
 pub struct Library {
     pub home: PathBuf,
     pub mode: LibraryMode,
-    pub db: IndexMap<u64, Info, RandomXxHashBuilder64>,
-    pub paths: HashMap<PathBuf, u64, RandomXxHashBuilder64>,
-    pub reading_states: HashMap<u64, ReaderInfo, RandomXxHashBuilder64>,
-    pub modified_reading_states: HashSet<u64, RandomXxHashBuilder64>,
+    pub db: IndexMap<u64, Info, FxBuildHasher>,
+    pub paths: FxHashMap<PathBuf, u64>,
+    pub reading_states: FxHashMap<u64, ReaderInfo>,
+    pub modified_reading_states: FxHashSet<u64>,
     pub has_db_changed: bool,
     pub fat32_epoch: SystemTime,
     pub sort_method: SortMethod,
@@ -34,22 +34,22 @@ pub struct Library {
 
 impl Library {
     pub fn new<P: AsRef<Path>>(home: P, mode: LibraryMode) -> Self {
-        let mut db: IndexMap<u64, Info, RandomXxHashBuilder64> = if mode == LibraryMode::Database {
+        let mut db: IndexMap<u64, Info, FxBuildHasher> = if mode == LibraryMode::Database {
             let path = home.as_ref().join(METADATA_FILENAME);
             match load_json(&path) {
                 Err(e) => {
                     if path.exists() {
                         eprintln!("{}", e);
                     }
-                    IndexMap::with_capacity_and_hasher(0, RandomXxHashBuilder64::default())
+                    IndexMap::with_capacity_and_hasher(0, FxBuildHasher::default())
                 },
                 Ok(v) => v,
             }
         } else {
-            IndexMap::with_capacity_and_hasher(0, RandomXxHashBuilder64::default())
+            IndexMap::with_capacity_and_hasher(0, FxBuildHasher::default())
         };
 
-        let mut reading_states = HashMap::with_capacity_and_hasher(0, RandomXxHashBuilder64::default());
+        let mut reading_states = FxHashMap::default();
 
         let path = home.as_ref().join(READING_STATES_DIRNAME);
         if !path.exists() {
@@ -78,7 +78,7 @@ impl Library {
         let paths = if mode == LibraryMode::Database {
             db.iter().map(|(fp, info)| (info.file.path.clone(), *fp)).collect()
         } else {
-            HashMap::with_capacity_and_hasher(0, RandomXxHashBuilder64::default())
+            FxHashMap::default()
         };
 
         let path = home.as_ref().join(FAT32_EPOCH_FILENAME);
@@ -99,7 +99,7 @@ impl Library {
             db,
             paths,
             reading_states,
-            modified_reading_states: HashSet::with_capacity_and_hasher(0, RandomXxHashBuilder64::default()),
+            modified_reading_states: FxHashSet::default(),
             has_db_changed: false,
             fat32_epoch,
             sort_method,
@@ -333,7 +333,7 @@ impl Library {
                                                 .fingerprint(self.fat32_epoch).unwrap())
                                   }
                               })
-                              .collect::<HashSet<u64, RandomXxHashBuilder64>>();
+                              .collect::<FxHashSet<u64>>();
             let path = self.home.join(READING_STATES_DIRNAME);
             for entry in fs::read_dir(&path).unwrap() {
                 if entry.is_err() {

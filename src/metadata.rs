@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
 use regex::Regex;
 use chrono::{Local, DateTime};
-use fnv::FnvHashMap;
+use fxhash::FxHashMap;
 use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use titlecase::titlecase;
@@ -567,8 +567,8 @@ pub fn sort_filepath(i1: &Info, i2: &Info) -> Ordering {
 }
 
 lazy_static! {
-    pub static ref TITLE_PREFIXES: FnvHashMap<&'static str, Regex> = {
-        let mut p = FnvHashMap::default();
+    pub static ref TITLE_PREFIXES: FxHashMap<&'static str, Regex> = {
+        let mut p = FxHashMap::default();
         p.insert("en", Regex::new(r"^(The|An?)\s").unwrap());
         p.insert("fr", Regex::new(r"^(Les?\s|La\s|L['’]|Une?\s|Des?\s|Du\s)").unwrap());
         p

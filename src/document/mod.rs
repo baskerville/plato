@@ -8,7 +8,7 @@ mod mupdf_sys;
 
 use std::path::Path;
 use std::ffi::OsStr;
-use fnv::FnvHashSet;
+use fxhash::FxHashSet;
 use lazy_static::lazy_static;
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::{is_combining_mark};
@@ -363,7 +363,7 @@ pub fn chapter_from_uri<'a>(target_uri: &str, toc: &'a [TocEntry]) -> Option<&'a
 
 // cd mupdf/source && awk '/_extensions\[/,/}/' */*.c
 lazy_static! {
-pub static ref RECOGNIZED_KINDS: FnvHashSet<&'static str> =
+pub static ref RECOGNIZED_KINDS: FxHashSet<&'static str> =
     [
     // djvu
     "djvu",

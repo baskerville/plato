@@ -9,12 +9,13 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering as AtomicOrdering;
 use std::path::PathBuf;
-use std::collections::{VecDeque, BTreeMap, HashMap, HashSet};
+use std::collections::{VecDeque, BTreeMap};
+use fxhash::{FxHashMap, FxHashSet};
 use chrono::Local;
 use regex::Regex;
 use septem::prelude::*;
 use septem::{Roman, Digit};
-use rand::Rng;
+use rand_core::RngCore;
 use crate::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
 use crate::view::{View, Event, AppCmd, Hub, Bus, ViewId, EntryKind, EntryId, SliderId};
@@ -61,13 +62,13 @@ pub struct Reader {
     children: Vec<Box<dyn View>>,
     doc: Arc<Mutex<Box<dyn Document>>>,
     cache: BTreeMap<usize, Resource>,
-    text: HashMap<usize, Vec<BoundedText>>,
-    annotations: HashMap<usize, Vec<Annotation>>,
+    text: FxHashMap<usize, Vec<BoundedText>>,
+    annotations: FxHashMap<usize, Vec<Annotation>>,
     chunks: Vec<RenderChunk>,
     focus: Option<ViewId>,
     search: Option<Search>,
     search_direction: LinearDir,
-    held_buttons: HashSet<ButtonCode>,
+    held_buttons: FxHashSet<ButtonCode>,
     selection: Option<Selection>,
     target_annotation: Option<[TextLocation; 2]>,
     history: VecDeque<usize>,
@@ -310,13 +311,13 @@ impl Reader {
                 children: Vec::new(),
                 doc: Arc::new(Mutex::new(doc)),
                 cache: BTreeMap::new(),
-                text: HashMap::new(),
-                annotations: HashMap::new(),
+                text: FxHashMap::default(),
+                annotations: FxHashMap::default(),
                 chunks: Vec::new(),
                 focus: None,
                 search: None,
                 search_direction: LinearDir::Forward,
-                held_buttons: HashSet::new(),
+                held_buttons: FxHashSet::default(),
                 selection: None,
                 target_annotation: None,
                 history: VecDeque::new(),
@@ -381,13 +382,13 @@ impl Reader {
             children: vec![],
             doc: Arc::new(Mutex::new(Box::new(doc))),
             cache: BTreeMap::new(),
-            text: HashMap::new(),
-            annotations: HashMap::new(),
+            text: FxHashMap::default(),
+            annotations: FxHashMap::default(),
             chunks: Vec::new(),
             focus: None,
             search: None,
             search_direction: LinearDir::Forward,
-            held_buttons: HashSet::new(),
+            held_buttons: FxHashSet::default(),
             selection: None,
             target_annotation: None,
             history: VecDeque::new(),
@@ -2931,8 +2932,7 @@ impl View for Reader {
                         }
                     } else {
                         if text == "_" {
-                            let mut rng = rand::thread_rng();
-                            let location = rng.gen::<usize>() % self.pages_count;
+                            let location = (context.rng.next_u64() % self.pages_count as u64) as usize;
                             self.go_to_page(location, true, hub, context);
                         } else if let Ok(number) = caps[2].parse::<f64>() {
                             let location = if !self.synthetic {

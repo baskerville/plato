@@ -1,6 +1,6 @@
-use fnv::{FnvHashMap, FnvHashSet};
+use fxhash::{FxHashMap, FxHashSet};
 
-pub type Attributes = FnvHashMap<String, String>;
+pub type Attributes = FxHashMap<String, String>;
 
 #[derive(Debug, Clone)]
 pub enum Node {
@@ -117,7 +117,7 @@ impl Node {
         self.attributes().and_then(|a| a.get(name).map(String::as_str))
     }
 
-    pub fn classes(&self) -> Option<FnvHashSet<&str>> {
+    pub fn classes(&self) -> Option<FxHashSet<&str>> {
         self.attr("class").map(|t| t.split(' ').collect())
     }
 
@@ -193,7 +193,7 @@ impl Node {
                         let j = start_index.unwrap();
                         let k = end_index.unwrap_or(j);
                         let n = k - j + 1;
-                        let anon = [element("anonymous", children[j].offset(), FnvHashMap::default(), Vec::new())];
+                        let anon = [element("anonymous", children[j].offset(), FxHashMap::default(), Vec::new())];
                         let inlines = children.splice(j..=k, anon.iter().cloned()).collect();
                         if let Some(Node::Element(ElementData { ref mut children, .. })) = children.get_mut(j) {
                             *children = inlines;

@@ -4,15 +4,15 @@ use std::borrow::Cow;
 use std::time::SystemTime;
 use std::fs::{self, File, Metadata};
 use std::path::{Path, PathBuf, Component};
-use std::collections::HashMap;
+use fxhash::FxHashMap;
 use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use entities::ENTITIES;
 use anyhow::{Error, Context};
 
 lazy_static! {
-    pub static ref CHARACTER_ENTITIES: HashMap<&'static str, &'static str> = {
-        let mut m = HashMap::new();
+    pub static ref CHARACTER_ENTITIES: FxHashMap<&'static str, &'static str> = {
+        let mut m = FxHashMap::default();
         for e in ENTITIES.iter() {
             m.insert(e.entity, e.characters);
         }

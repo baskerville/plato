@@ -3,7 +3,8 @@ mod preset;
 use std::env;
 use std::fmt::{self, Debug};
 use std::path::PathBuf;
-use std::collections::{HashSet, HashMap, BTreeMap};
+use std::collections::BTreeMap;
+use fxhash::{FxHashMap, FxHashSet};
 use serde::{Serialize, Deserialize};
 use crate::metadata::{SortMethod, TextAlign};
 use crate::frontlight::LightLevels;
@@ -65,8 +66,8 @@ pub struct Settings {
     pub auto_power_off: u8,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<LibrarySettings>,
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
-    pub intermission_images: HashMap<String, PathBuf>,
+    #[serde(skip_serializing_if = "FxHashMap::is_empty")]
+    pub intermission_images: FxHashMap<String, PathBuf>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub frontlight_presets: Vec<LightPreset>,
     pub home: HomeSettings,
@@ -121,7 +122,7 @@ pub struct ImportSettings {
     pub startup_trigger: bool,
     pub traverse_hidden: bool,
     pub extract_epub_metadata: bool,
-    pub allowed_kinds: HashSet<String>,
+    pub allowed_kinds: FxHashSet<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -368,7 +369,7 @@ impl Default for Settings {
             button_scheme: ButtonScheme::Natural,
             auto_suspend: 30,
             auto_power_off: 3,
-            intermission_images: HashMap::new(),
+            intermission_images: FxHashMap::default(),
             home: HomeSettings::default(),
             reader: ReaderSettings::default(),
             import: ImportSettings::default(),

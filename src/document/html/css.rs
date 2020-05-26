@@ -1,4 +1,4 @@
-use fnv::FnvHashSet;
+use fxhash::FxHashSet;
 
 #[derive(Debug, Clone)]
 pub enum Selector {
@@ -10,14 +10,14 @@ pub enum Selector {
 #[derive(Debug, Clone)]
 pub struct SimpleSelector {
     pub tag_name: Option<String>,
-    pub classes: FnvHashSet<String>,
+    pub classes: FxHashSet<String>,
     pub id: Option<String>,
 }
 
 
 impl Default for SimpleSelector {
     fn default() -> SimpleSelector {
-        SimpleSelector { tag_name: None, id: None, classes: FnvHashSet::default() }
+        SimpleSelector { tag_name: None, id: None, classes: FxHashSet::default() }
     }
 }
 

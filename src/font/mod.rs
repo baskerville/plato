@@ -10,8 +10,9 @@ use std::slice;
 use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
-use std::collections::{HashMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::rc::Rc;
+use fxhash::FxHashMap;
 use bitflags::bitflags;
 use anyhow::{Error, format_err};
 use thiserror::Error;
@@ -420,7 +421,7 @@ impl FontFamily {
     pub fn from_name<P: AsRef<Path>>(family_name: &str, search_path: P) -> Result<FontFamily, Error> {
         let opener = FontOpener::new()?;
         let glob = Glob::new("**/*.[ot]tf")?.compile_matcher();
-        let mut styles = HashMap::new();
+        let mut styles = FxHashMap::default();
 
         for entry in WalkDir::new(search_path.as_ref()).min_depth(1).into_iter().filter_map(|e| e.ok()) {
             let path = entry.path();
@@ -1438,7 +1439,7 @@ impl Font {
     pub fn render(&mut self, fb: &mut dyn Framebuffer, color: u8, render_plan: &RenderPlan, origin: Point) {
         unsafe {
             let mut pos = origin;
-            let mut fallback_faces = HashMap::new();
+            let mut fallback_faces = FxHashMap::default();
 
             for (index, glyph) in render_plan.glyphs.iter().enumerate() {
                 let face = if let Some(script) = render_plan.scripts.get(&index) {
@@ -1523,7 +1524,7 @@ struct GlyphPlan {
 #[derive(Debug, Clone)]
 pub struct RenderPlan {
     pub width: u32,
-    scripts: HashMap<usize, HbScript>,
+    scripts: FxHashMap<usize, HbScript>,
     glyphs: Vec<GlyphPlan>,
 }
 
@@ -1531,7 +1532,7 @@ impl Default for RenderPlan {
     fn default() -> RenderPlan {
         RenderPlan {
             width: 0,
-            scripts: HashMap::new(),
+            scripts: FxHashMap::default(),
             glyphs: vec![],
         }
     }
@@ -1553,7 +1554,7 @@ impl RenderPlan {
     }
 
     pub fn split_off(&mut self, index: usize, width: u32) -> RenderPlan {
-        let mut next_scripts = HashMap::new();
+        let mut next_scripts = FxHashMap::default();
         if !self.scripts.is_empty() {
             for i in index..self.glyphs.len() {
                 self.scripts.remove_entry(&i)

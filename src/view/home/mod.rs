@@ -12,9 +12,9 @@ use std::thread;
 use std::sync::mpsc;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Child, Stdio};
-use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
-use rand::Rng;
+use fxhash::FxHashMap;
+use rand_core::RngCore;
 use regex::Regex;
 use serde_json::Value as JsonValue;
 use anyhow::{Error, format_err};
@@ -61,7 +61,7 @@ pub struct Home {
     reverse_order: bool,
     visible_books: Metadata,
     current_directory: PathBuf,
-    background_fetchers: HashMap<PathBuf, Fetcher>,
+    background_fetchers: FxHashMap<PathBuf, Fetcher>,
 }
 
 #[derive(Debug)]
@@ -194,7 +194,7 @@ impl Home {
             reverse_order,
             visible_books,
             current_directory,
-            background_fetchers: HashMap::new(),
+            background_fetchers: FxHashMap::default(),
         })
     }
 
@@ -1322,8 +1322,7 @@ impl View for Home {
             },
             Event::Submit(ViewId::GoToPageInput, ref text) => {
                 if text == "_" {
-                    let mut rng = rand::thread_rng();
-                    let index = rng.gen::<usize>() % self.pages_count;
+                    let index = (context.rng.next_u64() % self.pages_count as u64) as usize;
                     self.go_to_page(index, hub, context);
                 } else if let Ok(index) = text.parse::<usize>() {
                     self.go_to_page(index.saturating_sub(1), hub, context);

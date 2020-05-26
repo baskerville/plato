@@ -46,7 +46,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::collections::VecDeque;
 use std::fmt::{self, Debug};
-use fnv::FnvHashMap;
+use fxhash::FxHashMap;
 use downcast_rs::{Downcast, impl_downcast};
 use crate::font::Fonts;
 use crate::document::{Location, TextLocation, TocEntry};
@@ -169,19 +169,19 @@ pub fn handle_event(view: &mut dyn View, evt: &Event, hub: &Hub, parent_bus: &mu
     }
 }
 
-pub fn render(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
+pub fn render(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FxHashMap<u32, Rectangle>) {
     render_aux(view, rect, fb, fonts, &mut false, true, updating);
 }
 
-pub fn render_region(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
+pub fn render_region(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FxHashMap<u32, Rectangle>) {
     render_aux(view, rect, fb, fonts, &mut true, true, updating);
 }
 
-pub fn render_no_wait(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
+pub fn render_no_wait(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FxHashMap<u32, Rectangle>) {
     render_aux(view, rect, fb, fonts, &mut false, false, updating);
 }
 
-pub fn render_no_wait_region(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
+pub fn render_no_wait_region(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FxHashMap<u32, Rectangle>) {
     render_aux(view, rect, fb, fonts, &mut true, false, updating);
 }
 
@@ -189,7 +189,7 @@ pub fn render_no_wait_region(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn
 // Once we reach that z-level, we start comparing the candidate rectangles with the source
 // rectangle. If there is an overlap, we render the corresponding view. And update the source
 // rectangle by absorbing the candidate rectangle into it.
-fn render_aux(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, above: &mut bool, wait: bool, updating: &mut FnvHashMap<u32, Rectangle>) {
+fn render_aux(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, above: &mut bool, wait: bool, updating: &mut FxHashMap<u32, Rectangle>) {
     // FIXME: rect is used as an identifier.
     if !*above && view.rect() == rect {
         *above = true;
@@ -213,7 +213,7 @@ fn render_aux(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, f
 
 // When a floating window is destroyed, it leaves a crack underneath.
 // Each view intersecting the crack's rectangle needs to be redrawn.
-pub fn expose(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FnvHashMap<u32, Rectangle>) {
+pub fn expose(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FxHashMap<u32, Rectangle>) {
     if (view.len() == 0 || view.is_background()) && view.rect().overlaps(rect) {
         let render_rect = view.render_rect(rect);
         updating.retain(|tok, urect| {

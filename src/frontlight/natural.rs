@@ -3,7 +3,7 @@ use std::io::Write;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
-use fnv::FnvHashMap;
+use fxhash::FxHashMap;
 use lazy_static::lazy_static;
 use anyhow::Error;
 use crate::device::{CURRENT_DEVICE, Model};
@@ -36,7 +36,7 @@ pub enum LightColor {
 }
 
 lazy_static! {
-pub static ref FRONTLIGHT_DIRS: FnvHashMap<LightColor, &'static str> =
+pub static ref FRONTLIGHT_DIRS: FxHashMap<LightColor, &'static str> =
     match CURRENT_DEVICE.model {
         Model::AuraONE | Model::AuraONELimEd => {
             [(LightColor::White, FRONTLIGHT_WHITE_A),
@@ -53,16 +53,16 @@ pub static ref FRONTLIGHT_DIRS: FnvHashMap<LightColor, &'static str> =
 pub struct NaturalFrontlight {
     intensity: f32,
     warmth: f32,
-    values: FnvHashMap<LightColor, File>,
-    powers: FnvHashMap<LightColor, File>,
-    maxima: FnvHashMap<LightColor, i16>,
+    values: FxHashMap<LightColor, File>,
+    powers: FxHashMap<LightColor, File>,
+    maxima: FxHashMap<LightColor, i16>,
 }
 
 impl NaturalFrontlight {
     pub fn new(intensity: f32, warmth: f32) -> Result<NaturalFrontlight, Error> {
-        let mut maxima = FnvHashMap::default();
-        let mut values = FnvHashMap::default();
-        let mut powers = FnvHashMap::default();
+        let mut maxima = FxHashMap::default();
+        let mut values = FxHashMap::default();
+        let mut powers = FxHashMap::default();
         let base = PathBuf::from(FRONTLIGHT_INTERFACE);
         for (light, name) in FRONTLIGHT_DIRS.iter() {
             let dir = base.join(name);

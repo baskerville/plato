@@ -1,8 +1,7 @@
 use std::fs::{self, File};
 use std::path::PathBuf;
-use rand::{Rng, SeedableRng};
-use rand_xorshift::XorShiftRng;
-use fnv::FnvHashMap;
+use rand_core::RngCore;
+use fxhash::FxHashMap;
 use chrono::Local;
 use walkdir::WalkDir;
 use globset::Glob;
@@ -44,7 +43,7 @@ pub struct Sketch {
     children: Vec<Box<dyn View>>,
     pixmap: Pixmap,
     random: Pixmap,
-    fingers: FnvHashMap<i32, TouchState>,
+    fingers: FxHashMap<i32, TouchState>,
     pen: Pen,
     save_path: PathBuf,
     filename: String,
@@ -64,8 +63,7 @@ impl Sketch {
                         .corners(Some(CornerSpec::Uniform(side / 2)));
         children.push(Box::new(icon) as Box<dyn View>);
         let mut random = Pixmap::new(rect.width(), rect.height());
-        let mut rng = XorShiftRng::seed_from_u64(Local::now().timestamp_millis() as u64);
-        rng.fill(random.data_mut());
+        context.rng.fill_bytes(random.data_mut());
         let save_path = context.library.home.join(&context.settings.sketch.save_path);
         hub.send(Event::Render(rect, UpdateMode::Full)).ok();
         Sketch {
@@ -73,7 +71,7 @@ impl Sketch {
             children,
             pixmap: Pixmap::new(rect.width(), rect.height()),
             random,
-            fingers: FnvHashMap::default(),
+            fingers: FxHashMap::default(),
             pen: context.settings.sketch.pen.clone(),
             save_path,
             filename: Local::now().format(FILENAME_PATTERN).to_string(),

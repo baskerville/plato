@@ -1,8 +1,8 @@
-use fnv::FnvHashMap;
+use fxhash::FxHashMap;
 use super::dom::Node;
 use super::css::{CssParser, Rule, Selector, SimpleSelector, Specificity};
 
-pub type PropertyMap = FnvHashMap<String, String>;
+pub type PropertyMap = FxHashMap<String, String>;
 pub type Stylesheet = [Rule];
 type MatchedRule<'a> = (Specificity, &'a Rule);
 
@@ -28,7 +28,7 @@ mod tests {
 }
 
 pub fn specified_values(node: &Node, parent: Option<&Node>, sibling: Option<&Node>, stylesheet: &Stylesheet) -> PropertyMap {
-    let mut props = FnvHashMap::default();
+    let mut props = FxHashMap::default();
     let mut rules = matching_rules(node, parent, sibling, stylesheet);
 
     rules.sort_by(|&(sa, ra), &(sb, rb)| {

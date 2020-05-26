@@ -1,4 +1,4 @@
-use fnv::FnvHashMap;
+use fxhash::FxHashMap;
 use super::dom::{Node, Attributes, text, element, whitespace};
 
 #[derive(Debug)]
@@ -53,7 +53,7 @@ impl<'a> XmlParser<'a> {
     }
 
     fn parse_attributes(&mut self) -> Attributes {
-        let mut attrs = FnvHashMap::default();
+        let mut attrs = FxHashMap::default();
         while !self.eof() {
             self.advance_while(|&c| c.is_whitespace());
             match self.next() {
@@ -155,7 +155,7 @@ impl<'a> XmlParser<'a> {
         if nodes.len() == 1 {
             nodes.remove(0)
         } else {
-            element("root", 0, FnvHashMap::default(), nodes)
+            element("root", 0, FxHashMap::default(), nodes)
         }
     }
 }

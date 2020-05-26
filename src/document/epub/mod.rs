@@ -2,7 +2,8 @@ use std::io::Read;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
-use std::collections::{HashMap, BTreeSet};
+use std::collections::BTreeSet;
+use fxhash::FxHashMap;
 use zip::ZipArchive;
 use anyhow::{Error, format_err};
 use crate::framebuffer::Pixmap;
@@ -21,7 +22,7 @@ use super::html::xml::XmlParser;
 const VIEWER_STYLESHEET: &str = "css/epub.css";
 const USER_STYLESHEET: &str = "css/epub-user.css";
 
-type UriCache = HashMap<String, usize>;
+type UriCache = FxHashMap<String, usize>;
 
 impl ResourceFetcher for ZipArchive<File> {
     fn fetch(&mut self, name: &str) -> Result<Vec<u8>, Error> {
@@ -38,7 +39,7 @@ pub struct EpubDocument {
     parent: PathBuf,
     engine: Engine,
     spine: Vec<Chunk>,
-    cache: HashMap<usize, Vec<Page>>,
+    cache: FxHashMap<usize, Vec<Page>>,
     ignore_document_css: bool,
 }
 
@@ -118,7 +119,7 @@ impl EpubDocument {
             parent: parent.to_path_buf(),
             engine: Engine::new(),
             spine,
-            cache: HashMap::new(),
+            cache: FxHashMap::default(),
             ignore_document_css: false,
         })
     }
@@ -572,7 +573,7 @@ impl Document for EpubDocument {
 
         let root = XmlParser::new(&text).parse();
         root.find("navMap").map(|map| {
-            let mut cache = HashMap::new();
+            let mut cache = FxHashMap::default();
             let mut index = 0;
             self.walk_toc(&map, &toc_dir, &mut index, &mut cache)
         })
@@ -663,7 +664,7 @@ impl Document for EpubDocument {
                 }
             },
             Location::LocalUri(offset, ref uri) => {
-                let mut cache = HashMap::new();
+                let mut cache = FxHashMap::default();
                 let normalized_uri: String = {
                     let (index, _) = self.vertebra_coordinates(offset)?;
                     let path = &self.spine[index].path;
@@ -679,7 +680,7 @@ impl Document for EpubDocument {
                 self.resolve_link(&normalized_uri, &mut cache)
             },
             Location::Uri(ref uri) => {
-                let mut cache = HashMap::new();
+                let mut cache = FxHashMap::default();
                 self.resolve_link(uri, &mut cache)
             },
         }

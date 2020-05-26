@@ -1,5 +1,5 @@
 use std::path::Path;
-use fnv::FnvHashMap;
+use fxhash::FxHashMap;
 use lazy_static::lazy_static;
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, Pixmap, UpdateMode};
@@ -17,8 +17,8 @@ use crate::app::Context;
 const ICON_SCALE: f32 = 1.0 / 32.0;
 
 lazy_static! {
-    pub static ref ICONS_PIXMAPS: FnvHashMap<&'static str, Pixmap> = {
-        let mut m = FnvHashMap::default();
+    pub static ref ICONS_PIXMAPS: FxHashMap<&'static str, Pixmap> = {
+        let mut m = FxHashMap::default();
         let scale = scale_by_dpi_raw(ICON_SCALE, CURRENT_DEVICE.dpi);
         let dir = Path::new("icons");
         for name in ["home", "search", "back", "frontlight", "frontlight-disabled", "menu",

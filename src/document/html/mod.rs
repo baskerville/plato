@@ -9,7 +9,7 @@ pub mod engine;
 use std::io::Read;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
-use std::collections::HashMap;
+use fxhash::FxHashMap;
 use anyhow::Error;
 use crate::framebuffer::Pixmap;
 use crate::helpers::{Normalize, decode_entities};
@@ -26,7 +26,7 @@ use self::xml::XmlParser;
 const VIEWER_STYLESHEET: &str = "css/html.css";
 const USER_STYLESHEET: &str = "css/html-user.css";
 
-type UriCache = HashMap<String, usize>;
+type UriCache = FxHashMap<String, usize>;
 
 pub struct HtmlDocument {
     content: Node,
@@ -320,7 +320,7 @@ impl Document for HtmlDocument {
                 }
             },
             Location::LocalUri(_, ref uri) | Location::Uri(ref  uri) => {
-                let mut cache = HashMap::new();
+                let mut cache = FxHashMap::default();
                 self.resolve_link(uri, &mut cache)
             },
         }

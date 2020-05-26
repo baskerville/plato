@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::fmt::Debug;
-use fnv::FnvHashMap;
+use fxhash::FxHashMap;
 use lazy_static::lazy_static;
 use kl_hyphenate::{Standard, Language, Load};
 use crate::geom::{Point, Rectangle, Edge};
@@ -22,7 +22,7 @@ pub struct RootData {
 #[derive(Debug, Clone)]
 pub struct DrawState {
     pub position: Point,
-    pub floats: FnvHashMap<usize, Vec<Rectangle>>,
+    pub floats: FxHashMap<usize, Vec<Rectangle>>,
     pub prefix: Option<String>,
     pub min_column_widths: Vec<i32>,
     pub max_column_widths: Vec<i32>,
@@ -34,7 +34,7 @@ impl Default for DrawState {
     fn default() -> Self {
         DrawState {
             position: Point::default(),
-            floats: FnvHashMap::default(),
+            floats: FxHashMap::default(),
             prefix: None,
             min_column_widths: Vec::new(),
             max_column_widths: Vec::new(),
@@ -437,7 +437,7 @@ pub fn hyph_lang(name: &str) -> Option<Language> {
 }
 
 lazy_static! {
-pub static ref HYPHENATION_LANGUAGES: FnvHashMap<&'static str, Language> = [
+pub static ref HYPHENATION_LANGUAGES: FxHashMap<&'static str, Language> = [
     ("af", Language::Afrikaans),
     ("hy", Language::Armenian),
     ("as", Language::Assamese),
@@ -520,8 +520,8 @@ pub static ref HYPHENATION_LANGUAGES: FnvHashMap<&'static str, Language> = [
     ("hsb", Language::Uppersorbian),
     ("cy", Language::Welsh)].iter().cloned().collect();
 
-pub static ref HYPHENATION_PATTERNS: FnvHashMap<Language, Standard> = {
-    let mut map = FnvHashMap::default();
+pub static ref HYPHENATION_PATTERNS: FxHashMap<Language, Standard> = {
+    let mut map = FxHashMap::default();
     for lang in HYPHENATION_LANGUAGES.values() {
         if map.contains_key(lang) {
             continue;
@@ -546,7 +546,7 @@ pub static ref HYPHENATION_PATTERNS: FnvHashMap<Language, Standard> = {
     map
 };
 
-pub static ref EM_SPACE_RATIOS: FnvHashMap<char, f32> = [
+pub static ref EM_SPACE_RATIOS: FxHashMap<char, f32> = [
     // En quad.
     ('\u{2000}', 0.5),
     // Em quad.
@@ -562,7 +562,7 @@ pub static ref EM_SPACE_RATIOS: FnvHashMap<char, f32> = [
     // Six-per-em space.
     ('\u{2006}', 0.16)].iter().cloned().collect();
 
-pub static ref WORD_SPACE_RATIOS: FnvHashMap<char, f32> = [
+pub static ref WORD_SPACE_RATIOS: FxHashMap<char, f32> = [
     // Tabulation
     ('\t', 4.0),
     // No-break space

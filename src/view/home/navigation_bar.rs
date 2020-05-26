@@ -1,5 +1,6 @@
 use std::path::{PathBuf, Path};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
+use fxhash::FxHashMap;
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::view::{View, Event, Hub, Bus};
@@ -63,7 +64,7 @@ impl NavigationBar {
             last = ancestor.to_path_buf();
         }
 
-        let mut dirs_from_path = HashMap::new();
+        let mut dirs_from_path = FxHashMap::default();
         let mut current: &Path = path.as_ref();
         let mut y_max = self.vertical_limit;
         let mut index = self.children.len();

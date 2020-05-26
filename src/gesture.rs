@@ -1,6 +1,6 @@
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::sync::{Arc, Mutex};
-use fnv::FnvHashMap;
+use fxhash::FxHashMap;
 use std::f64;
 use std::time::Duration;
 use std::thread;
@@ -77,8 +77,8 @@ pub fn gesture_events(rx: Receiver<DeviceEvent>) -> Receiver<Event> {
 }
 
 pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
-    let contacts: Arc<Mutex<FnvHashMap<i32, TouchState>>> = Arc::new(Mutex::new(FnvHashMap::default()));
-    let buttons: Arc<Mutex<FnvHashMap<ButtonCode, f64>>> = Arc::new(Mutex::new(FnvHashMap::default()));
+    let contacts: Arc<Mutex<FxHashMap<i32, TouchState>>> = Arc::new(Mutex::new(FxHashMap::default()));
+    let buttons: Arc<Mutex<FxHashMap<ButtonCode, f64>>> = Arc::new(Mutex::new(FxHashMap::default()));
     let segments: Arc<Mutex<Vec<Vec<Point>>>> = Arc::new(Mutex::new(Vec::new()));
     let tap_jitter = mm_to_px(TAP_JITTER_MM, CURRENT_DEVICE.dpi);
     let hold_jitter = mm_to_px(HOLD_JITTER_MM, CURRENT_DEVICE.dpi);
