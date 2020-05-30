@@ -4,6 +4,7 @@
 
 [ -d bin ] || ./download.sh 'bin/*'
 [ -d hyphenation-patterns ] || ./download.sh 'hyphenation-patterns/*'
+[ -e target/arm-unknown-linux-gnueabihf/release/plato ] || ./build.sh
 
 mkdir -p dist/libs
 mkdir dist/dictionaries

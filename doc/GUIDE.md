@@ -1,20 +1,6 @@
 ## Install
 
-Extract the archive given on the [release page](https://github.com/baskerville/plato/releases):
-
-```sh
-mkdir -p SD_ROOT/.adds/plato
-unzip plato-VERSION.zip -d SD_ROOT/.adds/plato
-```
-
-`SD_ROOT` is the (platform dependent) root of the SD card.
-
-### Launchers
-
-Pick one launcher:
-
-- [NickelMenu](https://github.com/geek1011/NickelMenu).
-- [kfmon](https://github.com/niluje/kfmon).
+Pick one of the [one-click install packages](https://www.mobileread.com/forums/showthread.php?t=314220).
 
 ## Configure
 
