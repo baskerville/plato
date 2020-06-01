@@ -2934,6 +2934,10 @@ impl View for Reader {
                         if text == "_" {
                             let location = (context.rng.next_u64() % self.pages_count as u64) as usize;
                             self.go_to_page(location, true, hub, context);
+                        } else if text == "(" {
+                            self.go_to_page(0, true, hub, context);
+                        } else if text == ")" {
+                            self.go_to_page(self.pages_count.saturating_sub(1), true, hub, context);
                         } else if let Ok(number) = caps[2].parse::<f64>() {
                             let location = if !self.synthetic {
                                 let mut index = number.max(0.0) as usize;

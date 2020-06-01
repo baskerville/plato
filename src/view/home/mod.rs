@@ -1321,7 +1321,11 @@ impl View for Home {
                 true
             },
             Event::Submit(ViewId::GoToPageInput, ref text) => {
-                if text == "_" {
+                if text == "(" {
+                    self.go_to_page(0, hub, context);
+                } else if text == ")" {
+                    self.go_to_page(self.pages_count.saturating_sub(1), hub, context);
+                } else if text == "_" {
                     let index = (context.rng.next_u64() % self.pages_count as u64) as usize;
                     self.go_to_page(index, hub, context);
                 } else if let Ok(index) = text.parse::<usize>() {

@@ -50,4 +50,6 @@ For the page names to be resolved, you'll need to name the first page of each ca
 
 `-` or `+` can be prepended to a page number to jump to a relative page.
 
-You can jump to a random page by specifying `_` as the page number.
+Instead of the page number, you can specify one of the following characters:
+- `(` and `)` to jump to the first and last page.
+- `_` to jump to a random page.
