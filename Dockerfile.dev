@@ -11,9 +11,15 @@ RUN apt-get update && apt-get install -y libtool \
         patch
         # end mupdf dependencies
 
-RUN echo "deb http://deb.debian.org/debian testing main" > /etc/apt/sources.list \
-	&& apt-get update \
-	&& apt-get install -y mupdf libmupdf-dev
+# TODO:: Remove when mupdf 1.17.0 is available 
+# https://packages.debian.org/source/testing/mupdf
+RUN cd /tmp \
+	&& wget -q "https://mupdf.com/downloads/archive/mupdf-1.17.0-source.tar.xz" -O - | tar -xJ \
+	&& cd /tmp/mupdf-1.17.0-source \
+	&& make build=release libs apps \
+	&& make build=release prefix=usr install \
+	&& find usr/include usr/share usr/lib -type f -exec chmod 0644 {} + \
+	&& cp -r usr/* /usr/
 
 # Referenced in build.rs for mupdf_wrapper
 ENV CARGO_TARGET_OS=linux
