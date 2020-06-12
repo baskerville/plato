@@ -1,0 +1,27 @@
+
+
+
+00-database-dictfmt-1.12.1
+00-database-short
+     Case Sensitive Test Dict
+This file was converted from the original database on:
+          Fri Jun 12 15:24:14 2020
+
+The original data is available from:
+     unknown
+
+The original data was distributed with the notice shown below. No
+additional restrictions are claimed.  Please redistribute this changed
+version under the same conditions and restriction that apply to the
+original version.
+
+foo
+definition
+Bar
+test for case-sensitivity
+あいおい
+test for non-latin characters
+straße
+test for non-latin case-sensitivity
+unknown
+Baeforstßあいお
