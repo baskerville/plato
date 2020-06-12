@@ -2398,13 +2398,6 @@ impl Reader {
 
             context.library.sync_reader_info(&self.info.file.path, r);
         }
-
-        // for i in &mut context.metadata {
-        //     if i.file.path == self.info.file.path {
-        //         *i = self.info.clone();
-        //         break;
-        //     }
-        // }
     }
 }
 
