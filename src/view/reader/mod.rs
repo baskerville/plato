@@ -2383,7 +2383,7 @@ impl Reader {
                 r.top_offset = Some(self.view_port.top_offset);
             }
 
-            r.rotation = Some(context.display.rotation);
+            r.rotation = Some(CURRENT_DEVICE.to_canonical(context.display.rotation));
 
             if (self.contrast.exponent - DEFAULT_CONTRAST_EXPONENT).abs() > f32::EPSILON {
                 r.contrast_exponent = Some(self.contrast.exponent);

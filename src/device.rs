@@ -302,6 +302,20 @@ impl Device {
         }
     }
 
+    // Return a device independent rotation value given
+    // the device dependent rotation value *n*.
+    pub fn to_canonical(&self, n: i8) -> i8 {
+        let (_, dir) = self.mirroring_scheme();
+        (4 + dir * (n - self.startup_rotation())) % 4
+    }
+
+    // Return a device dependent rotation value given
+    // the device independent rotation value *n*.
+    pub fn from_canonical(&self, n: i8) -> i8 {
+        let (_, dir) = self.mirroring_scheme();
+        (self.startup_rotation() + (4 + dir * n) % 4) % 4
+    }
+
     pub fn transformed_rotation(&self, n: i8) -> i8 {
         match self.model {
             Model::AuraHD | Model::AuraH2O => n ^ 2,
@@ -492,5 +506,17 @@ mod tests {
         assert_eq!(device.transformed_rotation(1), 1);
         assert_eq!(device.transformed_rotation(2), 2);
         assert_eq!(device.transformed_rotation(3), 3);
+    }
+
+    #[test]
+    fn test_device_canonical_rotation() {
+        let forma = Device::new("frost", "377");
+        let aura_one = Device::new("daylight", "373");
+        for n in 0..4 {
+            assert_eq!(forma.from_canonical(forma.to_canonical(n)), n);
+        }
+        assert_eq!(aura_one.from_canonical(0), aura_one.startup_rotation());
+        assert_eq!(forma.from_canonical(1) - forma.from_canonical(0),
+                   aura_one.from_canonical(2) - aura_one.from_canonical(3));
     }
 }

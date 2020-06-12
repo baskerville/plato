@@ -819,7 +819,8 @@ pub fn run() -> Result<(), Error> {
             },
             Event::Open(info) => {
                 let rotation = context.display.rotation;
-                if let Some(n) = info.reader.as_ref().and_then(|r| r.rotation) {
+                if let Some(n) = info.reader.as_ref()
+                                     .and_then(|r| r.rotation.map(|n| CURRENT_DEVICE.from_canonical(n))) {
                     if CURRENT_DEVICE.orientation(n) != CURRENT_DEVICE.orientation(rotation) {
                         updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                         if let Ok(dims) = context.fb.set_rotation(n) {

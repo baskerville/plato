@@ -334,7 +334,8 @@ fn main() -> Result<(), Error> {
                 },
                 Event::Open(info) => {
                     let rotation = context.display.rotation;
-                    if let Some(n) = info.reader.as_ref().and_then(|r| r.rotation) {
+                    if let Some(n) = info.reader.as_ref()
+                                         .and_then(|r| r.rotation.map(|n| CURRENT_DEVICE.from_canonical(n))) {
                         if n != rotation {
                             if let Ok(dims) = context.fb.set_rotation(n) {
                                 context.display.rotation = n;

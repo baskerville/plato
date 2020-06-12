@@ -73,10 +73,11 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
             return;
         }
 
+        let rotation = CURRENT_DEVICE.to_canonical(context.display.rotation);
         let rotate = (0..4).map(|n|
             EntryKind::RadioButton((n as i16 * 90).to_string(),
-                                   EntryId::Rotate(n),
-                                   n == context.display.rotation)
+                                   EntryId::Rotate(CURRENT_DEVICE.from_canonical(n)),
+                                   n == rotation)
         ).collect::<Vec<EntryKind>>();
 
         let apps = vec![EntryKind::Command("Dictionary".to_string(),
