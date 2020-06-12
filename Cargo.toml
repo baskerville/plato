@@ -54,6 +54,7 @@ filetime = "0.2.10"
 fxhash = "0.2.1"
 rand_core = "0.5.1"
 rand_xoshiro = "0.4.0"
+caseless = "0.2.1"
 
 [dependencies.getopts]
 version = "0.2.21"
