@@ -980,6 +980,13 @@ impl Home {
             return;
         }
 
+        let mut update_top_bar = false;
+
+        if self.query.is_some() {
+            self.toggle_search_bar(Some(false), false, hub, context);
+            update_top_bar = true;
+        }
+
         context.library.flush();
 
         let library_settings = &context.settings.libraries[index];
@@ -992,11 +999,15 @@ impl Home {
         if self.sort_method != library_settings.sort_method {
             self.sort_method = library_settings.sort_method;
             self.reverse_order = library_settings.sort_method.reverse_order();
-            let search_visible = rlocate::<SearchBar>(self).is_some();
-            self.update_top_bar(search_visible, hub);
+            update_top_bar = true;
         }
 
         context.library.sort(self.sort_method, self.reverse_order);
+
+        if update_top_bar {
+            let search_visible = rlocate::<SearchBar>(self).is_some();
+            self.update_top_bar(search_visible, hub);
+        }
 
         if let Some(shelf) = self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>() {
             shelf.set_first_column(library_settings.first_column);
