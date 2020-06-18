@@ -1,5 +1,5 @@
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::view::{View, Event, Hub, Bus, Align};
+use crate::view::{View, Event, Hub, Bus, Align, ViewId};
 use crate::view::icon::Icon;
 use crate::view::filler::Filler;
 use crate::view::label::Label;
@@ -51,7 +51,8 @@ impl BottomBar {
                          .unwrap_or_default();
         let chapter_label = Label::new(chapter_rect,
                                        chapter,
-                                       Align::Center);
+                                       Align::Center)
+                                  .event(Some(Event::Show(ViewId::TableOfContents)));
         children.push(Box::new(chapter_label) as Box<dyn View>);
 
         let page_label = PageLabel::new(rect![pt!(rect.max.x - side - big_half_width, rect.min.y),
