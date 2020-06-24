@@ -6,12 +6,12 @@ declare -A urls=(
 	["bzip2"]="https://ftp.osuosl.org/pub/clfs/conglomeration/bzip2/bzip2-1.0.6.tar.gz"
 	# Images
 	["libpng"]="https://download.sourceforge.net/libpng/libpng-1.6.37.tar.gz"
-	["libjpeg"]="http://www.ijg.org/files/jpegsrc.v9c.tar.gz"
+	["libjpeg"]="http://www.ijg.org/files/jpegsrc.v9d.tar.gz"
 	["openjpeg"]="https://github.com/uclouvain/openjpeg/archive/v2.3.1.tar.gz"
-	["jbig2dec"]="https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs927/jbig2dec-0.16.tar.gz"
+	["jbig2dec"]="https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs952/jbig2dec-0.18.tar.gz"
 	# Fonts
-	["freetype2"]="https://download.savannah.gnu.org/releases/freetype/freetype-2.10.1.tar.gz"
-	["harfbuzz"]="https://github.com/harfbuzz/harfbuzz/archive/2.6.4.tar.gz"
+	["freetype2"]="https://download.savannah.gnu.org/releases/freetype/freetype-2.10.2.tar.gz"
+	["harfbuzz"]="https://github.com/harfbuzz/harfbuzz/archive/2.6.8.tar.gz"
 	# Documents
 	["djvulibre"]="http://downloads.sourceforge.net/djvu/djvulibre-3.5.27.tar.gz"
 	["mupdf"]="https://mupdf.com/downloads/archive/mupdf-1.17.0-source.tar.gz"
