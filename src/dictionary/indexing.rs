@@ -23,6 +23,7 @@ use std::io::{BufRead, BufReader};
 
 use levenshtein::levenshtein;
 
+use super::Metadata;
 use super::errors::DictError;
 use super::errors::DictError::*;
 
@@ -41,15 +42,61 @@ pub struct Entry {
 }
 
 pub trait IndexReader {
-    fn load_and_find(&mut self, headword: &str, fuzzy: bool) -> Vec<Entry>;
+    fn load_and_find(&mut self, headword: &str, fuzzy: bool, metadata: &Metadata) -> Vec<Entry>;
     fn find(&self, headword: &str, fuzzy: bool) -> Vec<Entry>;
 }
 
+fn normalize(entries: &[Entry], metadata: &Metadata) -> Vec<Entry> {
+    let mut result: Vec<Entry> = Vec::with_capacity(entries.len());
+
+    for entry in entries.iter() {
+        let mut headword = entry.headword.clone();
+
+        if !metadata.all_chars {
+            headword = headword.chars()
+                               .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+                               .collect();
+        }
+
+        if !metadata.case_sensitive {
+            headword = headword.to_lowercase();
+        }
+
+        let mut i = result.len();
+
+        while i > 0 && headword < result[i-1].headword {
+            i -= 1;
+        }
+
+        let original = if headword != entry.headword {
+            Some(entry.headword.clone())
+        } else {
+            None
+        };
+
+        result.insert(i, Entry {
+            headword,
+            offset: entry.offset,
+            size: entry.size,
+            original,
+        });
+    }
+
+    result
+}
+
 impl<R: BufRead> IndexReader for Index<R> {
-    fn load_and_find(&mut self, headword: &str, fuzzy: bool) -> Vec<Entry> {
+    fn load_and_find(&mut self, headword: &str, fuzzy: bool, metadata: &Metadata) -> Vec<Entry> {
         if let Some(br) = self.state.take() {
-            if let Ok(mut index) = parse_index(br, false) {
-                self.entries.append(&mut index.entries);
+            let has_dictfmt = self.entries.iter()
+                                  .any(|e| e.headword.contains("dictfmt"));
+            if let Ok(index) = parse_index(br, false) {
+                let mut entries = if has_dictfmt {
+                    index.entries
+                } else {
+                    normalize(&index.entries, metadata)
+                };
+                self.entries.append(&mut entries);
             }
         }
         self.find(headword, fuzzy)

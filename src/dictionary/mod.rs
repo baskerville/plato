@@ -21,8 +21,15 @@ use self::indexing::IndexReader;
 pub struct Dictionary {
     content: Box<dyn DictReader>,
     index: Box<dyn IndexReader>,
-    all_chars: bool,
-    case_sensitive: bool,
+    metadata: Metadata,
+}
+
+/// The special metadata entries that we care about.
+///
+/// These entries should appear close to the beginning of the index file.
+pub struct Metadata {
+    pub all_chars: bool,
+    pub case_sensitive: bool,
 }
 
 impl Dictionary {
@@ -32,13 +39,13 @@ impl Dictionary {
     /// found, the returned vector is empty. Errors result from the parsing of the underlying files.
     pub fn lookup(&mut self, word: &str, fuzzy: bool) -> Result<Vec<[String; 2]>, errors::DictError> {
         let mut query = word.to_string();
-        if !self.case_sensitive {
+        if !self.metadata.case_sensitive {
             query = query.to_lowercase();
         }
-        if !self.all_chars {
+        if !self.metadata.all_chars {
             query = query.chars().filter(|c| c.is_alphanumeric() || c.is_whitespace()).collect();
         }
-        let entries = self.index.load_and_find(&query, fuzzy);
+        let entries = self.index.load_and_find(&query, fuzzy, &self.metadata);
         let mut results = Vec::new();
         for entry in entries.into_iter() {
             results.push([entry.original.unwrap_or(entry.headword),
@@ -52,7 +59,7 @@ impl Dictionary {
     /// The metadata headwords start with `00-database-` or `00database`.
     pub fn metadata(&mut self, name: &str) -> Result<String, errors::DictError> {
         let mut query = format!("00-database-{}", name);
-        if !self.all_chars {
+        if !self.metadata.all_chars {
             query = query.replace(|c: char| !c.is_alphanumeric(), "");
         }
         let entries = self.index.find(&query, false);
@@ -107,5 +114,5 @@ pub fn load_dictionary(content: Box<dyn DictReader>, index: Box<dyn IndexReader>
         "00databasecasesensitive"
     };
     let case_sensitive = !index.find(word, false).is_empty();
-    Dictionary { content, index, all_chars, case_sensitive }
+    Dictionary { content, index, metadata: Metadata { all_chars, case_sensitive } }
 }
