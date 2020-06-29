@@ -264,6 +264,7 @@ impl Reader {
                 if r.finished {
                     r.finished = false;
                     r.current_page = first_location;
+                    r.top_offset = None;
                 }
 
                 current_page = doc.resolve_location(Location::Exact(r.current_page))
