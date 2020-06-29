@@ -367,6 +367,25 @@ impl Dictionary {
         }
     }
 
+    fn underlying_word(&mut self, pt: Point) -> Option<String> {
+        let dpi = CURRENT_DEVICE.dpi;
+        let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
+        let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
+        let (_, big_thickness) = halves(thickness);
+        let offset = pt!(self.rect.min.x, self.rect.min.y + 2 * small_height + big_thickness);
+
+        if let Some((words, _)) = self.doc.words(Location::Exact(self.location)) {
+            for word in words {
+                let rect = word.rect.to_rect() + offset;
+                if rect.includes(pt) {
+                    return Some(word.text)
+                }
+            }
+        }
+
+        None
+    }
+
     fn follow_link(&mut self, pt: Point, hub: &Hub, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
@@ -421,6 +440,12 @@ impl View for Dictionary {
             },
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 self.follow_link(center, hub, context);
+                true
+            },
+            Event::Gesture(GestureEvent::HoldFingerLong(pt, _)) => {
+                if let Some(text) = self.underlying_word(pt) {
+                    self.define(Some(&text), hub, context);
+                }
                 true
             },
             Event::Select(EntryId::SetSearchTarget(ref target)) => {
