@@ -258,6 +258,9 @@ impl View for InputField {
             Event::Select(EntryId::SetInputText(id, ref text)) => {
                 if self.id == id {
                     self.set_text(text, true, hub, context);
+                    if !self.focused {
+                        bus.push_back(Event::Submit(self.id, self.text.clone()));
+                    }
                     true
                 } else {
                     false
