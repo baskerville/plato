@@ -394,11 +394,20 @@ impl Info {
 
     pub fn alphabetic_title(&self) -> &str {
         let mut start = 0;
-        if let Some(re) = TITLE_PREFIXES.get(self.language.as_str()) {
-            if let Some(m) = re.find(&self.title) {
-                start = m.end()
-            }
+
+        let lang = if self.language.is_empty() || self.language.starts_with("en") {
+            "en"
+        } else if self.language.starts_with("fr") {
+            "fr"
+        } else {
+            &self.language
+        };
+
+        if let Some(m) = TITLE_PREFIXES.get(lang)
+                                       .and_then(|re| re.find(&self.title)) {
+            start = m.end()
         }
+
         &self.title[start..]
     }
 
@@ -570,7 +579,7 @@ lazy_static! {
     pub static ref TITLE_PREFIXES: FxHashMap<&'static str, Regex> = {
         let mut p = FxHashMap::default();
         p.insert("en", Regex::new(r"^(The|An?)\s").unwrap());
-        p.insert("fr", Regex::new(r"^(Les?\s|La\s|L['’]|Une?\s|Des?\s|Du\s)").unwrap());
+        p.insert("fr", Regex::new(r"^(Les?\s|La\s|L’|Une?\s|Des?\s|Du\s)").unwrap());
         p
     };
 }
@@ -658,7 +667,7 @@ pub fn consolidate(_prefix: &Path, info: &mut Info) {
         }
     }
 
-    if info.language.is_empty() {
+    if info.language.is_empty() || info.language.starts_with("en") {
         info.title = titlecase(&info.title);
         info.subtitle = titlecase(&info.subtitle);
     }
