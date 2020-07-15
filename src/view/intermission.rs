@@ -89,8 +89,8 @@ impl View for Intermission {
                 let dpi = CURRENT_DEVICE.dpi;
 
                 let font = font_from_style(fonts, &DISPLAY_STYLE, dpi);
-                let padding = font.em();
-                let max_width = self.rect.width() - 3 * padding as u32;
+                let padding = font.em() as i32;
+                let max_width = self.rect.width() as i32 - 3 * padding;
                 let mut plan = font.plan(text, None, None);
 
                 if plan.width > max_width {
@@ -102,7 +102,7 @@ impl View for Intermission {
 
                 let x_height = font.x_heights.0 as i32;
 
-                let dx = (self.rect.width() - plan.width) as i32 / 2;
+                let dx = (self.rect.width() as i32 - plan.width) / 2;
                 let dy = (self.rect.height() as i32) / 3;
 
                 font.render(fb, scheme[1], &plan, pt!(dx, dy));

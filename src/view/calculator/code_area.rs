@@ -91,7 +91,7 @@ impl View for CodeArea {
         let font = &mut fonts.monospace.regular;
         font.set_size((64.0 * self.font_size) as u32, dpi);
         let line_height = font.ascender() - font.descender();
-        let char_width = font.plan(" ", None, None).width as i32;
+        let char_width = font.plan(" ", None, None).width;
         let padding = mm_to_px(self.margin_width as f32, dpi) as i32;
 
         let mut x = self.rect.min.x + padding;

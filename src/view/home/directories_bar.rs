@@ -67,7 +67,7 @@ impl<'a> Default for Line<'a> {
 
 #[derive(Debug, Clone)]
 enum Item<'a> {
-    Label { path: &'a Path, width: i32, max_width: Option<u32> },
+    Label { path: &'a Path, width: i32, max_width: Option<i32> },
     Icon { name: &'a str, width: i32 },
 }
 
@@ -195,11 +195,11 @@ impl DirectoriesBar {
         for dir in directories.iter().skip(start_index) {
             let mut dir_width = font.plan(dir.file_name().unwrap().to_string_lossy(),
                                           None,
-                                          None).width as i32;
+                                          None).width;
             let mut max_dir_width = None;
 
             if dir_width > max_line_width {
-                max_dir_width = Some(max_line_width as u32);
+                max_dir_width = Some(max_line_width);
                 dir_width = max_line_width;
             }
 
@@ -228,7 +228,7 @@ impl DirectoriesBar {
                         if let Some(&mut Item::Label { ref mut width,
                                                        ref mut max_width, .. }) = line.items.last_mut() {
                             *width = max_line_width - occupied_width;
-                            *max_width = Some(*width as u32);
+                            *max_width = Some(*width);
                         }
                         line.width = max_line_width;
                     }
@@ -270,7 +270,7 @@ impl DirectoriesBar {
                     if let Some(&mut Item::Label { ref mut width,
                                                    ref mut max_width, .. }) = line.items.last_mut() {
                         *width = max_line_width - occupied_width;
-                        *max_width = Some(*width as u32);
+                        *max_width = Some(*width);
                     }
                     line.width = max_line_width;
                 }

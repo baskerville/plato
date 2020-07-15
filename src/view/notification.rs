@@ -18,7 +18,7 @@ pub struct Notification {
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     text: String,
-    max_width: u32,
+    max_width: i32,
     index: u8,
     id: ViewId,
 }
@@ -42,9 +42,9 @@ impl Notification {
         let padding = font.em() as i32;
 
         let max_message_width = width as i32 - 5 * padding;
-        let plan = font.plan(&text, Some(max_message_width as u32), None);
+        let plan = font.plan(&text, Some(max_message_width), None);
 
-        let dialog_width = plan.width as i32 + 3 * padding;
+        let dialog_width = plan.width + 3 * padding;
         let dialog_height = 7 * x_height;
 
         let side = (index / 3) % 2;
@@ -66,7 +66,7 @@ impl Notification {
             rect,
             children: vec![],
             text,
-            max_width: max_message_width as u32,
+            max_width: max_message_width,
             index,
             id,
         }
@@ -99,7 +99,7 @@ impl View for Notification {
         let plan = font.plan(&self.text, Some(self.max_width), None);
         let x_height = font.x_heights.0 as i32;
 
-        let dx = (self.rect.width() - plan.width) as i32 / 2;
+        let dx = (self.rect.width() as i32 - plan.width) as i32 / 2;
         let dy = (self.rect.height() as i32 - x_height) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 

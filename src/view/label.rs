@@ -75,9 +75,9 @@ impl View for Label {
         let padding = font.em() as i32;
         let max_width = self.rect.width() as i32 - padding;
 
-        let plan = font.plan(&self.text, Some(max_width as u32), None);
+        let plan = font.plan(&self.text, Some(max_width), None);
 
-        let dx = self.align.offset(plan.width as i32, self.rect.width() as i32);
+        let dx = self.align.offset(plan.width, self.rect.width() as i32);
         let dy = (self.rect.height() as i32 - x_height) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 

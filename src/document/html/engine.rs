@@ -828,10 +828,10 @@ impl Engine {
                                     font.set_size(font_size, self.dpi);
                                     font.plan(&buf, None, style.font_features.as_ref().map(Vec::as_slice))
                                 };
-                                plan.space_out(style.letter_spacing.max(0) as u32);
+                                plan.space_out(style.letter_spacing);
 
                                 items.push(ParagraphItem::Box {
-                                    width: plan.width as i32,
+                                    width: plan.width,
                                     data: ParagraphElement::Text(TextElement {
                                         offset: local_offset,
                                         language: style.language.clone(),
@@ -951,9 +951,9 @@ impl Engine {
                             font.set_size(font_size, self.dpi);
                             font.plan(&buf, None, style.font_features.as_ref().map(Vec::as_slice))
                         };
-                        plan.space_out(style.letter_spacing.max(0) as u32);
+                        plan.space_out(style.letter_spacing);
                         items.push(ParagraphItem::Box {
-                            width: plan.width as i32,
+                            width: plan.width,
                             data: ParagraphElement::Text(TextElement {
                                 offset: local_offset,
                                 language: style.language.clone(),
@@ -1171,8 +1171,8 @@ impl Engine {
                                 let font = self.fonts.as_mut().unwrap()
                                                .get_mut(*font_kind, *font_style, *font_weight);
                                 font.set_size(*font_size, self.dpi);
-                                font.crop_right(plan, max_width as u32);
-                                *width = plan.width as i32;
+                                font.crop_right(plan, max_width);
+                                *width = plan.width;
                             },
                             ParagraphElement::Image(ImageElement { width: image_width, height, scale, .. }) => {
                                 let ratio = max_width as f32 / *image_width as f32;
@@ -1210,8 +1210,8 @@ impl Engine {
                 font.plan(prefix, None, style.font_features.as_ref().map(Vec::as_slice))
             };
             let (start_x, _) = para_shape[0];
-            let pt = pt!(start_x - prefix_plan.width as i32, position.y);
-            let rect = rect![pt + pt!(0, -ascender), pt + pt!(prefix_plan.width as i32, -descender)];
+            let pt = pt!(start_x - prefix_plan.width, position.y);
+            let rect = rect![pt + pt!(0, -ascender), pt + pt!(prefix_plan.width, -descender)];
             if let Some(first_offset) = inlines.iter().filter_map(|elt| elt.offset()).next() {
                 page.push(DrawCommand::ExtraText(TextCommand {
                     offset: root_data.start_offset + first_offset,
@@ -1261,7 +1261,7 @@ impl Engine {
                         match data {
                             ParagraphElement::Text(element) => {
                                 let pt = pt!(position.x, position.y - element.vertical_align);
-                                let rect = rect![pt + pt!(0, -ascender), pt + pt!(element.plan.width as i32, -descender)];
+                                let rect = rect![pt + pt!(0, -ascender), pt + pt!(element.plan.width, -descender)];
                                 if let Some(pr) = page_rect.as_mut() {
                                     pr.absorb(&rect);
                                 } else {
@@ -1418,7 +1418,7 @@ impl Engine {
                         font.plan("-", None, style.font_features.as_ref().map(Vec::as_slice))
                     };
                     if let Some(DrawCommand::Text(TextCommand { ref mut rect, ref mut plan, ref mut text, .. })) = page.last_mut() {
-                        rect.max.x += hyphen_plan.width as i32;
+                        rect.max.x += hyphen_plan.width;
                         plan.append(&mut hyphen_plan);
                         text.push('\u{00AD}');
                     }
@@ -1465,9 +1465,9 @@ impl Engine {
             font.set_size(element.font_size, self.dpi);
             font.plan(chunk, None, element.font_features.as_ref().map(Vec::as_slice))
         };
-        plan.space_out(element.letter_spacing.max(0) as u32);
+        plan.space_out(element.letter_spacing);
         ParagraphItem::Box {
-            width: plan.width as i32,
+            width: plan.width,
             data: ParagraphElement::Text(TextElement {
                 offset,
                 text: chunk.to_string(),
@@ -1498,7 +1498,7 @@ impl Engine {
                         let font = self.fonts.as_mut().unwrap()
                                        .get_mut(element.font_kind, element.font_style, element.font_weight);
                         font.set_size(element.font_size, self.dpi);
-                        font.plan("-", None, element.font_features.as_ref().map(Vec::as_slice)).width as i32
+                        font.plan("-", None, element.font_features.as_ref().map(Vec::as_slice)).width
                     } else {
                         0
                     };
@@ -1593,8 +1593,8 @@ impl Engine {
                         font.set_size(font_size, self.dpi);
                         font.plan(text, None, font_features.as_ref().map(Vec::as_slice))
                     };
-                    plan.space_out(letter_spacing.max(0) as u32);
-                    merged_width = plan.width as i32;
+                    plan.space_out(letter_spacing);
+                    merged_width = plan.width;
                 }
 
                 if merged_width > 0 {
@@ -1652,8 +1652,8 @@ impl Engine {
                             font.set_size(font_size, self.dpi);
                             font.plan(text, None, font_features.as_ref().map(Vec::as_slice))
                         };
-                        plan.space_out(letter_spacing.max(0) as u32);
-                        merged_width = plan.width as i32;
+                        plan.space_out(letter_spacing);
+                        merged_width = plan.width;
                     }
                     merged_items.push(ParagraphItem::Box { width: merged_width, data: merged_element });
                     merged_element = ParagraphElement::Nothing;

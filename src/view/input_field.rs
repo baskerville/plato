@@ -190,7 +190,7 @@ impl InputField {
         let max_width = self.rect.width().saturating_sub(2 * padding as u32) as i32;
         let mut plan = font.plan(&self.text, None, Some(&["-liga".to_string()]));
         let index = char_position(&self.text, self.cursor).unwrap_or_else(|| self.text.chars().count());
-        let lower_index = font.crop_around(&mut plan, index, max_width as u32);
+        let lower_index = font.crop_around(&mut plan, index, max_width);
         lower_index.saturating_sub(1) + plan.index_from_advance(position.x - self.rect.min.x - padding)
     }
 }
@@ -288,7 +288,7 @@ impl View for InputField {
         }
 
         let (mut plan, foreground) = if self.text.is_empty() {
-            (font.plan(&self.placeholder, Some(max_width as u32), None),
+            (font.plan(&self.placeholder, Some(max_width), None),
              TEXT_NORMAL[2])
         } else {
             (font.plan(&self.text, None, Some(&["-liga".to_string()])),
@@ -299,7 +299,7 @@ impl View for InputField {
         let pt = pt!(self.rect.min.x + padding, self.rect.max.y - dy);
         
         let mut index = char_position(&self.text, self.cursor).unwrap_or_else(|| self.text.chars().count());
-        let lower_index = font.crop_around(&mut plan, index, max_width as u32);
+        let lower_index = font.crop_around(&mut plan, index, max_width);
 
         font.render(fb, foreground, &plan, pt);
 

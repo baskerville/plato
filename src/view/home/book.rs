@@ -103,10 +103,10 @@ impl View for Book {
         // Author
         let author_width = {
             let font = font_from_style(fonts, &MD_AUTHOR, dpi);
-            let plan = font.plan(author, Some(width as u32), None);
+            let plan = font.plan(author, Some(width), None);
             let pt = pt!(self.rect.min.x + padding, self.rect.max.y - baseline);
             font.render(fb, scheme[1], &plan, pt);
-            plan.width as i32
+            plan.width
         };
 
         // Title
@@ -115,25 +115,25 @@ impl View for Book {
             let mut plan = font.plan(&title, None, None);
             let mut title_lines = 1;
 
-            if plan.width > width as u32 {
+            if plan.width > width {
                 let available = width - author_width;
                 if available > 3 * padding {
-                    let (index, usable_width) = font.cut_point(&plan, width as u32);
-                    let leftover = (plan.width - usable_width) as i32;
+                    let (index, usable_width) = font.cut_point(&plan, width);
+                    let leftover = plan.width - usable_width;
                     if leftover > 2 * padding {
                         let mut plan2 = plan.split_off(index, usable_width);
                         let max_width = available - if author_width > 0 { padding } else { 0 };
                         font.trim_left(&mut plan2);
-                        font.crop_right(&mut plan2, max_width as u32);
-                        let pt = pt!(self.rect.min.x + first_width - small_half_padding - plan2.width as i32,
+                        font.crop_right(&mut plan2, max_width);
+                        let pt = pt!(self.rect.min.x + first_width - small_half_padding - plan2.width,
                                      self.rect.max.y - baseline);
                         font.render(fb, scheme[1], &plan2, pt);
                         title_lines += 1;
                     } else {
-                        font.crop_right(&mut plan, width as u32);
+                        font.crop_right(&mut plan, width);
                     }
                 } else {
-                    font.crop_right(&mut plan, width as u32);
+                    font.crop_right(&mut plan, width);
                 }
             }
 
@@ -152,7 +152,7 @@ impl View for Book {
             SecondColumn::Year => {
                 let font = font_from_style(fonts, &MD_YEAR, dpi);
                 let plan = font.plan(year, None, None);
-                let dx = (second_width - padding - plan.width as i32) / 2;
+                let dx = (second_width - padding - plan.width) / 2;
                 let dy = (self.rect.height() as i32 - font.x_heights.1 as i32) / 2;
                 let pt = pt!(self.rect.min.x + first_width + big_half_padding + dx,
                              self.rect.max.y - dy);
@@ -193,9 +193,9 @@ impl View for Book {
             let kind = file_info.kind.to_uppercase();
             let font = font_from_style(fonts, &MD_KIND, dpi);
             let mut plan = font.plan(&kind, None, None);
-            let letter_spacing = scale_by_dpi(3.0, dpi) as u32;
+            let letter_spacing = scale_by_dpi(3.0, dpi) as i32;
             plan.space_out(letter_spacing);
-            let pt = pt!(self.rect.max.x - padding - plan.width as i32,
+            let pt = pt!(self.rect.max.x - padding - plan.width,
                          self.rect.min.y + baseline + x_height);
             font.render(fb, scheme[1], &plan, pt);
         }
@@ -205,7 +205,7 @@ impl View for Book {
             let size = file_info.size.human_size();
             let font = font_from_style(fonts, &MD_SIZE, dpi);
             let plan = font.plan(&size, None, None);
-            let pt = pt!(self.rect.max.x - padding - plan.width as i32,
+            let pt = pt!(self.rect.max.x - padding - plan.width,
                          self.rect.max.y - baseline);
             font.render(fb, scheme[1], &plan, pt);
         }

@@ -61,8 +61,8 @@ impl View for ResultsLabel {
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let padding = font.em() as i32 / 2;
         let max_width = self.rect.width().saturating_sub(2 * padding as u32) as i32;
-        let plan = font.plan(&self.text(), Some(max_width as u32), None);
-        let dx = padding + (max_width - plan.width as i32) / 2;
+        let plan = font.plan(&self.text(), Some(max_width), None);
+        let dx = padding + (max_width - plan.width) / 2;
         let dy = (self.rect.height() as i32 - font.x_heights.0 as i32) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
         fb.draw_rectangle(&self.rect, TEXT_NORMAL[0]);

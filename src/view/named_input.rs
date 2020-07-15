@@ -30,8 +30,8 @@ impl NamedInput {
         let x_height = font.x_heights.0 as i32;
         let padding = font.em() as i32;
 
-        let mut label_width = font.plan(&text, None, None).width as i32;
-        let mut input_width = font.plan(&"0".repeat(input_size), None, None).width as i32;
+        let mut label_width = font.plan(&text, None, None).width;
+        let mut input_width = font.plan(&"0".repeat(input_size), None, None).width;
         let mut total_width = 5 * padding + label_width + input_width;
         let delta = width as i32 - total_width;
 

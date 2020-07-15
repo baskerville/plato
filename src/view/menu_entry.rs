@@ -127,7 +127,7 @@ impl View for MenuEntry {
             fb.draw_rectangle(&self.rect, scheme[0]);
         }
 
-        let max_width = self.rect.width() - padding as u32;
+        let max_width = self.rect.width() as i32 - padding;
         let plan = font.plan(self.kind.text(), Some(max_width), None);
         let dy = (self.rect.height() as i32 - x_height) / 2;
         let pt = pt!(self.rect.min.x + padding / 2,

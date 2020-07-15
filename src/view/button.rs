@@ -89,9 +89,9 @@ impl View for Button {
         let padding = font.em() as i32;
         let max_width = self.rect.width() as i32 - padding;
 
-        let plan = font.plan(&self.text, Some(max_width as u32), None);
+        let plan = font.plan(&self.text, Some(max_width), None);
 
-        let dx = ((self.rect.width() - plan.width) / 2) as i32;
+        let dx = (self.rect.width() as i32 - plan.width) / 2;
         let dy = (self.rect.height() as i32 - x_height) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 

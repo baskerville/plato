@@ -89,9 +89,9 @@ impl View for Preset {
             _ => "…",
         };
 
-        let plan = font.plan(name, Some(max_width as u32), None);
+        let plan = font.plan(name, Some(max_width), None);
 
-        let dx = (self.rect.width() as i32 - plan.width as i32) / 2;
+        let dx = (self.rect.width() as i32 - plan.width) / 2;
         let dy = (self.rect.height() as i32 - x_height) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 

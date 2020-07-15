@@ -182,7 +182,7 @@ impl Calculator {
 
         let font = &mut context.fonts.monospace.regular;
         font.set_size((64.0 * font_size) as u32, dpi);
-        let char_width = font.plan(" ", None, None).width as i32;
+        let char_width = font.plan(" ", None, None).width;
         let line_height = font.ascender() - font.descender();
         let margin_width_px = mm_to_px(margin_width as f32, dpi) as i32;
         let columns_count = (code_area_rect.width() as i32 - 2 * margin_width_px) / char_width;
@@ -387,7 +387,7 @@ impl Calculator {
         let dpi = CURRENT_DEVICE.dpi;
         let font = &mut context.fonts.monospace.regular;
         font.set_size((64.0 * self.font_size) as u32, dpi);
-        let char_width = font.plan(" ", None, None).width as i32;
+        let char_width = font.plan(" ", None, None).width;
         let line_height = font.ascender() - font.descender();
         let margin_width_px = mm_to_px(self.margin_width as f32, dpi) as i32;
         if let Some(code_area) = self.children[2].downcast_mut::<CodeArea>() {

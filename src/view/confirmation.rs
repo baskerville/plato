@@ -38,9 +38,9 @@ impl Confirmation {
         let max_button_width = width as i32 / 4;
         let button_height = 4 * x_height;
 
-        let plan = font.plan(&text, Some(max_message_width as u32), None);
+        let plan = font.plan(&text, Some(max_message_width), None);
 
-        let dialog_width = (plan.width as i32).max(min_message_width) + 3 * padding;
+        let dialog_width = plan.width.max(min_message_width) + 3 * padding;
         let dialog_height = 2 * button_height + 3 * padding;
 
 
@@ -58,8 +58,8 @@ impl Confirmation {
 
         children.push(Box::new(label) as Box<dyn View>);
 
-        let plan_cancel = font.plan(LABEL_CANCEL, Some(max_button_width as u32), None);
-        let plan_validate = font.plan(LABEL_VALIDATE, Some(max_button_width as u32), None);
+        let plan_cancel = font.plan(LABEL_CANCEL, Some(max_button_width), None);
+        let plan_validate = font.plan(LABEL_VALIDATE, Some(max_button_width), None);
 
         let button_width = plan_validate.width.max(plan_cancel.width) as i32 + padding;
 
@@ -138,8 +138,8 @@ impl View for Confirmation {
         let max_button_width = width as i32 / 4;
         let (x_height, padding, button_width) = {
             let font = font_from_style(&mut context.fonts, &NORMAL_STYLE, dpi);
-            let plan_cancel = font.plan(LABEL_CANCEL, Some(max_button_width as u32), None);
-            let plan_validate = font.plan(LABEL_VALIDATE, Some(max_button_width as u32), None);
+            let plan_cancel = font.plan(LABEL_CANCEL, Some(max_button_width), None);
+            let plan_validate = font.plan(LABEL_VALIDATE, Some(max_button_width), None);
             let x_height = font.x_heights.0 as i32;
             let padding = font.em() as i32;
             let button_width = plan_validate.width.max(plan_cancel.width) as i32 + padding;

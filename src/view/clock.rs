@@ -17,8 +17,8 @@ pub struct Clock {
 impl Clock {
     pub fn new(rect: &mut Rectangle, fonts: &mut Fonts) -> Clock {
         let font = font_from_style(fonts, &NORMAL_STYLE, CURRENT_DEVICE.dpi);
-        let width = font.plan("00:00", None, None).width + font.em() as u32;
-        rect.min.x = rect.max.x - width as i32;
+        let width = font.plan("00:00", None, None).width + font.em() as i32;
+        rect.min.x = rect.max.x - width;
         Clock {
             rect: *rect,
             children: vec![],
@@ -47,7 +47,7 @@ impl View for Clock {
         let dpi = CURRENT_DEVICE.dpi;
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let plan = font.plan(&self.time.format("%H:%M").to_string(), None, None);
-        let dx = (self.rect.width() as i32 - plan.width as i32) / 2;
+        let dx = (self.rect.width() as i32 - plan.width) / 2;
         let dy = (self.rect.height() as i32 - font.x_heights.0 as i32) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
 

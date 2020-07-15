@@ -16,11 +16,11 @@ pub struct Directory {
     pub path: PathBuf,
     selected: bool,
     align: Align,
-    max_width: Option<u32>,
+    max_width: Option<i32>,
 }
 
 impl Directory {
-    pub fn new(rect: Rectangle, path: PathBuf, selected: bool, align: Align, max_width: Option<u32>) -> Directory {
+    pub fn new(rect: Rectangle, path: PathBuf, selected: bool, align: Align, max_width: Option<i32>) -> Directory {
         Directory {
             rect,
             children: vec![],
@@ -57,13 +57,13 @@ impl View for Directory {
         let text = self.path.file_name().unwrap().to_string_lossy();
         let plan = font.plan(text, self.max_width, None);
 
-        let dx = self.align.offset(plan.width as i32, self.rect.width() as i32);
+        let dx = self.align.offset(plan.width, self.rect.width() as i32);
         let dy = (self.rect.height() as i32 - x_height) / 2;
 
         if self.selected {
             let padding = font.em() as i32 / 2 - scale_by_dpi(3.0, dpi) as i32;
             let small_x_height = font.x_heights.0 as i32;
-            let bg_width = plan.width as i32 + 2 * padding;
+            let bg_width = plan.width + 2 * padding;
             let bg_height = 3 * small_x_height;
             let x_offset = dx - padding;
             let y_offset = dy + x_height - 2 * small_x_height;

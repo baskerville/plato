@@ -223,7 +223,7 @@ impl View for Key {
             KeyLabel::Char(ch) => {
                 let font = font_from_style(fonts, &KBD_CHAR, dpi);
                 let plan = font.plan(&ch.to_string(), None, None);
-                let dx = (self.rect.width() - plan.width) as i32 / 2;
+                let dx = (self.rect.width() as i32 - plan.width) / 2;
                 let dy = (self.rect.height() - font.x_heights.0) as i32 / 2;
                 let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
                 font.render(fb, scheme[1], &plan, pt);
@@ -231,9 +231,9 @@ impl View for Key {
             KeyLabel::Text(label) => {
                 let font = font_from_style(fonts, &KBD_LABEL, dpi);
                 let mut plan = font.plan(label, None, None);
-                let letter_spacing = scale_by_dpi(4.0, dpi) as u32;
+                let letter_spacing = scale_by_dpi(4.0, dpi) as i32;
                 plan.space_out(letter_spacing);
-                let dx = (self.rect.width() - plan.width) as i32 / 2;
+                let dx = (self.rect.width() as i32 - plan.width) / 2;
                 let dy = (self.rect.height() - font.x_heights.1) as i32 / 2;
                 let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
                 font.render(fb, scheme[1], &plan, pt);

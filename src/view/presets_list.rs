@@ -30,7 +30,7 @@ impl PresetsList {
         let x_height = font.x_heights.0 as i32;
         let preset_height = 4 * x_height;
         let padding = font.em() as i32;
-        let preset_width = font.plan(&presets[0].name(), None, None).width as i32 + padding;
+        let preset_width = font.plan(&presets[0].name(), None, None).width + padding;
         let max_per_line = (self.rect.width() as i32 + padding) / (preset_width + padding);
 
         self.pages.clear();

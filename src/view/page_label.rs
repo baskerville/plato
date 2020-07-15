@@ -78,13 +78,13 @@ impl View for PageLabel {
         let max_width = self.rect.width().saturating_sub(2 * padding as u32) as i32;
         let mut plan = font.plan(&self.text(0), None, None);
         for size in 1..=4 {
-            if plan.width <= max_width as u32 {
+            if plan.width <= max_width {
                 break;
             }
             plan = font.plan(&self.text(size), None, None);
         }
-        font.crop_right(&mut plan, max_width as u32);
-        let dx = padding + (max_width - plan.width as i32) / 2;
+        font.crop_right(&mut plan, max_width);
+        let dx = padding + (max_width - plan.width) / 2;
         let dy = (self.rect.height() as i32 - font.x_heights.0 as i32) / 2;
         let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
         fb.draw_rectangle(&self.rect, WHITE);
