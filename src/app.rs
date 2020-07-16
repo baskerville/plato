@@ -27,7 +27,7 @@ use crate::view::sketch::Sketch;
 use crate::input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus, VAL_RELEASE, VAL_PRESS};
 use crate::input::{raw_events, device_events, usb_events, display_rotate_event, button_scheme_event};
 use crate::gesture::{GestureEvent, gesture_events};
-use crate::helpers::{load_json, load_toml, save_toml};
+use crate::helpers::{load_json, load_toml, save_toml, IsHidden};
 use crate::settings::{ButtonScheme, Settings, SETTINGS_PATH, RotationLock};
 use crate::frontlight::{Frontlight, StandardFrontlight, NaturalFrontlight, PremixedFrontlight};
 use crate::lightsensor::{LightSensor, KoboLightSensor};
@@ -113,7 +113,12 @@ impl Context {
 
     pub fn load_keyboard_layouts(&mut self) {
         let glob = Glob::new("**/*.json").unwrap().compile_matcher();
-        for entry in WalkDir::new(Path::new(KEYBOARD_LAYOUTS_DIRNAME)).min_depth(1).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(Path::new(KEYBOARD_LAYOUTS_DIRNAME)).min_depth(1)
+                             .into_iter().filter_entry(|e| !e.is_hidden()) {
+            if entry.is_err() {
+                continue;
+            }
+            let entry = entry.unwrap();
             let path = entry.path();
             if !glob.is_match(path) {
                 continue;
@@ -126,7 +131,12 @@ impl Context {
 
     pub fn load_dictionaries(&mut self) {
         let glob = Glob::new("**/*.index").unwrap().compile_matcher();
-        for entry in WalkDir::new(Path::new(DICTIONARIES_DIRNAME)).min_depth(1).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(Path::new(DICTIONARIES_DIRNAME)).min_depth(1)
+                             .into_iter().filter_entry(|e| !e.is_hidden()) {
+            if entry.is_err() {
+                continue;
+            }
+            let entry = entry.unwrap();
             if !glob.is_match(entry.path()) {
                 continue;
             }

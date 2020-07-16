@@ -19,6 +19,7 @@ use thiserror::Error;
 use globset::Glob;
 use walkdir::WalkDir;
 use crate::geom::Point;
+use crate::helpers::IsHidden;
 use crate::framebuffer::Framebuffer;
 
 // Font sizes in 1/64th of a point
@@ -400,7 +401,12 @@ pub fn family_names<P: AsRef<Path>>(search_path: P) -> Result<BTreeSet<String>, 
 
     let mut families = BTreeSet::new();
 
-    for entry in WalkDir::new(search_path.as_ref()).min_depth(1).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(search_path.as_ref()).min_depth(1).into_iter()
+                         .filter_entry(|e| !e.is_hidden()) {
+        if entry.is_err() {
+            continue;
+        }
+        let entry = entry.unwrap();
         let path = entry.path();
         if !glob.is_match(path) {
             continue;
@@ -423,7 +429,12 @@ impl FontFamily {
         let glob = Glob::new("**/*.[ot]tf")?.compile_matcher();
         let mut styles = FxHashMap::default();
 
-        for entry in WalkDir::new(search_path.as_ref()).min_depth(1).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(search_path.as_ref()).min_depth(1).into_iter()
+                             .filter_entry(|e| !e.is_hidden()) {
+            if entry.is_err() {
+                continue;
+            }
+            let entry = entry.unwrap();
             let path = entry.path();
             if !glob.is_match(path) {
                 continue;

@@ -8,6 +8,7 @@ use fxhash::FxHashMap;
 use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use entities::ENTITIES;
+use walkdir::DirEntry;
 use anyhow::{Error, Context};
 
 lazy_static! {
@@ -152,6 +153,18 @@ pub mod datetime_format {
     pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Local>, D::Error> where D: Deserializer<'de> {
         let s = String::deserialize(deserializer)?;
         Local.datetime_from_str(&s, FORMAT).map_err(serde::de::Error::custom)
+    }
+}
+
+pub trait IsHidden {
+    fn is_hidden(&self) -> bool;
+}
+
+impl IsHidden for DirEntry {
+    fn is_hidden(&self) -> bool {
+        self.file_name()
+             .to_str()
+             .map_or(false, |s| s.starts_with('.'))
     }
 }
 

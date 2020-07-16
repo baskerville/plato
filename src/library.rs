@@ -3,16 +3,16 @@ use std::time::SystemTime;
 use std::path::{PathBuf, Path};
 use std::collections::BTreeSet;
 use regex::Regex;
+use walkdir::WalkDir;
 use indexmap::IndexMap;
 use fxhash::{FxHashMap, FxHashSet, FxBuildHasher};
-use walkdir::{WalkDir, DirEntry};
 use chrono::{Local, TimeZone};
 use filetime::{FileTime, set_file_handle_times};
 use crate::metadata::{Info, ReaderInfo, FileInfo, SimpleStatus, SortMethod};
 use crate::metadata::{sort, sorter, extract_metadata_from_epub};
 use crate::settings::{LibraryMode, ImportSettings};
 use crate::document::file_kind;
-use crate::helpers::{Fingerprint, save_json, load_json};
+use crate::helpers::{Fingerprint, save_json, load_json, IsHidden};
 
 pub const METADATA_FILENAME: &str = ".metadata.json";
 pub const FAT32_EPOCH_FILENAME: &str = ".fat32-epoch";
@@ -158,7 +158,7 @@ impl Library {
                                      .min_depth(1)
                                      .max_depth(max_depth)
                                      .into_iter()
-                                     .filter_entry(|e| self.show_hidden || !is_hidden(e)) {
+                                     .filter_entry(|e| self.show_hidden || !e.is_hidden()) {
                     if entry.is_err() {
                         continue;
                     }
@@ -215,7 +215,7 @@ impl Library {
 
         for entry in WalkDir::new(prefix.as_ref()).min_depth(1)
                              .into_iter()
-                             .filter_entry(|e| settings.traverse_hidden || !is_hidden(e)) {
+                             .filter_entry(|e| settings.traverse_hidden || !e.is_hidden()) {
             if entry.is_err() {
                 continue;
             }
@@ -519,10 +519,4 @@ impl Library {
             .join(READING_STATES_DIRNAME)
             .join(format!("{:016X}.json", fp))
     }
-}
-
-pub fn is_hidden(entry: &DirEntry) -> bool {
-    entry.file_name()
-         .to_str()
-         .map_or(false, |s| s.starts_with('.'))
 }

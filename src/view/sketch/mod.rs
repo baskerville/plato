@@ -17,6 +17,7 @@ use crate::view::{View, Event, Hub, Bus, EntryKind, EntryId, ViewId};
 use crate::view::SMALL_BAR_HEIGHT;
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
 use crate::settings::{ImportSettings, Pen};
+use crate::helpers::IsHidden;
 use crate::font::Fonts;
 use crate::unit::scale_by_dpi;
 use crate::color::{BLACK, WHITE};
@@ -94,7 +95,8 @@ impl Sketch {
             let glob = Glob::new("**/*.png").unwrap().compile_matcher();
             let mut loadables: Vec<PathBuf> =
                 WalkDir::new(&self.save_path).min_depth(1).into_iter()
-                        .filter_map(|e| e.ok().and_then(|e| e.path().file_name().map(PathBuf::from)))
+                        .filter_map(|e| e.ok().filter(|e| !e.is_hidden())
+                                         .and_then(|e| e.path().file_name().map(PathBuf::from)))
                         .filter(|p| glob.is_match(p))
                         .collect();
             loadables.sort_by(|a, b| b.cmp(a));
