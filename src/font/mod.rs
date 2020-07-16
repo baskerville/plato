@@ -428,11 +428,12 @@ impl FontFamily {
             if !glob.is_match(path) {
                 continue;
             }
-            let font = opener.open(path)?;
-            if font.family_name() == Some(family_name) {
-                styles.insert(font.style_name().map(String::from)
-                                  .unwrap_or_else(|| "Regular".to_string()),
-                              path.to_path_buf());
+            if let Ok(font) = opener.open(path).map_err(|e| eprintln!("Can't open '{}': {}", path.display(), e)) {
+                if font.family_name() == Some(family_name) {
+                    styles.insert(font.style_name().map(String::from)
+                                      .unwrap_or_else(|| "Regular".to_string()),
+                                  path.to_path_buf());
+                }
             }
         }
 
