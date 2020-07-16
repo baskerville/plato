@@ -448,10 +448,14 @@ impl FontFamily {
             }
         }
 
-        let regular_path = styles.get("Regular")
-                                 .or_else(|| styles.get("Roman"))
-                                 .or_else(|| styles.get("Book"))
-                                 .ok_or_else(|| format_err!("Can't find regular style."))?;
+        let regular_path = if styles.len() == 1 {
+            styles.values().next().unwrap()
+        } else {
+            styles.get("Regular")
+                  .or_else(|| styles.get("Roman"))
+                  .or_else(|| styles.get("Book"))
+                  .ok_or_else(|| format_err!("Can't find regular style."))?
+        };
         let italic_path = styles.get("Italic")
                                 .or_else(|| styles.get("Book Italic"))
                                 .unwrap_or(regular_path);
