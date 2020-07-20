@@ -598,9 +598,9 @@ pub fn extract_metadata_from_epub(prefix: &Path, info: &mut Info) {
             info.author = doc.author().unwrap_or_default();
             info.year = doc.year().unwrap_or_default();
             info.publisher = doc.publisher().unwrap_or_default();
-            info.series = doc.series().unwrap_or_default();
-            if !info.series.is_empty() {
-                info.number = doc.series_index().unwrap_or_default();
+            if let Some((title, index)) = doc.series() {
+                info.series = title;
+                info.number = index;
             }
             info.language = doc.language().unwrap_or_default();
             info.categories.append(&mut doc.categories());

@@ -412,18 +412,10 @@ impl EpubDocument {
         display_list
     }
 
-    pub fn metadata_by_name(&self, name: &str) -> Option<String> {
-        self.info.find("metadata")
-            .and_then(Node::children)
-            .and_then(|children| children.iter()
-                                         .find(|child| child.tag_name() == Some("meta") &&
-                                                       child.attr("name") == Some(name)))
-            .and_then(|child| child.attr("content").map(|s| decode_entities(s).into_owned()))
-    }
-
     pub fn categories(&self) -> BTreeSet<String> {
         let mut result = BTreeSet::new();
         self.info.find("metadata")
+            .or_else(|| self.info.find("opf:metadata"))
             .and_then(Node::children)
             .map(|children| {
                 for child in children {
@@ -514,12 +506,34 @@ impl EpubDocument {
         None
     }
 
-    pub fn series(&self) -> Option<String> {
-        self.metadata_by_name("calibre:series")
-    }
+    pub fn series(&self) -> Option<(String, String)> {
+        self.info.find("metadata")
+            .or_else(|| self.info.find("opf:metadata"))
+            .and_then(Node::children)
+            .and_then(|children| {
+                let mut title = None;
+                let mut index = None;
 
-    pub fn series_index(&self) -> Option<String> {
-        self.metadata_by_name("calibre:series_index")
+                for child in children {
+                    if child.tag_name() == Some("meta") || child.tag_name() == Some("opf:meta") {
+                        if child.attr("name") == Some("calibre:series") {
+                            title = child.attr("content").map(|s| decode_entities(s).into_owned());
+                        } else if child.attr("name") == Some("calibre:series_index") {
+                            index = child.attr("content").map(|s| decode_entities(s).into_owned());
+                        } else if child.attr("property") == Some("belongs-to-collection") {
+                            title = child.text().map(|text| decode_entities(text).into_owned());
+                        } else if child.attr("property") == Some("group-position") {
+                            index = child.text().map(|text| decode_entities(text).into_owned());
+                        }
+                    }
+
+                    if title.is_some() && index.is_some() {
+                        break;
+                    }
+                }
+
+                title.into_iter().zip(index).next()
+            })
     }
 
     pub fn description(&self) -> Option<String> {
@@ -793,6 +807,7 @@ impl Document for EpubDocument {
 
     fn metadata(&self, key: &str) -> Option<String> {
         self.info.find("metadata")
+            .or_else(|| self.info.find("opf:metadata"))
             .and_then(Node::children)
             .and_then(|children| children.iter().find(|child| child.tag_name() == Some(key)))
             .and_then(|child| child.children().and_then(|c| c.get(0)))
