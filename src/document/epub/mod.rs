@@ -415,11 +415,10 @@ impl EpubDocument {
     pub fn categories(&self) -> BTreeSet<String> {
         let mut result = BTreeSet::new();
         self.info.find("metadata")
-            .or_else(|| self.info.find("opf:metadata"))
             .and_then(Node::children)
             .map(|children| {
                 for child in children {
-                    if child.tag_name() == Some("dc:subject") {
+                    if child.tag_qualified_name() == Some("dc:subject") {
                         if let Some(subject) = child.text().map(|text| decode_entities(text)) {
                             // Pipe separated list of BISAC categories
                             if subject.contains(" / ") {
@@ -508,14 +507,13 @@ impl EpubDocument {
 
     pub fn series(&self) -> Option<(String, String)> {
         self.info.find("metadata")
-            .or_else(|| self.info.find("opf:metadata"))
             .and_then(Node::children)
             .and_then(|children| {
                 let mut title = None;
                 let mut index = None;
 
                 for child in children {
-                    if child.tag_name() == Some("meta") || child.tag_name() == Some("opf:meta") {
+                    if child.tag_name() == Some("meta") {
                         if child.attr("name") == Some("calibre:series") {
                             title = child.attr("content").map(|s| decode_entities(s).into_owned());
                         } else if child.attr("name") == Some("calibre:series_index") {
@@ -807,9 +805,8 @@ impl Document for EpubDocument {
 
     fn metadata(&self, key: &str) -> Option<String> {
         self.info.find("metadata")
-            .or_else(|| self.info.find("opf:metadata"))
             .and_then(Node::children)
-            .and_then(|children| children.iter().find(|child| child.tag_name() == Some(key)))
+            .and_then(|children| children.iter().find(|child| child.tag_qualified_name() == Some(key)))
             .and_then(|child| child.children().and_then(|c| c.get(0)))
             .and_then(|child| child.text().map(|s| decode_entities(s).into_owned()))
     }

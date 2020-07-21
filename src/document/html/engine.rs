@@ -575,7 +575,7 @@ impl Engine {
 
     fn gather_inline_material(&self, node: &Node, parent: Option<&Node>, sibling: Option<&Node>, stylesheet: &Stylesheet, parent_style: &StyleData, spine_dir: &PathBuf, markers: &mut Vec<usize>, inlines: &mut Vec<InlineMaterial>) {
         match node {
-            Node::Element(ElementData { offset, name, attributes, children }) => {
+            Node::Element(ElementData { offset, name, attributes, children, .. }) => {
                 let mut style = StyleData::default();
                 let props = specified_values(node, parent, sibling, stylesheet);
 
@@ -646,7 +646,7 @@ impl Engine {
                 }
 
                 match name.as_ref() {
-                    "img" | "image" | "svg:image" => {
+                    "img" | "image" => {
                         let attr = if name == "img" { "src" } else { "xlink:href" };
 
                         let path = attributes.get(attr).and_then(|src| {

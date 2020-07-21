@@ -13,6 +13,7 @@ pub enum Node {
 pub struct ElementData {
     pub offset: usize,
     pub name: String,
+    pub qualified_name: Option<String>,
     pub attributes: Attributes,
     pub children: Vec<Node>,
 }
@@ -24,9 +25,11 @@ pub struct TextData {
 }
 
 pub fn element(name: &str, offset: usize, attributes: Attributes, children: Vec<Node>) -> Node {
+    let colon = name.find(':');
     Node::Element(ElementData {
         offset,
-        name: name.to_string(),
+        name: name[colon.map(|index| index+1).unwrap_or(0)..].to_string(),
+        qualified_name: colon.map(|_| name.to_string()),
         attributes,
         children
     })
@@ -50,6 +53,13 @@ impl Node {
     pub fn tag_name(&self) -> Option<&str> {
         match *self {
             Node::Element(ElementData { ref name, .. }) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn tag_qualified_name(&self) -> Option<&str> {
+        match *self {
+            Node::Element(ElementData { ref qualified_name, .. }) => qualified_name.as_deref(),
             _ => None,
         }
     }
