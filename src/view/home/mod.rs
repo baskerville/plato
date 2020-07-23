@@ -1086,10 +1086,10 @@ impl Home {
     }
 
     fn spawn_child(&mut self, dir: &Path, program: &PathBuf, wifi: bool, online: bool, hub: &Hub) -> Result<Child, Error> {
-        let parent = program.parent()
-                            .unwrap_or_else(|| Path::new(""));
         let path = program.canonicalize()?;
-        let mut process = Command::new(path)
+        let parent = path.parent()
+                         .unwrap_or_else(|| Path::new(""));
+        let mut process = Command::new(&path)
                                  .current_dir(parent)
                                  .arg(dir)
                                  .arg(wifi.to_string())
