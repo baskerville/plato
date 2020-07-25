@@ -251,6 +251,7 @@ pub struct HomeSettings {
     pub address_bar: bool,
     pub navigation_bar: bool,
     pub max_levels: usize,
+    pub max_trash_size: u64,
 }
 
 
@@ -303,6 +304,7 @@ impl Default for HomeSettings {
             address_bar: false,
             navigation_bar: true,
             max_levels: 3,
+            max_trash_size: 32 * (1 << 20),
         }
     }
 }

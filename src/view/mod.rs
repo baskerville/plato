@@ -491,6 +491,8 @@ pub enum EntryId {
     CleanUp,
     Sort(SortMethod),
     ReverseOrder,
+    Remove(PathBuf),
+    MoveTo(PathBuf, usize),
     AddDirectory(PathBuf),
     SelectDirectory(PathBuf),
     ToggleSelectDirectory(PathBuf),

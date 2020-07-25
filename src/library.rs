@@ -8,6 +8,7 @@ use indexmap::IndexMap;
 use fxhash::{FxHashMap, FxHashSet, FxBuildHasher};
 use chrono::{Local, TimeZone};
 use filetime::{FileTime, set_file_handle_times};
+use anyhow::{Error, format_err};
 use crate::metadata::{Info, ReaderInfo, FileInfo, SimpleStatus, SortMethod};
 use crate::metadata::{sort, sorter, extract_metadata_from_epub};
 use crate::settings::{LibraryMode, ImportSettings};
@@ -318,6 +319,98 @@ impl Library {
         self.paths.insert(info.file.path.clone(), fp);
         self.db.insert(fp, info);
         self.has_db_changed = true;
+    }
+
+    pub fn remove<P: AsRef<Path>>(&mut self, path: P) -> Result<(), Error> {
+        let full_path = self.home.join(path.as_ref());
+
+        let fp = self.paths.get(path.as_ref()).cloned().or_else(|| {
+           full_path.metadata().ok()
+                    .and_then(|md| md.fingerprint(self.fat32_epoch).ok())
+        }).ok_or_else(|| format_err!("Can't get fingerprint of {}.", path.as_ref().display()))?;
+
+        if full_path.exists() {
+            fs::remove_file(&full_path)?;
+            if let Some(parent) = full_path.parent() {
+                if parent != self.home {
+                    fs::remove_dir(parent).ok();
+                }
+            }
+        }
+
+        let rsp = self.reading_state_path(fp);
+        if rsp.exists() {
+            fs::remove_file(rsp)?;
+        }
+
+        if self.mode == LibraryMode::Database {
+            self.paths.remove(path.as_ref());
+            if self.db.shift_remove(&fp).is_some() {
+                self.has_db_changed = true;
+            }
+        } else {
+            self.reading_states.remove(&fp);
+        }
+
+        self.modified_reading_states.remove(&fp);
+
+        Ok(())
+    }
+
+    pub fn move_to<P: AsRef<Path>>(&mut self, path: P, other: &mut Library) -> Result<(), Error> {
+        if !self.home.join(path.as_ref()).exists() {
+            return Err(format_err!("Can't move non-existing file {}.", path.as_ref().display()));
+        }
+
+        let fp = self.paths.get(path.as_ref()).cloned().or_else(|| {
+            self.home.join(path.as_ref())
+                .metadata().ok()
+                .and_then(|md| md.fingerprint(self.fat32_epoch).ok())
+        }).ok_or_else(|| format_err!("Can't get fingerprint of {}.", path.as_ref().display()))?;
+
+        let src = self.home.join(path.as_ref());
+        let mut dest = other.home.join(path.as_ref());
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        if dest.exists() {
+            let prefix = Local::now().format("%Y%m%d_%H%M%S ");
+            let name = dest.file_name().and_then(|name| name.to_str())
+                           .map(|name| prefix.to_string() + name)
+                           .ok_or_else(|| format_err!("Can't compute new name for {}.", dest.display()))?;
+            dest.set_file_name(name);
+        }
+
+        fs::rename(&src, &dest)?;
+
+        let rsp_src = self.reading_state_path(fp);
+        if rsp_src.exists() {
+            let rsp_dest = other.reading_state_path(fp);
+            fs::rename(&rsp_src, &rsp_dest)?;
+        }
+
+        if self.mode == LibraryMode::Database {
+            if let Some(mut info) = self.db.shift_remove(&fp) {
+                let dest_path = dest.strip_prefix(&other.home)?;
+                info.file.path = dest_path.to_path_buf();
+                other.db.insert(fp, info);
+                self.paths.remove(path.as_ref());
+                other.paths.insert(dest_path.to_path_buf(), fp);
+                self.has_db_changed = true;
+                other.has_db_changed = true;
+            }
+        } else {
+            if let Some(reader_info) = self.reading_states.remove(&fp) {
+                other.reading_states.insert(fp, reader_info);
+            }
+        }
+
+        if self.modified_reading_states.remove(&fp) {
+            other.modified_reading_states.insert(fp);
+        }
+
+        Ok(())
     }
 
     pub fn clean_up(&mut self) {

@@ -9,6 +9,7 @@
 /.metadata.json
 /.reading-states
 /.fat32-epoch
+/.trash
 /css/*-user.css
 /hyphenation-patterns
 /dictionaries

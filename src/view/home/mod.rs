@@ -7,6 +7,7 @@ mod shelf;
 mod book;
 mod bottom_bar;
 
+use std::fs;
 use std::mem;
 use std::thread;
 use std::path::{Path, PathBuf};
@@ -47,6 +48,8 @@ use crate::unit::scale_by_dpi;
 use crate::color::BLACK;
 use crate::font::Fonts;
 use crate::app::Context;
+
+pub const TRASH_DIRNAME: &str = ".trash";
 
 #[derive(Debug)]
 pub struct Home {
@@ -855,6 +858,23 @@ impl Home {
                 entries.push(EntryKind::SubMenu("Set As".to_string(), submenu))
             }
 
+            entries.push(EntryKind::Separator);
+            let selected_library = context.settings.selected_library;
+            let libraries = context.settings.libraries.iter().enumerate()
+                                   .filter(|(index, _)| *index != selected_library)
+                                   .map(|(index, lib)|  {
+                                       EntryKind::Command(lib.name.clone(),
+                                                          EntryId::MoveTo(path.clone(), index))
+                                   }).collect::<Vec<EntryKind>>();
+            if !libraries.is_empty() {
+                entries.push(EntryKind::SubMenu("Move To".to_string(), libraries));
+
+            }
+
+            entries.push(EntryKind::Command("Remove".to_string(),
+                                            EntryId::Remove(path.clone())));
+
+
             let book_menu = Menu::new(rect, ViewId::BookMenu, MenuKind::Contextual, entries, context);
             rq.add(RenderData::new(book_menu.id(), *book_menu.rect(), UpdateMode::Gui));
             self.children.push(Box::new(book_menu) as Box<dyn View>);
@@ -954,6 +974,40 @@ impl Home {
         }
 
         self.refresh_visibles(true, false, rq, context);
+    }
+
+    fn remove(&mut self, path: &Path, rq: &mut RenderQueue, context: &mut Context) -> Result<(), Error> {
+        let trash_path = context.library.home.join(TRASH_DIRNAME);
+        if !trash_path.is_dir() {
+            fs::create_dir_all(&trash_path)?;
+        }
+        let mut trash = Library::new(trash_path, LibraryMode::Database);
+        context.library.move_to(path, &mut trash)?;
+        let (mut files, _) = trash.list(&trash.home, None, false);
+        let mut size = files.iter().map(|info| info.file.size).sum::<u64>();
+        if size > context.settings.home.max_trash_size {
+            sort(&mut files, SortMethod::Added, true);
+            while size > context.settings.home.max_trash_size {
+                let info = files.pop().unwrap();
+                if let Err(e) = trash.remove(&info.file.path) {
+                    eprintln!("{}", e);
+                    break;
+                }
+                size -= info.file.size;
+            }
+        }
+        trash.flush();
+        self.refresh_visibles(true, false, rq, context);
+        Ok(())
+    }
+
+    fn move_to(&mut self, path: &Path, index: usize, rq: &mut RenderQueue, context: &mut Context) -> Result<(), Error> {
+        let library_settings = &context.settings.libraries[index];
+        let mut library = Library::new(&library_settings.path, library_settings.mode);
+        context.library.move_to(path, &mut library)?;
+        library.flush();
+        self.refresh_visibles(true, false, rq, context);
+        Ok(())
     }
 
     fn set_reverse_order(&mut self, value: bool, rq: &mut RenderQueue, context: &mut Context) {
@@ -1372,6 +1426,18 @@ impl View for Home {
                 for i in self.shelf_index - 2..=self.shelf_index - 1 {
                     rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                 }
+                true
+            },
+            Event::Select(EntryId::Remove(ref path)) => {
+                self.remove(path, rq, context)
+                    .map_err(|e| eprintln!("{}", e))
+                    .ok();
+                true
+            },
+            Event::Select(EntryId::MoveTo(ref path, index)) => {
+                self.move_to(path, index, rq, context)
+                    .map_err(|e| eprintln!("{}", e))
+                    .ok();
                 true
             },
             Event::Select(EntryId::ToggleShowHidden) => {
