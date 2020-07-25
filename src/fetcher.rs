@@ -274,6 +274,7 @@ fn main() -> Result<(), Error> {
                     "title": title,
                     "author": author,
                     "year": year,
+                    "identifier": id.to_string(),
                     "added": updated_at.with_timezone(&Local)
                                        .format("%Y-%m-%d %H:%M:%S")
                                        .to_string(),
