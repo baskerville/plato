@@ -44,7 +44,7 @@ pub struct Info {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub number: String,
     #[serde(skip_serializing_if = "String::is_empty")]
-    pub isbn: String,
+    pub identifier: String,
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     pub categories: BTreeSet<String>,
     pub file: FileInfo,
@@ -279,7 +279,7 @@ impl Default for Info {
             edition: String::default(),
             volume: String::default(),
             number: String::default(),
-            isbn: String::default(),
+            identifier: String::default(),
             categories: BTreeSet::new(),
             file: FileInfo::default(),
             added: Local::now(),
