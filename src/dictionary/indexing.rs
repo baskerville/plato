@@ -90,13 +90,11 @@ impl<R: BufRead> IndexReader for Index<R> {
         if let Some(br) = self.state.take() {
             let has_dictfmt = self.entries.iter()
                                   .any(|e| e.headword.contains("dictfmt"));
-            if let Ok(index) = parse_index(br, false) {
-                let mut entries = if has_dictfmt {
-                    index.entries
-                } else {
-                    normalize(&index.entries, metadata)
-                };
-                self.entries.append(&mut entries);
+            if let Ok(mut index) = parse_index(br, false) {
+                self.entries.append(&mut index.entries);
+                if !has_dictfmt {
+                    self.entries = normalize(&self.entries, metadata)
+                }
             }
         }
         self.find(headword, fuzzy)
