@@ -421,6 +421,8 @@ pub fn run() -> Result<(), Error> {
 
     let mut updating = FxHashMap::default();
 
+    let current_dir = std::env::current_dir()?;
+
     println!("{} is running on a Kobo {}.", APP_NAME,
                                             CURRENT_DEVICE.model);
     println!("The framebuffer resolution is {} by {}.", context.fb.rect().width(),
@@ -569,6 +571,10 @@ pub fn run() -> Result<(), Error> {
                         if context.shared {
                             context.shared = false;
                             Command::new("scripts/usb-disable.sh").status().ok();
+
+                            std::env::set_current_dir(&current_dir)
+                                .map_err(|e| eprintln!("Unable to set current directory to {}: {}", &current_dir.display(), e))
+                                .ok();
                             let path = Path::new(SETTINGS_PATH);
                             if let Ok(settings) = load_toml::<Settings, _>(path)
                                                             .map_err(|e| eprintln!("Can't load settings: {}", e)) {
