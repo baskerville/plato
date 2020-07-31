@@ -162,7 +162,7 @@ impl Framebuffer for KoboFramebuffer {
             },
         };
 
-        if self.monochrome {
+        if self.monochrome && mode != UpdateMode::Full {
             flags |= EPDC_FLAG_FORCE_MONOCHROME;
             waveform_mode = NTX_WFM_MODE_A2;
         }
