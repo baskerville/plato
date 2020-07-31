@@ -1,4 +1,5 @@
 use std::fs;
+use std::env;
 use std::thread;
 use std::process::Command;
 use std::path::Path;
@@ -420,6 +421,7 @@ pub fn run() -> Result<(), Error> {
     let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &tx, &mut context)?);
 
     let mut updating = FxHashMap::default();
+    let current_dir = env::current_dir()?;
 
     println!("{} is running on a Kobo {}.", APP_NAME,
                                             CURRENT_DEVICE.model);
@@ -569,6 +571,9 @@ pub fn run() -> Result<(), Error> {
                         if context.shared {
                             context.shared = false;
                             Command::new("scripts/usb-disable.sh").status().ok();
+                            env::set_current_dir(&current_dir)
+                                .map_err(|e| eprintln!("Unable to set current directory to {}: {}", current_dir.display(), e))
+                                .ok();
                             let path = Path::new(SETTINGS_PATH);
                             if let Ok(settings) = load_toml::<Settings, _>(path)
                                                             .map_err(|e| eprintln!("Can't load settings: {}", e)) {
