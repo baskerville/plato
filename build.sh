@@ -24,6 +24,8 @@ case "$method" in
 
 		ln -s libdjvulibre.so.21 libdjvulibre.so
 
+		cd ../thirdparty
+		./download.sh mupdf
 		cd ..
 		;;
 
