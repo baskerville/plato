@@ -2,7 +2,7 @@ use crate::framebuffer::Framebuffer;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use crate::geom::{Rectangle, CornerSpec, BorderSpec, halves, big_half};
 use crate::gesture::GestureEvent;
-use super::{View, Event, Hub, Bus, ViewId, Align};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, ViewId, Align};
 use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use super::common::shift;
 use super::label::Label;
@@ -13,14 +13,16 @@ use crate::device::CURRENT_DEVICE;
 use crate::app::Context;
 
 pub struct NamedInput {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     input_size: usize,
-    id: ViewId,
+    view_id: ViewId,
 }
 
 impl NamedInput {
-    pub fn new(text: String, id: ViewId, input_id: ViewId, input_size: usize, context: &mut Context) -> NamedInput {
+    pub fn new(text: String, view_id: ViewId, input_id: ViewId, input_size: usize, context: &mut Context) -> NamedInput {
+        let id = ID_FEEDER.next();
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = context.display.dims;
 
@@ -72,30 +74,31 @@ impl NamedInput {
                          x_max, y_max];
                                           
         NamedInput {
+            id,
             rect,
             children,
             input_size,
-            id,
+            view_id,
         }
     }
 
-    pub fn set_text(&mut self, text: &str, hub: &Hub, context: &mut Context) {
+    pub fn set_text(&mut self, text: &str, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(input_field) = self.children[1].downcast_mut::<InputField>() {
-            input_field.set_text(text, true, hub, context);
+            input_field.set_text(text, true, rq, context);
         }
     }
 }
 
 impl View for NamedInput {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
             Event::Submit(..) => {
-                bus.push_back(Event::Close(self.id));
+                bus.push_back(Event::Close(self.view_id));
                 false
             },
             Event::Gesture(GestureEvent::Tap(center)) | Event::Gesture(GestureEvent::HoldFingerShort(center, _)) => {
                 if !self.rect.includes(center) && !context.kb_rect.includes(center) {
-                    bus.push_back(Event::Close(self.id));
+                    bus.push_back(Event::Close(self.view_id));
                     true
                 } else {
                     self.rect.includes(center)
@@ -117,7 +120,7 @@ impl View for NamedInput {
                                               &WHITE);
     }
 
-    fn resize(&mut self, _rect: Rectangle, _hub: &Hub, context: &mut Context) {
+    fn resize(&mut self, _rect: Rectangle, _hub: &Hub, _rq: &mut RenderQueue, context: &mut Context) {
         let (width, height) = context.display.dims;
         let dx = (width as i32 - height as i32) / 2;
         let dy = (height as i32 - width as i32) / 3;
@@ -129,8 +132,8 @@ impl View for NamedInput {
         true
     }
 
-    fn id(&self) -> Option<ViewId> {
-        Some(self.id)
+    fn view_id(&self) -> Option<ViewId> {
+        Some(self.view_id)
     }
 
     fn rect(&self) -> &Rectangle {
@@ -147,5 +150,9 @@ impl View for NamedInput {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

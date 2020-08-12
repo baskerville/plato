@@ -1,6 +1,6 @@
 use crate::device::CURRENT_DEVICE;
 use crate::font::Fonts;
-use crate::view::{View, Event, Hub, Bus};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue};
 use super::{Line, LineOrigin};
 use crate::gesture::GestureEvent;
 use crate::framebuffer::{Framebuffer, UpdateMode};
@@ -10,6 +10,7 @@ use crate::color::TEXT_NORMAL;
 use crate::app::Context;
 
 pub struct CodeArea {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     data: Vec<Line>,
@@ -20,6 +21,7 @@ pub struct CodeArea {
 impl CodeArea {
     pub fn new(rect: Rectangle, font_size: f32, margin_width: i32) -> CodeArea {
         CodeArea {
+            id: ID_FEEDER.next(),
             rect,
             children: Vec::new(),
             data: Vec::new(),
@@ -58,7 +60,7 @@ impl CodeArea {
 }
 
 impl View for CodeArea {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) if self.rect.includes(start) => {
                 match dir {
@@ -142,5 +144,9 @@ impl View for CodeArea {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

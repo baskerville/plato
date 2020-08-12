@@ -2,7 +2,7 @@ use std::thread;
 use crate::device::CURRENT_DEVICE;
 use crate::geom::{Rectangle, CornerSpec, BorderSpec};
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
-use super::{View, Event, Hub, Bus, ViewId, Align};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, ViewId, Align};
 use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM, CLOSE_IGNITION_DELAY};
 use super::button::Button;
 use super::label::Label;
@@ -16,15 +16,17 @@ const LABEL_VALIDATE: &str = "OK";
 const LABEL_CANCEL: &str = "Cancel";
 
 pub struct Confirmation {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
-    id: ViewId,
+    view_id: ViewId,
     event: Event,
     will_close: bool,
 }
 
 impl Confirmation {
-    pub fn new(id: ViewId, event: Event, text: String, context: &mut Context) -> Confirmation {
+    pub fn new(view_id: ViewId, event: Event, text: String, context: &mut Context) -> Confirmation {
+        let id = ID_FEEDER.next();
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = context.display.dims;
@@ -80,9 +82,10 @@ impl Confirmation {
         children.push(Box::new(button_validate) as Box<dyn View>);
 
         Confirmation {
+            id,
             rect,
             children,
-            id,
+            view_id,
             event,
             will_close: false,
         }
@@ -90,17 +93,17 @@ impl Confirmation {
 }
 
 impl View for Confirmation {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Validate | Event::Cancel => {
                 if self.will_close {
                     return true;
                 }
                 let hub2 = hub.clone();
-                let id = self.id;
+                let view_id = self.view_id;
                 thread::spawn(move || {
                     thread::sleep(CLOSE_IGNITION_DELAY);
-                    hub2.send(Event::Close(id)).ok();
+                    hub2.send(Event::Close(view_id)).ok();
                 });
                 if let Event::Validate = *evt {
                     bus.push_back(self.event.clone());
@@ -109,7 +112,7 @@ impl View for Confirmation {
                 true
             },
             Event::Gesture(GestureEvent::Tap(center)) if !self.rect.includes(center) => {
-                hub.send(Event::Close(self.id)).ok();
+                hub.send(Event::Close(self.view_id)).ok();
                 true
             },
             Event::Gesture(..) => true,
@@ -130,7 +133,7 @@ impl View for Confirmation {
                                               &WHITE);
     }
 
-    fn resize(&mut self, _rect: Rectangle, hub: &Hub, context: &mut Context) {
+    fn resize(&mut self, _rect: Rectangle, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = context.display.dims;
         let dialog_width = self.rect.width() as i32;
@@ -167,9 +170,9 @@ impl View for Confirmation {
                                   rect.max.x - padding,
                                   rect.max.y - padding];
 
-        self.children[0].resize(label_rect, hub, context);
-        self.children[1].resize(cancel_rect, hub, context);
-        self.children[2].resize(validate_rect, hub, context);
+        self.children[0].resize(label_rect, hub, rq, context);
+        self.children[1].resize(cancel_rect, hub, rq, context);
+        self.children[2].resize(validate_rect, hub, rq, context);
         self.rect = rect;
     }
 
@@ -193,7 +196,11 @@ impl View for Confirmation {
         &mut self.children
     }
 
-    fn id(&self) -> Option<ViewId> {
-        Some(self.id)
+    fn id(&self) -> Id {
+        self.id
+    }
+
+    fn view_id(&self) -> Option<ViewId> {
+        Some(self.view_id)
     }
 }

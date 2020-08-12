@@ -9,7 +9,6 @@ mod bottom_bar;
 
 use std::mem;
 use std::thread;
-use std::sync::mpsc;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Child, Stdio};
 use std::io::{BufRead, BufReader};
@@ -21,7 +20,8 @@ use anyhow::{Error, format_err};
 use crate::library::Library;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::metadata::{Info, Metadata, SortMethod, SimpleStatus, sort, make_query};
-use crate::view::{View, Event, Hub, Bus, ViewId, EntryId, EntryKind};
+use crate::view::{View, Event, Hub, Bus, RenderQueue, RenderData};
+use crate::view::{Id, ID_FEEDER, ViewId, EntryId, EntryKind};
 use crate::view::{SMALL_BAR_HEIGHT, BIG_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::settings::{Hook, LibraryMode, FirstColumn, SecondColumn};
 use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
@@ -50,6 +50,7 @@ use crate::app::Context;
 
 #[derive(Debug)]
 pub struct Home {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     current_page: usize,
@@ -73,7 +74,8 @@ struct Fetcher {
 }
 
 impl Home {
-    pub fn new(rect: Rectangle, hub: &Hub, context: &mut Context) -> Result<Home, Error> {
+    pub fn new(rect: Rectangle, rq: &mut RenderQueue, context: &mut Context) -> Result<Home, Error> {
+        let id = ID_FEEDER.next();
         let dpi = CURRENT_DEVICE.dpi;
         let mut children = Vec::new();
 
@@ -95,8 +97,6 @@ impl Home {
         let count = visible_books.len();
         let current_page = 0;
         let mut shelf_index = 2;
-        let (tx, _rx) = mpsc::channel();
-
 
         let top_bar = TopBar::new(rect![rect.min.x, rect.min.y,
                                         rect.max.x, rect.min.y + small_height - small_thickness],
@@ -134,7 +134,7 @@ impl Home {
                                                  rect.max.y - small_height - big_height - small_thickness,
                                                  context.settings.home.max_levels);
 
-            nav_bar.set_path(&current_directory, &dirs, &tx, context);
+            nav_bar.set_path(&current_directory, &dirs, &mut RenderQueue::new(), context);
             y_start = nav_bar.rect().max.y;
 
             children.push(Box::new(nav_bar) as Box<dyn View>);
@@ -162,7 +162,7 @@ impl Home {
         let index_lower = current_page * max_lines;
         let index_upper = (index_lower + max_lines).min(visible_books.len());
 
-        shelf.update(&visible_books[index_lower..index_upper], &tx);
+        shelf.update(&visible_books[index_lower..index_upper], &mut RenderQueue::new());
 
         children.push(Box::new(shelf) as Box<dyn View>);
 
@@ -180,9 +180,10 @@ impl Home {
                                         false);
         children.push(Box::new(bottom_bar) as Box<dyn View>);
 
-        hub.send(Event::Render(rect, UpdateMode::Full)).ok();
+        rq.add(RenderData::new(id, rect, UpdateMode::Full));
 
         Ok(Home {
+            id,
             rect,
             children,
             current_page,
@@ -198,7 +199,7 @@ impl Home {
         })
     }
 
-    fn select_directory(&mut self, path: &Path, hub: &Hub, context: &mut Context) {
+    fn select_directory(&mut self, path: &Path, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         if self.current_directory == path {
             return;
         }
@@ -226,20 +227,24 @@ impl Home {
 
         if context.settings.home.address_bar {
             let addr_bar = self.children[index].as_mut().downcast_mut::<AddressBar>().unwrap();
-            addr_bar.set_text(self.current_directory.to_string_lossy(), hub, context);
+            addr_bar.set_text(self.current_directory.to_string_lossy(), rq, context);
             index += 2;
         }
 
         if context.settings.home.navigation_bar {
             let nav_bar = self.children[index].as_mut().downcast_mut::<NavigationBar>().unwrap();
-            nav_bar.set_path(&self.current_directory, &dirs, hub, context);
+            nav_bar.set_path(&self.current_directory, &dirs, rq, context);
             self.adjust_shelf_top_edge();
-            hub.send(Event::Render(*self.child(index+1).rect(), UpdateMode::Gui)).ok();
-            hub.send(Event::Render(*self.child(index).rect(), UpdateMode::Partial)).ok();
+            rq.add(RenderData::new(self.child(index+1).id(),
+                                   *self.child(index+1).rect(),
+                                   UpdateMode::Partial));
+            rq.add(RenderData::new(self.child(index).id(),
+                                   *self.child(index).rect(),
+                                   UpdateMode::Partial));
         }
 
-        self.update_shelf(true, hub);
-        self.update_bottom_bar(hub, context);
+        self.update_shelf(true, rq);
+        self.update_bottom_bar(rq, context);
     }
 
     fn adjust_shelf_top_edge(&mut self) {
@@ -249,26 +254,26 @@ impl Home {
         self.children[index+2].rect_mut().min.y = self.children[index+1].rect().max.y;
     }
 
-    fn toggle_select_directory(&mut self, path: &Path, hub: &Hub, context: &mut Context) {
+    fn toggle_select_directory(&mut self, path: &Path, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         if self.current_directory.starts_with(path) {
             if let Some(parent) = path.parent() {
-                self.select_directory(parent, hub, context);
+                self.select_directory(parent, hub, rq, context);
             }
         } else {
-            self.select_directory(path, hub, context);
+            self.select_directory(path, hub, rq, context);
         }
     }
 
-    fn go_to_page(&mut self, index: usize, hub: &Hub, context: &Context) {
+    fn go_to_page(&mut self, index: usize, rq: &mut RenderQueue, context: &Context) {
         if index >= self.pages_count {
             return;
         }
         self.current_page = index;
-        self.update_shelf(false, hub);
-        self.update_bottom_bar(hub, context);
+        self.update_shelf(false, rq);
+        self.update_bottom_bar(rq, context);
     }
 
-    fn go_to_neighbor(&mut self, dir: CycleDir, hub: &Hub, context: &Context) {
+    fn go_to_neighbor(&mut self, dir: CycleDir, rq: &mut RenderQueue, context: &Context) {
         match dir {
             CycleDir::Next if self.current_page < self.pages_count.saturating_sub(1) => {
                 self.current_page += 1;
@@ -279,12 +284,12 @@ impl Home {
             _ => return,
         }
 
-        self.update_shelf(false, hub);
-        self.update_bottom_bar(hub, context);
+        self.update_shelf(false, rq);
+        self.update_bottom_bar(rq, context);
     }
 
     // NOTE: This function assumes that the shelf wasn't resized.
-    fn refresh_visibles(&mut self, update: bool, reset_page: bool, hub: &Hub, context: &mut Context) {
+    fn refresh_visibles(&mut self, update: bool, reset_page: bool, rq: &mut RenderQueue, context: &mut Context) {
         let (files, _) = context.library.list(&self.current_directory,
                                               self.query.as_ref(),
                                               false);
@@ -304,26 +309,26 @@ impl Home {
         }
 
         if update {
-            self.update_shelf(false, hub);
-            self.update_bottom_bar(hub, context);
+            self.update_shelf(false, rq);
+            self.update_bottom_bar(rq, context);
         }
     }
 
-    fn update_first_column(&mut self, hub: &Hub, context: &mut Context) {
+    fn update_first_column(&mut self, rq: &mut RenderQueue, context: &mut Context) {
         let selected_library = context.settings.selected_library;
         self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>().unwrap()
            .set_first_column(context.settings.libraries[selected_library].first_column);
-        self.update_shelf(false, hub);
+        self.update_shelf(false, rq);
     }
 
-    fn update_second_column(&mut self, hub: &Hub, context: &mut Context) {
+    fn update_second_column(&mut self, rq: &mut RenderQueue, context: &mut Context) {
         let selected_library = context.settings.selected_library;
         self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>().unwrap()
            .set_second_column(context.settings.libraries[selected_library].second_column);
-        self.update_shelf(false, hub);
+        self.update_shelf(false, rq);
     }
 
-    fn update_shelf(&mut self, was_resized: bool, hub: &Hub) {
+    fn update_shelf(&mut self, was_resized: bool, rq: &mut RenderQueue) {
         let dpi = CURRENT_DEVICE.dpi;
         let big_height = scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
@@ -352,32 +357,32 @@ impl Home {
         let index_lower = self.current_page * max_lines;
         let index_upper = (index_lower + max_lines).min(self.visible_books.len());
 
-        shelf.update(&self.visible_books[index_lower..index_upper], hub);
+        shelf.update(&self.visible_books[index_lower..index_upper], rq);
     }
 
-    fn update_top_bar(&mut self, search_visible: bool, hub: &Hub) {
+    fn update_top_bar(&mut self, search_visible: bool, rq: &mut RenderQueue) {
         if let Some(index) = locate::<TopBar>(self) {
             let top_bar = self.children[index].as_mut().downcast_mut::<TopBar>().unwrap();
             let name = if search_visible { "back" } else { "search" };
-            top_bar.update_root_icon(name, hub);
-            top_bar.update_title_label(&self.sort_method.title(), hub);
+            top_bar.update_root_icon(name, rq);
+            top_bar.update_title_label(&self.sort_method.title(), rq);
         }
     }
 
-    fn update_bottom_bar(&mut self, hub: &Hub, context: &Context) {
+    fn update_bottom_bar(&mut self, rq: &mut RenderQueue, context: &Context) {
         if let Some(index) = rlocate::<BottomBar>(self) {
             let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
             let filter = self.query.is_some() ||
                          self.current_directory != context.library.home;
             let selected_library = context.settings.selected_library;
             let library_settings = &context.settings.libraries[selected_library];
-            bottom_bar.update_library_label(&library_settings.name, self.visible_books.len(), filter, hub);
-            bottom_bar.update_page_label(self.current_page, self.pages_count, hub);
-            bottom_bar.update_icons(self.current_page, self.pages_count, hub);
+            bottom_bar.update_library_label(&library_settings.name, self.visible_books.len(), filter, rq);
+            bottom_bar.update_page_label(self.current_page, self.pages_count, rq);
+            bottom_bar.update_icons(self.current_page, self.pages_count, rq);
         }
     }
 
-    fn toggle_keyboard(&mut self, enable: bool, update: bool, id: Option<ViewId>, hub: &Hub, context: &mut Context) {
+    fn toggle_keyboard(&mut self, enable: bool, update: bool, id: Option<ViewId>, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
                                           scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
@@ -401,7 +406,7 @@ impl Home {
             if has_search_bar {
                 for i in self.shelf_index+1..=self.shelf_index+2 {
                     let shifted_rect = *self.child(i).rect() + pt!(0, delta_y);
-                    self.child_mut(i).resize(shifted_rect, hub, context);
+                    self.child_mut(i).resize(shifted_rect, hub, rq, context);
                 }
             }
 
@@ -409,7 +414,7 @@ impl Home {
             if update {
                 let rect = rect![self.rect.min.x, y_min,
                                  self.rect.max.x, y_min + delta_y];
-                hub.send(Event::Expose(rect, UpdateMode::Gui)).ok();
+                rq.add(RenderData::expose(rect, UpdateMode::Gui));
             }
         } else {
             if !enable {
@@ -440,7 +445,7 @@ impl Home {
             if has_search_bar {
                 for i in self.shelf_index+1..=self.shelf_index+2 {
                     let shifted_rect = *self.child(i).rect() + pt!(0, -delta_y);
-                    self.child_mut(i).resize(shifted_rect, hub, context);
+                    self.child_mut(i).resize(shifted_rect, hub, rq, context);
                 }
             }
         }
@@ -449,22 +454,23 @@ impl Home {
             if enable {
                 if has_search_bar {
                     for i in self.shelf_index+1..=self.shelf_index+4 {
-                        hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
+                        let update_mode = if (i - self.shelf_index) == 1 { UpdateMode::Partial } else { UpdateMode::Gui };
+                        rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), update_mode));
                     }
                 } else {
                     for i in self.shelf_index+1..=self.shelf_index+2 {
-                        hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                     }
                 }
             } else if has_search_bar {
                 for i in self.shelf_index+1..=self.shelf_index+2 {
-                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
+                    rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                 }
             }
         }
     }
 
-    fn toggle_address_bar(&mut self, enable: Option<bool>, update: bool, hub: &Hub, context: &mut Context) {
+    fn toggle_address_bar(&mut self, enable: Option<bool>, update: bool, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
                                           scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
@@ -476,7 +482,7 @@ impl Home {
             }
 
             if let Some(ViewId::AddressBarInput) = self.focus {
-                self.toggle_keyboard(false, false, Some(ViewId::AddressBarInput), hub, context);
+                self.toggle_keyboard(false, false, Some(ViewId::AddressBarInput), hub, rq, context);
             }
 
             // Remove the address bar and its separator.
@@ -542,15 +548,15 @@ impl Home {
 
         if update {
             for i in 2..self.shelf_index {
-                hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
+                rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
             }
 
-            self.update_shelf(true, hub);
-            self.update_bottom_bar(hub, context);
+            self.update_shelf(true, rq);
+            self.update_bottom_bar(rq, context);
         }
     }
 
-    fn toggle_navigation_bar(&mut self, enable: Option<bool>, update: bool, hub: &Hub, context: &mut Context) {
+    fn toggle_navigation_bar(&mut self, enable: Option<bool>, update: bool, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
                                           scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
@@ -591,7 +597,7 @@ impl Home {
                                                  self.rect.max.y - small_height - big_height - small_thickness,
                                                  context.settings.home.max_levels);
             let (_, dirs) = context.library.list(&self.current_directory, None, true);
-            nav_bar.set_path(&self.current_directory, &dirs, hub, context);
+            nav_bar.set_path(&self.current_directory, &dirs, rq, context);
             self.children.insert(sep_index+1, Box::new(nav_bar) as Box<dyn View>);
 
             self.shelf_index += 2;
@@ -602,15 +608,15 @@ impl Home {
 
         if update {
             for i in 2..self.shelf_index {
-                hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
+                rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
             }
 
-            self.update_shelf(true, hub);
-            self.update_bottom_bar(hub, context);
+            self.update_shelf(true, rq);
+            self.update_bottom_bar(rq, context);
         }
     }
 
-    fn toggle_search_bar(&mut self, enable: Option<bool>, update: bool, hub: &Hub, context: &mut Context) {
+    fn toggle_search_bar(&mut self, enable: Option<bool>, update: bool, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
                                           scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
@@ -624,7 +630,7 @@ impl Home {
             }
 
             if let Some(ViewId::HomeSearchInput) = self.focus {
-                self.toggle_keyboard(false, false, Some(ViewId::HomeSearchInput), hub, context);
+                self.toggle_keyboard(false, false, Some(ViewId::HomeSearchInput), hub, rq, context);
             }
 
             // Remove the search bar and its separator.
@@ -677,7 +683,7 @@ impl Home {
             }
 
             if rlocate::<Keyboard>(self).is_none() {
-                self.toggle_keyboard(true, false, Some(ViewId::HomeSearchInput), hub, context);
+                self.toggle_keyboard(true, false, Some(ViewId::HomeSearchInput), hub, rq, context);
             }
 
             hub.send(Event::Focus(Some(ViewId::HomeSearchInput))).ok();
@@ -686,42 +692,46 @@ impl Home {
         }
 
         if update {
+            if !search_visible {
+                self.refresh_visibles(false, true, rq, context);
+            }
+
+            self.update_top_bar(search_visible, rq);
+
             if search_visible {
-                for i in self.shelf_index - 1 ..= self.shelf_index + 4 {
-                    if i == self.shelf_index {
-                        continue;
-                    }
-                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
-                }
+                rq.add(RenderData::new(self.child(self.shelf_index-1).id(), *self.child(self.shelf_index-1).rect(), UpdateMode::Partial));
+                let mut rect = *self.child(self.shelf_index).rect();
+                rect.max.y = self.child(self.shelf_index+1).rect().min.y;
+                // Render the part of the shelf that isn't covered.
+                self.update_shelf(true, &mut RenderQueue::new());
+                rq.add(RenderData::new(self.child(self.shelf_index).id(), rect, UpdateMode::Partial));
+                // Render the views on top of the shelf.
+                rect.min.y = rect.max.y;
+                rect.max.y = self.child(self.shelf_index+4).rect().max.y;
+                rq.add(RenderData::expose(rect, UpdateMode::Partial));
             } else {
                 for i in self.shelf_index - 1 ..= self.shelf_index + 1 {
                     if i == self.shelf_index {
+                        self.update_shelf(true, rq);
                         continue;
                     }
-                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
+                    rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Partial));
                 }
             }
 
-            if !search_visible {
-                self.refresh_visibles(false, true, hub, context);
-            }
-
-            self.update_top_bar(search_visible, hub);
-            self.update_shelf(true, hub);
-            self.update_bottom_bar(hub, context);
-
+            self.update_bottom_bar(rq, context);
         }
     }
 
-    fn toggle_go_to_page(&mut self, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+    fn toggle_go_to_page(&mut self, enable: Option<bool>, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::GoToPage) {
             if let Some(true) = enable {
                 return;
             }
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::expose(*self.child(index).rect(), UpdateMode::Gui));
             self.children.remove(index);
             if let Some(ViewId::GoToPageInput) = self.focus {
-                self.toggle_keyboard(false, true, Some(ViewId::GoToPageInput), hub, context);
+                self.toggle_keyboard(false, true, Some(ViewId::GoToPageInput), hub, rq, context);
             }
         } else {
             if let Some(false) = enable {
@@ -734,18 +744,18 @@ impl Home {
                                              ViewId::GoToPage,
                                              ViewId::GoToPageInput,
                                              4, context);
-            hub.send(Event::Render(*go_to_page.rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::new(go_to_page.id(), *go_to_page.rect(), UpdateMode::Gui));
             hub.send(Event::Focus(Some(ViewId::GoToPageInput))).ok();
             self.children.push(Box::new(go_to_page) as Box<dyn View>);
         }
     }
 
-    fn toggle_sort_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+    fn toggle_sort_menu(&mut self, rect: Rectangle, enable: Option<bool>, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::SortMenu) {
             if let Some(true) = enable {
                 return;
             }
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::expose(*self.child(index).rect(), UpdateMode::Gui));
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -785,7 +795,7 @@ impl Home {
                                EntryKind::CheckBox("Reverse Order".to_string(),
                                                    EntryId::ReverseOrder, self.reverse_order)];
             let sort_menu = Menu::new(rect, ViewId::SortMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*sort_menu.rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::new(sort_menu.id(), *sort_menu.rect(), UpdateMode::Gui));
             self.children.push(Box::new(sort_menu) as Box<dyn View>);
         }
     }
@@ -796,12 +806,12 @@ impl Home {
         (index_lower + index).min(self.visible_books.len())
     }
 
-    fn toggle_book_menu(&mut self, index: usize, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+    fn toggle_book_menu(&mut self, index: usize, rect: Rectangle, enable: Option<bool>, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::BookMenu) {
             if let Some(true) = enable {
                 return;
             }
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::expose(*self.child(index).rect(), UpdateMode::Gui));
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -846,18 +856,18 @@ impl Home {
             }
 
             let book_menu = Menu::new(rect, ViewId::BookMenu, MenuKind::Contextual, entries, context);
-            hub.send(Event::Render(*book_menu.rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::new(book_menu.id(), *book_menu.rect(), UpdateMode::Gui));
             self.children.push(Box::new(book_menu) as Box<dyn View>);
         }
     }
 
-    fn toggle_library_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+    fn toggle_library_menu(&mut self, rect: Rectangle, enable: Option<bool>, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::LibraryMenu) {
             if let Some(true) = enable {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::expose(*self.child(index).rect(), UpdateMode::Gui));
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -920,39 +930,39 @@ impl Home {
                      EntryKind::RadioButton("Year".to_string(), EntryId::SecondColumn(SecondColumn::Year), second_column == SecondColumn::Year)]));
 
             let library_menu = Menu::new(rect, ViewId::LibraryMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*library_menu.rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::new(library_menu.id(), *library_menu.rect(), UpdateMode::Gui));
             self.children.push(Box::new(library_menu) as Box<dyn View>);
         }
     }
 
-    fn add_document(&mut self, mut info: Info, hub: &Hub, context: &mut Context) {
+    fn add_document(&mut self, mut info: Info, rq: &mut RenderQueue, context: &mut Context) {
         if let Ok(path) = info.file.path.strip_prefix(&context.library.home) {
             info.file.path = path.to_path_buf();
             context.library.add_document(info);
-            self.sort(false, hub, context);
-            self.refresh_visibles(true, false, hub, context);
+            self.sort(false, rq, context);
+            self.refresh_visibles(true, false, rq, context);
         }
     }
 
-    fn set_status(&mut self, path: &Path, status: SimpleStatus, hub: &Hub, context: &mut Context) {
+    fn set_status(&mut self, path: &Path, status: SimpleStatus, rq: &mut RenderQueue, context: &mut Context) {
         context.library.set_status(path, status);
 
         // Is the current sort method affected by this change?
         if self.sort_method == SortMethod::Progress ||
            self.sort_method == SortMethod::Opened {
-            self.sort(false, hub, context);
+            self.sort(false, rq, context);
         }
 
-        self.refresh_visibles(true, false, hub, context);
+        self.refresh_visibles(true, false, rq, context);
     }
 
-    fn set_reverse_order(&mut self, value: bool, hub: &Hub, context: &mut Context) {
+    fn set_reverse_order(&mut self, value: bool, rq: &mut RenderQueue, context: &mut Context) {
         self.reverse_order = value;
         self.current_page = 0;
-        self.sort(true, hub, context);
+        self.sort(true, rq, context);
     }
 
-    fn set_sort_method(&mut self, sort_method: SortMethod, hub: &Hub, context: &mut Context) {
+    fn set_sort_method(&mut self, sort_method: SortMethod, rq: &mut RenderQueue, context: &mut Context) {
         self.sort_method = sort_method;
         self.reverse_order = sort_method.reverse_order();
 
@@ -960,26 +970,26 @@ impl Home {
             self.child_mut(index)
                 .children_mut().last_mut().unwrap()
                 .downcast_mut::<MenuEntry>().unwrap()
-                .update(sort_method.reverse_order(), hub);
+                .update(sort_method.reverse_order(), rq);
         }
 
         self.current_page = 0;
-        self.sort(true, hub, context);
+        self.sort(true, rq, context);
     }
 
-    fn sort(&mut self, update: bool, hub: &Hub, context: &mut Context) {
+    fn sort(&mut self, update: bool, rq: &mut RenderQueue, context: &mut Context) {
         context.library.sort(self.sort_method, self.reverse_order);
         sort(&mut self.visible_books, self.sort_method, self.reverse_order);
 
         if update {
-            self.update_shelf(false, hub);
+            self.update_shelf(false, rq);
             let search_visible = rlocate::<SearchBar>(self).is_some();
-            self.update_top_bar(search_visible, hub);
-            self.update_bottom_bar(hub, context);
+            self.update_top_bar(search_visible, rq);
+            self.update_bottom_bar(rq, context);
         }
     }
 
-    fn load_library(&mut self, index: usize, hub: &Hub, context: &mut Context) {
+    fn load_library(&mut self, index: usize, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         if index == context.settings.selected_library {
             return;
         }
@@ -987,7 +997,7 @@ impl Home {
         let mut update_top_bar = false;
 
         if self.query.is_some() {
-            self.toggle_search_bar(Some(false), false, hub, context);
+            self.toggle_search_bar(Some(false), false, hub, rq, context);
             update_top_bar = true;
         }
 
@@ -1010,7 +1020,7 @@ impl Home {
 
         if update_top_bar {
             let search_visible = rlocate::<SearchBar>(self).is_some();
-            self.update_top_bar(search_visible, hub);
+            self.update_top_bar(search_visible, rq);
         }
 
         if let Some(shelf) = self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>() {
@@ -1020,20 +1030,20 @@ impl Home {
 
         let home = context.library.home.clone();
         self.current_directory = PathBuf::default();
-        self.select_directory(&home, hub, context);
+        self.select_directory(&home, hub, rq, context);
     }
 
-    fn import(&mut self, hub: &Hub, context: &mut Context) {
+    fn import(&mut self, rq: &mut RenderQueue, context: &mut Context) {
         let home = context.library.home.clone();
         let settings = context.settings.import.clone();
         context.library.import(&home, &settings);
         context.library.sort(self.sort_method, self.reverse_order);
-        self.refresh_visibles(true, false, hub, context);
+        self.refresh_visibles(true, false, rq, context);
     }
 
-    fn clean_up(&mut self, hub: &Hub, context: &mut Context) {
+    fn clean_up(&mut self, rq: &mut RenderQueue, context: &mut Context) {
         context.library.clean_up();
-        self.refresh_visibles(true, false, hub, context);
+        self.refresh_visibles(true, false, rq, context);
     }
 
     fn flush(&mut self, context: &mut Context) {
@@ -1139,45 +1149,43 @@ impl Home {
         Ok(process)
     }
 
-    fn reseed(&mut self, hub: &Hub, context: &mut Context) {
-        let (tx, _rx) = mpsc::channel();
-
+    fn reseed(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         if self.sort_method == SortMethod::Progress ||
            self.sort_method == SortMethod::Opened {
-            self.sort(false, hub, context);
+            self.sort(false, &mut RenderQueue::new(), context);
         }
 
-        self.refresh_visibles(true, false, &tx, context);
+        self.refresh_visibles(true, false, &mut RenderQueue::new(), context);
 
         if let Some(top_bar) = self.child_mut(0).downcast_mut::<TopBar>() {
-            top_bar.update_frontlight_icon(&tx, context);
+            top_bar.update_frontlight_icon(&mut RenderQueue::new(), context);
+            hub.send(Event::ClockTick).ok();
+            hub.send(Event::BatteryTick).ok();
         }
 
-        hub.send(Event::ClockTick).ok();
-        hub.send(Event::BatteryTick).ok();
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
     }
 }
 
 impl View for Home {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) => {
                 match dir {
                     Dir::South if self.children[0].rect().includes(start) &&
                                   self.children[self.shelf_index].rect().includes(end) => {
                         if !context.settings.home.navigation_bar {
-                            self.toggle_navigation_bar(Some(true), true, hub, context);
+                            self.toggle_navigation_bar(Some(true), true, rq, context);
                         } else if !context.settings.home.address_bar {
-                            self.toggle_address_bar(Some(true), true, hub, context);
+                            self.toggle_address_bar(Some(true), true, hub, rq, context);
                         }
                     },
                     Dir::North if self.children[self.shelf_index].rect().includes(start) &&
                                   self.children[0].rect().includes(end) => {
                         if context.settings.home.address_bar {
-                            self.toggle_address_bar(Some(false), true, hub, context);
+                            self.toggle_address_bar(Some(false), true, hub, rq, context);
                         } else if context.settings.home.navigation_bar {
-                            self.toggle_navigation_bar(Some(false), true, hub, context);
+                            self.toggle_navigation_bar(Some(false), true, rq, context);
                         }
                     },
                     _ => (),
@@ -1192,105 +1200,107 @@ impl View for Home {
             },
             Event::Gesture(GestureEvent::Arrow { dir, .. }) => {
                 match dir {
-                    Dir::West => self.go_to_page(0, hub, context),
+                    Dir::West => self.go_to_page(0, rq, context),
                     Dir::East => {
                         let pages_count = self.pages_count;
-                        self.go_to_page(pages_count.saturating_sub(1), hub, context);
+                        self.go_to_page(pages_count.saturating_sub(1), rq, context);
                     },
                     Dir::North => {
                         let path = context.library.home.clone();
-                        self.select_directory(&path, hub, context);
+                        self.select_directory(&path, hub, rq, context);
                     },
-                    Dir::South => self.toggle_search_bar(None, true, hub, context),
+                    Dir::South => self.toggle_search_bar(None, true, hub, rq, context),
                 };
                 true
             },
             Event::Focus(v) => {
-                self.focus = v;
-                if v.is_some() {
-                    self.toggle_keyboard(true, true, v, hub, context);
+                if self.focus != v {
+                    self.focus = v;
+                    if v.is_some() {
+                        self.toggle_keyboard(true, true, v, hub, rq, context);
+                    }
                 }
                 true
             },
             Event::Show(ViewId::Keyboard) => {
-                self.toggle_keyboard(true, true, None, hub, context);
+                self.toggle_keyboard(true, true, None, hub, rq, context);
                 true
             },
             Event::Toggle(ViewId::GoToPage) => {
-                self.toggle_go_to_page(None, hub, context);
+                self.toggle_go_to_page(None, hub, rq, context);
                 true
             },
             Event::Toggle(ViewId::SearchBar) => {
-                self.toggle_search_bar(None, true, hub, context);
+                self.toggle_search_bar(None, true, hub, rq, context);
                 true
             },
             Event::ToggleNear(ViewId::TitleMenu, rect) => {
-                self.toggle_sort_menu(rect, None, hub, context);
+                self.toggle_sort_menu(rect, None, rq, context);
                 true
             },
             Event::ToggleBookMenu(rect, index) => {
-                self.toggle_book_menu(index, rect, None, hub, context);
+                self.toggle_book_menu(index, rect, None, rq, context);
                 true
             },
             Event::ToggleNear(ViewId::MainMenu, rect) => {
-                toggle_main_menu(self, rect, None, hub, context);
+                toggle_main_menu(self, rect, None, rq, context);
                 true
             },
             Event::ToggleNear(ViewId::BatteryMenu, rect) => {
-                toggle_battery_menu(self, rect, None, hub, context);
+                toggle_battery_menu(self, rect, None, rq, context);
                 true
             },
             Event::ToggleNear(ViewId::ClockMenu, rect) => {
-                toggle_clock_menu(self, rect, None, hub, context);
+                toggle_clock_menu(self, rect, None, rq, context);
                 true
             },
             Event::ToggleNear(ViewId::LibraryMenu, rect) => {
-                self.toggle_library_menu(rect, None, hub, context);
+                self.toggle_library_menu(rect, None, rq, context);
                 true
             },
             Event::Close(ViewId::AddressBar) => {
-                self.toggle_address_bar(Some(false), true, hub, context);
+                self.toggle_address_bar(Some(false), true, hub, rq, context);
                 true
             },
             Event::Close(ViewId::SearchBar) => {
-                self.toggle_search_bar(Some(false), true, hub, context);
+                self.toggle_search_bar(Some(false), true, hub, rq, context);
                 true
             },
             Event::Close(ViewId::SortMenu) => {
-                self.toggle_sort_menu(Rectangle::default(), Some(false), hub, context);
+                self.toggle_sort_menu(Rectangle::default(), Some(false), rq, context);
                 true
             },
             Event::Close(ViewId::LibraryMenu) => {
-                self.toggle_library_menu(Rectangle::default(), Some(false), hub, context);
+                self.toggle_library_menu(Rectangle::default(), Some(false), rq, context);
                 true
             },
             Event::Close(ViewId::MainMenu) => {
-                toggle_main_menu(self, Rectangle::default(), Some(false), hub, context);
+                toggle_main_menu(self, Rectangle::default(), Some(false), rq, context);
                 true
             },
             Event::Close(ViewId::GoToPage) => {
-                self.toggle_go_to_page(Some(false), hub, context);
+                self.toggle_go_to_page(Some(false), hub, rq, context);
                 true
             },
             Event::Select(EntryId::Sort(sort_method)) => {
-                self.set_sort_method(sort_method, hub, context);
+                self.set_sort_method(sort_method, rq, context);
                 true
             },
             Event::Select(EntryId::ReverseOrder) => {
                 let next_value = !self.reverse_order;
-                self.set_reverse_order(next_value, hub, context);
+                self.set_reverse_order(next_value, rq, context);
                 true
             },
             Event::Select(EntryId::LoadLibrary(index)) => {
-                self.load_library(index, hub, context);
+                self.load_library(index, hub, rq, context);
                 true
             },
             Event::Select(EntryId::Import) => {
-                self.import(hub, context);
+                self.import(rq, context);
                 true
             },
             Event::Select(EntryId::CleanUp) => {
-                self.clean_up(hub, context);
+                self.clean_up(rq, context);
                 true
             },
             Event::Select(EntryId::Flush) => {
@@ -1299,43 +1309,44 @@ impl View for Home {
             },
             Event::AddDocument(ref info) => {
                 let info2 = info.clone();
-                self.add_document(*info2, hub, context);
+                self.add_document(*info2, rq, context);
                 true
             },
             Event::Select(EntryId::SetStatus(ref path, status)) => {
-                self.set_status(path, status, hub, context);
+                self.set_status(path, status, rq, context);
                 true
             },
             Event::Select(EntryId::FirstColumn(first_column)) => {
                 let selected_library = context.settings.selected_library;
                 context.settings.libraries[selected_library].first_column = first_column;
-                self.update_first_column(hub, context);
+                self.update_first_column(rq, context);
                 true
             },
             Event::Select(EntryId::SecondColumn(second_column)) => {
                 let selected_library = context.settings.selected_library;
                 context.settings.libraries[selected_library].second_column = second_column;
-                self.update_second_column(hub, context);
+                self.update_second_column(rq, context);
                 true
             },
             Event::Submit(ViewId::AddressBarInput, ref addr) => {
-                self.toggle_keyboard(false, true, None, hub, context);
-                self.select_directory(&Path::new(addr), hub, context);
+                self.toggle_keyboard(false, true, None, hub, rq, context);
+                self.select_directory(&Path::new(addr), hub, rq, context);
                 true
             },
             Event::Submit(ViewId::HomeSearchInput, ref text) => {
                 self.query = make_query(text);
                 if self.query.is_some() {
-                    self.toggle_keyboard(false, false, None, hub, context);
+                    self.toggle_keyboard(false, false, None, hub, rq, context);
                     // Render the search bar and its separator.
                     for i in self.shelf_index + 1 ..= self.shelf_index + 2 {
-                        hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                     }
-                    self.refresh_visibles(true, true, hub, context);
+                    self.refresh_visibles(true, true, rq, context);
                 } else {
                     let notif = Notification::new(ViewId::InvalidSearchQueryNotif,
                                                   "Invalid search query.".to_string(),
                                                   hub,
+                                                  rq,
                                                   context);
                     self.children.push(Box::new(notif) as Box<dyn View>);
                 }
@@ -1343,63 +1354,63 @@ impl View for Home {
             },
             Event::Submit(ViewId::GoToPageInput, ref text) => {
                 if text == "(" {
-                    self.go_to_page(0, hub, context);
+                    self.go_to_page(0, rq, context);
                 } else if text == ")" {
-                    self.go_to_page(self.pages_count.saturating_sub(1), hub, context);
+                    self.go_to_page(self.pages_count.saturating_sub(1), rq, context);
                 } else if text == "_" {
                     let index = (context.rng.next_u64() % self.pages_count as u64) as usize;
-                    self.go_to_page(index, hub, context);
+                    self.go_to_page(index, rq, context);
                 } else if let Ok(index) = text.parse::<usize>() {
-                    self.go_to_page(index.saturating_sub(1), hub, context);
+                    self.go_to_page(index.saturating_sub(1), rq, context);
                 }
                 true
             },
             Event::NavigationBarResized(_) => {
                 self.adjust_shelf_top_edge();
-                self.update_shelf(true, hub);
-                self.update_bottom_bar(hub, context);
+                self.update_shelf(true, rq);
+                self.update_bottom_bar(rq, context);
                 for i in self.shelf_index - 2..=self.shelf_index - 1 {
-                    hub.send(Event::Render(*self.child(i).rect(), UpdateMode::Gui)).ok();
+                    rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                 }
                 true
             },
             Event::Select(EntryId::ToggleShowHidden) => {
                 context.library.show_hidden = !context.library.show_hidden;
-                self.refresh_visibles(true, false, hub, context);
+                self.refresh_visibles(true, false, rq, context);
                 true
             },
             Event::SelectDirectory(ref path) |
             Event::Select(EntryId::SelectDirectory(ref path)) => {
-                self.select_directory(path, hub, context);
+                self.select_directory(path, hub, rq, context);
                 true
             },
             Event::ToggleSelectDirectory(ref path) |
             Event::Select(EntryId::ToggleSelectDirectory(ref path)) => {
-                self.toggle_select_directory(path, hub, context);
+                self.toggle_select_directory(path, hub, rq, context);
                 true
             },
             Event::GoTo(location) => {
-                self.go_to_page(location as usize, hub, context);
+                self.go_to_page(location as usize, rq, context);
                 true
             },
             Event::Chapter(dir) => {
                 let pages_count = self.pages_count;
                 match dir {
-                    CycleDir::Previous => self.go_to_page(0, hub, context),
-                    CycleDir::Next => self.go_to_page(pages_count.saturating_sub(1), hub, context),
+                    CycleDir::Previous => self.go_to_page(0, rq, context),
+                    CycleDir::Next => self.go_to_page(pages_count.saturating_sub(1), rq, context),
                 }
                 true
             },
             Event::Page(dir) => {
-                self.go_to_neighbor(dir, hub, context);
+                self.go_to_neighbor(dir, rq, context);
                 true
             },
             Event::Device(DeviceEvent::Button { code: ButtonCode::Backward, status: ButtonStatus::Pressed, .. }) => {
-                self.go_to_neighbor(CycleDir::Previous, hub, context);
+                self.go_to_neighbor(CycleDir::Previous, rq, context);
                 true
             },
             Event::Device(DeviceEvent::Button { code: ButtonCode::Forward, status: ButtonStatus::Pressed, .. }) => {
-                self.go_to_neighbor(CycleDir::Next, hub, context);
+                self.go_to_neighbor(CycleDir::Next, rq, context);
                 true
             },
             Event::Device(DeviceEvent::NetUp) => {
@@ -1413,12 +1424,12 @@ impl View for Home {
             Event::ToggleFrontlight => {
                 if let Some(index) = locate::<TopBar>(self) {
                     self.child_mut(index).downcast_mut::<TopBar>().unwrap()
-                        .update_frontlight_icon(hub, context);
+                        .update_frontlight_icon(rq, context);
                 }
                 true
             },
             Event::Reseed => {
-                self.reseed(hub, context);
+                self.reseed(hub, rq, context);
                 true
             },
             _ => false,
@@ -1428,24 +1439,23 @@ impl View for Home {
     fn render(&self, _fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
     }
 
-    fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
+    fn resize(&mut self, rect: Rectangle, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
         let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
                                           scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
-        let (tx, _rx) = mpsc::channel();
 
         self.children.retain(|child| !child.is::<Menu>());
 
         // Top bar.
         let top_bar_rect = rect![rect.min.x, rect.min.y,
                                  rect.max.x, rect.min.y + small_height - small_thickness];
-        self.children[0].resize(top_bar_rect, hub, context);
+        self.children[0].resize(top_bar_rect, hub, rq, context);
 
         let separator_rect = rect![rect.min.x, rect.min.y + small_height - small_thickness,
                                    rect.max.x, rect.min.y + small_height + big_thickness];
-        self.children[1].resize(separator_rect, hub, context);
+        self.children[1].resize(separator_rect, hub, rq, context);
 
         let mut shelf_min_y = rect.min.y + small_height + big_thickness;
         let mut index = 2;
@@ -1454,13 +1464,13 @@ impl View for Home {
         if context.settings.home.address_bar {
             self.children[index].resize(rect![rect.min.x, shelf_min_y,
                                               rect.max.x, shelf_min_y + small_height - thickness],
-                                        hub, context);
+                                        hub, rq, context);
             shelf_min_y += small_height - thickness;
             index += 1;
 
             self.children[index].resize(rect![rect.min.x, shelf_min_y,
                                               rect.max.x, shelf_min_y + thickness],
-                                        hub, context);
+                                        hub, rq, context);
             shelf_min_y += thickness;
             index += 1;
         }
@@ -1473,15 +1483,15 @@ impl View for Home {
             nav_bar.clear();
             nav_bar.resize(rect![rect.min.x, shelf_min_y,
                                  rect.max.x, shelf_min_y + small_height - thickness],
-                           hub, context);
+                           hub, rq, context);
             nav_bar.vertical_limit = rect.max.y - count * small_height - big_height - small_thickness;
-            nav_bar.set_path(&self.current_directory, &dirs, &tx, context);
+            nav_bar.set_path(&self.current_directory, &dirs, &mut RenderQueue::new(), context);
             shelf_min_y += nav_bar.rect().height() as i32;
             index += 1;
 
             self.children[index].resize(rect![rect.min.x, shelf_min_y,
                                               rect.max.x, shelf_min_y + thickness],
-                                        hub, context);
+                                        hub, rq, context);
             shelf_min_y += thickness;
         }
 
@@ -1491,11 +1501,11 @@ impl View for Home {
 
         let separator_rect = rect![rect.min.x, rect.max.y - small_height - small_thickness,
                                    rect.max.x, rect.max.y - small_height + big_thickness];
-        self.children[index-1].resize(separator_rect, hub, context);
+        self.children[index-1].resize(separator_rect, hub, rq, context);
 
         let bottom_bar_rect = rect![rect.min.x, rect.max.y - small_height + big_thickness,
                                     rect.max.x, rect.max.y];
-        self.children[index].resize(bottom_bar_rect, hub, context);
+        self.children[index].resize(bottom_bar_rect, hub, rq, context);
 
         let mut shelf_max_y = rect.max.y - small_height - small_thickness;
 
@@ -1507,11 +1517,11 @@ impl View for Home {
                                     rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                                     rect.max.x,
                                     rect.max.y - small_height - small_thickness];
-                self.children[index].resize(kb_rect, hub, context);
+                self.children[index].resize(kb_rect, hub, rq, context);
                 let s_max_y = self.children[index].rect().min.y;
                 self.children[index-1].resize(rect![rect.min.x, s_max_y - thickness,
                                                     rect.max.x, s_max_y],
-                                              hub, context);
+                                              hub, rq, context);
                 index -= 2;
             }
             // Search bar.
@@ -1521,8 +1531,8 @@ impl View for Home {
                                                   sp_rect.max.y,
                                                   rect.max.x,
                                                   sp_rect.max.y + small_height - thickness],
-                                            hub, context);
-                self.children[index-1].resize(sp_rect, hub, context);
+                                            hub, rq, context);
+                self.children[index-1].resize(sp_rect, hub, rq, context);
                 shelf_max_y -= small_height;
             }
         }
@@ -1530,18 +1540,18 @@ impl View for Home {
         // Shelf.
         let shelf_rect = rect![rect.min.x, shelf_min_y,
                                rect.max.x, shelf_max_y];
-        self.children[self.shelf_index].resize(shelf_rect, hub, context);
+        self.children[self.shelf_index].resize(shelf_rect, hub, rq, context);
 
-        self.update_shelf(true, &tx);
-        self.update_bottom_bar(&tx, context);
+        self.update_shelf(true, &mut RenderQueue::new());
+        self.update_bottom_bar(&mut RenderQueue::new(), context);
 
         // Floating windows.
         for i in bottom_bar_index+1..self.children.len() {
-            self.children[i].resize(rect, hub, context);
+            self.children[i].resize(rect, hub, rq, context);
         }
 
         self.rect = rect;
-        hub.send(Event::Render(self.rect, UpdateMode::Full)).ok();
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Full));
     }
 
     fn rect(&self) -> &Rectangle {
@@ -1558,5 +1568,9 @@ impl View for Home {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

@@ -1,3 +1,4 @@
+use std::fmt;
 use serde::{Serialize, Deserialize};
 use std::cmp::Ordering;
 use std::f32::consts;
@@ -56,6 +57,12 @@ pub struct Point {
 macro_rules! pt {
     ($x:expr, $y:expr $(,)* ) => ($crate::geom::Point::new($x, $y));
     ($a:expr) => ($crate::geom::Point::new($a, $a));
+}
+
+impl fmt::Display for Point {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -482,6 +489,12 @@ macro_rules! rect {
     ($min:expr, $max:expr $(,)* ) => ($crate::geom::Rectangle::new($min, $max));
 }
 
+impl fmt::Display for Rectangle {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[{}, {}, {}, {}]", self.min.x, self.min.y, self.max.x, self.max.y)
+    }
+}
+
 impl Rectangle {
     pub fn new(min: Point, max: Point) -> Rectangle {
         Rectangle {
@@ -539,6 +552,15 @@ impl Rectangle {
     pub fn overlaps(&self, rect: &Rectangle) -> bool {
         self.min.x < rect.max.x && rect.min.x < self.max.x &&
         self.min.y < rect.max.y && rect.min.y < self.max.y
+    }
+
+    pub fn touches(&self, rect: &Rectangle) -> bool {
+        ((self.min.x == rect.max.x || self.max.x == rect.min.x ||
+          self.min.x == rect.min.x || self.max.x == rect.max.x) &&
+         (self.max.y >= rect.min.y && self.min.y <= rect.max.y)) ||
+        ((self.min.y == rect.max.y || self.max.y == rect.min.y ||
+          self.min.y == rect.min.y || self.max.y == rect.max.y) &&
+         (self.max.x >= rect.min.x && self.min.x <= rect.max.x))
     }
 
     pub fn merge(&mut self, pt: Point) {

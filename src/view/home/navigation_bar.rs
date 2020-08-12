@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use fxhash::FxHashMap;
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::view::{View, Event, Hub, Bus};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use crate::view::{SMALL_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::unit::scale_by_dpi;
 use crate::view::filler::Filler;
@@ -16,6 +16,7 @@ use crate::geom::{Point, Rectangle, Dir};
 
 #[derive(Debug)]
 pub struct NavigationBar {
+    id: Id,
     pub rect: Rectangle,
     children: Vec<Box<dyn View>>,
     path: PathBuf,
@@ -25,8 +26,8 @@ pub struct NavigationBar {
 
 impl NavigationBar {
     pub fn new(rect: Rectangle, vertical_limit: i32, max_levels: usize) -> NavigationBar {
-
         NavigationBar {
+            id: ID_FEEDER.next(),
             rect,
             children: Vec::new(),
             path: PathBuf::default(),
@@ -39,7 +40,7 @@ impl NavigationBar {
         self.children.clear();
     }
 
-    pub fn set_path<P: AsRef<Path>>(&mut self, path: P, path_dirs: &BTreeSet<PathBuf>, hub: &Hub, context: &mut Context) {
+    pub fn set_path<P: AsRef<Path>>(&mut self, path: P, path_dirs: &BTreeSet<PathBuf>, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let min_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32 - thickness;
@@ -205,7 +206,7 @@ impl NavigationBar {
         }
 
         self.rect.max.y = self.children[self.children.len()-1].rect().max.y;
-        hub.send(Event::Render(self.rect, UpdateMode::Partial)).ok();
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Partial));
         self.path = path.as_ref().to_path_buf();
     }
 
@@ -317,7 +318,7 @@ fn guess_bar_size(dirs: &BTreeSet<PathBuf>) -> usize {
 }
 
 impl View for NavigationBar {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) if self.rect.includes(start) || self.rect.includes(end) => {
                 match dir {
@@ -355,5 +356,9 @@ impl View for NavigationBar {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

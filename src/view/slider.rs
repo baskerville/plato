@@ -2,7 +2,7 @@ use crate::device::CURRENT_DEVICE;
 use crate::unit::scale_by_dpi;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
-use super::{View, Event, Hub, Bus, SliderId, THICKNESS_SMALL};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, SliderId, THICKNESS_SMALL};
 use crate::color::{BLACK, WHITE, PROGRESS_VALUE, PROGRESS_FULL, PROGRESS_EMPTY};
 use crate::font::{Fonts, font_from_style, SLIDER_VALUE};
 use crate::geom::{Rectangle, BorderSpec, CornerSpec, halves};
@@ -12,9 +12,10 @@ const PROGRESS_HEIGHT: f32 = 7.0;
 const BUTTON_DIAMETER: f32 = 46.0;
 
 pub struct Slider {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
-    id: SliderId,
+    slider_id: SliderId,
     value: f32,
     min_value: f32,
     max_value: f32,
@@ -23,11 +24,12 @@ pub struct Slider {
 }
 
 impl Slider {
-    pub fn new(rect: Rectangle, id: SliderId, value: f32, min_value: f32, max_value: f32) -> Slider {
+    pub fn new(rect: Rectangle, slider_id: SliderId, value: f32, min_value: f32, max_value: f32) -> Slider {
         Slider {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
-            id,
+            slider_id,
             value,
             min_value,
             max_value,
@@ -48,31 +50,31 @@ impl Slider {
         self.value = self.min_value + progress * (self.max_value - self.min_value);
     }
 
-    pub fn update(&mut self, value: f32, hub: &Hub) {
+    pub fn update(&mut self, value: f32, rq: &mut RenderQueue) {
         if (self.value - value).abs() >= f32::EPSILON {
             self.value = value;
-            hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+            rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
         }
     }
 }
 
 impl View for Slider {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, position, .. }) => {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
                         self.update_value(position.x);
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
-                        bus.push_back(Event::Slider(self.id, self.value, status));
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+                        bus.push_back(Event::Slider(self.slider_id, self.value, status));
                         self.last_x = position.x;
                         true
                     },
                     FingerStatus::Motion if self.active && position.x != self.last_x => {
                         self.update_value(position.x);
-                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::FastMono)).ok();
-                        bus.push_back(Event::Slider(self.id, self.value, status));
+                        rq.add(RenderData::no_wait(self.id, self.rect, UpdateMode::FastMono));
+                        bus.push_back(Event::Slider(self.slider_id, self.value, status));
                         self.last_x = position.x;
                         true
                     },
@@ -82,8 +84,8 @@ impl View for Slider {
                             self.update_value(position.x);
                             self.last_x = position.x;
                         }
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
-                        bus.push_back(Event::Slider(self.id, self.value, status));
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+                        bus.push_back(Event::Slider(self.slider_id, self.value, status));
                         true
                     },
                     _ => self.active,
@@ -157,5 +159,9 @@ impl View for Slider {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

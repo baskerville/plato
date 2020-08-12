@@ -9,14 +9,16 @@ use crate::framebuffer::{Framebuffer, UpdateMode};
 use super::filler::Filler;
 use super::menu_entry::MenuEntry;
 use super::common::locate_by_id;
-use super::{View, Event, Hub, Bus, EntryKind, ViewId, CLOSE_IGNITION_DELAY};
+use super::{View, Event, Hub, Bus, RenderQueue, RenderData};
+use super::{EntryKind, ViewId, Id, ID_FEEDER, CLOSE_IGNITION_DELAY};
 use super::{SMALL_BAR_HEIGHT, THICKNESS_MEDIUM, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use crate::app::Context;
 
 pub struct Menu {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
-    id: ViewId,
+    view_id: ViewId,
     kind: MenuKind,
     center: Point,
     root: bool,
@@ -38,7 +40,8 @@ pub enum MenuKind {
 //     C     BOTTOM MENU
 
 impl Menu {
-    pub fn new(target: Rectangle, id: ViewId, kind: MenuKind, mut entries: Vec<EntryKind>, context: &mut Context) -> Menu {
+    pub fn new(target: Rectangle, view_id: ViewId, kind: MenuKind, mut entries: Vec<EntryKind>, context: &mut Context) -> Menu {
+        let id = ID_FEEDER.next();
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = context.display.dims;
@@ -214,9 +217,10 @@ impl Menu {
                          x_max, y_max];
 
         Menu {
+            id,
             rect,
             children,
-            id,
+            view_id,
             kind,
             center,
             root: true,
@@ -232,15 +236,15 @@ impl Menu {
 }
 
 impl View for Menu {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
             Event::Select(ref entry_id) if self.root => {
-                self.handle_event(&Event::PropagateSelect(entry_id.clone()), hub, bus, context);
+                self.handle_event(&Event::PropagateSelect(entry_id.clone()), hub, bus, rq, context);
                 false
             },
             Event::PropagateSelect(..) => {
                 for c in &mut self.children {
-                    if c.handle_event(evt, hub, bus, context) {
+                    if c.handle_event(evt, hub, bus, rq, context) {
                         break;
                     }
                 }
@@ -248,18 +252,18 @@ impl View for Menu {
             },
             Event::Validate if self.root => {
                 let hub2 = hub.clone();
-                let id = self.id;
+                let view_id = self.view_id;
                 thread::spawn(move || {
                     thread::sleep(CLOSE_IGNITION_DELAY);
-                    hub2.send(Event::Close(id)).ok();
+                    hub2.send(Event::Close(view_id)).ok();
                 });
                 true
             },
             Event::Gesture(GestureEvent::Tap(center)) if !self.rect.includes(center) => {
                 if self.root {
-                    bus.push_back(Event::Close(self.id));
+                    bus.push_back(Event::Close(self.view_id));
                 } else {
-                    bus.push_back(Event::CloseSub(self.id));
+                    bus.push_back(Event::CloseSub(self.view_id));
                 }
                 self.root
             },
@@ -267,14 +271,14 @@ impl View for Menu {
             Event::SubMenu(rect, ref entries) => {
                 let menu = Menu::new(rect, ViewId::SubMenu(self.sub_id),
                                      MenuKind::SubMenu, entries.clone(), context).root(false);
-                hub.send(Event::Render(*menu.rect(), UpdateMode::Gui)).ok();
+                rq.add(RenderData::new(menu.id(), *menu.rect(), UpdateMode::Gui));
                 self.children.push(Box::new(menu) as Box<dyn View>);
                 self.sub_id = self.sub_id.wrapping_add(1);
                 true
             },
             Event::CloseSub(id) => {
                 if let Some(index) = locate_by_id(self, id) {
-                    hub.send(Event::Expose(*self.children[index].rect(), UpdateMode::Gui)).ok();
+                    rq.add(RenderData::expose(*self.children[index].rect(), UpdateMode::Gui));
                     self.children.remove(index);
                 }
                 true
@@ -367,7 +371,11 @@ impl View for Menu {
         &mut self.children
     }
 
-    fn id(&self) -> Option<ViewId> {
-        Some(self.id)
+    fn id(&self) -> Id {
+        self.id
+    }
+
+    fn view_id(&self) -> Option<ViewId> {
+        Some(self.view_id)
     }
 }

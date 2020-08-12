@@ -1,10 +1,11 @@
 use crate::framebuffer::Framebuffer;
-use super::{View, Event, Hub, Bus};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue};
 use crate::geom::Rectangle;
 use crate::app::Context;
 use crate::font::Fonts;
 
 pub struct Filler {
+    id: Id,
     pub rect: Rectangle,
     children: Vec<Box<dyn View>>,
     color: u8,
@@ -13,6 +14,7 @@ pub struct Filler {
 impl Filler {
     pub fn new(rect: Rectangle, color: u8) -> Filler {
         Filler {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
             color,
@@ -21,12 +23,19 @@ impl Filler {
 }
 
 impl View for Filler {
-    fn handle_event(&mut self, _evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, _evt: &Event, _hub: &Hub, _bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         false
     }
 
-    fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
-        fb.draw_rectangle(&self.rect, self.color);
+    fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, _fonts: &mut Fonts) {
+        if let Some(r) = self.rect.intersection(&rect) {
+            fb.draw_rectangle(&r, self.color);
+        }
+    }
+
+    fn render_rect(&self, rect: &Rectangle) -> Rectangle {
+        rect.intersection(&self.rect)
+            .unwrap_or(self.rect)
     }
 
     fn rect(&self) -> &Rectangle {
@@ -43,5 +52,9 @@ impl View for Filler {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

@@ -2,7 +2,7 @@ use std::mem;
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::geom::{Rectangle, CornerSpec};
-use super::{View, Event, Hub, Bus, EntryKind};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, EntryKind};
 use super::icon::ICONS_PIXMAPS;
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::gesture::GestureEvent;
@@ -11,6 +11,7 @@ use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::app::Context;
 
 pub struct MenuEntry {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     kind: EntryKind,
@@ -22,6 +23,7 @@ pub struct MenuEntry {
 impl MenuEntry {
     pub fn new(rect: Rectangle, kind: EntryKind, anchor: Rectangle, corner_spec: Option<CornerSpec>) -> MenuEntry {
         MenuEntry {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
             kind,
@@ -31,29 +33,29 @@ impl MenuEntry {
         }
     }
 
-    pub fn update(&mut self, value: bool, hub: &Hub) {
+    pub fn update(&mut self, value: bool, rq: &mut RenderQueue) {
         if let Some(v) = self.kind.get() {
             if v != value {
                 self.kind.set(value);
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
             }
         }
     }
 }
 
 impl View for MenuEntry {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, position, .. }) => {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
-                        hub.send(Event::Render(self.rect, UpdateMode::Fast)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Fast));
                         true
                     },
                     FingerStatus::Up if self.active => {
                         self.active = false;
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                         true
                     },
                     _ => false,
@@ -64,11 +66,11 @@ impl View for MenuEntry {
                 match self.kind {
                     EntryKind::CheckBox(_, _, ref mut value) => {
                         *value = !*value;
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                     },
                     EntryKind::RadioButton(_, _, ref mut value) if !*value => {
                         *value = true;
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                     },
                     _ => (),
                 };
@@ -96,7 +98,7 @@ impl View for MenuEntry {
                     EntryKind::RadioButton(_, ref id, ref mut value) if *value => {
                         if mem::discriminant(id) == mem::discriminant(other_id) && id != other_id {
                             *value = false;
-                            hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                            rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                             true
                         } else {
                             false
@@ -166,5 +168,9 @@ impl View for MenuEntry {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

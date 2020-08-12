@@ -5,7 +5,7 @@ use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::gesture::GestureEvent;
 use crate::input::DeviceEvent;
-use super::{View, Event, Hub, Bus, KeyboardEvent, EntryId, TextKind};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, KeyboardEvent, EntryId, TextKind};
 use super::key::{Key, KeyKind};
 use super::BIG_BAR_HEIGHT;
 use crate::color::KEYBOARD_BG;
@@ -34,6 +34,7 @@ pub struct State {
 }
 
 pub struct Keyboard {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     layout: Layout,
@@ -43,6 +44,7 @@ pub struct Keyboard {
 
 impl Keyboard {
     pub fn new(rect: &mut Rectangle, number: bool, context: &mut Context) -> Keyboard {
+        let id = ID_FEEDER.next();
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
 
@@ -110,6 +112,7 @@ impl Keyboard {
         }
 
         Keyboard {
+            id,
             rect: *rect,
             children,
             layout,
@@ -118,7 +121,7 @@ impl Keyboard {
         }
     }
 
-    fn update(&mut self, hub: &Hub) {
+    fn update(&mut self, rq: &mut RenderQueue) {
         let mut level = 0;
 
         if self.state.shift > 0 {
@@ -138,7 +141,7 @@ impl Keyboard {
                 if kind.is_variable_output() {
                     if let Some(child) = self.children[index].downcast_mut::<Key>() {
                         let ch = self.layout.outputs[level][i][j-dj];
-                        child.update(KeyKind::Output(ch), hub);
+                        child.update(KeyKind::Output(ch), rq);
                     }
                 } else {
                     dj = j + 1;
@@ -148,7 +151,7 @@ impl Keyboard {
         }
     }
 
-    fn release_modifiers(&mut self, hub: &Hub) {
+    fn release_modifiers(&mut self, rq: &mut RenderQueue) {
         if self.state.shift != 1 && self.state.alternate != 1 {
             return;
         }
@@ -158,7 +161,7 @@ impl Keyboard {
             for child in self.children_mut() {
                 if let Some(key) = child.downcast_mut::<Key>() {
                     if *key.kind() == KeyKind::Shift {
-                        key.release(hub);
+                        key.release(rq);
                         break;
                     }
                 }
@@ -170,23 +173,23 @@ impl Keyboard {
             for child in self.children_mut() {
                 if let Some(key) = child.downcast_mut::<Key>() {
                     if *key.kind() == KeyKind::Alternate {
-                        key.release(hub);
+                        key.release(rq);
                         break;
                     }
                 }
             }
         }
 
-        self.update(hub);
+        self.update(rq);
     }
 
-    fn release_combine(&mut self, hub: &Hub) {
+    fn release_combine(&mut self, rq: &mut RenderQueue) {
         self.state.combine = false;
         self.combine_buffer.clear();
         for child in self.children_mut() {
             if let Some(key) = child.downcast_mut::<Key>() {
                 if *key.kind() == KeyKind::Combine {
-                    key.release(hub);
+                    key.release(rq);
                     break;
                 }
             }
@@ -196,7 +199,7 @@ impl Keyboard {
 }
 
 impl View for Keyboard {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
             Event::Key(k) => {
                 match k {
@@ -208,32 +211,32 @@ impl View for Keyboard {
                                 if let Some(&ch) = DEFAULT_COMBINATIONS.get(&self.combine_buffer[..]) {
                                     hub.send(Event::Keyboard(KeyboardEvent::Append(ch))).ok();
                                 }
-                                self.release_combine(hub);
+                                self.release_combine(rq);
                             }
                         } else {
                             hub.send(Event::Keyboard(KeyboardEvent::Append(ch))).ok();
                         }
                         if ch != ' ' {
-                            self.release_modifiers(hub);
+                            self.release_modifiers(rq);
                         }
                     }
                     KeyKind::Shift => {
                         self.state.shift = (self.state.shift + 1) % 3;
                         if self.state.shift != 2 {
-                            self.update(hub);
+                            self.update(rq);
                         }
                     },
                     KeyKind::Alternate => {
                         self.state.alternate = (self.state.alternate + 1) % 3;
                         if self.state.alternate != 2 {
-                            self.update(hub);
+                            self.update(rq);
                         }
                     },
                     KeyKind::Delete(dir) => { hub.send(Event::Keyboard(KeyboardEvent::Delete { target: TextKind::Char, dir })).ok(); },
                     KeyKind::Move(dir) => { hub.send(Event::Keyboard(KeyboardEvent::Move { target: TextKind::Char, dir })).ok(); },
                     KeyKind::Combine => self.state.combine = !self.state.combine,
                     KeyKind::Return => {
-                        self.release_combine(hub);
+                        self.release_combine(rq);
                         hub.send(Event::Keyboard(KeyboardEvent::Submit)).ok();
                     }
                 };
@@ -245,7 +248,7 @@ impl View for Keyboard {
                     // FIXME: the keyboard's height might change, in which case,
                     // we shall notify the root view.
                     *self = Keyboard::new(&mut self.rect, self.state.alternate == 2, context);
-                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                    rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                 }
                 true
             },
@@ -284,7 +287,7 @@ impl View for Keyboard {
             .unwrap_or(self.rect)
     }
 
-    fn resize(&mut self, mut rect: Rectangle, hub: &Hub, context: &mut Context) {
+    fn resize(&mut self, mut rect: Rectangle, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let max_width = self.layout.widths.iter().map(|row| (row.len() + 1) as f32 * PADDING_RATIO + row.iter().sum::<f32>())
                             .max_by(|a, b| a.partial_cmp(&b).expect("Found NaNs"))
@@ -318,7 +321,7 @@ impl View for Keyboard {
                                      y.round() as i32,
                                      (x + key_width).round() as i32,
                                      (y + key_height).round() as i32];
-                self.children[index].resize(key_rect, hub, context);
+                self.children[index].resize(key_rect, hub, rq, context);
                 index += 1;
             }
         }
@@ -345,6 +348,10 @@ impl View for Keyboard {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }
 

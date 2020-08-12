@@ -1,6 +1,6 @@
 use super::book::Book;
 use crate::device::CURRENT_DEVICE;
-use crate::view::{View, Event, Hub, Bus};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use crate::view::{BIG_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::view::filler::Filler;
 use crate::framebuffer::{Framebuffer, UpdateMode};
@@ -15,6 +15,7 @@ use crate::font::Fonts;
 use crate::app::Context;
 
 pub struct Shelf {
+    id: Id,
     pub rect: Rectangle,
     children: Vec<Box<dyn View>>,
     pub max_lines: usize,
@@ -29,6 +30,7 @@ impl Shelf {
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let max_lines = ((rect.height() as i32 + thickness) / big_height) as usize;
         Shelf {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
             max_lines,
@@ -45,7 +47,7 @@ impl Shelf {
         self.second_column = second_column;
     }
 
-    pub fn update(&mut self, metadata: &[Info], hub: &Hub) {
+    pub fn update(&mut self, metadata: &[Info], rq: &mut RenderQueue) {
         self.children.clear();
         let dpi = CURRENT_DEVICE.dpi;
         let big_height = scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32;
@@ -83,12 +85,12 @@ impl Shelf {
         }
 
         self.max_lines = max_lines;
-        hub.send(Event::Render(self.rect, UpdateMode::Partial)).ok();
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Partial));
     }
 }
 
 impl View for Shelf {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Swipe { dir, start, .. }) if self.rect.includes(start) => {
                 match dir {
@@ -124,5 +126,9 @@ impl View for Shelf {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

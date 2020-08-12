@@ -2,7 +2,7 @@ use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::geom::{Rectangle, BorderSpec, CornerSpec};
 use crate::color::{BLACK, WHITE, BATTERY_FILL};
-use super::{View, ViewId, Event, Hub, Bus};
+use super::{View, ViewId, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use super::THICKNESS_LARGE;
 use super::icon::ICONS_PIXMAPS;
 use crate::gesture::GestureEvent;
@@ -18,6 +18,7 @@ const BUMP_HEIGHT: f32 = 14.0;
 const EDGE_WIDTH: f32 = 2.0;
 
 pub struct Battery {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     status: Status,
@@ -27,6 +28,7 @@ pub struct Battery {
 impl Battery {
     pub fn new(rect: Rectangle, capacity: f32, status: Status) -> Battery {
         Battery {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
             capacity,
@@ -36,12 +38,12 @@ impl Battery {
 }
 
 impl View for Battery {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
             Event::BatteryTick => {
                 self.capacity = context.battery.capacity().unwrap_or(self.capacity);
                 self.status = context.battery.status().unwrap_or(self.status);
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                 true
             },
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
@@ -131,5 +133,9 @@ impl View for Battery {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

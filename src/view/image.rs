@@ -1,11 +1,12 @@
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
-use crate::view::{View, Event, Hub, Bus};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use crate::color::WHITE;
 use crate::geom::Rectangle;
 use crate::app::Context;
 use crate::font::Fonts;
 
 pub struct Image {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     pixmap: Pixmap,
@@ -14,20 +15,21 @@ pub struct Image {
 impl Image {
     pub fn new(rect: Rectangle, pixmap: Pixmap) -> Image {
         Image {
+            id: ID_FEEDER.next(),
             rect,
             children: Vec::new(),
             pixmap,
         }
     }
 
-    pub fn update(&mut self, pixmap: Pixmap, hub: &Hub) {
+    pub fn update(&mut self, pixmap: Pixmap, rq: &mut RenderQueue) {
         self.pixmap = pixmap;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
     }
 }
 
 impl View for Image {
-    fn handle_event(&mut self, _evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, _evt: &Event, _hub: &Hub, _bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         false
     }
 
@@ -73,5 +75,9 @@ impl View for Image {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

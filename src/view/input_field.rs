@@ -1,6 +1,6 @@
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use super::{View, Event, Hub, Bus, KeyboardEvent, ViewId, EntryId, TextKind};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, KeyboardEvent, ViewId, EntryId, TextKind};
 use super::THICKNESS_MEDIUM;
 use crate::gesture::GestureEvent;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE, FONT_SIZES};
@@ -10,9 +10,10 @@ use crate::app::Context;
 use crate::unit::scale_by_dpi;
 
 pub struct InputField {
+    id: Id,
     pub rect: Rectangle,
     children: Vec<Box<dyn View>>,
-    id: ViewId,
+    view_id: ViewId,
     text: String,
     partial: String,
     placeholder: String,
@@ -76,11 +77,12 @@ fn word_boundary(text: &str, index: usize, dir: LinearDir) -> usize {
 
 // TODO: hidden chars (password…)
 impl InputField {
-    pub fn new(rect: Rectangle, id: ViewId) -> InputField {
+    pub fn new(rect: Rectangle, view_id: ViewId) -> InputField {
         InputField {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
-            id,
+            view_id,
             text: "".to_string(),
             partial: "".to_string(),
             placeholder: "".to_string(),
@@ -103,18 +105,18 @@ impl InputField {
     pub fn text(mut self, text: &str, context: &mut Context) -> InputField {
         self.text = text.to_string();
         self.cursor = self.text.len();
-        context.record_input(text, self.id);
+        context.record_input(text, self.view_id);
         self
     }
 
-    pub fn set_text(&mut self, text: &str, move_cursor: bool, hub: &Hub, context: &mut Context) {
+    pub fn set_text(&mut self, text: &str, move_cursor: bool, rq: &mut RenderQueue, context: &mut Context) {
         if self.text != text {
             self.text = text.to_string();
-            context.record_input(text, self.id);
+            context.record_input(text, self.view_id);
             if move_cursor {
                 self.cursor = self.text.len();
             }
-            hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+            rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
         }
     }
 
@@ -196,28 +198,28 @@ impl InputField {
 }
 
 impl View for InputField {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 if !self.focused {
-                    hub.send(Event::Focus(Some(self.id))).ok();
+                    hub.send(Event::Focus(Some(self.view_id))).ok();
                 } else {
                     let index = self.index_from_position(center, &mut context.fonts);
                     self.cursor = self.text.char_indices().nth(index)
                                       .map(|(i, _)| i).unwrap_or_else(|| self.text.len());
-                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                    rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                 }
                 true
             },
             Event::Gesture(GestureEvent::HoldFingerShort(center, _)) if self.rect.includes(center) => {
-                hub.send(Event::ToggleInputHistoryMenu(self.id, self.rect)).ok();
+                hub.send(Event::ToggleInputHistoryMenu(self.view_id, self.rect)).ok();
                 true
             },
             Event::Focus(id_opt) => {
-                let focused = id_opt.is_some() && id_opt.unwrap() == self.id;
+                let focused = id_opt.is_some() && id_opt.unwrap() == self.view_id;
                 if self.focused != focused {
                     self.focused = focused;
-                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                    rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                 }
                 false
             },
@@ -248,18 +250,18 @@ impl View for InputField {
                         }
                     },
                     KeyboardEvent::Submit => {
-                        bus.push_back(Event::Submit(self.id, self.text.clone()));
-                        context.record_input(&self.text, self.id);
+                        bus.push_back(Event::Submit(self.view_id, self.text.clone()));
+                        context.record_input(&self.text, self.view_id);
                     },
                 };
-                hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).ok();
+                rq.add(RenderData::no_wait(self.id, self.rect, UpdateMode::Gui));
                 true
             },
-            Event::Select(EntryId::SetInputText(id, ref text)) => {
-                if self.id == id {
-                    self.set_text(text, true, hub, context);
+            Event::Select(EntryId::SetInputText(view_id, ref text)) => {
+                if self.view_id == view_id {
+                    self.set_text(text, true, rq, context);
                     if !self.focused {
-                        bus.push_back(Event::Submit(self.id, self.text.clone()));
+                        bus.push_back(Event::Submit(self.view_id, self.text.clone()));
                     }
                     true
                 } else {
@@ -349,5 +351,9 @@ impl View for InputField {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

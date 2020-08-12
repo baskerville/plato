@@ -1,6 +1,6 @@
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use super::{View, Event, Hub, Bus};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use super::THICKNESS_MEDIUM;
 use super::icon::ICONS_PIXMAPS;
 use crate::gesture::GestureEvent;
@@ -12,6 +12,7 @@ use crate::geom::{Rectangle, CornerSpec, BorderSpec};
 use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 
 pub struct RoundedButton {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     name: String,
@@ -22,6 +23,7 @@ pub struct RoundedButton {
 impl RoundedButton {
     pub fn new(name: &str, rect: Rectangle, event: Event) -> RoundedButton {
         RoundedButton {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
             name: name.to_string(),
@@ -32,18 +34,18 @@ impl RoundedButton {
 }
 
 impl View for RoundedButton {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, position, .. }) => {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
-                        hub.send(Event::Render(self.rect, UpdateMode::Fast)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Fast));
                         true
                     },
                     FingerStatus::Up if self.active => {
                         self.active = false;
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                         true
                     },
                     _ => false,
@@ -96,5 +98,9 @@ impl View for RoundedButton {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

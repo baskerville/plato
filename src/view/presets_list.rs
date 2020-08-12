@@ -2,7 +2,7 @@ use crate::device::CURRENT_DEVICE;
 use crate::geom::{Rectangle, Dir, CycleDir};
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use super::{View, Event, Hub, Bus};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use super::preset::{Preset, PresetKind};
 use crate::gesture::GestureEvent;
 use crate::settings::LightPreset;
@@ -10,6 +10,7 @@ use crate::color::WHITE;
 use crate::app::Context;
 
 pub struct PresetsList {
+    id: Id,
     rect: Rectangle,
     pages: Vec<Vec<Box<dyn View>>>,
     current_page: usize,
@@ -18,13 +19,14 @@ pub struct PresetsList {
 impl PresetsList {
     pub fn new(rect: Rectangle) -> PresetsList {
         PresetsList {
+            id: ID_FEEDER.next(),
             rect,
             pages: vec![],
             current_page: 0,
         }
     }
 
-    pub fn update(&mut self, presets: &[LightPreset], hub: &Hub, fonts: &mut Fonts) {
+    pub fn update(&mut self, presets: &[LightPreset], rq: &mut RenderQueue, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let x_height = font.x_heights.0 as i32;
@@ -72,7 +74,7 @@ impl PresetsList {
 
         self.current_page = self.current_page.min(self.pages.len().saturating_sub(1));
 
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
     }
 
     pub fn set_current_page(&mut self, dir: CycleDir) {
@@ -89,18 +91,18 @@ impl PresetsList {
 }
 
 impl View for PresetsList {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Swipe { dir, start, .. }) if self.rect.includes(start) => {
                 match dir {
                     Dir::West => {
                         self.set_current_page(CycleDir::Next);
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                         true
                     },
                     Dir::East => {
                         self.set_current_page(CycleDir::Previous);
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                         true
                     },
                     _ => false,
@@ -108,7 +110,7 @@ impl View for PresetsList {
             },
             Event::Page(dir) => {
                 self.set_current_page(dir);
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                 true
             },
             _ => false,
@@ -137,5 +139,9 @@ impl View for PresetsList {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.pages[self.current_page]
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

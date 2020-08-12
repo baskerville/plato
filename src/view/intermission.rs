@@ -3,12 +3,13 @@ use crate::device::CURRENT_DEVICE;
 use crate::document::pdf::PdfOpener;
 use crate::geom::Rectangle;
 use crate::font::{Fonts, font_from_style, DISPLAY_STYLE};
-use super::{View, Event, Hub, Bus};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue};
 use crate::framebuffer::Framebuffer;
 use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::app::Context;
 
 pub struct Intermission {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     message: Message,
@@ -62,8 +63,9 @@ impl Intermission {
             Message::Text(kind.text().to_string())
         };
         Intermission {
+            id: ID_FEEDER.next(),
             rect,
-            children: vec![],
+            children: Vec::new(),
             message,
             halt: kind == IntermKind::PowerOff,
         }
@@ -71,7 +73,7 @@ impl Intermission {
 }
 
 impl View for Intermission {
-    fn handle_event(&mut self, _evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, _evt: &Event, _hub: &Hub, _bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         true
     }
 
@@ -155,5 +157,9 @@ impl View for Intermission {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

@@ -4,10 +4,11 @@ use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::gesture::GestureEvent;
 use crate::color::{BLACK, WHITE};
 use crate::geom::{Rectangle};
-use crate::view::{View, Event, Hub, Bus, ViewId};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId};
 use crate::app::Context;
 
 pub struct LibraryLabel {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     name: String,
@@ -18,6 +19,7 @@ pub struct LibraryLabel {
 impl LibraryLabel {
     pub fn new(rect: Rectangle, name: &str, count: usize, filter: bool)  -> LibraryLabel {
         LibraryLabel {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
             name: name.to_string(),
@@ -26,13 +28,23 @@ impl LibraryLabel {
         }
     }
 
-    pub fn update(&mut self, name: &str, count: usize, filter: bool, hub: &Hub) {
+    pub fn update(&mut self, name: &str, count: usize, filter: bool, rq: &mut RenderQueue) {
+        let mut render = false;
         if self.name != name {
             self.name = name.to_string();
+            render = true;
         }
-        self.count = count;
-        self.filter = filter;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+        if self.count != count {
+            self.count = count;
+            render = true;
+        }
+        if self.filter != filter {
+            self.filter = filter;
+            render = true;
+        }
+        if render {
+            rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+        }
     }
 
     fn text(&self) -> String {
@@ -60,7 +72,7 @@ impl LibraryLabel {
 
 
 impl View for LibraryLabel {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 bus.push_back(Event::ToggleNear(ViewId::LibraryMenu, self.rect));
@@ -97,5 +109,9 @@ impl View for LibraryLabel {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

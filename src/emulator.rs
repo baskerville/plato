@@ -39,7 +39,7 @@ use sdl2::rect::Rect as SdlRect;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::view::{View, Event, ViewId, EntryId, AppCmd, EntryKind};
-use crate::view::{render, render_region, render_no_wait, render_no_wait_region, handle_event, expose};
+use crate::view::{process_render_queue, handle_event, RenderQueue, RenderData};
 use crate::view::home::Home;
 use crate::view::reader::Reader;
 use crate::view::notification::Notification;
@@ -248,7 +248,8 @@ fn main() -> Result<(), Error> {
     });
 
     let mut history: Vec<Box<dyn View>> = Vec::new();
-    let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &tx, &mut context)?);
+    let mut rq = RenderQueue::new();
+    let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &mut rq, &mut context)?);
 
     let mut updating = FxHashMap::default();
 
@@ -273,9 +274,9 @@ fn main() -> Result<(), Error> {
             match sdl_evt {
                 SdlEvent::Quit { .. } |
                 SdlEvent::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                    view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut context);
+                    view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
                     while let Some(mut view) = history.pop() {
-                        view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut context);
+                        view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
                     }
                     break;
                 },
@@ -302,36 +303,6 @@ fn main() -> Result<(), Error> {
 
         while let Ok(evt) = rx.recv_timeout(Duration::from_millis(20)) {
             match evt {
-                Event::Render(mut rect, mode) => {
-                    render(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
-                    if let Ok(tok) = context.fb.update(&rect, mode) {
-                        updating.insert(tok, rect);
-                    }
-                },
-                Event::RenderRegion(mut rect, mode) => {
-                    render_region(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
-                    if let Ok(tok) = context.fb.update(&rect, mode) {
-                        updating.insert(tok, rect);
-                    }
-                },
-                Event::RenderNoWait(mut rect, mode) => {
-                    render_no_wait(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
-                    if let Ok(tok) = context.fb.update(&rect, mode) {
-                        updating.insert(tok, rect);
-                    }
-                },
-                Event::RenderNoWaitRegion(mut rect, mode) => {
-                    render_no_wait_region(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
-                    if let Ok(tok) = context.fb.update(&rect, mode) {
-                        updating.insert(tok, rect);
-                    }
-                },
-                Event::Expose(mut rect, mode) => {
-                    expose(view.as_ref(), &mut rect, context.fb.as_mut(), &mut context.fonts, &mut updating);
-                    if let Ok(tok) = context.fb.update(&rect, mode) {
-                        updating.insert(tok, rect);
-                    }
-                },
                 Event::Open(info) => {
                     let rotation = context.display.rotation;
                     if let Some(n) = info.reader.as_ref()
@@ -346,7 +317,7 @@ fn main() -> Result<(), Error> {
                     let info2 = info.clone();
                     if let Some(r) = Reader::new(context.fb.rect(), *info, &tx, &mut context) {
                         let mut next_view = Box::new(r) as Box<dyn View>;
-                        transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
+                        transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);
                         history.push(view as Box<dyn View>);
                         view = next_view;
                     } else {
@@ -356,13 +327,13 @@ fn main() -> Result<(), Error> {
                                 context.display.dims = dims;
                             }
                         }
-                        handle_event(view.as_mut(), &Event::Invalid(info2), &tx, &mut bus, &mut context);
+                        handle_event(view.as_mut(), &Event::Invalid(info2), &tx, &mut bus, &mut rq, &mut context);
                     }
                 },
                 Event::OpenToc(ref toc, chap_index) => {
                     let r = Reader::from_toc(context.fb.rect(), toc, chap_index, &tx, &mut context);
                     let mut next_view = Box::new(r) as Box<dyn View>;
-                    transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
+                    transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);
                     history.push(view as Box<dyn View>);
                     view = next_view;
                 },
@@ -370,16 +341,16 @@ fn main() -> Result<(), Error> {
                     view.children_mut().retain(|child| !child.is::<Menu>());
                     let mut next_view: Box<dyn View> = match app_cmd {
                         AppCmd::Sketch => {
-                            Box::new(Sketch::new(context.fb.rect(), &tx, &mut context))
+                            Box::new(Sketch::new(context.fb.rect(), &mut rq, &mut context))
                         },
                         AppCmd::Calculator => {
-                            Box::new(Calculator::new(context.fb.rect(), &tx, &mut context)?)
+                            Box::new(Calculator::new(context.fb.rect(), &tx, &mut rq, &mut context)?)
                         },
                         AppCmd::Dictionary { ref query, ref language } => {
-                            Box::new(Dictionary::new(context.fb.rect(), query, language, &tx, &mut context))
+                            Box::new(Dictionary::new(context.fb.rect(), query, language, &tx, &mut rq, &mut context))
                         },
                     };
-                    transfer_notifications(view.as_mut(), next_view.as_mut(), &mut context);
+                    transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);
                     history.push(view as Box<dyn View>);
                     view = next_view;
                 },
@@ -394,53 +365,53 @@ fn main() -> Result<(), Error> {
                                 }
                             }
                         }
-                        view.handle_event(&Event::Reseed, &tx, &mut bus, &mut context);
+                        view.handle_event(&Event::Reseed, &tx, &mut bus, &mut rq, &mut context);
                     }
                 },
                 Event::TogglePresetMenu(rect, index) => {
                     if let Some(index) = locate_by_id(view.as_ref(), ViewId::PresetMenu) {
                         let rect = *view.child(index).rect();
                         view.children_mut().remove(index);
-                        tx.send(Event::Expose(rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::expose(rect, UpdateMode::Gui));
                     } else {
                         let preset_menu = Menu::new(rect, ViewId::PresetMenu, MenuKind::Contextual,
                                                     vec![EntryKind::Command("Remove".to_string(),
                                                                             EntryId::RemovePreset(index))],
                                                     &mut context);
-                        tx.send(Event::Render(*preset_menu.rect(), UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(preset_menu.id(), *preset_menu.rect(), UpdateMode::Gui));
                         view.children_mut().push(Box::new(preset_menu) as Box<dyn View>);
                     }
                 },
                 Event::Show(ViewId::Frontlight) => {
                     if !context.settings.frontlight {
                         context.set_frontlight(true);
-                        view.handle_event(&Event::ToggleFrontlight, &tx, &mut bus, &mut context);
+                        view.handle_event(&Event::ToggleFrontlight, &tx, &mut bus, &mut rq, &mut context);
                     }
                     let flw = FrontlightWindow::new(&mut context);
-                    tx.send(Event::Render(*flw.rect(), UpdateMode::Gui)).ok();
+                    rq.add(RenderData::new(flw.id(), *flw.rect(), UpdateMode::Gui));
                     view.children_mut().push(Box::new(flw) as Box<dyn View>);
                 },
                 Event::ToggleFrontlight => {
                     context.set_frontlight(!context.settings.frontlight);
-                    view.handle_event(&Event::ToggleFrontlight, &tx, &mut bus, &mut context);
+                    view.handle_event(&Event::ToggleFrontlight, &tx, &mut bus, &mut rq, &mut context);
                 },
                 Event::ToggleInputHistoryMenu(id, rect) => {
-                    toggle_input_history_menu(view.as_mut(), id, rect, None, &tx, &mut context);
+                    toggle_input_history_menu(view.as_mut(), id, rect, None, &mut rq, &mut context);
                 },
                 Event::ToggleNear(ViewId::KeyboardLayoutMenu, rect) => {
-                    toggle_keyboard_layout_menu(view.as_mut(), rect, None, &tx, &mut context);
+                    toggle_keyboard_layout_menu(view.as_mut(), rect, None, &mut rq, &mut context);
                 },
                 Event::Close(ViewId::Frontlight) => {
                     if let Some(index) = locate::<FrontlightWindow>(view.as_ref()) {
                         let rect = *view.child(index).rect();
                         view.children_mut().remove(index);
-                        tx.send(Event::Expose(rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::expose(rect, UpdateMode::Gui));
                     }
                 },
                 Event::Close(id) => {
                     if let Some(index) = locate_by_id(view.as_ref(), id) {
                         let rect = overlapping_rectangle(view.child(index));
-                        tx.send(Event::Expose(rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::expose(rect, UpdateMode::Gui));
                         view.children_mut().remove(index);
                     }
                 },
@@ -451,7 +422,7 @@ fn main() -> Result<(), Error> {
                         let fb_rect = Rectangle::from(dims);
                         if context.display.dims != dims {
                             context.display.dims = dims;
-                            view.resize(fb_rect, &tx, &mut context);
+                            view.resize(fb_rect, &tx, &mut rq, &mut context);
                         }
                     }
                 },
@@ -460,11 +431,11 @@ fn main() -> Result<(), Error> {
                 },
                 Event::Select(EntryId::ToggleInverted) => {
                     context.fb.toggle_inverted();
-                    tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).ok();
+                    rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Gui));
                 },
                 Event::Select(EntryId::ToggleMonochrome) => {
                     context.fb.toggle_monochrome();
-                    tx.send(Event::Render(context.fb.rect(), UpdateMode::Gui)).ok();
+                    rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Gui));
                 },
                 Event::Select(EntryId::TakeScreenshot) => {
                     let name = Local::now().format("screenshot-%Y%m%d_%H%M%S.png");
@@ -473,20 +444,20 @@ fn main() -> Result<(), Error> {
                         Ok(_) => format!("Saved {}.", name),
                     };
                     let notif = Notification::new(ViewId::TakeScreenshotNotif,
-                                                  msg, &tx, &mut context);
+                                                  msg, &tx, &mut rq, &mut context);
                     view.children_mut().push(Box::new(notif) as Box<dyn View>);
                 },
                 Event::Notify(msg) => {
                     let notif = Notification::new(ViewId::MessageNotif,
-                                                  msg, &tx, &mut context);
+                                                  msg, &tx, &mut rq, &mut context);
                     view.children_mut().push(Box::new(notif) as Box<dyn View>);
                 },
                 Event::AddDocument(..) => {
                     if view.is::<Home>() {
-                        view.handle_event(&evt, &tx, &mut bus, &mut context);
+                        view.handle_event(&evt, &tx, &mut bus, &mut rq, &mut context);
                     } else {
                         let (tx, _rx) = mpsc::channel();
-                        history[0].handle_event(&evt, &tx, &mut VecDeque::new(), &mut context);
+                        history[0].handle_event(&evt, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
                     };
                 },
                 Event::SetWifi(enable) => {
@@ -505,10 +476,10 @@ fn main() -> Result<(), Error> {
                 },
                 Event::Device(DeviceEvent::NetUp) => {
                     if view.is::<Home>() {
-                        view.handle_event(&evt, &tx, &mut bus, &mut context);
+                        view.handle_event(&evt, &tx, &mut bus, &mut rq, &mut context);
                     } else {
                         let (tx, _rx) = mpsc::channel();
-                        history[0].handle_event(&evt, &tx, &mut VecDeque::new(), &mut context);
+                        history[0].handle_event(&evt, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
                     };
                 },
                 Event::Device(DeviceEvent::RotateScreen(n)) => {
@@ -518,21 +489,23 @@ fn main() -> Result<(), Error> {
                     break 'outer;
                 },
                 _ => {
-                    handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut context);
+                    handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut rq, &mut context);
                 },
             }
+        }
 
-            while let Some(ce) = bus.pop_front() {
-                tx.send(ce).ok();
-            }
+        process_render_queue(view.as_ref(), &mut rq, &mut context, &mut updating);
+
+        while let Some(ce) = bus.pop_front() {
+            tx.send(ce).ok();
         }
     }
 
     if !history.is_empty() {
         let (tx, _rx) = mpsc::channel();
-        view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut context);
+        view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
         while let Some(mut view) = history.pop() {
-            view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut context);
+            view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
         }
     }
 

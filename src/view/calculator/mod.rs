@@ -4,7 +4,6 @@ mod code_area;
 
 use std::thread;
 use std::path::Path;
-use std::sync::mpsc;
 use std::collections::VecDeque;
 use std::io::Write;
 use std::io::{BufRead, BufReader};
@@ -22,7 +21,8 @@ use crate::view::keyboard::Keyboard;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::common::{locate_by_id};
 use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
-use crate::view::{View, Event, Hub, Bus, EntryKind, EntryId, ViewId};
+use crate::view::{View, Event, Hub, Bus, RenderQueue, RenderData};
+use crate::view::{EntryKind, EntryId, ViewId, Id, ID_FEEDER};
 use crate::view::{SMALL_BAR_HEIGHT, BIG_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::unit::{scale_by_dpi, mm_to_px};
 use crate::framebuffer::{Framebuffer, UpdateMode};
@@ -35,6 +35,7 @@ const APP_NAME: &str = "ivy";
 const LIB_NAME: &str = "lib.ivy";
 
 pub struct Calculator {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     process: Child,
@@ -66,7 +67,8 @@ pub enum LineOrigin {
 }
 
 impl Calculator {
-    pub fn new(rect: Rectangle, hub: &Hub, context: &mut Context) -> Result<Calculator, Error> {
+    pub fn new(rect: Rectangle, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) -> Result<Calculator, Error> {
+        let id = ID_FEEDER.next();
         let path = Path::new(APP_DIR).join(APP_NAME).canonicalize()?;
         let mut process = Command::new(path)
                                  .current_dir(APP_DIR)
@@ -188,10 +190,11 @@ impl Calculator {
         let columns_count = (code_area_rect.width() as i32 - 2 * margin_width_px) / char_width;
         let lines_count = (code_area_rect.height() as i32 - 2 * margin_width_px) / line_height;
 
-        hub.send(Event::Render(rect, UpdateMode::Full)).ok();
+        rq.add(RenderData::new(id, rect, UpdateMode::Full));
         hub.send(Event::Focus(Some(ViewId::CalculatorInput))).ok();
 
         Ok(Calculator {
+            id,
             rect,
             children,
             process,
@@ -350,7 +353,7 @@ impl Calculator {
         }
     }
 
-    fn history_navigate(&mut self, dir: CycleDir, honor_prefix: bool, hub: &Hub, context: &mut Context) {
+    fn history_navigate(&mut self, dir: CycleDir, honor_prefix: bool, rq: &mut RenderQueue, context: &mut Context) {
         let beginning = if honor_prefix {
             self.children[4].downcast_ref::<InputBar>().unwrap().text_before_cursor()
         } else {
@@ -377,13 +380,13 @@ impl Calculator {
         if let Some(cursor) = cursor_opt {
             let line = self.data[cursor].content.as_str();
             if let Some(input_bar) = self.children[4].downcast_mut::<InputBar>() {
-                input_bar.set_text(line, !honor_prefix, hub, context);
+                input_bar.set_text(line, !honor_prefix, rq, context);
             }
             self.history.cursor = cursor;
         }
     }
 
-    fn update_size(&mut self, hub: &Hub, context: &mut Context) {
+    fn update_size(&mut self, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let font = &mut context.fonts.monospace.regular;
         font.set_size((64.0 * self.font_size) as u32, dpi);
@@ -397,30 +400,30 @@ impl Calculator {
             code_area.update(self.font_size, self.margin_width);
         }
         if let Some(bottom_bar) = self.children[8].downcast_mut::<BottomBar>() {
-            bottom_bar.update_font_size(self.font_size, hub);
-            bottom_bar.update_margin_width(self.margin_width, hub);
+            bottom_bar.update_font_size(self.font_size, rq);
+            bottom_bar.update_margin_width(self.margin_width, rq);
         }
     }
 
-    fn set_font_size(&mut self, font_size: f32, hub: &Hub, context: &mut Context) {
+    fn set_font_size(&mut self, font_size: f32, rq: &mut RenderQueue, context: &mut Context) {
         self.font_size = font_size;
-        self.update_size(hub, context);
+        self.update_size(rq, context);
         self.refresh(context);
     }
 
-    fn set_margin_width(&mut self, margin_width: i32, hub: &Hub, context: &mut Context) {
+    fn set_margin_width(&mut self, margin_width: i32, rq: &mut RenderQueue, context: &mut Context) {
         self.margin_width = margin_width;
-        self.update_size(hub, context);
+        self.update_size(rq, context);
         self.refresh(context);
     }
 
-    fn toggle_margin_width_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+    fn toggle_margin_width_menu(&mut self, rect: Rectangle, enable: Option<bool>, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::MarginWidthMenu) {
             if let Some(true) = enable {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::expose(*self.child(index).rect(), UpdateMode::Gui));
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -431,18 +434,18 @@ impl Calculator {
                                                                   EntryId::SetMarginWidth(mw),
                                                                   mw == self.margin_width)).collect();
             let margin_width_menu = Menu::new(rect, ViewId::MarginWidthMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*margin_width_menu.rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::new(margin_width_menu.id(), *margin_width_menu.rect(), UpdateMode::Gui));
             self.children.push(Box::new(margin_width_menu) as Box<dyn View>);
         }
     }
 
-    fn toggle_font_size_menu(&mut self, rect: Rectangle, enable: Option<bool>, hub: &Hub, context: &mut Context) {
+    fn toggle_font_size_menu(&mut self, rect: Rectangle, enable: Option<bool>, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::FontSizeMenu) {
             if let Some(true) = enable {
                 return;
             }
 
-            hub.send(Event::Expose(*self.child(index).rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::expose(*self.child(index).rect(), UpdateMode::Gui));
             self.children.remove(index);
         } else {
             if let Some(false) = enable {
@@ -456,19 +459,19 @@ impl Calculator {
                                        (fs - self.font_size).abs() < 0.05)
             }).collect();
             let font_size_menu = Menu::new(rect, ViewId::FontSizeMenu, MenuKind::DropDown, entries, context);
-            hub.send(Event::Render(*font_size_menu.rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::new(font_size_menu.id(), *font_size_menu.rect(), UpdateMode::Gui));
             self.children.push(Box::new(font_size_menu) as Box<dyn View>);
         }
     }
 
-    fn reseed(&mut self, hub: &Hub, context: &mut Context) {
-        let (tx, _rx) = mpsc::channel();
+    fn reseed(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(top_bar) = self.child_mut(0).downcast_mut::<TopBar>() {
-            top_bar.update_frontlight_icon(&tx, context);
+            top_bar.update_frontlight_icon(&mut RenderQueue::new(), context);
+            hub.send(Event::ClockTick).ok();
+            hub.send(Event::BatteryTick).ok();
         }
-        hub.send(Event::ClockTick).ok();
-        hub.send(Event::BatteryTick).ok();
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
     }
 
     fn quit(&mut self, context: &mut Context) {
@@ -480,12 +483,12 @@ impl Calculator {
 }
 
 impl View for Calculator {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
             Event::Submit(ViewId::CalculatorInput, ref line) => {
                 self.append(Line { origin: LineOrigin::Input, content: line.to_string() }, context);
                 if let Some(input_bar) = self.children[4].downcast_mut::<InputBar>() {
-                    input_bar.set_text("", true, hub, context);
+                    input_bar.set_text("", true, rq, context);
                 }
                 if let Some(stdin) = self.process.stdin.as_mut() {
                     writeln!(stdin, "{}", line).ok();
@@ -505,16 +508,16 @@ impl View for Calculator {
                 true
             },
             Event::History(dir, honor_prefix) => {
-                self.history_navigate(dir, honor_prefix, hub, context);
+                self.history_navigate(dir, honor_prefix, rq, context);
                 true
             },
             Event::Select(EntryId::SetFontSize(v)) => {
                 let font_size = 6.0 + v as f32 / 10.0;
-                self.set_font_size(font_size, hub, context);
+                self.set_font_size(font_size, rq, context);
                 true
             },
             Event::Select(EntryId::SetMarginWidth(width)) => {
-                self.set_margin_width(width, hub, context);
+                self.set_margin_width(width, rq, context);
                 true
             },
             Event::Gesture(GestureEvent::Rotate { quarter_turns, .. }) if quarter_turns != 0 => {
@@ -524,27 +527,27 @@ impl View for Calculator {
                 true
             },
             Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => {
-                hub.send(Event::Render(self.rect, UpdateMode::Full)).ok();
+                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Full));
                 true
             },
             Event::ToggleNear(ViewId::MainMenu, rect) => {
-                toggle_main_menu(self, rect, None, hub, context);
+                toggle_main_menu(self, rect, None, rq, context);
                 true
             },
             Event::ToggleNear(ViewId::BatteryMenu, rect) => {
-                toggle_battery_menu(self, rect, None, hub, context);
+                toggle_battery_menu(self, rect, None, rq, context);
                 true
             },
             Event::ToggleNear(ViewId::ClockMenu, rect) => {
-                toggle_clock_menu(self, rect, None, hub, context);
+                toggle_clock_menu(self, rect, None, rq, context);
                 true
             },
             Event::ToggleNear(ViewId::MarginWidthMenu, rect) => {
-                self.toggle_margin_width_menu(rect, None, hub, context);
+                self.toggle_margin_width_menu(rect, None, rq, context);
                 true
             },
             Event::ToggleNear(ViewId::FontSizeMenu, rect) => {
-                self.toggle_font_size_menu(rect, None, hub, context);
+                self.toggle_font_size_menu(rect, None, rq, context);
                 true
             },
             Event::Back | Event::Select(EntryId::Quit) => {
@@ -553,7 +556,7 @@ impl View for Calculator {
                 true
             },
             Event::Reseed => {
-                self.reseed(hub, context);
+                self.reseed(hub, rq, context);
                 true
             },
             _ => false,
@@ -563,33 +566,32 @@ impl View for Calculator {
     fn render(&self, _fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
     }
 
-    fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
+    fn resize(&mut self, rect: Rectangle, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (small_height, big_height) = (scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32,
                                           scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
         let side = small_height;
-        let (tx, _rx) = mpsc::channel();
 
         self.children.retain(|child| !child.is::<Menu>());
 
         // Top bar.
         let top_bar_rect = rect![rect.min.x, rect.min.y,
                                  rect.max.x, rect.min.y + side - small_thickness];
-        self.children[0].resize(top_bar_rect, hub, context);
+        self.children[0].resize(top_bar_rect, hub, rq, context);
 
         let separator_rect = rect![rect.min.x,
                                    rect.min.y + side - small_thickness,
                                    rect.max.x,
                                    rect.min.y + side + big_thickness];
-        self.children[1].resize(separator_rect, hub, context);
+        self.children[1].resize(separator_rect, hub, rq, context);
 
         let kb_rect = rect![rect.min.x,
                             rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                             rect.max.x,
                             rect.max.y - small_height - small_thickness];
-        self.children[6].resize(kb_rect, hub, context);
+        self.children[6].resize(kb_rect, hub, rq, context);
         let kb_rect = *self.children[6].rect();
 
         let sp_rect = rect![rect.min.x, kb_rect.min.y - thickness,
@@ -606,30 +608,30 @@ impl View for Calculator {
                                    rect.max.x,
                                    sp_rect2.min.y];
 
-        self.children[2].resize(code_area_rect, hub, context);
-        self.children[3].resize(sp_rect2, hub, context);
-        self.children[4].resize(input_bar_rect, hub, context);
-        self.children[5].resize(sp_rect, hub, context);
+        self.children[2].resize(code_area_rect, hub, rq, context);
+        self.children[3].resize(sp_rect2, hub, rq, context);
+        self.children[4].resize(input_bar_rect, hub, rq, context);
+        self.children[5].resize(sp_rect, hub, rq, context);
 
         let sp_rect = rect![rect.min.x, rect.max.y - side - small_thickness,
                             rect.max.x, rect.max.y - side + big_thickness];
 
-        self.children[7].resize(sp_rect, hub, context);
+        self.children[7].resize(sp_rect, hub, rq, context);
 
         let bottom_bar_rect = rect![rect.min.x, rect.max.y - side + big_thickness,
                                     rect.max.x, rect.max.y];
 
-        self.children[8].resize(bottom_bar_rect, hub, context);
+        self.children[8].resize(bottom_bar_rect, hub, rq, context);
 
         for i in 9..self.children.len() {
-            self.children[i].resize(rect, hub, context);
+            self.children[i].resize(rect, hub, rq, context);
         }
 
-        self.update_size(&tx, context);
+        self.update_size(&mut RenderQueue::new(), context);
         self.refresh(context);
 
         self.rect = rect;
-        hub.send(Event::Render(self.rect, UpdateMode::Full)).ok();
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Full));
     }
 
 
@@ -647,5 +649,9 @@ impl View for Calculator {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

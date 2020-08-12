@@ -2,7 +2,7 @@ use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::gesture::GestureEvent;
-use super::{View, Event, ViewId, KeyboardEvent, Hub, Bus, TextKind};
+use super::{View, Event, ViewId, KeyboardEvent, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, TextKind};
 use super::BORDER_RADIUS_LARGE;
 use super::icon::ICONS_PIXMAPS;
 use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD, KEYBOARD_BG};
@@ -121,6 +121,7 @@ impl KeyKind {
 }
 
 pub struct Key {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     kind: KeyKind,
@@ -131,6 +132,7 @@ pub struct Key {
 impl Key {
     pub fn new(rect: Rectangle, kind: KeyKind) -> Key {
         Key {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
             kind,
@@ -143,14 +145,14 @@ impl Key {
         &self.kind
     }
 
-    pub fn update(&mut self, kind: KeyKind, hub: &Hub) {
+    pub fn update(&mut self, kind: KeyKind, rq: &mut RenderQueue) {
         self.kind = kind;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
     }
 
-    pub fn release(&mut self, hub: &Hub) {
+    pub fn release(&mut self, rq: &mut RenderQueue) {
         self.pressure = 0;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
     }
 
     pub fn lock(&mut self) {
@@ -159,18 +161,18 @@ impl Key {
 }
 
 impl View for Key {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, position, .. }) => {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
-                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::Fast)).ok();
+                        rq.add(RenderData::no_wait(self.id, self.rect, UpdateMode::Fast));
                         true
                     },
                     FingerStatus::Up if self.active => {
                         self.active = false;
-                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::no_wait(self.id, self.rect, UpdateMode::Gui));
                         true
                     },
                     _ => false,
@@ -186,7 +188,7 @@ impl View for Key {
                         } else {
                             self.pressure = (self.pressure + 1) % 3;
                         }
-                        hub.send(Event::RenderNoWait(self.rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::no_wait(self.id, self.rect, UpdateMode::Gui));
                     },
                     _ => (),
                 }
@@ -262,5 +264,9 @@ impl View for Key {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

@@ -3,10 +3,11 @@ use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::color::TEXT_NORMAL;
 use crate::geom::{Rectangle};
-use crate::view::{View, Event, Hub, Bus};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use crate::app::Context;
 
 pub struct ResultsLabel {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     count: usize,
@@ -16,6 +17,7 @@ pub struct ResultsLabel {
 impl ResultsLabel {
     pub fn new(rect: Rectangle, count: usize, completed: bool) -> ResultsLabel {
         ResultsLabel {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
             count,
@@ -23,9 +25,9 @@ impl ResultsLabel {
         }
     }
 
-    pub fn update(&mut self, count: usize, hub: &Hub) {
+    pub fn update(&mut self, count: usize, rq: &mut RenderQueue) {
         self.count = count;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
     }
 
     fn text(&self) -> String {
@@ -45,11 +47,11 @@ impl ResultsLabel {
 
 
 impl View for ResultsLabel {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::EndOfSearch => {
                 self.completed = true;
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                 false
             },
             _ => false,
@@ -88,5 +90,9 @@ impl View for ResultsLabel {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

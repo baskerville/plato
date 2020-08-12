@@ -3,7 +3,7 @@ use crate::metadata::Margin;
 use crate::gesture::GestureEvent;
 use crate::font::Fonts;
 use crate::geom::{Rectangle, Point, CornerSpec, BorderSpec};
-use crate::view::{View, Event, Hub, Bus, ViewId};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId};
 use crate::view::{SMALL_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::view::rounded_button::RoundedButton;
 use crate::unit::scale_by_dpi;
@@ -14,6 +14,7 @@ use crate::app::Context;
 pub const BUTTON_DIAMETER: f32 = 30.0;
 
 pub struct MarginCropper {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     pixmap: Pixmap,
@@ -22,6 +23,7 @@ pub struct MarginCropper {
 
 impl MarginCropper {
     pub fn new(rect: Rectangle, pixmap: Pixmap, margin: &Margin, _context: &mut Context) -> MarginCropper {
+        let id = ID_FEEDER.next();
         let mut children = Vec::new();
 
         let pt = pt!((rect.width() as i32 - pixmap.width as i32) / 2,
@@ -56,6 +58,7 @@ impl MarginCropper {
         children.push(Box::new(validate_button) as Box<dyn View>);
 
         MarginCropper {
+            id,
             rect,
             children,
             pixmap,
@@ -122,16 +125,16 @@ impl MarginCropper {
 }
 
 impl View for MarginCropper {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 self.update(center, center);
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                 true
             },
             Event::Gesture(GestureEvent::Swipe { start, end, .. }) if self.rect.includes(start) => {
                 self.update(start, end);
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                 true
             },
             Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => true,
@@ -205,7 +208,7 @@ impl View for MarginCropper {
         true
     }
 
-    fn id(&self) -> Option<ViewId> {
+    fn view_id(&self) -> Option<ViewId> {
         Some(ViewId::MarginCropper)
     }
 
@@ -223,5 +226,9 @@ impl View for MarginCropper {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

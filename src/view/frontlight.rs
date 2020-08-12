@@ -1,9 +1,8 @@
-use std::sync::mpsc;
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::geom::{Rectangle, CornerSpec, BorderSpec};
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
-use super::{View, Event, Hub, Bus, ViewId, EntryId, SliderId, Align};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId, EntryId, SliderId, Align};
 use super::{SMALL_BAR_HEIGHT, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use super::label::Label;
 use super::button::Button;
@@ -23,12 +22,14 @@ const LABEL_SAVE: &str = "Save";
 const LABEL_GUESS: &str = "Guess";
 
 pub struct FrontlightWindow {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
 }
 
 impl FrontlightWindow {
     pub fn new(context: &mut Context) -> FrontlightWindow {
+        let id = ID_FEEDER.next();
         let fonts = &mut context.fonts;
         let levels = context.frontlight.levels();
         let presets = &context.settings.frontlight_presets;
@@ -160,18 +161,18 @@ impl FrontlightWindow {
                                      rect.max.x - thickness - 4 * padding,
                                      rect.max.y - thickness - 2 * padding];
             let mut presets_list = PresetsList::new(presets_rect);
-            let (tx, _rx) = mpsc::channel();
-            presets_list.update(&presets, &tx, fonts);
+            presets_list.update(&presets, &mut RenderQueue::new(), fonts);
             children.push(Box::new(presets_list) as Box<dyn View>);
         }
 
         FrontlightWindow {
+            id,
             rect,
             children,
         }
     }
 
-    fn toggle_presets(&mut self, enable: bool, hub: &Hub, context: &mut Context) {
+    fn toggle_presets(&mut self, enable: bool, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
 
@@ -183,49 +184,48 @@ impl FrontlightWindow {
             };
             shift(self, pt!(0, -(small_height) / 2));
             self.rect.max.y += small_height;
-            let (tx, _rx) = mpsc::channel();
             let presets_rect = rect![self.rect.min.x + thickness + 4 * padding,
                                      self.rect.max.y - small_height - 2 * padding,
                                      self.rect.max.x - thickness - 4 * padding,
                                      self.rect.max.y - thickness - 2 * padding];
             let mut presets_list = PresetsList::new(presets_rect);
-            presets_list.update(&context.settings.frontlight_presets, &tx, &mut context.fonts);
+            presets_list.update(&context.settings.frontlight_presets, &mut RenderQueue::new(), &mut context.fonts);
             self.children.push(Box::new(presets_list) as Box<dyn View>);
-            hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+            rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
         } else {
             self.children.pop();
-            hub.send(Event::Expose(self.rect, UpdateMode::Gui)).ok();
+            rq.add(RenderData::expose(self.rect, UpdateMode::Gui));
             shift(self, pt!(0, small_height / 2));
             self.rect.max.y -= small_height;
         }
     }
 
-    fn set_frontlight_levels(&mut self, frontlight_levels: LightLevels, hub: &Hub, context: &mut Context) {
+    fn set_frontlight_levels(&mut self, frontlight_levels: LightLevels, rq: &mut RenderQueue, context: &mut Context) {
         let LightLevels { intensity, warmth } = frontlight_levels;
         context.frontlight.set_intensity(intensity);
         context.frontlight.set_warmth(warmth);
         if CURRENT_DEVICE.has_natural_light() {
             if let Some(slider_intensity) = self.child_mut(3).downcast_mut::<Slider>() {
-                slider_intensity.update(intensity, hub);
+                slider_intensity.update(intensity, rq);
             }
             if let Some(slider_warmth) = self.child_mut(5).downcast_mut::<Slider>() {
-                slider_warmth.update(warmth, hub);
+                slider_warmth.update(warmth, rq);
             }
         } else if let Some(slider_intensity) = self.child_mut(2).downcast_mut::<Slider>() {
-            slider_intensity.update(intensity, hub);
+            slider_intensity.update(intensity, rq);
         }
     }
 
-    fn update_presets(&mut self, hub: &Hub, context: &mut Context) {
+    fn update_presets(&mut self, rq: &mut RenderQueue, context: &mut Context) {
         let len = self.len();
         if let Some(presets_list) = self.child_mut(len - 1).downcast_mut::<PresetsList>() {
-            presets_list.update(&context.settings.frontlight_presets, hub, &mut context.fonts);
+            presets_list.update(&context.settings.frontlight_presets, rq, &mut context.fonts);
         }
     }
 }
 
 impl View for FrontlightWindow {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
             Event::Slider(SliderId::LightIntensity, value, FingerStatus::Up) => {
                 context.frontlight.set_intensity(value);
@@ -254,16 +254,16 @@ impl View for FrontlightWindow {
                 context.settings.frontlight_presets.push(light_preset);
                 context.settings.frontlight_presets.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
                 if context.settings.frontlight_presets.len() == 1 {
-                    self.toggle_presets(true, hub, context);
+                    self.toggle_presets(true, rq, context);
                 } else {
                     if context.settings.frontlight_presets.len() == 2 {
                         let index = self.len() - 2;
                         if let Some(button_guess) = self.child_mut(index).downcast_mut::<Button>() {
                             button_guess.disabled = false;
-                            hub.send(Event::Render(*button_guess.rect(), UpdateMode::Gui)).ok();
+                            rq.add(RenderData::new(button_guess.id(), *button_guess.rect(), UpdateMode::Gui));
                         }
                     }
-                    self.update_presets(hub, context);
+                    self.update_presets(rq, context);
                 }
                 true
             },
@@ -271,23 +271,23 @@ impl View for FrontlightWindow {
                 if index < context.settings.frontlight_presets.len() {
                     context.settings.frontlight_presets.remove(index);
                     if context.settings.frontlight_presets.is_empty() {
-                        self.toggle_presets(false, hub, context);
+                        self.toggle_presets(false, rq, context);
                     } else {
                         if context.settings.frontlight_presets.len() == 1 {
                             let index = self.len() - 2;
                             if let Some(button_guess) = self.child_mut(index).downcast_mut::<Button>() {
                                 button_guess.disabled = true;
-                                hub.send(Event::Render(*button_guess.rect(), UpdateMode::Gui)).ok();
+                                rq.add(RenderData::new(button_guess.id(), *button_guess.rect(), UpdateMode::Gui));
                             }
                         }
-                        self.update_presets(hub, context);
+                        self.update_presets(rq, context);
                     }
                 }
                 true
             },
             Event::LoadPreset(index) => {
                 let frontlight_levels = context.settings.frontlight_presets[index].frontlight_levels;
-                self.set_frontlight_levels(frontlight_levels, hub, context);
+                self.set_frontlight_levels(frontlight_levels, rq, context);
                 true
             },
             Event::Guess => {
@@ -297,7 +297,7 @@ impl View for FrontlightWindow {
                     None
                 };
                 if let Some(ref frontlight_levels) = guess_frontlight(lightsensor_level, &context.settings.frontlight_presets) {
-                    self.set_frontlight_levels(*frontlight_levels, hub, context);
+                    self.set_frontlight_levels(*frontlight_levels, rq, context);
                 }
                 true
             },
@@ -318,7 +318,7 @@ impl View for FrontlightWindow {
                                               &WHITE);
     }
 
-    fn resize(&mut self, _rect: Rectangle, hub: &Hub, context: &mut Context) {
+    fn resize(&mut self, _rect: Rectangle, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = context.display.dims;
         let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
@@ -350,14 +350,12 @@ impl View for FrontlightWindow {
                                       rect.min.y + thickness,
                                       rect.max.x - thickness,
                                       rect.min.y + small_height],
-                                hub,
-                                context);
+                                hub, rq, context);
         self.children[1].resize(rect![rect.min.x + small_height,
                                       rect.min.y + thickness,
                                       rect.max.x - small_height,
                                       rect.min.y + small_height],
-                                hub,
-                                context);
+                                hub, rq, context);
 
         let mut button_y = rect.min.y + 2 * small_height;
         let mut index = 2;
@@ -374,12 +372,12 @@ impl View for FrontlightWindow {
                                                   min_y,
                                                   rect.min.x + 2 * padding + max_label_width,
                                                   min_y + small_height],
-                                            hub, context);
+                                            hub, rq, context);
                 self.children[index+1].resize(rect![rect.min.x + max_label_width + 3 * padding,
                                                     min_y,
                                                     rect.max.x - padding,
                                                     min_y + small_height],
-                                              hub, context);
+                                              hub, rq, context);
                 index += 2;
             }
             button_y += small_height;
@@ -389,7 +387,7 @@ impl View for FrontlightWindow {
                                           min_y,
                                           rect.max.x - padding,
                                           min_y + small_height],
-                                    hub, context);
+                                    hub, rq, context);
             index += 1;
         }
 
@@ -405,14 +403,14 @@ impl View for FrontlightWindow {
                                           button_y + small_height - button_height,
                                           rect.min.x + 5 * padding + max_label_width,
                                           button_y + small_height],
-                                    hub, context);
+                                    hub, rq, context);
         index += 1;
 
         self.children[index].resize(rect![rect.max.x - 5 * padding - max_label_width,
                                           button_y + small_height - button_height,
                                           rect.max.x - 3 * padding,
                                           button_y + small_height],
-                                    hub, context);
+                                    hub, rq, context);
         index += 1;
 
         if !context.settings.frontlight_presets.is_empty() {
@@ -420,7 +418,7 @@ impl View for FrontlightWindow {
                                      rect.max.y - small_height - 2 * padding,
                                      rect.max.x - thickness - 4 * padding,
                                      rect.max.y - thickness - 2 * padding];
-            self.children[index].resize(presets_rect, hub, context);
+            self.children[index].resize(presets_rect, hub, rq, context);
         }
     }
 
@@ -442,5 +440,9 @@ impl View for FrontlightWindow {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

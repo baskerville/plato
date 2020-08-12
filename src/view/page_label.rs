@@ -5,10 +5,11 @@ use crate::gesture::GestureEvent;
 use crate::geom::{Rectangle};
 use crate::document::BYTES_PER_PAGE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use super::{View, Event, Hub, Bus, ViewId};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId};
 use crate::app::Context;
 
 pub struct PageLabel {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     current_page: usize,
@@ -19,6 +20,7 @@ pub struct PageLabel {
 impl PageLabel {
     pub fn new(rect: Rectangle, current_page: usize, pages_count: usize, synthetic: bool)  -> PageLabel {
         PageLabel {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
             current_page,
@@ -27,10 +29,19 @@ impl PageLabel {
         }
     }
 
-    pub fn update(&mut self, current_page: usize, pages_count: usize, hub: &Hub) {
-        self.current_page = current_page;
-        self.pages_count = pages_count;
-        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+    pub fn update(&mut self, current_page: usize, pages_count: usize, rq: &mut RenderQueue) {
+        let mut render = false;
+        if self.current_page != current_page {
+            self.current_page = current_page;
+            render = true;
+        }
+        if self.pages_count != pages_count {
+            self.pages_count = pages_count;
+            render = true;
+        }
+        if render {
+            rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+        }
     }
 
     pub fn text(&self, size: u8) -> String {
@@ -57,7 +68,7 @@ impl PageLabel {
 
 
 impl View for PageLabel {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 bus.push_back(Event::Toggle(ViewId::GoToPage));
@@ -105,5 +116,9 @@ impl View for PageLabel {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

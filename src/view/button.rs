@@ -1,7 +1,7 @@
 use crate::device::CURRENT_DEVICE;
 use crate::geom::{Rectangle, CornerSpec, BorderSpec};
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
-use super::{View, Event, Hub, Bus};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use super::{THICKNESS_MEDIUM, BORDER_RADIUS_LARGE};
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
@@ -11,6 +11,7 @@ use crate::unit::scale_by_dpi;
 use crate::app::Context;
 
 pub struct Button {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     event: Event,
@@ -22,6 +23,7 @@ pub struct Button {
 impl Button {
     pub fn new(rect: Rectangle, event: Event, text: String) -> Button {
         Button {
+            id: ID_FEEDER.next(),
             rect,
             children: Vec::new(),
             event,
@@ -38,18 +40,18 @@ impl Button {
 }
 
 impl View for Button {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, position, .. }) if !self.disabled => {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
-                        hub.send(Event::Render(self.rect, UpdateMode::Fast)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Fast));
                         true
                     },
                     FingerStatus::Up if self.active => {
                         self.active = false;
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                         true
                     },
                     _ => false,
@@ -112,5 +114,9 @@ impl View for Button {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

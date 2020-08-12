@@ -41,9 +41,11 @@ pub mod dictionary;
 pub mod calculator;
 pub mod sketch;
 
+use std::ops::{Deref, DerefMut};
 use std::time::Duration;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::collections::VecDeque;
 use std::fmt::{self, Debug};
 use fxhash::FxHashMap;
@@ -82,18 +84,19 @@ pub type Bus = VecDeque<Event>;
 pub type Hub = Sender<Event>;
 
 pub trait View: Downcast {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, context: &mut Context) -> bool;
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool;
     fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, fonts: &mut Fonts);
     fn rect(&self) -> &Rectangle;
     fn rect_mut(&mut self) -> &mut Rectangle;
     fn children(&self) -> &Vec<Box<dyn View>>;
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>>;
+    fn id(&self) -> Id;
 
     fn render_rect(&self, _rect: &Rectangle) -> Rectangle {
         *self.rect()
     }
 
-    fn resize(&mut self, rect: Rectangle, _hub: &Hub, _context: &mut Context) {
+    fn resize(&mut self, rect: Rectangle, _hub: &Hub, _rq: &mut RenderQueue, _context: &mut Context) {
         *self.rect_mut() = rect;
     }
 
@@ -121,7 +124,7 @@ pub trait View: Downcast {
         false
     }
 
-    fn id(&self) -> Option<ViewId> {
+    fn view_id(&self) -> Option<ViewId> {
         None
     }
 }
@@ -139,7 +142,9 @@ impl Debug for Box<dyn View> {
 // The consistency must also be ensured by the views: popups, for example, need to
 // capture any tap gesture with a touch point inside their rectangle.
 // A child can send events to the main channel through the *hub* or communicate with its parent through the *bus*.
-pub fn handle_event(view: &mut dyn View, evt: &Event, hub: &Hub, parent_bus: &mut Bus, context: &mut Context) -> bool {
+// A view that wants to render can write to the rendering queue.
+pub fn handle_event(view: &mut dyn View, evt: &Event, hub: &Hub, parent_bus: &mut Bus,
+                    rq: &mut RenderQueue, context: &mut Context) -> bool {
     if view.len() > 0 {
         let mut captured = false;
 
@@ -150,7 +155,7 @@ pub fn handle_event(view: &mut dyn View, evt: &Event, hub: &Hub, parent_bus: &mu
         let mut child_bus: Bus = VecDeque::with_capacity(1);
 
         for i in (0..view.len()).rev() {
-            if handle_event(view.child_mut(i), evt, hub, &mut child_bus, context) {
+            if handle_event(view.child_mut(i), evt, hub, &mut child_bus, rq, context) {
                 captured = true;
                 break;
             }
@@ -158,83 +163,113 @@ pub fn handle_event(view: &mut dyn View, evt: &Event, hub: &Hub, parent_bus: &mu
 
         let mut temp_bus: Bus = VecDeque::with_capacity(1);
 
-        child_bus.retain(|child_evt| !view.handle_event(child_evt, hub, &mut temp_bus, context));
+        child_bus.retain(|child_evt| !view.handle_event(child_evt, hub, &mut temp_bus, rq, context));
 
         parent_bus.append(&mut child_bus);
         parent_bus.append(&mut temp_bus);
 
-        captured || view.handle_event(evt, hub, parent_bus, context)
+        captured || view.handle_event(evt, hub, parent_bus, rq, context)
     } else {
-        view.handle_event(evt, hub, parent_bus, context)
+        view.handle_event(evt, hub, parent_bus, rq, context)
     }
 }
 
-pub fn render(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FxHashMap<u32, Rectangle>) {
-    render_aux(view, rect, fb, fonts, &mut false, true, updating);
-}
+// We render from bottom to top. For a view to render it has to either appear in `ids` or intersect
+// one of the rectangles in `bgs`. When we're about to render a view, if `wait` is true, we'll wait
+// for all the updates in `updating` that intersect with the view.
+pub fn render(view: &dyn View, wait: bool, ids: &FxHashMap<Id, Vec<Rectangle>>, rects: &mut Vec<Rectangle>,
+              bgs: &mut Vec<Rectangle>, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FxHashMap<u32, Rectangle>) {
+    let mut render_rects = Vec::new();
 
-pub fn render_region(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FxHashMap<u32, Rectangle>) {
-    render_aux(view, rect, fb, fonts, &mut true, true, updating);
-}
+    if view.len() == 0 || view.is_background() {
+        for rect in ids.get(&view.id()).cloned().into_iter().flatten()
+                       .chain(rects.iter().filter_map(|r| r.intersection(view.rect())))
+                       .chain(bgs.iter().filter_map(|r| r.intersection(view.rect()))) {
+            let render_rect = view.render_rect(&rect);
 
-pub fn render_no_wait(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FxHashMap<u32, Rectangle>) {
-    render_aux(view, rect, fb, fonts, &mut false, false, updating);
-}
+            if wait {
+                updating.retain(|tok, urect| {
+                    !render_rect.overlaps(urect) ||
+                     fb.wait(*tok).map_err(|err| eprintln!("{}", err)).is_err()
+                });
+            }
 
-pub fn render_no_wait_region(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FxHashMap<u32, Rectangle>) {
-    render_aux(view, rect, fb, fonts, &mut true, false, updating);
-}
+            view.render(fb, rect, fonts);
+            render_rects.push(render_rect);
 
-// We don't start rendering until we reach the z-level of the view that generated the event.
-// Once we reach that z-level, we start comparing the candidate rectangles with the source
-// rectangle. If there is an overlap, we render the corresponding view. And update the source
-// rectangle by absorbing the candidate rectangle into it.
-fn render_aux(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, above: &mut bool, wait: bool, updating: &mut FxHashMap<u32, Rectangle>) {
-    // FIXME: rect is used as an identifier.
-    if !*above && view.rect() == rect {
-        *above = true;
-    }
-
-    if *above && (view.len() == 0 || view.is_background()) && view.rect().overlaps(rect) {
-        let render_rect = view.render_rect(rect);
-        if wait {
-            updating.retain(|tok, urect| {
-                !render_rect.overlaps(urect) || fb.wait(*tok).is_err()
-            });
+            // Most views can't render a subrectangle of themselves.
+            if *view.rect() == render_rect {
+                break;
+            }
         }
-        view.render(fb, *rect, fonts);
-        rect.absorb(&render_rect);
+    } else {
+        bgs.extend(ids.get(&view.id()).cloned().into_iter().flatten());
+    }
+
+    // Merge the contiguous zones to avoid having to schedule lots of small frambuffer updates.
+    for rect in render_rects.into_iter() {
+        if rects.is_empty() {
+            rects.push(rect);
+        } else {
+            if let Some(last) = rects.last_mut() {
+                if rect.touches(last) {
+                    last.absorb(&rect);
+                    let mut i = rects.len();
+                    while i > 1 && rects[i-1].touches(&rects[i-2]) {
+                        if let Some(rect) = rects.pop() {
+                            if let Some(last) = rects.last_mut() {
+                                last.absorb(&rect);
+                            }
+                        }
+                        i -= 1;
+                    }
+                } else {
+                    let mut i = rects.len();
+                    while i > 0 && !rects[i-1].contains(&rect) {
+                        i -= 1;
+                    }
+                    if i == 0 {
+                        rects.push(rect);
+                    }
+                }
+            }
+        }
     }
 
     for i in 0..view.len() {
-        render_aux(view.child(i), rect, fb, fonts, above, wait, updating);
+        render(view.child(i), wait, ids, rects, bgs, fb, fonts, updating);
     }
 }
 
-// When a floating window is destroyed, it leaves a crack underneath.
-// Each view intersecting the crack's rectangle needs to be redrawn.
-pub fn expose(view: &dyn View, rect: &mut Rectangle, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FxHashMap<u32, Rectangle>) {
-    if (view.len() == 0 || view.is_background()) && view.rect().overlaps(rect) {
-        let render_rect = view.render_rect(rect);
-        updating.retain(|tok, urect| {
-            !render_rect.overlaps(urect) || fb.wait(*tok).is_err()
-        });
-        view.render(fb, *rect, fonts);
-        rect.absorb(&render_rect);
-    }
+#[inline]
+pub fn process_render_queue(view: &dyn View, rq: &mut RenderQueue, context: &mut Context, updating: &mut FxHashMap<u32, Rectangle>) {
+    for ((mode, wait), pairs) in rq.drain() {
+        let mut ids = FxHashMap::default();
+        let mut rects = Vec::new();
+        let mut bgs = Vec::new();
 
-    for i in 0..view.len() {
-        expose(view.child(i), rect, fb, fonts, updating);
+        for (id, rect) in pairs.into_iter().rev() {
+            if let Some(id) = id {
+                ids.entry(id).or_insert_with(|| Vec::new()).push(rect);
+            } else {
+                bgs.push(rect);
+            }
+        }
+
+        render(view, wait, &ids, &mut rects, &mut bgs,
+               context.fb.as_mut(), &mut context.fonts, updating);
+
+        for rect in rects {
+            match context.fb.update(&rect, mode) {
+                Ok(tok) => { updating.insert(tok, rect); },
+                Err(err) => { eprintln!("{}", err); },
+            }
+        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    Render(Rectangle, UpdateMode),
-    RenderRegion(Rectangle, UpdateMode),
-    RenderNoWait(Rectangle, UpdateMode),
-    RenderNoWaitRegion(Rectangle, UpdateMode),
-    Expose(Rectangle, UpdateMode),
     Device(DeviceEvent),
     Gesture(GestureEvent),
     Keyboard(KeyboardEvent),
@@ -299,6 +334,7 @@ pub enum Event {
     Reseed,
     Back,
     Quit,
+    Wake,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -539,5 +575,84 @@ impl EntryKind {
             EntryKind::RadioButton(_, _, ref mut v) => *v = value,
             _ => (),
         }
+    }
+}
+
+pub struct RenderData {
+    pub id: Option<Id>,
+    pub rect: Rectangle,
+    pub mode: UpdateMode,
+    pub wait: bool,
+}
+
+impl RenderData {
+    pub fn new(id: Id, rect: Rectangle, mode: UpdateMode) -> RenderData {
+        RenderData {
+            id: Some(id),
+            rect,
+            mode,
+            wait: true,
+        }
+    }
+
+    pub fn no_wait(id: Id, rect: Rectangle, mode: UpdateMode) -> RenderData {
+        RenderData {
+            id: Some(id),
+            rect,
+            mode,
+            wait: false,
+        }
+    }
+
+    pub fn expose(rect: Rectangle, mode: UpdateMode) -> RenderData {
+        RenderData {
+            id: None,
+            rect,
+            mode,
+            wait: true,
+        }
+    }
+}
+
+type RQ = FxHashMap<(UpdateMode, bool), Vec<(Option<Id>, Rectangle)>>;
+pub struct RenderQueue(RQ);
+
+impl RenderQueue {
+    pub fn new() -> RenderQueue {
+        RenderQueue(FxHashMap::default())
+    }
+
+    pub fn add(&mut self, data: RenderData) {
+        self.entry((data.mode, data.wait)).or_insert_with(|| {
+            Vec::new()
+        }).push((data.id, data.rect));
+    }
+}
+
+impl Deref for RenderQueue {
+    type Target = RQ;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for RenderQueue {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+pub static ID_FEEDER: IdFeeder = IdFeeder::new(1);
+pub struct IdFeeder(AtomicU64);
+pub type Id = u64;
+
+impl IdFeeder {
+    pub const fn new(id: Id) -> Self {
+        IdFeeder(AtomicU64::new(id))
+    }
+
+    pub fn next(&self) -> Id {
+        self.0.fetch_add(1, Ordering::Relaxed)
     }
 }

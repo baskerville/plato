@@ -1,6 +1,6 @@
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::view::{View, Event, Hub, Bus, THICKNESS_SMALL};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, THICKNESS_SMALL};
 use crate::font::{MD_TITLE, MD_AUTHOR, MD_YEAR, MD_KIND, MD_SIZE};
 use crate::color::{BLACK, WHITE, READING_PROGRESS};
 use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
@@ -16,6 +16,7 @@ use crate::app::Context;
 const PROGRESS_HEIGHT: f32 = 13.0;
 
 pub struct Book {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     info: Info,
@@ -28,6 +29,7 @@ pub struct Book {
 impl Book {
     pub fn new(rect: Rectangle, info: Info, index: usize, first_column: FirstColumn, second_column: SecondColumn) -> Book {
         Book {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
             info,
@@ -40,11 +42,11 @@ impl Book {
 }
 
 impl View for Book {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 self.active = true;
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                 hub.send(Event::Open(Box::new(self.info.clone()))).ok();
                 true
             },
@@ -56,7 +58,7 @@ impl View for Book {
             Event::Invalid(ref info) => {
                 if self.info.file.path == info.file.path {
                     self.active = false;
-                    hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                    rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                     true
                 } else {
                     false
@@ -225,5 +227,9 @@ impl View for Book {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

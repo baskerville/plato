@@ -3,7 +3,7 @@ use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::settings::ReaderSettings;
 use crate::metadata::{ReaderInfo, TextAlign};
 use crate::metadata::{DEFAULT_CONTRAST_EXPONENT, DEFAULT_CONTRAST_GRAY};
-use crate::view::{View, Event, Hub, Bus, SliderId, ViewId, THICKNESS_MEDIUM};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, SliderId, ViewId, THICKNESS_MEDIUM};
 use crate::view::filler::Filler;
 use crate::view::slider::Slider;
 use crate::view::icon::Icon;
@@ -18,6 +18,7 @@ use crate::app::Context;
 
 #[derive(Debug)]
 pub struct ToolBar {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     reflowable: bool,
@@ -25,6 +26,7 @@ pub struct ToolBar {
 
 impl ToolBar {
     pub fn new(rect: Rectangle, reflowable: bool, reader_info: Option<&ReaderInfo>, reader_settings: &ReaderSettings) -> ToolBar {
+        let id = ID_FEEDER.next();
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
@@ -208,58 +210,59 @@ impl ToolBar {
         children.push(Box::new(toc_icon) as Box<dyn View>);
 
         ToolBar {
+            id,
             rect,
             children,
             reflowable,
         }
     }
 
-    pub fn update_margin_width(&mut self, margin_width: i32, hub: &Hub) {
+    pub fn update_margin_width(&mut self, margin_width: i32, rq: &mut RenderQueue) {
         let index = if self.reflowable { 0 } else { 8 };
         if let Some(labeled_icon) = self.children[index].downcast_mut::<LabeledIcon>() {
-            labeled_icon.update(&format!("{} mm", margin_width), hub);
+            labeled_icon.update(&format!("{} mm", margin_width), rq);
         }
     }
 
-    pub fn update_font_family(&mut self, font_family: String, hub: &Hub) {
+    pub fn update_font_family(&mut self, font_family: String, rq: &mut RenderQueue) {
         if let Some(labeled_icon) = self.children[1].downcast_mut::<LabeledIcon>() {
-            labeled_icon.update(&font_family, hub);
+            labeled_icon.update(&font_family, rq);
         }
     }
 
-    pub fn update_line_height(&mut self, line_height: f32, hub: &Hub) {
+    pub fn update_line_height(&mut self, line_height: f32, rq: &mut RenderQueue) {
         if let Some(labeled_icon) = self.children[2].downcast_mut::<LabeledIcon>() {
-            labeled_icon.update(&format!("{:.1} em", line_height), hub);
+            labeled_icon.update(&format!("{:.1} em", line_height), rq);
         }
     }
 
-    pub fn update_text_align_icon(&mut self, text_align: TextAlign, hub: &Hub) {
+    pub fn update_text_align_icon(&mut self, text_align: TextAlign, rq: &mut RenderQueue) {
         let icon = self.child_mut(4).downcast_mut::<Icon>().unwrap();
         let name = text_align.icon_name();
         if icon.name != name {
             icon.name = name.to_string();
-            hub.send(Event::Render(*icon.rect(), UpdateMode::Gui)).ok();
+            rq.add(RenderData::new(icon.id(), *icon.rect(), UpdateMode::Gui));
         }
     }
 
-    pub fn update_font_size_slider(&mut self, font_size: f32, hub: &Hub) {
+    pub fn update_font_size_slider(&mut self, font_size: f32, rq: &mut RenderQueue) {
         let slider = self.children[6].as_mut().downcast_mut::<Slider>().unwrap();
-        slider.update(font_size, hub);
+        slider.update(font_size, rq);
     }
 
-    pub fn update_contrast_exponent_slider(&mut self, exponent: f32, hub: &Hub) {
+    pub fn update_contrast_exponent_slider(&mut self, exponent: f32, rq: &mut RenderQueue) {
         let slider = self.children[1].as_mut().downcast_mut::<Slider>().unwrap();
-        slider.update(exponent, hub);
+        slider.update(exponent, rq);
     }
 
-    pub fn update_contrast_gray_slider(&mut self, gray: f32, hub: &Hub) {
+    pub fn update_contrast_gray_slider(&mut self, gray: f32, rq: &mut RenderQueue) {
         let slider = self.children[3].as_mut().downcast_mut::<Slider>().unwrap();
-        slider.update(gray, hub);
+        slider.update(gray, rq);
     }
 }
 
 impl View for ToolBar {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) |
             Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => true,
@@ -272,7 +275,7 @@ impl View for ToolBar {
     fn render(&self, _fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
     }
 
-    fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
+    fn resize(&mut self, rect: Rectangle, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let side = (rect.height() as i32 + thickness) / 2 - thickness;
@@ -291,41 +294,41 @@ impl View for ToolBar {
             let mut x_offset = rect.min.x;
             self.children[index].resize(rect![x_offset, rect.min.y,
                                               x_offset + side + margin_label_width, rect.min.y + side],
-                                        hub, context);
+                                        hub, rq, context);
             index += 1;
             x_offset += side + margin_label_width;
 
             self.children[index].resize(rect![x_offset, rect.min.y,
                                               x_offset + side + font_family_label_width, rect.min.y + side],
-                                        hub, context);
+                                        hub, rq, context);
             index += 1;
             x_offset += side + font_family_label_width;
 
             self.children[index].resize(rect![x_offset, rect.min.y,
                                               x_offset + side + line_height_label_width, rect.min.y + side],
-                                        hub, context);
+                                        hub, rq, context);
             index += 1;
 
             // Separator.
             self.children[index].resize(rect![rect.min.x, rect.min.y + side,
                                               rect.max.x, rect.max.y - side],
-                                        hub, context);
+                                        hub, rq, context);
             index += 1;
 
             // Start of second row.
             let text_align_rect = rect![rect.min.x, rect.max.y - side,
                                         rect.min.x + side, rect.max.y];
-            self.children[index].resize(text_align_rect, hub, context);
+            self.children[index].resize(text_align_rect, hub, rq, context);
             index += 1;
 
             let font_size_rect = rect![rect.min.x + side, rect.max.y - side,
                                        rect.min.x + 2 * side, rect.max.y];
-            self.children[index].resize(font_size_rect, hub, context);
+            self.children[index].resize(font_size_rect, hub, rq, context);
             index += 1;
 
             self.children[index].resize(rect![rect.min.x + 2 * side, rect.max.y - side,
                                               rect.max.x - 2 * side, rect.max.y],
-                                        hub, context);
+                                        hub, rq, context);
             index += 1;
         } else {
             let remaining_width = rect.width() as i32 - 2 * side;
@@ -335,42 +338,42 @@ impl View for ToolBar {
             let contrast_icon_rect = rect![rect.min.x, rect.min.y,
                                            rect.min.x + side, rect.min.y + side];
 
-            self.children[index].resize(contrast_icon_rect, hub, context);
+            self.children[index].resize(contrast_icon_rect, hub, rq, context);
             index += 1;
 
             self.children[index].resize(rect![rect.min.x + side, rect.min.y,
                                               rect.min.x + side + slider_width, rect.min.y + side],
-                                        hub, context);
+                                        hub, rq, context);
             index += 1;
 
             let gray_icon_rect = rect![rect.min.x + side + slider_width, rect.min.y,
                                        rect.min.x + 2 * side + slider_width, rect.min.y + side];
 
-            self.children[index].resize(gray_icon_rect, hub, context);
+            self.children[index].resize(gray_icon_rect, hub, rq, context);
             index += 1;
 
             self.children[index].resize(rect![rect.min.x + 2 * side + slider_width, rect.min.y,
                                               rect.max.x - side / 3, rect.min.y + side],
-                                        hub, context);
+                                        hub, rq, context);
             index += 1;
 
             self.children[index].resize(rect![rect.max.x - side / 3,
                                               rect.min.y,
                                               rect.max.x,
                                               rect.min.y + side],
-                                        hub, context);
+                                        hub, rq, context);
             index += 1;
 
             // Separator.
             self.children[index].resize(rect![rect.min.x, rect.min.y + side,
                                               rect.max.x, rect.max.y - side],
-                                        hub, context);
+                                        hub, rq, context);
             index += 1;
 
             // Start of second row.
             self.children[index].resize(rect![rect.min.x, rect.max.y - side,
                                               rect.min.x + side, rect.max.y],
-                                        hub, context);
+                                        hub, rq, context);
             index += 1;
 
             let remaining_width = rect.width() as i32 - 3 * side;
@@ -382,20 +385,20 @@ impl View for ToolBar {
                                               rect.max.y - side,
                                               rect.min.x + side + small_padding,
                                               rect.max.y],
-                                        hub, context);
+                                        hub, rq, context);
 
             index += 1;
             self.children[index].resize(rect![rect.min.x + side + small_padding,
                                               rect.max.y - side,
                                               rect.max.x - 2 * side - big_padding,
                                               rect.max.y],
-                                        hub, context);
+                                        hub, rq, context);
             index += 1;
             self.children[index].resize(rect![rect.max.x - 2 * side - big_padding,
                                               rect.max.y - side,
                                               rect.max.x - 2 * side,
                                               rect.max.y],
-                                        hub, context);
+                                        hub, rq, context);
             index += 1;
         }
 
@@ -403,12 +406,12 @@ impl View for ToolBar {
 
         self.children[index].resize(rect![rect.max.x - 2 * side, rect.max.y - side,
                                           rect.max.x - side, rect.max.y],
-                                    hub, context);
+                                    hub, rq, context);
         index += 1;
 
         self.children[index].resize(rect![rect.max.x - side, rect.max.y - side,
                                          rect.max.x, rect.max.y],
-                                    hub, context);
+                                    hub, rq, context);
         self.rect = rect;
     }
 
@@ -426,5 +429,9 @@ impl View for ToolBar {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

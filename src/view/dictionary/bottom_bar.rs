@@ -1,5 +1,5 @@
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::view::{View, Event, Hub, Bus, ViewId, Align};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId, Align};
 use crate::view::icon::Icon;
 use crate::view::filler::Filler;
 use crate::view::label::Label;
@@ -12,6 +12,7 @@ use crate::app::Context;
 
 #[derive(Debug)]
 pub struct BottomBar {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     has_prev: bool,
@@ -20,6 +21,7 @@ pub struct BottomBar {
 
 impl BottomBar {
     pub fn new(rect: Rectangle, name: &str, has_prev: bool, has_next: bool) -> BottomBar {
+        let id = ID_FEEDER.next();
         let mut children = Vec::new();
         let side = rect.height() as i32;
 
@@ -55,6 +57,7 @@ impl BottomBar {
         }
 
         BottomBar {
+            id,
             rect,
             children,
             has_prev,
@@ -62,7 +65,7 @@ impl BottomBar {
         }
     }
 
-    pub fn update_icons(&mut self, has_prev: bool, has_next: bool, hub: &Hub) {
+    pub fn update_icons(&mut self, has_prev: bool, has_next: bool, rq: &mut RenderQueue) {
         if self.has_prev != has_prev {
             let index = 0;
             let prev_rect = *self.child(index).rect();
@@ -76,7 +79,7 @@ impl BottomBar {
                 self.children[index] = Box::new(prev_filler) as Box<dyn View>;
             }
             self.has_prev = has_prev;
-            hub.send(Event::Render(prev_rect, UpdateMode::Gui)).ok();
+            rq.add(RenderData::new(self.id, prev_rect, UpdateMode::Gui));
         }
 
         if self.has_next != has_next {
@@ -92,18 +95,18 @@ impl BottomBar {
                 self.children[index] = Box::new(next_filler) as Box<dyn View>;
             }
             self.has_next = has_next;
-            hub.send(Event::Render(next_rect, UpdateMode::Gui)).ok();
+            rq.add(RenderData::new(self.id, next_rect, UpdateMode::Gui));
         }
     }
 
-    pub fn update_name(&mut self, text: &str, hub: &Hub) {
+    pub fn update_name(&mut self, text: &str, rq: &mut RenderQueue) {
         let name_label = self.child_mut(1).downcast_mut::<Label>().unwrap();
-        name_label.update(text, hub);
+        name_label.update(text, rq);
     }
 }
 
 impl View for BottomBar {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) |
             Event::Gesture(GestureEvent::HoldFingerShort(center, ..)) if self.rect.includes(center) => true,
@@ -115,15 +118,15 @@ impl View for BottomBar {
     fn render(&self, _fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
     }
 
-    fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
+    fn resize(&mut self, rect: Rectangle, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let side = rect.height() as i32;
         let prev_rect = rect![rect.min, rect.min + side];
-        self.children[0].resize(prev_rect, hub, context);
+        self.children[0].resize(prev_rect, hub, rq, context);
         let name_rect = rect![pt!(rect.min.x + side, rect.min.y),
                               pt!(rect.max.x - side, rect.max.y)];
-        self.children[1].resize(name_rect, hub, context);
+        self.children[1].resize(name_rect, hub, rq, context);
         let next_rect = rect![rect.max - side, rect.max];
-        self.children[2].resize(next_rect, hub, context);
+        self.children[2].resize(next_rect, hub, rq, context);
         self.rect = rect;
     }
 
@@ -141,5 +144,9 @@ impl View for BottomBar {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

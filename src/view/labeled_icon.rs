@@ -1,5 +1,5 @@
 use crate::framebuffer::Framebuffer;
-use crate::view::{View, Event, Hub, Bus, Align};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, Align};
 use crate::view::icon::Icon;
 use crate::view::label::Label;
 use crate::geom::Rectangle;
@@ -8,6 +8,7 @@ use crate::app::Context;
 
 #[derive(Debug)]
 pub struct LabeledIcon {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     event: Event,
@@ -15,6 +16,7 @@ pub struct LabeledIcon {
 
 impl LabeledIcon {
     pub fn new(name: &str, rect: Rectangle, event: Event, text: String) -> LabeledIcon {
+        let id = ID_FEEDER.next();
         let mut children = Vec::new();
         let side = rect.height() as i32;
 
@@ -32,21 +34,22 @@ impl LabeledIcon {
         children.push(Box::new(label) as Box<dyn View>);
 
         LabeledIcon {
+            id,
             rect,
             children,
             event,
         }
     }
 
-    pub fn update(&mut self, text: &str, hub: &Hub) {
+    pub fn update(&mut self, text: &str, rq: &mut RenderQueue) {
         if let Some(label) = self.children[1].downcast_mut::<Label>() {
-            label.update(text, hub);
+            label.update(text, rq);
         }
     }
 }
 
 impl View for LabeledIcon {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Validate => {
                 if let Event::Show(view_id) = self.event {
@@ -63,14 +66,14 @@ impl View for LabeledIcon {
     fn render(&self, _fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
     }
 
-    fn resize(&mut self, rect: Rectangle, hub: &Hub, context: &mut Context) {
+    fn resize(&mut self, rect: Rectangle, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let side = rect.height() as i32;
         self.children[0].resize(rect![rect.min.x, rect.min.y,
                                       rect.min.x + side, rect.max.y],
-                                hub, context);
+                                hub, rq, context);
         self.children[1].resize(rect![rect.min.x + side, rect.min.y,
                                      rect.max.x, rect.max.y],
-                                hub, context);
+                                hub, rq, context);
         if let Event::ToggleNear(_, ref mut event_rect) = self.event {
             *event_rect = rect;
         }
@@ -91,5 +94,9 @@ impl View for LabeledIcon {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

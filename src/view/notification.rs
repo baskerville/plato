@@ -5,7 +5,7 @@ use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::geom::{Rectangle, CornerSpec, BorderSpec};
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use crate::color::{BLACK, WHITE, TEXT_NORMAL};
-use super::{View, Event, Hub, Bus, ViewId};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId};
 use super::{SMALL_BAR_HEIGHT, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use crate::gesture::GestureEvent;
 use crate::input::DeviceEvent;
@@ -15,22 +15,24 @@ use crate::app::Context;
 const NOTIFICATION_CLOSE_DELAY: Duration = Duration::from_secs(4);
 
 pub struct Notification {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     text: String,
     max_width: i32,
     index: u8,
-    id: ViewId,
+    view_id: ViewId,
 }
 
 impl Notification {
-    pub fn new(id: ViewId, text: String, hub: &Hub, context: &mut Context) -> Notification {
+    pub fn new(view_id: ViewId, text: String, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) -> Notification {
+        let id = ID_FEEDER.next();
         let hub2 = hub.clone();
         let index = context.notification_index;
 
         thread::spawn(move || {
             thread::sleep(NOTIFICATION_CLOSE_DELAY);
-            hub2.send(Event::Close(id)).ok();
+            hub2.send(Event::Close(view_id)).ok();
         });
 
         let dpi = CURRENT_DEVICE.dpi;
@@ -58,23 +60,23 @@ impl Notification {
         let rect = rect![dx, dy,
                          dx + dialog_width, dy + dialog_height];
 
-        hub.send(Event::Render(rect, UpdateMode::Gui)).ok();
-
+        rq.add(RenderData::new(id, rect, UpdateMode::Gui));
         context.notification_index = index.wrapping_add(1);
 
         Notification {
+            id,
             rect,
             children: vec![],
             text,
             max_width: max_message_width,
             index,
-            id,
+            view_id,
         }
     }
 }
 
 impl View for Notification {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => true,
             Event::Gesture(GestureEvent::Swipe { start, .. }) if self.rect.includes(start) => true,
@@ -106,7 +108,7 @@ impl View for Notification {
         font.render(fb, TEXT_NORMAL[1], &plan, pt);
     }
 
-    fn resize(&mut self, _rect: Rectangle, _hub: &Hub, context: &mut Context) {
+    fn resize(&mut self, _rect: Rectangle, _hub: &Hub, _rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let (width, height) = context.display.dims;
         let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
@@ -145,7 +147,11 @@ impl View for Notification {
         &mut self.children
     }
 
-    fn id(&self) -> Option<ViewId> {
-        Some(self.id)
+    fn id(&self) -> Id {
+        self.id
+    }
+
+    fn view_id(&self) -> Option<ViewId> {
+        Some(self.view_id)
     }
 }

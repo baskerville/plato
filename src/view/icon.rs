@@ -3,7 +3,7 @@ use fxhash::FxHashMap;
 use lazy_static::lazy_static;
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, Pixmap, UpdateMode};
-use super::{View, Event, Hub, Bus, ViewId, Align};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId, Align};
 use super::BORDER_RADIUS_SMALL;
 use crate::gesture::GestureEvent;
 use crate::input::{DeviceEvent, FingerStatus};
@@ -40,6 +40,7 @@ lazy_static! {
 }
 
 pub struct Icon {
+    id: Id,
     pub rect: Rectangle,
     children: Vec<Box<dyn View>>,
     pub name: String,
@@ -53,6 +54,7 @@ pub struct Icon {
 impl Icon {
     pub fn new(name: &str, rect: Rectangle, event: Event) -> Icon {
         Icon {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
             name: name.to_string(),
@@ -81,18 +83,18 @@ impl Icon {
 }
 
 impl View for Icon {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Device(DeviceEvent::Finger { status, position, .. }) => {
                 match status {
                     FingerStatus::Down if self.rect.includes(position) => {
                         self.active = true;
-                        hub.send(Event::Render(self.rect, UpdateMode::Fast)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Fast));
                         true
                     },
                     FingerStatus::Up if self.active => {
                         self.active = false;
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                         true
                     },
                     _ => false,
@@ -152,7 +154,7 @@ impl View for Icon {
         fb.draw_blended_pixmap(pixmap, pt, scheme[1]);
     }
 
-    fn resize(&mut self, rect: Rectangle, _hub: &Hub, _context: &mut Context) {
+    fn resize(&mut self, rect: Rectangle, _hub: &Hub, _rq: &mut RenderQueue, _context: &mut Context) {
         if let Event::ToggleNear(_, ref mut event_rect) = self.event {
             *event_rect = rect;
         }
@@ -173,5 +175,9 @@ impl View for Icon {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

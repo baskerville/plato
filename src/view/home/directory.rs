@@ -5,12 +5,13 @@ use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use crate::color::{WHITE, BLACK, TEXT_BUMP_SMALL};
 use crate::geom::{Rectangle, CornerSpec, BorderSpec};
 use crate::framebuffer::Framebuffer;
-use crate::view::{View, Event, Hub, Bus, Align};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, Align};
 use crate::view::{THICKNESS_SMALL, BORDER_RADIUS_SMALL};
 use crate::unit::scale_by_dpi;
 use crate::app::Context;
 
 pub struct Directory {
+    id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     pub path: PathBuf,
@@ -22,6 +23,7 @@ pub struct Directory {
 impl Directory {
     pub fn new(rect: Rectangle, path: PathBuf, selected: bool, align: Align, max_width: Option<i32>) -> Directory {
         Directory {
+            id: ID_FEEDER.next(),
             rect,
             children: vec![],
             path,
@@ -39,7 +41,7 @@ impl Directory {
 }
 
 impl View for Directory {
-    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 bus.push_back(Event::ToggleSelectDirectory(self.path.clone()));
@@ -96,5 +98,9 @@ impl View for Directory {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.children
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }

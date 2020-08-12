@@ -2,7 +2,7 @@ use std::path::{PathBuf, Path};
 use crate::device::CURRENT_DEVICE;
 use std::collections::BTreeSet;
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::view::{View, Event, Hub, Bus, Align};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, Align};
 use crate::view::icon::{Icon, ICONS_PIXMAPS};
 use crate::view::{SMALL_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::view::filler::Filler;
@@ -16,6 +16,7 @@ use crate::app::Context;
 
 #[derive(Debug)]
 pub struct DirectoriesBar {
+    id: Id,
     pub rect: Rectangle,
     pub path: PathBuf,
     pages: Vec<Vec<Box<dyn View>>>,
@@ -83,6 +84,7 @@ impl<'a> Item<'a> {
 impl DirectoriesBar {
     pub fn new<P: AsRef<Path>>(rect: Rectangle, path: P) -> DirectoriesBar {
         DirectoriesBar {
+            id: ID_FEEDER.next(),
             rect,
             path: path.as_ref().to_path_buf(),
             current_page: 0,
@@ -405,18 +407,18 @@ impl DirectoriesBar {
 }
 
 impl View for DirectoriesBar {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, _context: &mut Context) -> bool {
+    fn handle_event(&mut self, evt: &Event, _hub: &Hub, _bus: &mut Bus, rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(GestureEvent::Swipe { dir, start, .. }) if self.rect.includes(start) => {
                 match dir {
                     Dir::West => {
                         self.set_current_page(CycleDir::Next);
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                         true
                     },
                     Dir::East => {
                         self.set_current_page(CycleDir::Previous);
-                        hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                         true
                     },
                     _ => false,
@@ -424,7 +426,7 @@ impl View for DirectoriesBar {
             },
             Event::Page(dir) => {
                 self.set_current_page(dir);
-                hub.send(Event::Render(self.rect, UpdateMode::Gui)).ok();
+                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                 true
             },
             _ => false,
@@ -448,5 +450,9 @@ impl View for DirectoriesBar {
 
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>> {
         &mut self.pages[self.current_page]
+    }
+
+    fn id(&self) -> Id {
+        self.id
     }
 }
