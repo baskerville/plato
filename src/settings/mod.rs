@@ -301,7 +301,7 @@ impl Default for HomeSettings {
     fn default() -> Self {
         HomeSettings {
             address_bar: false,
-            navigation_bar: false,
+            navigation_bar: true,
             max_levels: 3,
         }
     }
