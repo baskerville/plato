@@ -62,12 +62,20 @@ export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"
 
 [ -e info.log ] && [ "$(stat -c '%s' info.log)" -gt $((1<<18)) ] && mv info.log archive.log
 
-ORIG_BPP=$(./bin/utils/fbdepth -g)
-./bin/utils/fbdepth -q -d 8
+case "${PRODUCT}:${MODEL_NUMBER}" in
+	storm:*|frost:*|nova:*|snow:378|star:379)
+		unset ORIG_BPP
+		;;
+	*)
+		ORIG_BPP=$(./bin/utils/fbdepth -g)
+		;;
+esac
+
+[ "$ORIG_BPP" ] && ./bin/utils/fbdepth -q -d 8
 
 LIBC_FATAL_STDERR_=1 ./plato >> info.log 2>&1 || rm bootlock
 
-./bin/utils/fbdepth -q -d "$ORIG_BPP"
+[ "$ORIG_BPP" ] && ./bin/utils/fbdepth -q -d "$ORIG_BPP"
 
 if [ "$PLATO_STANDALONE" ] ; then
 	sync
