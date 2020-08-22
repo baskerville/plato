@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::time::SystemTime;
+use std::time::{SystemTime, Duration};
 use std::path::{PathBuf, Path};
 use std::collections::BTreeSet;
 use regex::Regex;
@@ -246,27 +246,61 @@ impl Library {
                 let rp2 = self.reading_state_path(fp);
                 fs::rename(rp1, rp2).ok();
                 self.has_db_changed = true;
-            // We found a new file: add it to the db.
             } else {
-                let kind = file_kind(&path).unwrap_or_default();
-                if !settings.allowed_kinds.contains(&kind) {
-                    continue;
-                }
-                println!("Add new entry: {:016X}, {}.", fp, relat.display());
-                let size = md.len();
-                let file = FileInfo {
-                    path: relat.to_path_buf(),
-                    kind,
-                    size,
+                let fp1 = self.fat32_epoch.checked_sub(Duration::from_secs(1))
+                              .and_then(|epoch| md.fingerprint(epoch).ok()).unwrap_or(fp);
+                let fp2 = self.fat32_epoch.checked_add(Duration::from_secs(1))
+                              .and_then(|epoch| md.fingerprint(epoch).ok()).unwrap_or(fp);
+
+                let nfp = if fp1 != fp && self.db.contains_key(&fp1) {
+                    Some(fp1)
+                } else if fp2 != fp && self.db.contains_key(&fp2) {
+                    Some(fp2)
+                } else {
+                    None
                 };
-                let mut info = Info {
-                    file,
-                    .. Default::default()
-                };
-                if settings.extract_epub_metadata {
-                    extract_metadata_from_epub(prefix.as_ref(), &mut info);
+
+                // On a FAT32 file system, the modification time has a two-second precision.
+                // This might be the reason why the modification time of a file can sometimes
+                // drift by one second, when the file is created within an operating system
+                // and moved within another.
+                if let Some(nfp) = nfp {
+                    println!("Update fingerprint for {}: {:016X} → {:016X}.", self.db[&nfp].file.path.display(), nfp, fp);
+                    let info = self.db.remove(&nfp).unwrap();
+                    self.db.insert(fp, info);
+                    let rp1 = self.reading_state_path(nfp);
+                    let rp2 = self.reading_state_path(fp);
+                    fs::rename(rp1, rp2).ok();
+                    if relat != self.db[&fp].file.path {
+                        println!("Update path for {:016X}: {} → {}.",
+                                 fp, self.db[&fp].file.path.display(), relat.display());
+                        self.paths.remove(&self.db[&fp].file.path);
+                        self.paths.insert(relat.to_path_buf(), fp);
+                        self.db[&fp].file.path = relat.to_path_buf();
+                    }
+                // We found a new file: add it to the db.
+                } else {
+                    let kind = file_kind(&path).unwrap_or_default();
+                    if !settings.allowed_kinds.contains(&kind) {
+                        continue;
+                    }
+                    println!("Add new entry: {:016X}, {}.", fp, relat.display());
+                    let size = md.len();
+                    let file = FileInfo {
+                        path: relat.to_path_buf(),
+                        kind,
+                        size,
+                    };
+                    let mut info = Info {
+                        file,
+                        .. Default::default()
+                    };
+                    if settings.extract_epub_metadata {
+                        extract_metadata_from_epub(prefix.as_ref(), &mut info);
+                    }
+                    self.db.insert(fp, info);
                 }
-                self.db.insert(fp, info);
+
                 self.has_db_changed = true;
             }
         }
