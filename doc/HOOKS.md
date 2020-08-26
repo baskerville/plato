@@ -27,11 +27,15 @@ Each event is a JSON object with a required `type` key:
 ```
 // Display a notification message.
 {"type": "notify", "message": STRING}
-// Add a document to the DB. `info` is the camel cased JSON version
+// Add a document to the current library. `info` is the camel cased JSON version
 // of the `Info` structure defined in `src/metadata.rs`.
 {"type": "addDocument", "info": OBJECT}
 // Enable or disable the WiFi.
 {"type": "setWifi", "enable": BOOL}
+// Import new entries and update existing entries in the current library.
+{"type": "import"}
+// Remove entries with dangling paths from the current library.
+{"type": "cleanUp"}
 ```
 
 On *Plato*'s side, the events are read line by line, one event per line.

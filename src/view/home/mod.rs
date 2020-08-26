@@ -211,6 +211,7 @@ impl Home {
         let selected_library = context.settings.selected_library;
         for hook in &context.settings.libraries[selected_library].hooks {
             if context.library.home.join(&hook.path) == path {
+                context.library.flush();
                 self.insert_fetcher(hook, hub, context);
             }
         }
@@ -1120,6 +1121,12 @@ impl Home {
                                 if let Some(enable) = event.get("enable").and_then(JsonValue::as_bool) {
                                     hub2.send(Event::SetWifi(enable)).ok();
                                 }
+                            },
+                            Some("cleanUp") => {
+                                hub2.send(Event::Select(EntryId::CleanUp)).ok();
+                            },
+                            Some("import") => {
+                                hub2.send(Event::Select(EntryId::Import)).ok();
                             },
                             _ => (),
                         }
