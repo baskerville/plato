@@ -1123,6 +1123,12 @@ impl Home {
                                     hub2.send(Event::SetWifi(enable)).ok();
                                 }
                             },
+                            Some("cleanUp") => {
+                                hub2.send(Event::Select(EntryId::CleanUp)).ok();
+                            },
+                            Some("import") => {
+                                hub2.send(Event::Select(EntryId::Import)).ok();
+                            },
                             _ => (),
                         }
                     }

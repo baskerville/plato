@@ -32,6 +32,10 @@ Each event is a JSON object with a required `type` key:
 {"type": "addDocument", "info": OBJECT}
 // Enable or disable the WiFi.
 {"type": "setWifi", "enable": BOOL}
+// Remove entries from library that no longer exist
+{"type": "cleanUp"}
+// Import new entries and update existing entries in library
+{"type": "import"}
 ```
 
 On *Plato*'s side, the events are read line by line, one event per line.
