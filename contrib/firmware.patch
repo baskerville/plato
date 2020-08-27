@@ -1,7 +1,7 @@
 diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
---- a/etc/init.d/rcS	2020-05-18 09:43:19.000000000 +0200
-+++ b/etc/init.d/rcS	2020-05-18 09:43:30.000000000 +0200
-@@ -70,7 +70,12 @@
+--- a/etc/init.d/rcS	2020-08-27 20:33:47.000000000 +0200
++++ b/etc/init.d/rcS	2020-08-27 20:33:55.000000000 +0200
+@@ -79,7 +79,12 @@
  FS_CORRUPT=0
  dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || FS_CORRUPT=1
  [ ! -s /usr/local/Kobo/pickel ] && FORCE_FACTORY_RESET=1
@@ -15,7 +15,7 @@ diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
  if [ $? != 0 ] || [ $FS_CORRUPT == 1 ] || [ $FORCE_FACTORY_RESET == 1 ]; then
  	case $PRODUCT in
  		kraken|phoenix)
-@@ -186,7 +191,12 @@
+@@ -196,7 +201,12 @@
  /bin/dbus-daemon --system &
  export DBUS_SESSION_BUS_ADDRESS=`/bin/dbus-daemon --session --print-address --fork`
  
@@ -29,4 +29,4 @@ diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
 +	LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &
 +fi
  [ $PLATFORM != freescale ] && rm -rf /dev/mmcblk1* && udevadm trigger &
- insmod /drivers/$PLATFORM/misc/lowmem.ko &
+ [ -e /drivers/$PLATFORM/misc/lowmem.ko ] && insmod /drivers/$PLATFORM/misc/lowmem.ko &
