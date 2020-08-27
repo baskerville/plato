@@ -3,7 +3,7 @@
 lsmod | grep -q sdio_wifi_pwr && exit 1
 
 insmod /drivers/"${PLATFORM}"/wifi/sdio_wifi_pwr.ko
-insmod "$WIFI_MODULE_PATH"
+insmod /drivers/"${PLATFORM}"/wifi/"${WIFI_MODULE}".ko
 
 REM_TRIES=20
 while [ "$REM_TRIES" -gt 0 ] ; do
