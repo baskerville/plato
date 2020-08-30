@@ -226,6 +226,8 @@ pub struct ReaderInfo {
     pub bookmarks: BTreeSet<usize>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<Annotation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_uri: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
@@ -262,6 +264,7 @@ impl Default for ReaderInfo {
             page_names: BTreeMap::new(),
             bookmarks: BTreeSet::new(),
             annotations: Vec::new(),
+            current_uri: None
         }
     }
 }
