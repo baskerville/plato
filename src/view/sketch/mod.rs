@@ -9,13 +9,13 @@ use anyhow::Error;
 use crate::device::CURRENT_DEVICE;
 use crate::geom::{Point, Rectangle, CornerSpec};
 use crate::input::{DeviceEvent, FingerStatus};
-use crate::view::icon::Icon;
+use crate::view::icon::{Icon, ICONS_PIXMAPS};
 use crate::view::notification::Notification;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::common::{locate_by_id};
 use crate::view::{View, Event, Hub, Bus, RenderQueue, RenderData};
 use crate::view::{EntryKind, EntryId, ViewId, Id, ID_FEEDER};
-use crate::view::SMALL_BAR_HEIGHT;
+use crate::view::{SMALL_BAR_HEIGHT, BORDER_RADIUS_SMALL};
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
 use crate::settings::{ImportSettings, Pen};
 use crate::helpers::IsHidden;
@@ -25,6 +25,7 @@ use crate::color::{BLACK, WHITE};
 use crate::app::Context;
 
 const FILENAME_PATTERN: &str = "sketch-%Y%m%d_%H%M%S.png";
+const ICON_NAME: &str = "enclosed_menu";
 // https://oeis.org/A000041
 const PEN_SIZES: [i32; 12] = [1, 2, 3, 5, 7, 11, 15, 22, 30, 42, 56, 77];
 
@@ -58,13 +59,19 @@ impl Sketch {
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
-        let side = small_height;
-        let icon_rect = rect![rect.min.x, rect.max.y - side,
-                              rect.min.x + side, rect.max.y];
-        let icon = Icon::new("ellipsis",
+        let border_radius = scale_by_dpi(BORDER_RADIUS_SMALL, dpi) as i32;
+        let padding = 2 * border_radius;
+        let pixmap = &ICONS_PIXMAPS[ICON_NAME];
+        let width = pixmap.width as i32 + padding;
+        let height = pixmap.height as i32 + padding;
+        let dx = (small_height - width) / 2;
+        let dy = (small_height - height) / 2;
+        let icon_rect = rect![rect.min.x + dx, rect.max.y - dy - height,
+                              rect.min.x + dx + width, rect.max.y - dy];
+        let icon = Icon::new(ICON_NAME,
                              icon_rect,
                              Event::ToggleNear(ViewId::TitleMenu, icon_rect))
-                        .corners(Some(CornerSpec::Uniform(side / 2)));
+                        .corners(Some(CornerSpec::Uniform(border_radius)));
         children.push(Box::new(icon) as Box<dyn View>);
         let mut random = Pixmap::new(rect.width(), rect.height());
         context.rng.fill_bytes(random.data_mut());
