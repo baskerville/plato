@@ -62,13 +62,20 @@ impl FrontlightWindow {
 
         let rect = rect![dx, dy, dx + window_width, dy + window_height];
 
+        let corners = CornerSpec::Detailed {
+            north_west: 0,
+            north_east: border_radius - thickness,
+            south_east: 0,
+            south_west: 0,
+        };
+
         let close_icon = Icon::new("close",
                                    rect![rect.max.x - small_height,
                                          rect.min.y + thickness,
                                          rect.max.x - thickness,
                                          rect.min.y + small_height],
                                    Event::Close(ViewId::Frontlight))
-                              .corners(Some(CornerSpec::Uniform(border_radius - thickness)));
+                              .corners(Some(corners));
 
         children.push(Box::new(close_icon) as Box<dyn View>);
 
