@@ -4,12 +4,11 @@ use lazy_static::lazy_static;
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, Pixmap, UpdateMode};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId, Align};
-use super::BORDER_RADIUS_SMALL;
 use crate::gesture::GestureEvent;
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::document::pdf::PdfOpener;
 use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
-use crate::unit::{scale_by_dpi, scale_by_dpi_raw};
+use crate::unit::scale_by_dpi_raw;
 use crate::geom::{Rectangle, CornerSpec};
 use crate::font::Fonts;
 use crate::app::Context;
@@ -125,8 +124,6 @@ impl View for Icon {
     }
 
     fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
-        let dpi = CURRENT_DEVICE.dpi;
-
         let scheme = if self.active {
             TEXT_INVERTED_HARD
         } else {
@@ -138,17 +135,16 @@ impl View for Icon {
         let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
         let pt = self.rect.min + pt!(dx, dy);
 
-        if let Some(ref cs) = self.corners {
-            fb.draw_rounded_rectangle(&self.rect, cs, self.background);
+        let background = if self.active {
+            scheme[0]
         } else {
-            fb.draw_rectangle(&self.rect, self.background);
-        }
+            self.background
+        };
 
-        if self.active {
-            let padding = ((self.rect.width() as i32 - pixmap.width as i32).min(self.rect.height() as i32 - pixmap.height as i32) / 3).max(1);
-            let bg_rect = rect![pt - padding, pt + pt!(pixmap.width as i32, pixmap.height as i32) + padding];
-            let border_radius = scale_by_dpi(BORDER_RADIUS_SMALL, dpi) as i32;
-            fb.draw_rounded_rectangle(&bg_rect, &CornerSpec::Uniform(border_radius), scheme[0]);
+        if let Some(ref cs) = self.corners {
+            fb.draw_rounded_rectangle(&self.rect, cs, background);
+        } else {
+            fb.draw_rectangle(&self.rect, background);
         }
 
         fb.draw_blended_pixmap(pixmap, pt, scheme[1]);
