@@ -69,7 +69,8 @@ The following swipe sequences are recognized:
 
 - Arrow west/east: go to the previous/next chapter in normal mode, the first/last results in search mode.
 - Arrow north/south: start searching text backward/forward.
-- Top left/right corner: go to the previous/next annotation, highlight or bookmark.
+- Top left/right corner: go to the previous/next bookmark.
+- Top left/right multi-corner: go to the previous/next annotation or highlight.
 - Bottom left corner: guess the frontlight if there's more than two frontlight presets defined, toggle the frontlight otherwise.
 - Bottom right corner: toggle the bitonal mode.
 

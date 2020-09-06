@@ -530,49 +530,40 @@ impl Reader {
         min_loc.and_then(|min| max_loc.map(|max| [min, max]))
     }
 
-    fn go_to_artefact(&mut self, dir: CycleDir, hub: &Hub, rq: &mut RenderQueue, context: &Context) {
-        let mut loc_bkm = None;
-        let mut loc_annot = None;
-
-        if let Some(ref r) = self.info.reader {
+    fn go_to_bookmark(&mut self, dir: CycleDir, hub: &Hub, rq: &mut RenderQueue, context: &Context) {
+        let loc_bkm = self.info.reader.as_ref().and_then(|r| {
             match dir {
-                CycleDir::Next => {
-                    loc_bkm = r.bookmarks.range(self.current_page+1 ..)
-                                         .next().cloned();
-                    if let Some([_, max]) = self.text_location_range() {
-                        loc_annot = r.annotations.iter()
-                                     .filter(|annot| annot.selection[0] > max)
-                                     .map(|annot| annot.selection[0]).min()
-                                     .map(|tl| tl.location());
-                    }
-                },
-                CycleDir::Previous => {
-                    loc_bkm = r.bookmarks.range(.. self.current_page)
-                                         .next_back().cloned();
-                    if let Some([min, _]) = self.text_location_range() {
-                        loc_annot = r.annotations.iter()
-                                     .filter(|annot| annot.selection[1] < min)
-                                     .map(|annot| annot.selection[1]).max()
-                                     .map(|tl| tl.location());
-                    }
-                },
+                CycleDir::Next => r.bookmarks.range(self.current_page+1 ..)
+                                   .next().cloned(),
+                CycleDir::Previous => r.bookmarks.range(.. self.current_page)
+                                       .next_back().cloned(),
             }
+        });
+
+        if let Some(location) = loc_bkm {
+            self.go_to_page(location, true, hub, rq, context);
         }
+    }
 
-        let loc = match (loc_bkm, loc_annot) {
-            (Some(a), Some(b)) => {
-                if dir == CycleDir::Next {
-                    Some(a.min(b))
-                } else {
-                    Some(a.max(b))
-                }
-            },
-            (Some(a), None) => Some(a),
-            (None, Some(b)) => Some(b),
-            (None, None) => None,
-        };
+    fn go_to_annotation(&mut self, dir: CycleDir, hub: &Hub, rq: &mut RenderQueue, context: &Context) {
+        let loc_annot = self.info.reader.as_ref().and_then(|r| {
+            match dir {
+                CycleDir::Next => self.text_location_range().and_then(|[_, max]| {
+                    r.annotations.iter()
+                     .filter(|annot| annot.selection[0] > max)
+                     .map(|annot| annot.selection[0]).min()
+                     .map(|tl| tl.location())
+                }),
+                CycleDir::Previous => self.text_location_range().and_then(|[min, _]| {
+                    r.annotations.iter()
+                     .filter(|annot| annot.selection[1] < min)
+                     .map(|annot| annot.selection[1]).max()
+                     .map(|tl| tl.location())
+                }),
+            }
+        });
 
-        if let Some(location) = loc {
+        if let Some(location) = loc_annot {
             self.go_to_page(location, true, hub, rq, context);
         }
     }
@@ -2470,8 +2461,8 @@ impl View for Reader {
             },
             Event::Gesture(GestureEvent::Corner { dir, .. }) => {
                 match dir {
-                    DiagDir::NorthWest => self.go_to_artefact(CycleDir::Previous, hub, rq, context),
-                    DiagDir::NorthEast => self.go_to_artefact(CycleDir::Next, hub, rq, context),
+                    DiagDir::NorthWest => self.go_to_bookmark(CycleDir::Previous, hub, rq, context),
+                    DiagDir::NorthEast => self.go_to_bookmark(CycleDir::Next, hub, rq, context),
                     DiagDir::SouthEast => {
                         hub.send(Event::Select(EntryId::ToggleMonochrome)).ok();
                     },
@@ -2494,6 +2485,14 @@ impl View for Reader {
                         }
                     },
                 };
+                true
+            },
+            Event::Gesture(GestureEvent::MultiCorner { dir, .. }) => {
+                match dir {
+                    DiagDir::NorthWest => self.go_to_annotation(CycleDir::Previous, hub, rq, context),
+                    DiagDir::NorthEast => self.go_to_annotation(CycleDir::Next, hub, rq, context),
+                    _ => (),
+                }
                 true
             },
             Event::Gesture(GestureEvent::Cross(_)) => {

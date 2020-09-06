@@ -34,10 +34,20 @@ pub enum GestureEvent {
         start: Point,
         end: Point,
     },
+    MultiArrow {
+        dir: Dir,
+        starts: [Point; 2],
+        ends: [Point; 2],
+    },
     Corner {
         dir: DiagDir,
         start: Point,
         end: Point,
+    },
+    MultiCorner {
+        dir: DiagDir,
+        starts: [Point; 2],
+        ends: [Point; 2],
     },
     Pinch {
         axis: Axis,
@@ -166,7 +176,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                                     dir: d1,
                                     starts: [s1, s2],
                                     ends: [e1, e2],
-                                })).unwrap();
+                                })).ok();
                             },
                             (GestureEvent::Swipe { dir: d1, start: s1, end: e1, .. },
                              GestureEvent::Swipe { dir: d2, start: s2, end: e2, .. }) if d1 == d2.opposite() => {
@@ -178,19 +188,33 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                                         starts: [s1, s2],
                                         ends: [e1, e2],
                                         strength: (ds - de) as u32,
-                                    })).unwrap();
+                                    })).ok();
                                 } else {
                                     ty.send(Event::Gesture(GestureEvent::Spread {
                                         axis: d1.axis(),
                                         starts: [s1, s2],
                                         ends: [e1, e2],
                                         strength: (de - ds) as u32,
-                                    })).unwrap();
+                                    })).ok();
                                 }
                             },
                             (GestureEvent::Arrow { dir: Dir::East, start: s1, end: e1 }, GestureEvent::Arrow { dir: Dir::West, start: s2, end: e2 }) |
                             (GestureEvent::Arrow { dir: Dir::West, start: s2, end: e2 }, GestureEvent::Arrow { dir: Dir::East, start: s1, end: e1 }) if s1.x < s2.x => {
                                 ty.send(Event::Gesture(GestureEvent::Cross((s1+e1+s2+e2)/4))).ok();
+                            },
+                            (GestureEvent::Arrow { dir: d1, start: s1, end: e1 }, GestureEvent::Arrow { dir: d2, start: s2, end: e2 }) if d1 == d2 => {
+                                ty.send(Event::Gesture(GestureEvent::MultiArrow {
+                                    dir: d1,
+                                    starts: [s1, s2],
+                                    ends: [e1, e2],
+                                })).ok();
+                            },
+                            (GestureEvent::Corner { dir: d1, start: s1, end: e1 }, GestureEvent::Corner { dir: d2, start: s2, end: e2 }) if d1 == d2 => {
+                                ty.send(Event::Gesture(GestureEvent::MultiCorner {
+                                    dir: d1,
+                                    starts: [s1, s2],
+                                    ends: [e1, e2],
+                                })).ok();
                             },
                             (GestureEvent::Tap(c), GestureEvent::Swipe { start: s, end: e, .. }) |
                             (GestureEvent::Swipe { start: s, end: e, .. }, GestureEvent::Tap(c)) |
@@ -205,7 +229,7 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                                     angle,
                                     quarter_turns,
                                     center: c,
-                                })).unwrap();
+                                })).ok();
                             },
                             _ => (),
                         }
