@@ -62,8 +62,9 @@ impl Sketch {
         let border_radius = scale_by_dpi(BORDER_RADIUS_SMALL, dpi) as i32;
         let padding = 2 * border_radius;
         let pixmap = &ICONS_PIXMAPS[ICON_NAME];
-        let width = pixmap.width as i32 + padding;
-        let height = pixmap.height as i32 + padding;
+        let icon_padding = (small_height - pixmap.width.max(pixmap.height) as i32) / 2;
+        let width = pixmap.width as i32 + icon_padding;
+        let height = pixmap.height as i32 + icon_padding;
         let dx = (small_height - width) / 2;
         let dy = (small_height - height) / 2;
         let icon_rect = rect![rect.min.x + dx, rect.max.y - dy - height,
