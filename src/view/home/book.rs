@@ -98,8 +98,9 @@ impl View for Book {
         };
 
         let (small_half_padding, big_half_padding) = halves(padding);
-        let first_width = 3 * self.rect.width() as i32 / 4;
-        let second_width = (self.rect.width() as i32 - first_width) / 2;
+        let third_width = 6 * x_height;
+        let second_width = 8 * x_height;
+        let first_width = self.rect.width() as i32 - second_width - third_width;
         let width = first_width - padding - small_half_padding;
 
         // Author
