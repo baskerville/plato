@@ -110,6 +110,10 @@ impl DirectoriesBar {
             .collect()
     }
 
+    pub fn go_to_page(&mut self, index: usize) {
+        self.current_page = index;
+    }
+
     pub fn set_current_page(&mut self, dir: CycleDir) {
         match dir {
             CycleDir::Next if self.current_page < self.pages.len() - 1 => {
@@ -425,8 +429,25 @@ impl View for DirectoriesBar {
                 }
             },
             Event::Page(dir) => {
+                let current_page = self.current_page;
                 self.set_current_page(dir);
-                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+                if self.current_page != current_page {
+                    rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+                }
+                true
+            },
+            Event::Chapter(dir) => {
+                let pages_count = self.pages.len();
+                if pages_count > 1 {
+                    let current_page = self.current_page;
+                    match dir {
+                        CycleDir::Previous => self.go_to_page(0),
+                        CycleDir::Next => self.go_to_page(pages_count.saturating_sub(1)),
+                    }
+                    if self.current_page != current_page {
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+                    }
+                }
                 true
             },
             _ => false,
