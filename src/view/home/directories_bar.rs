@@ -445,6 +445,14 @@ impl View for DirectoriesBar {
                         CycleDir::Next => self.go_to_page(pages_count.saturating_sub(1)),
                     }
                     if self.current_page != current_page {
+                        let page = &mut self.pages[current_page];
+                        let index = match dir {
+                            CycleDir::Previous => 0,
+                            CycleDir::Next => page.len().saturating_sub(1),
+                        };
+                        if let Some(icon) = page[index].downcast_mut::<Icon>() {
+                            icon.active = false;
+                        }
                         rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                     }
                 }

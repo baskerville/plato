@@ -47,7 +47,7 @@ pub struct Icon {
     align: Align,
     corners: Option<CornerSpec>,
     event: Event,
-    active: bool,
+    pub active: bool,
 }
 
 impl Icon {
