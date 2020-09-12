@@ -433,7 +433,7 @@ pub fn run() -> Result<(), Error> {
 
     schedule_task(TaskId::CheckBattery, Event::CheckBattery,
                   BATTERY_REFRESH_INTERVAL, &tx, &mut tasks);
-    tx.send(Event::Wake).ok();
+    tx.send(Event::WakeUp).ok();
 
     while let Ok(evt) = rx.recv() {
         match evt {

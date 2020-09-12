@@ -334,7 +334,7 @@ pub enum Event {
     Reseed,
     Back,
     Quit,
-    Wake,
+    WakeUp,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
