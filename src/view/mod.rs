@@ -23,7 +23,7 @@ pub mod named_input;
 pub mod labeled_icon;
 pub mod top_bar;
 pub mod search_bar;
-pub mod confirmation;
+pub mod dialog;
 pub mod notification;
 pub mod intermission;
 pub mod frontlight;
@@ -396,7 +396,8 @@ pub enum ViewId {
     AddressBar,
     AddressBarInput,
     Keyboard,
-    ConfirmShare,
+    AboutDialog,
+    ShareDialog,
     MarginCropper,
     TopBottomBars,
     TableOfContents,
@@ -479,6 +480,7 @@ pub enum EntryKind {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EntryId {
+    About,
     LoadLibrary(usize),
     Load(PathBuf),
     Flush,

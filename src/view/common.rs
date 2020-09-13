@@ -87,7 +87,10 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
                         EntryKind::Command("Sketch".to_string(),
                                            EntryId::Launch(AppCmd::Sketch))];
 
-        let mut entries = vec![EntryKind::CheckBox("Invert Colors".to_string(),
+        let mut entries = vec![EntryKind::Command("About".to_string(),
+                                                  EntryId::About),
+                               EntryKind::Separator,
+                               EntryKind::CheckBox("Invert Colors".to_string(),
                                                    EntryId::ToggleInverted,
                                                    context.fb.inverted()),
                                EntryKind::CheckBox("Make Bitonal".to_string(),

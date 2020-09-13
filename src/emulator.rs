@@ -43,6 +43,7 @@ use crate::view::{process_render_queue, handle_event, RenderQueue, RenderData};
 use crate::view::home::Home;
 use crate::view::reader::Reader;
 use crate::view::notification::Notification;
+use crate::view::dialog::Dialog;
 use crate::view::frontlight::FrontlightWindow;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::dictionary::Dictionary;
@@ -414,6 +415,14 @@ fn main() -> Result<(), Error> {
                         rq.add(RenderData::expose(rect, UpdateMode::Gui));
                         view.children_mut().remove(index);
                     }
+                },
+                Event::Select(EntryId::About) => {
+                    let dialog = Dialog::new(ViewId::AboutDialog,
+                                             None,
+                                             format!("Plato {}", env!("CARGO_PKG_VERSION")),
+                                             &mut context);
+                    rq.add(RenderData::new(dialog.id(), *dialog.rect(), UpdateMode::Gui));
+                    view.children_mut().push(Box::new(dialog) as Box<dyn View>);
                 },
                 Event::Select(EntryId::Rotate(n)) if n != context.display.rotation && view.might_rotate() => {
                     updating.retain(|tok, _| context.fb.wait(*tok).is_err());

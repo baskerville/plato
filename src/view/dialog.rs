@@ -15,17 +15,17 @@ use crate::app::Context;
 const LABEL_VALIDATE: &str = "OK";
 const LABEL_CANCEL: &str = "Cancel";
 
-pub struct Confirmation {
+pub struct Dialog {
     id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     view_id: ViewId,
-    event: Event,
+    event: Option<Event>,
     will_close: bool,
 }
 
-impl Confirmation {
-    pub fn new(view_id: ViewId, event: Event, text: String, context: &mut Context) -> Confirmation {
+impl Dialog {
+    pub fn new(view_id: ViewId, event: Option<Event>, text: String, context: &mut Context) -> Dialog {
         let id = ID_FEEDER.next();
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
@@ -45,7 +45,6 @@ impl Confirmation {
         let dialog_width = plan.width.max(min_message_width) + 3 * padding;
         let dialog_height = 2 * button_height + 3 * padding;
 
-
         let dx = (width as i32 - dialog_width) / 2;
         let dy = (height as i32 - dialog_height) / 2;
         let rect = rect![dx, dy,
@@ -60,28 +59,28 @@ impl Confirmation {
 
         children.push(Box::new(label) as Box<dyn View>);
 
-        let plan_cancel = font.plan(LABEL_CANCEL, Some(max_button_width), None);
+        let plan_cancel = event.as_ref().map(|_| font.plan(LABEL_CANCEL, Some(max_button_width), None));
         let plan_validate = font.plan(LABEL_VALIDATE, Some(max_button_width), None);
 
-        let button_width = plan_validate.width.max(plan_cancel.width) as i32 + padding;
+        let button_width = plan_validate.width.max(plan_cancel.map_or(0, |p| p.width)) as i32 + padding;
 
-        let rect_cancel = rect![rect.min.x + padding,
-                                rect.max.y - button_height - padding,
-                                rect.min.x + button_width + 2 * padding,
-                                rect.max.y - padding];
+        if event.is_some() {
+            let rect_cancel = rect![rect.min.x + padding,
+                                    rect.max.y - button_height - padding,
+                                    rect.min.x + button_width + 2 * padding,
+                                    rect.max.y - padding];
+            let button_cancel = Button::new(rect_cancel, Event::Cancel, LABEL_CANCEL.to_string());
+            children.push(Box::new(button_cancel) as Box<dyn View>);
+        }
 
         let rect_validate = rect![rect.max.x - button_width - 2 * padding,
                                   rect.max.y - button_height - padding,
                                   rect.max.x - padding,
                                   rect.max.y - padding];
-
-        let button_cancel = Button::new(rect_cancel, Event::Cancel, LABEL_CANCEL.to_string()); 
-        children.push(Box::new(button_cancel) as Box<dyn View>);
-
         let button_validate = Button::new(rect_validate, Event::Validate, LABEL_VALIDATE.to_string()); 
         children.push(Box::new(button_validate) as Box<dyn View>);
 
-        Confirmation {
+        Dialog {
             id,
             rect,
             children,
@@ -92,7 +91,7 @@ impl Confirmation {
     }
 }
 
-impl View for Confirmation {
+impl View for Dialog {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::Validate | Event::Cancel => {
@@ -106,7 +105,9 @@ impl View for Confirmation {
                     hub2.send(Event::Close(view_id)).ok();
                 });
                 if let Event::Validate = *evt {
-                    bus.push_back(self.event.clone());
+                    if let Some(event) = self.event.as_ref() {
+                        bus.push_back(event.clone());
+                    }
                 }
                 self.will_close = true;
                 true
@@ -139,13 +140,14 @@ impl View for Confirmation {
         let dialog_width = self.rect.width() as i32;
         let dialog_height = self.rect.height() as i32;
         let max_button_width = width as i32 / 4;
+
         let (x_height, padding, button_width) = {
             let font = font_from_style(&mut context.fonts, &NORMAL_STYLE, dpi);
-            let plan_cancel = font.plan(LABEL_CANCEL, Some(max_button_width), None);
+            let plan_cancel = self.event.as_ref().map(|_| font.plan(LABEL_CANCEL, Some(max_button_width), None));
             let plan_validate = font.plan(LABEL_VALIDATE, Some(max_button_width), None);
             let x_height = font.x_heights.0 as i32;
             let padding = font.em() as i32;
-            let button_width = plan_validate.width.max(plan_cancel.width) as i32 + padding;
+            let button_width = plan_validate.width.max(plan_cancel.map_or(0, |p| p.width)) as i32 + padding;
             (x_height, padding, button_width)
         };
         let button_height = 4 * x_height;
@@ -159,20 +161,23 @@ impl View for Confirmation {
                                rect.min.y + padding,
                                rect.max.x - padding,
                                rect.min.y + padding + button_height];
+        self.children[0].resize(label_rect, hub, rq, context);
 
-        let cancel_rect = rect![rect.min.x + padding,
-                                rect.max.y - button_height - padding,
-                                rect.min.x + button_width + 2 * padding,
-                                rect.max.y - padding];
+        let mut index = 1;
+        if self.event.is_some() {
+            let cancel_rect = rect![rect.min.x + padding,
+                                    rect.max.y - button_height - padding,
+                                    rect.min.x + button_width + 2 * padding,
+                                    rect.max.y - padding];
+            self.children[index].resize(cancel_rect, hub, rq, context);
+            index += 1;
+        }
 
         let validate_rect = rect![rect.max.x - button_width - 2 * padding,
                                   rect.max.y - button_height - padding,
                                   rect.max.x - padding,
                                   rect.max.y - padding];
-
-        self.children[0].resize(label_rect, hub, rq, context);
-        self.children[1].resize(cancel_rect, hub, rq, context);
-        self.children[2].resize(validate_rect, hub, rq, context);
+        self.children[index].resize(validate_rect, hub, rq, context);
         self.rect = rect;
     }
 

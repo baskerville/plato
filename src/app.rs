@@ -36,7 +36,7 @@ use crate::battery::{Battery, KoboBattery};
 use crate::geom::{Rectangle, Edge};
 use crate::view::home::Home;
 use crate::view::reader::Reader;
-use crate::view::confirmation::Confirmation;
+use crate::view::dialog::Dialog;
 use crate::view::intermission::{Intermission, IntermKind};
 use crate::view::notification::Notification;
 use crate::device::{CURRENT_DEVICE, Orientation, FrontlightKind};
@@ -551,12 +551,12 @@ pub fn run() -> Result<(), Error> {
                                 if context.settings.auto_share {
                                     tx.send(Event::PrepareShare).ok();
                                 } else {
-                                    let confirm = Confirmation::new(ViewId::ConfirmShare,
-                                                                    Event::PrepareShare,
-                                                                    "Share storage via USB?".to_string(),
-                                                                    &mut context);
-                                    rq.add(RenderData::new(confirm.id(), *confirm.rect(), UpdateMode::Gui));
-                                    view.children_mut().push(Box::new(confirm) as Box<dyn View>);
+                                    let dialog = Dialog::new(ViewId::ShareDialog,
+                                                             Some(Event::PrepareShare),
+                                                             "Share storage via USB?".to_string(),
+                                                             &mut context);
+                                    rq.add(RenderData::new(dialog.id(), *dialog.rect(), UpdateMode::Gui));
+                                    view.children_mut().push(Box::new(dialog) as Box<dyn View>);
                                 }
 
                                 inactive_since = Instant::now();
@@ -848,6 +848,14 @@ pub fn run() -> Result<(), Error> {
                     monochrome: context.fb.monochrome(),
                 });
                 view = next_view;
+            },
+            Event::Select(EntryId::About) => {
+                let dialog = Dialog::new(ViewId::AboutDialog,
+                                         None,
+                                         format!("Plato {}", env!("CARGO_PKG_VERSION")),
+                                         &mut context);
+                rq.add(RenderData::new(dialog.id(), *dialog.rect(), UpdateMode::Gui));
+                view.children_mut().push(Box::new(dialog) as Box<dyn View>);
             },
             Event::Select(EntryId::Launch(app_cmd)) => {
                 view.children_mut().retain(|child| !child.is::<Menu>());
