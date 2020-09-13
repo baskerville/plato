@@ -60,7 +60,6 @@ impl Sketch {
         let dpi = CURRENT_DEVICE.dpi;
         let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
         let border_radius = scale_by_dpi(BORDER_RADIUS_SMALL, dpi) as i32;
-        let padding = 2 * border_radius;
         let pixmap = &ICONS_PIXMAPS[ICON_NAME];
         let icon_padding = (small_height - pixmap.width.max(pixmap.height) as i32) / 2;
         let width = pixmap.width as i32 + icon_padding;
