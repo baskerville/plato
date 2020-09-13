@@ -303,6 +303,22 @@ impl DirectoriesBar {
         let mut pos = pt!(self.rect.min.x + small_half(padding),
                           self.rect.min.y + small_half(baselines[0]));
 
+        // Top filler.
+        let filler = Filler::new(rect![self.rect.min,
+                                       pt!(self.rect.max.x,
+                                           self.rect.min.y + small_half(baselines[0]))],
+                                 background);
+        children.push(Box::new(filler) as Box<dyn View>);
+
+        // Left filler.
+        let filler = Filler::new(rect![pt!(self.rect.min.x,
+                                           self.rect.min.y + small_half(baselines[0])),
+                                       pt!(self.rect.min.x + small_half(padding),
+                                           self.rect.max.y - big_half(baselines[max_lines]))],
+                                 background);
+        children.push(Box::new(filler) as Box<dyn View>);
+
+
         for (line_index, line) in page.lines.iter().enumerate() {
 
             let paddings = if line_index == lines_count - 1 && page.end_index == directories_count {
@@ -380,18 +396,9 @@ impl DirectoriesBar {
             children.push(Box::new(filler) as Box<dyn View>);
         }
         
-        // Top filler.
-        let filler = Filler::new(rect![self.rect.min,
-                                       pt!(self.rect.max.x,
-                                           self.rect.min.y + small_half(baselines[0]))],
-                                 background);
-        children.push(Box::new(filler) as Box<dyn View>);
-
-        // Left filler.
-        let filler = Filler::new(rect![pt!(self.rect.min.x,
-                                           self.rect.min.y + small_half(baselines[0])),
-                                       pt!(self.rect.min.x + small_half(padding),
-                                           self.rect.max.y - big_half(baselines[max_lines]))],
+        // Right filler.
+        let filler = Filler::new(rect![pt!(self.rect.max.x - big_half(padding), self.rect.min.y + small_half(baselines[0])),
+                                       pt!(self.rect.max.x, self.rect.max.y - big_half(baselines[max_lines]))],
                                  background);
         children.push(Box::new(filler) as Box<dyn View>);
 
@@ -401,11 +408,6 @@ impl DirectoriesBar {
                                  background);
         children.push(Box::new(filler) as Box<dyn View>);
 
-        // Right filler.
-        let filler = Filler::new(rect![pt!(self.rect.max.x - big_half(padding), self.rect.min.y + small_half(baselines[0])),
-                                       pt!(self.rect.max.x, self.rect.max.y - big_half(baselines[max_lines]))],
-                                 background);
-        children.push(Box::new(filler) as Box<dyn View>);
         children
     }
 }
@@ -442,16 +444,18 @@ impl View for DirectoriesBar {
                     let current_page = self.current_page;
                     match dir {
                         CycleDir::Previous => self.go_to_page(0),
-                        CycleDir::Next => self.go_to_page(pages_count.saturating_sub(1)),
+                        CycleDir::Next => self.go_to_page(pages_count - 1),
                     }
                     if self.current_page != current_page {
                         let page = &mut self.pages[current_page];
                         let index = match dir {
-                            CycleDir::Previous => 0,
-                            CycleDir::Next => page.len().saturating_sub(1),
+                            CycleDir::Previous => 2,
+                            CycleDir::Next => page.len() - 3,
                         };
                         if let Some(icon) = page[index].downcast_mut::<Icon>() {
                             icon.active = false;
+                        } else {
+                            println!("oups");
                         }
                         rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                     }
