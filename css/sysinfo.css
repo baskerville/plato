@@ -1,0 +1,21 @@
+body {
+	font-family: sans-serif;
+	font-size: 8.1875pt;
+	text-align: center;
+}
+
+table {
+	display: inline-table;
+}
+
+tr {
+	padding-bottom: 0.5em;
+}
+
+tr.sep {
+	padding-top: 0.5em;
+}
+
+td {
+	padding: 0 0.5em 0;
+}

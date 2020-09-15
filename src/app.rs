@@ -25,6 +25,7 @@ use crate::view::keyboard::{Layout};
 use crate::view::dictionary::Dictionary as DictionaryApp;
 use crate::view::calculator::Calculator;
 use crate::view::sketch::Sketch;
+use crate::document::sys_info_as_html;
 use crate::input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus, VAL_RELEASE, VAL_PRESS};
 use crate::input::{raw_events, device_events, usb_events, display_rotate_event, button_scheme_event};
 use crate::gesture::{GestureEvent, gesture_events};
@@ -857,6 +858,19 @@ pub fn run() -> Result<(), Error> {
                 rq.add(RenderData::new(dialog.id(), *dialog.rect(), UpdateMode::Gui));
                 view.children_mut().push(Box::new(dialog) as Box<dyn View>);
             },
+            Event::Select(EntryId::SystemInfo) => {
+                view.children_mut().retain(|child| !child.is::<Menu>());
+                let html = sys_info_as_html();
+                let r = Reader::from_html(context.fb.rect(), &html, &tx, &mut context);
+                let mut next_view = Box::new(r) as Box<dyn View>;
+                transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);
+                history.push(HistoryItem {
+                    view,
+                    rotation: context.display.rotation,
+                    monochrome: context.fb.monochrome(),
+                });
+                view = next_view;
+            },
             Event::Select(EntryId::Launch(app_cmd)) => {
                 view.children_mut().retain(|child| !child.is::<Menu>());
                 let monochrome = context.fb.monochrome();
@@ -995,7 +1009,7 @@ pub fn run() -> Result<(), Error> {
             Event::Select(EntryId::TakeScreenshot) => {
                 let name = Local::now().format("screenshot-%Y%m%d_%H%M%S.png");
                 let msg = match context.fb.save(&name.to_string()) {
-                    Err(e) => format!("Couldn't take screenshot: {}).", e),
+                    Err(e) => format!("{}", e),
                     Ok(_) => format!("Saved {}.", name),
                 };
                 let notif = Notification::new(ViewId::TakeScreenshotNotif,

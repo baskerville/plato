@@ -6,9 +6,16 @@ pub mod html;
 mod djvulibre_sys;
 mod mupdf_sys;
 
+use std::env;
+use std::process::Command;
 use std::path::Path;
 use std::ffi::OsStr;
-use fxhash::FxHashSet;
+use anyhow::{Error, format_err};
+use regex::Regex;
+use nix::sys::statvfs;
+#[cfg(target_os = "linux")]
+use nix::sys::sysinfo;
+use fxhash::{FxHashMap, FxHashSet};
 use lazy_static::lazy_static;
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::{is_combining_mark};
@@ -16,9 +23,12 @@ use serde::{Serialize, Deserialize};
 use self::djvu::DjvuOpener;
 use self::pdf::PdfOpener;
 use self::epub::EpubDocument;
+use self::html::HtmlDocument;
 use crate::geom::{Boundary, CycleDir};
 use crate::metadata::{TextAlign};
 use crate::framebuffer::Pixmap;
+use crate::settings::INTERNAL_CARD_ROOT;
+use crate::device::CURRENT_DEVICE;
 
 pub const BYTES_PER_PAGE: f64 = 2048.0;
 
@@ -105,6 +115,10 @@ pub trait Document: Send+Sync {
         false
     }
 
+    fn save(&self, _path: &str) -> Result<(), Error> {
+        Err(format_err!("This document can't be saved."))
+    }
+
     fn resolve_location(&mut self, loc: Location) -> Option<usize> {
         if self.pages_count() == 0 {
             return None;
@@ -178,6 +192,11 @@ pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<dyn Document>> {
                              .map_err(|e| eprintln!("{}: {}.", path.as_ref().display(), e))
                              .map(|d| Box::new(d) as Box<dyn Document>).ok()
             },
+            "html" | "htm" => {
+                HtmlDocument::new(&path)
+                             .map_err(|e| eprintln!("{}: {}.", path.as_ref().display(), e))
+                             .map(|d| Box::new(d) as Box<dyn Document>).ok()
+            },
             "djvu" | "djv" => {
                 DjvuOpener::new().and_then(|o| {
                     o.open(path)
@@ -218,23 +237,26 @@ impl From<TocLocation> for Location {
 }
 
 pub fn toc_as_html(toc: &[TocEntry], chap_index: usize) -> String {
-    let mut buf = r#"<html>
-                         <head>
-                             <title>Table of Contents</title>
-                             <link rel="stylesheet" type="text/css" href="css/toc.css"/>
-                         </head>
-                     <body>"#.to_string();
-    toc_as_html_aux(toc, chap_index, &mut buf);
-    buf.push_str("</body></html>");
+    let mut buf = "<html>\n\t<head>\n\t\t<title>Table of Contents</title>\n\t\t\
+                   <link rel=\"stylesheet\" type=\"text/css\" href=\"css/toc.css\"/>\n\t\
+                   </head>\n\t<body>\n".to_string();
+    toc_as_html_aux(toc, chap_index, 0, &mut buf);
+    buf.push_str("\t</body>\n</html>");
     buf
 }
 
-pub fn toc_as_html_aux(toc: &[TocEntry], chap_index: usize, buf: &mut String) {
-    buf.push_str("<ul>");
+pub fn toc_as_html_aux(toc: &[TocEntry], chap_index: usize, depth: usize, buf: &mut String) {
+    buf.push_str(&"\t".repeat(depth + 2));
+    if depth == 0 {
+        buf.push_str("<ul class=\"top\">\n");
+    } else {
+        buf.push_str("<ul>\n");
+    }
     for entry in toc {
+        buf.push_str(&"\t".repeat(depth + 3));
         match entry.location {
-            Location::Exact(n) => buf.push_str(&format!(r#"<li><a href="@{}">"#, n)),
-            Location::Uri(ref uri) => buf.push_str(&format!(r#"<li><a href="@{}">"#, uri)),
+            Location::Exact(n) => buf.push_str(&format!("<li><a href=\"@{}\">", n)),
+            Location::Uri(ref uri) => buf.push_str(&format!("<li><a href=\"@{}\">", uri)),
             _ => buf.push_str("<li><a href=\"#\">"),
         }
         let title = entry.title.replace('<', "&lt;").replace('>', "&gt;");
@@ -243,12 +265,13 @@ pub fn toc_as_html_aux(toc: &[TocEntry], chap_index: usize, buf: &mut String) {
         } else {
             buf.push_str(&title);
         }
-        buf.push_str("</a></li>");
+        buf.push_str("</a></li>\n");
         if !entry.children.is_empty() {
-            toc_as_html_aux(&entry.children, chap_index, buf);
+            toc_as_html_aux(&entry.children, chap_index, depth + 1, buf);
         }
     }
-    buf.push_str("</ul>");
+    buf.push_str(&"\t".repeat(depth + 2));
+    buf.push_str("</ul>\n");
 }
 
 #[inline]
@@ -359,6 +382,116 @@ pub fn chapter_from_uri<'a>(target_uri: &str, toc: &'a [TocEntry]) -> Option<&'a
         }
     }
     None
+}
+
+const HWINFO_KEYS: [&str; 19] = ["CPU", "PCB", "DisplayPanel", "DisplayCtrl", "DisplayBusWidth",
+                                 "DisplayResolution", "FrontLight", "FrontLight_LEDrv", "FL_PWM",
+                                 "TouchCtrl", "TouchType", "Battery", "IFlash", "RamSize", "RamType",
+                                 "LightSensor", "HallSensor", "RSensor", "Wifi"];
+
+pub fn sys_info_as_html() -> String {
+    let mut buf = "<html>\n\t<head>\n\t\t<title>System Info</title>\n\t\t\
+                   <link rel=\"stylesheet\" type=\"text/css\" \
+                   href=\"css/sysinfo.css\"/>\n\t</head>\n\t<body>\n".to_string();
+
+    buf.push_str("\t\t<table>\n");
+
+    buf.push_str("\t\t\t<tr>\n");
+    buf.push_str("\t\t\t\t<td class=\"key\">Model name</td>\n");
+    buf.push_str(&format!("\t\t\t\t<td class=\"value\">{}</td>\n", CURRENT_DEVICE.model));
+    buf.push_str("\t\t\t</tr>\n");
+
+    buf.push_str("\t\t\t<tr>\n");
+    buf.push_str("\t\t\t\t<td class=\"key\">Hardware</td>\n");
+    buf.push_str(&format!("\t\t\t\t<td class=\"value\">Mark {}</td>\n", CURRENT_DEVICE.mark()));
+    buf.push_str("\t\t\t</tr>\n");
+    buf.push_str("\t\t\t<tr class=\"sep\"></tr>\n");
+
+    for (name, var) in [("Code name", "PRODUCT"),
+                         ("Model number", "MODEL_NUMBER"),
+                         ("Firmare version", "FIRMWARE_VERSION")].iter() {
+        if let Ok(value) = env::var(var) {
+            buf.push_str("\t\t\t<tr>\n");
+            buf.push_str(&format!("\t\t\t\t<td class=\"key\">{}</td>\n", name));
+            buf.push_str(&format!("\t\t\t\t<td class=\"value\">{}</td>\n", value));
+            buf.push_str("\t\t\t</tr>\n");
+        }
+    }
+
+    buf.push_str("\t\t\t<tr class=\"sep\"></tr>\n");
+
+    let output = Command::new("scripts/ip.sh")
+                         .output()
+                         .map_err(|e| eprintln!("Can't execute command: {}", e))
+                         .ok();
+
+    if let Some(stdout) = output.filter(|output| output.status.success())
+                                .and_then(|output| String::from_utf8(output.stdout).ok())
+                                .filter(|stdout| !stdout.is_empty()) {
+        buf.push_str("\t\t\t<tr>\n");
+        buf.push_str("\t\t\t\t<td>IP Address</td>\n");
+        buf.push_str(&format!("\t\t\t\t<td>{}</td>\n", stdout));
+        buf.push_str("\t\t\t</tr>\n");
+    }
+
+    if let Ok(info) = statvfs::statvfs(INTERNAL_CARD_ROOT) {
+        let fbs = info.fragment_size() as u64;
+        let free = info.blocks_free() as u64 * fbs;
+        let total = info.blocks() as u64 * fbs;
+        buf.push_str("\t\t\t<tr>\n");
+        buf.push_str("\t\t\t\t<td>Storage (Free / Total)</td>\n");
+        buf.push_str(&format!("\t\t\t\t<td>{} / {}</td>\n", free.human_size(), total.human_size()));
+        buf.push_str("\t\t\t</tr>\n");
+    }
+
+    #[cfg(target_os = "linux")]
+    if let Ok(info) = sysinfo::sysinfo() {
+        buf.push_str("\t\t\t<tr>\n");
+        buf.push_str("\t\t\t\t<td>Memory (Free / Total)</td>\n");
+        buf.push_str(&format!("\t\t\t\t<td>{} / {}</td>\n",
+                              info.ram_unused().human_size(),
+                              info.ram_total().human_size()));
+        buf.push_str("\t\t\t</tr>\n");
+        let load = info.load_average();
+        buf.push_str("\t\t\t<tr>\n");
+        buf.push_str("\t\t\t\t<td>Load Average</td>\n");
+        buf.push_str(&format!("\t\t\t\t<td>{:.1}% {:.1}% {:.1}%</td>\n",
+                              load.0 * 100.0,
+                              load.1 * 100.0,
+                              load.2 * 100.0));
+        buf.push_str("\t\t\t</tr>\n");
+    }
+
+    buf.push_str("\t\t\t<tr class=\"sep\"></tr>\n");
+
+    let output = Command::new("/bin/ntx_hwconfig")
+                         .args(&["-s", "/dev/mmcblk0"])
+                         .output()
+                         .map_err(|e| eprintln!("Can't execute command: {}", e))
+                         .ok();
+
+    let mut map = FxHashMap::default();
+
+    if let Some(stdout) = output.and_then(|output| String::from_utf8(output.stdout).ok()) {
+        let re = Regex::new(r#"\[\d+\]\s+(?P<key>[^=]+)='(?P<value>[^']+)'"#).unwrap();
+        for caps in re.captures_iter(&stdout) {
+            map.insert(caps["key"].to_string(), caps["value"].to_string());
+        }
+    }
+
+    if !map.is_empty() {
+        for key in HWINFO_KEYS.iter() {
+            if let Some(value) = map.get(*key) {
+                buf.push_str("\t\t\t<tr>\n");
+                buf.push_str(&format!("\t\t\t\t<td>{}</td>\n", key));
+                buf.push_str(&format!("\t\t\t\t<td>{}</td>\n", value));
+                buf.push_str("\t\t\t</tr>\n");
+            }
+        }
+    }
+
+    buf.push_str("\t\t</table>\n\t</body>\n</html>");
+    buf
 }
 
 // cd mupdf/source && awk '/_extensions\[/,/}/' */*.c

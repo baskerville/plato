@@ -89,6 +89,8 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
 
         let mut entries = vec![EntryKind::Command("About".to_string(),
                                                   EntryId::About),
+                               EntryKind::Command("System Info".to_string(),
+                                                  EntryId::SystemInfo),
                                EntryKind::Separator,
                                EntryKind::CheckBox("Invert Colors".to_string(),
                                                    EntryId::ToggleInverted,

@@ -45,7 +45,7 @@ use crate::frontlight::LightLevels;
 use crate::gesture::GestureEvent;
 use crate::document::{Document, open, Location, TextLocation, BoundedText, Neighbors, BYTES_PER_PAGE};
 use crate::document::{TocEntry, SimpleTocEntry, TocLocation, toc_as_html, chapter_from_index};
-use crate::document::pdf::PdfOpener;
+use crate::document::html::HtmlDocument;
 use crate::metadata::{Info, FileInfo, ReaderInfo, Annotation, TextAlign, ZoomMode, PageScheme};
 use crate::metadata::{Margin, CroppingMargins, make_query};
 use crate::metadata::{DEFAULT_CONTRAST_EXPONENT, DEFAULT_CONTRAST_GRAY};
@@ -57,6 +57,8 @@ const HISTORY_SIZE: usize = 32;
 const RECT_DIST_JITTER: f32 = 24.0;
 const ANNOTATION_DRIFT: u8 =  0x44;
 const HIGHLIGHT_DRIFT: u8 =  0x22;
+const TOC_SCHEME: &str = "toc:";
+const MEM_SCHEME: &str = "mem:";
 
 pub struct Reader {
     id: Id,
@@ -348,16 +350,14 @@ impl Reader {
         let info = Info {
             title: "Table of Contents".to_string(),
             file: FileInfo {
-                path: PathBuf::from("toc:"),
+                path: PathBuf::from(TOC_SCHEME),
                 kind: "html".to_string(),
                 size: html.len() as u64,
             },
             .. Default::default()
         };
 
-        let mut opener = PdfOpener::new().unwrap();
-        opener.set_user_css("css/toc.css").unwrap();
-        let mut doc = opener.open_memory("html", html.as_bytes()).unwrap();
+        let mut doc = HtmlDocument::new_from_memory(&html);
         let (width, height) = context.display.dims;
         let font_size = context.settings.reader.font_size;
         doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
@@ -402,6 +402,57 @@ impl Reader {
             state: State::Idle,
             info,
             current_page,
+            pages_count,
+            view_port: ViewPort::default(),
+            synthetic: false,
+            page_turns: 0,
+            contrast: Contrast::default(),
+            ephemeral: true,
+            reflowable: true,
+            finished: false,
+        }
+    }
+
+    pub fn from_html(rect: Rectangle, html: &str, hub: &Hub, context: &mut Context) -> Reader {
+        let id = ID_FEEDER.next();
+
+        let mut info = Info {
+            file: FileInfo {
+                path: PathBuf::from(MEM_SCHEME),
+                kind: "html".to_string(),
+                size: html.len() as u64,
+            },
+            .. Default::default()
+        };
+
+        let mut doc = HtmlDocument::new_from_memory(html);
+        let (width, height) = context.display.dims;
+        let font_size = context.settings.reader.font_size;
+        doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
+        let pages_count = doc.pages_count();
+        info.title = doc.title().unwrap_or_default();
+
+        hub.send(Event::Update(UpdateMode::Partial)).ok();
+
+        Reader {
+            id,
+            rect,
+            children: vec![],
+            doc: Arc::new(Mutex::new(Box::new(doc))),
+            cache: BTreeMap::new(),
+            text: FxHashMap::default(),
+            annotations: FxHashMap::default(),
+            chunks: Vec::new(),
+            focus: None,
+            search: None,
+            search_direction: LinearDir::Forward,
+            held_buttons: FxHashSet::default(),
+            selection: None,
+            target_annotation: None,
+            history: VecDeque::new(),
+            state: State::Idle,
+            info,
+            current_page: 0,
             pages_count,
             view_port: ViewPort::default(),
             synthetic: false,
@@ -1635,24 +1686,30 @@ impl Reader {
                 return;
             }
 
-            if self.reflowable {
-                return;
-            }
+            let entries = if self.reflowable {
+                if self.ephemeral {
+                    vec![EntryKind::Command("Save".to_string(), EntryId::Save)]
+                } else {
+                    Vec::new()
+                }
+            } else {
+                let zoom_mode = self.view_port.zoom_mode;
+                vec![EntryKind::SubMenu("Zoom Mode".to_string(), vec![
+                     EntryKind::RadioButton("Fit to Page".to_string(),
+                                            EntryId::SetZoomMode(ZoomMode::FitToPage),
+                                            zoom_mode == ZoomMode::FitToPage),
+                     EntryKind::RadioButton("Fit to Width".to_string(),
+                                            EntryId::SetZoomMode(ZoomMode::FitToWidth),
+                                            zoom_mode == ZoomMode::FitToWidth)])]
+            };
 
-            let zoom_mode = self.view_port.zoom_mode;
-            let entries = vec![EntryKind::SubMenu("Zoom Mode".to_string(), vec![
-                               EntryKind::RadioButton("Fit to Page".to_string(),
-                                                      EntryId::SetZoomMode(ZoomMode::FitToPage),
-                                                      zoom_mode == ZoomMode::FitToPage),
-                               EntryKind::RadioButton("Fit to Width".to_string(),
-                                                      EntryId::SetZoomMode(ZoomMode::FitToWidth),
-                                                      zoom_mode == ZoomMode::FitToWidth)])];
-            let title_menu = Menu::new(rect, ViewId::TitleMenu, MenuKind::DropDown, entries, context);
-            rq.add(RenderData::new(title_menu.id(), *title_menu.rect(), UpdateMode::Gui));
-            self.children.push(Box::new(title_menu) as Box<dyn View>);
+            if !entries.is_empty() {
+                let title_menu = Menu::new(rect, ViewId::TitleMenu, MenuKind::DropDown, entries, context);
+                rq.add(RenderData::new(title_menu.id(), *title_menu.rect(), UpdateMode::Gui));
+                self.children.push(Box::new(title_menu) as Box<dyn View>);
+            }
         }
     }
-
 
     fn toggle_font_family_menu(&mut self, rect: Rectangle, enable: Option<bool>, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(index) = locate_by_id(self, ViewId::FontFamilyMenu) {
@@ -2812,7 +2869,7 @@ impl View for Reader {
                     // Bottom left corner.
                     } else if dc > 0 && center.y > self.rect.max.y - dc {
                         if self.search.is_none() {
-                            if self.ephemeral {
+                            if self.ephemeral && self.info.file.path == PathBuf::from(TOC_SCHEME) {
                                 self.quit(context);
                                 hub.send(Event::Back).ok();
                             } else {
@@ -3350,6 +3407,19 @@ impl View for Reader {
             },
             Event::Select(EntryId::SetZoomMode(zoom_mode)) => {
                 self.set_zoom_mode(zoom_mode, hub, rq, context);
+                true
+            },
+            Event::Select(EntryId::Save) => {
+                let name = format!("{}-{}.{}", self.info.title.to_lowercase().replace(' ', "_"),
+                                   Local::now().format("%Y%m%d_%H%M%S"),
+                                   self.info.file.kind);
+                let doc = self.doc.lock().unwrap();
+                let msg = match doc.save(&name) {
+                    Err(e) => format!("{}", e),
+                    Ok(()) => format!("Saved {}.", name),
+                };
+                let notif = Notification::new(ViewId::SaveDocumentNotif, msg, hub, rq, context);
+                self.children.push(Box::new(notif) as Box<dyn View>);
                 true
             },
             Event::Select(EntryId::ApplyCroppings(index, scheme)) => {

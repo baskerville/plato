@@ -6,7 +6,7 @@ pub mod style;
 pub mod layout;
 pub mod engine;
 
-use std::io::Read;
+use std::io::{Read, Write};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use fxhash::FxHashMap;
@@ -29,6 +29,7 @@ const USER_STYLESHEET: &str = "css/html-user.css";
 type UriCache = FxHashMap<String, usize>;
 
 pub struct HtmlDocument {
+    text: String,
     content: Node,
     engine: Engine,
     pages: Vec<Page>,
@@ -55,13 +56,14 @@ impl HtmlDocument {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<HtmlDocument, Error> {
         let mut file = File::open(&path)?;
         let size = file.metadata()?.len() as usize;
-        let mut content = String::new();
-        file.read_to_string(&mut content)?;
-        let mut content = XmlParser::new(&content).parse();
+        let mut text = String::new();
+        file.read_to_string(&mut text)?;
+        let mut content = XmlParser::new(&text).parse();
         content.wrap_lost_inlines();
         let parent = path.as_ref().parent().unwrap_or_else(|| Path::new(""));
 
         Ok(HtmlDocument {
+            text,
             content,
             engine: Engine::new(),
             pages: Vec::new(),
@@ -73,12 +75,13 @@ impl HtmlDocument {
         })
     }
 
-    pub fn new_from_memory(content: &str) -> HtmlDocument {
-        let size = content.len();
-        let mut content = XmlParser::new(content).parse();
+    pub fn new_from_memory(text: &str) -> HtmlDocument {
+        let size = text.len();
+        let mut content = XmlParser::new(text).parse();
         content.wrap_lost_inlines();
 
         HtmlDocument {
+            text: text.to_string(),
             content,
             engine: Engine::new(),
             pages: Vec::new(),
@@ -90,10 +93,11 @@ impl HtmlDocument {
         }
     }
 
-    pub fn update(&mut self, content: &str) {
-        self.size = content.len();
-        self.content = XmlParser::new(content).parse();
+    pub fn update(&mut self, text: &str) {
+        self.size = text.len();
+        self.content = XmlParser::new(text).parse();
         self.content.wrap_lost_inlines();
+        self.text = text.to_string();
         self.pages.clear();
     }
 
@@ -418,6 +422,12 @@ impl Document for HtmlDocument {
             .and_then(Node::children)
             .and_then(|children| children.iter().find(|child| child.tag_name() == Some("meta") && child.attr("name") == Some(key)))
             .and_then(|child| child.attr("content").map(|s| decode_entities(s).into_owned()))
+    }
+
+    fn save(&self, path: &str) -> Result<(), Error> {
+        let mut file = File::create(path)?;
+        file.write_all(self.text.as_bytes())
+            .map_err(Into::into)
     }
 
     fn is_reflowable(&self) -> bool {

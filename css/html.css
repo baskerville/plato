@@ -1,0 +1,97 @@
+html > head {
+	display: none;
+}
+
+a {
+	color: #444;
+}
+
+i, em, cite, var, address {
+	font-style: italic;
+}
+
+b, strong {
+	font-weight: bold;
+}
+
+h1 {
+	font-size: 2em;
+	margin: 0.67em 0;
+}
+
+h2 {
+	font-size: 1.5em;
+	margin: 0.75em 0;
+}
+
+h3 {
+	font-size: 1.17em;
+	margin: 0.83em 0;
+}
+
+h4, p, blockquote, dl {
+	margin: 1.12em 0;
+}
+
+h5 {
+	font-size: 0.83em;
+	margin: 1.5em 0;
+}
+
+h6 {
+	font-size: 0.75em;
+	margin: 1.67em 0;
+}
+
+dt {
+	margin-top: 1.12em;
+}
+
+dd {
+	margin-left: 1.5em;
+}
+
+pre, code, samp, kbd {
+	font-family: monospace;
+	font-size: 0.891em;
+}
+
+ul, ol {
+	margin-left: 1.5em;
+	margin-top: 0.6rem;
+	margin-bottom: 0.6rem;
+}
+
+li > ul, li > ol {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+svg {
+	text-align: center;
+}
+
+sub, sup {
+	font-size: 0.83em;
+}
+
+sub {
+	vertical-align: sub;
+}
+
+sup {
+	vertical-align: super;
+}
+
+table {
+	text-align: left;
+}
+
+th {
+	font-weight: bold;
+	text-align: center;
+}
+
+th, td {
+	padding: 0.67em;
+}

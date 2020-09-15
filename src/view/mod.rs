@@ -404,6 +404,7 @@ pub enum ViewId {
     MessageNotif,
     BoundaryNotif,
     TakeScreenshotNotif,
+    SaveDocumentNotif,
     SaveSketchNotif,
     LoadSketchNotif,
     NoSearchResultsNotif,
@@ -481,6 +482,7 @@ pub enum EntryKind {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EntryId {
     About,
+    SystemInfo,
     LoadLibrary(usize),
     Load(PathBuf),
     Flush,

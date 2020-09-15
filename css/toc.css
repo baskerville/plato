@@ -3,16 +3,16 @@ ul {
 	padding: 0;
 }
 
-ul ul {
+ul > ul {
 	padding-left: 2em;
 }
 
-ul li {
+ul > li {
 	list-style-type: none;
 	padding-top: 0.5em;
 }
 
-body > ul > li {
+ul.top > li {
 	padding-top: 1em;
 }
 

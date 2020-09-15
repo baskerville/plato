@@ -38,6 +38,7 @@ use sdl2::rect::Point as SdlPoint;
 use sdl2::rect::Rect as SdlRect;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
+use crate::document::sys_info_as_html;
 use crate::view::{View, Event, ViewId, EntryId, AppCmd, EntryKind};
 use crate::view::{process_render_queue, handle_event, RenderQueue, RenderData};
 use crate::view::home::Home;
@@ -423,6 +424,15 @@ fn main() -> Result<(), Error> {
                                              &mut context);
                     rq.add(RenderData::new(dialog.id(), *dialog.rect(), UpdateMode::Gui));
                     view.children_mut().push(Box::new(dialog) as Box<dyn View>);
+                },
+                Event::Select(EntryId::SystemInfo) => {
+                    view.children_mut().retain(|child| !child.is::<Menu>());
+                    let html = sys_info_as_html();
+                    let r = Reader::from_html(context.fb.rect(), &html, &tx, &mut context);
+                    let mut next_view = Box::new(r) as Box<dyn View>;
+                    transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);
+                    history.push(view as Box<dyn View>);
+                    view = next_view;
                 },
                 Event::Select(EntryId::Rotate(n)) if n != context.display.rotation && view.might_rotate() => {
                     updating.retain(|tok, _| context.fb.wait(*tok).is_err());
