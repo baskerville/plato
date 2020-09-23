@@ -626,16 +626,20 @@ impl Reader {
     }
 
     fn page_scroll(&mut self, delta_y: i32, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
-        if delta_y == 0 {
+        if delta_y == 0 || self.view_port.zoom_mode == ZoomMode::FitToPage || self.cache.is_empty() {
             return;
         }
 
         let mut next_top_offset = self.view_port.top_offset - delta_y;
         let mut location = self.current_page;
         let max_top_offset = self.cache[&location].frame.height().saturating_sub(1) as i32;
+
         if next_top_offset < 0 {
             let mut doc = self.doc.lock().unwrap();
             if let Some(previous_location) = doc.resolve_location(Location::Previous(location)) {
+                if !self.cache.contains_key(&previous_location) {
+                    return;
+                }
                 location = previous_location;
                 let frame = self.cache[&location].frame;
                 next_top_offset = (frame.height() as i32 + next_top_offset).max(0);
@@ -645,6 +649,9 @@ impl Reader {
         } else if next_top_offset > max_top_offset {
             let mut doc = self.doc.lock().unwrap();
             if let Some(next_location) = doc.resolve_location(Location::Next(location)) {
+                if !self.cache.contains_key(&next_location) {
+                    return;
+                }
                 location = next_location;
                 let frame = self.cache[&location].frame;
                 let mto = frame.height().saturating_sub(1) as i32;
@@ -687,6 +694,10 @@ impl Reader {
     }
 
     fn go_to_neighbor(&mut self, dir: CycleDir, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
+        if self.chunks.is_empty() {
+            return;
+        }
+
         let current_page = self.current_page;
         let top_offset = self.view_port.top_offset;
 
@@ -740,15 +751,17 @@ impl Reader {
                 match self.view_port.zoom_mode {
                     ZoomMode::FitToPage => Location::Next(current_page),
                     ZoomMode::FitToWidth => {
-                        let last_chunk = self.chunks.last().unwrap();
-                        let pixmap_frame = self.cache[&last_chunk.location].frame;
-                        let next_top_offset = last_chunk.frame.max.y - pixmap_frame.min.y;
+                        let &RenderChunk { location, frame, .. } = self.chunks.last().unwrap();
+                        self.load_pixmap(location);
+                        self.load_text(location);
+                        let pixmap_frame = self.cache[&location].frame;
+                        let next_top_offset = frame.max.y - pixmap_frame.min.y;
                         if next_top_offset == pixmap_frame.height() as i32 {
                             self.view_port.top_offset = 0;
-                            Location::Next(last_chunk.location)
+                            Location::Next(location)
                         } else {
                             self.view_port.top_offset = next_top_offset;
-                            Location::Exact(last_chunk.location)
+                            Location::Exact(location)
                         }
                     },
                 }
@@ -2467,7 +2480,7 @@ impl View for Reader {
                 hub.send(Event::Select(EntryId::Rotate(n))).ok();
                 true
             },
-            Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) if self.rect.includes(start) => {
+            Event::Gesture(GestureEvent::Swipe { dir, start, end }) if self.rect.includes(start) => {
                 match dir {
                     Dir::West => self.go_to_neighbor(CycleDir::Next, hub, rq, context),
                     Dir::East => self.go_to_neighbor(CycleDir::Previous, hub, rq, context),
