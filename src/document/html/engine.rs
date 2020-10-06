@@ -362,7 +362,8 @@ impl Engine {
 
                         let colspan = child.attr("colspan")
                                            .and_then(|v| v.parse().ok())
-                                           .unwrap_or(1);
+                                           .unwrap_or(1)
+                                           .min(draw_state.column_widths.len()-index);
                         let column_width = draw_state.column_widths[index..index+colspan]
                                                      .iter().sum::<i32>();
                         let mut child_display_list = Vec::new();
