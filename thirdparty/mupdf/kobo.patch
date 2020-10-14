@@ -1,7 +1,7 @@
 diff -ru a/Makefile b/Makefile
---- a/Makefile	2020-05-10 12:02:22.000000000 +0200
-+++ b/Makefile	2020-05-10 12:02:33.000000000 +0200
-@@ -199,7 +199,7 @@
+--- a/Makefile	2020-10-14 20:42:42.000000000 +0200
++++ b/Makefile	2020-10-14 20:44:31.000000000 +0200
+@@ -230,7 +230,7 @@
  $(THREAD_LIB) : $(THREAD_OBJ)
  $(PKCS7_LIB) : $(PKCS7_OBJ)
  
@@ -10,7 +10,7 @@ diff -ru a/Makefile b/Makefile
  
  # --- Main tools and viewers ---
  
-@@ -374,7 +374,7 @@
+@@ -408,7 +408,7 @@
  cscope.out: cscope.files
  	cscope -b
  
@@ -20,38 +20,39 @@ diff -ru a/Makefile b/Makefile
  clean:
  	rm -rf $(OUT)
 diff -ru a/Makerules b/Makerules
---- a/Makerules	2020-05-10 12:02:22.000000000 +0200
-+++ b/Makerules	2020-05-10 12:02:33.000000000 +0200
-@@ -191,6 +191,34 @@
+--- a/Makerules	2020-10-14 20:42:42.000000000 +0200
++++ b/Makerules	2020-10-14 20:48:40.000000000 +0200
+@@ -231,6 +231,35 @@
    HAVE_WIN32=yes
  endif
  
 +ifeq "$(OS)" "kobo"
-+CC = arm-linux-gnueabihf-gcc
-+CXX = arm-linux-gnueabihf-gcc++
-+LD = arm-linux-gnueabihf-ld
-+AR = arm-linux-gnueabihf-ar
-+AS = arm-linux-gnueabihf-as
-+CFLAGS += -O2 -fPIC -mcpu=cortex-a9 -mfpu=neon -DTOFU_CJK_LANG -DTOFU_CJK_EXT -DFZ_ENABLE_ICC=0 -DFZ_ENABLE_JS=0
-+CROSSCOMPILE=yes
-+HAVE_PTHREAD := yes
-+HAVE_LIBCRYPTO := no
-+HAVE_X11 := no
-+HAVE_GLFW := no
-+SYS_PTHREAD_CFLAGS :=
-+SYS_PTHREAD_LIBS := -lpthread
-+SYS_FREETYPE_CFLAGS := -I../freetype2/include
-+SYS_FREETYPE_LIBS := -L../freetype2/objs/.libs -lfreetype
-+SYS_HARFBUZZ_CFLAGS := -I../harfbuzz/src
-+SYS_HARFBUZZ_LIBS := -L../harfbuzz/src/.libs -lharfbuzz
-+SYS_OPENJPEG_CFLAGS := -I../openjpeg/src/lib/openjp2
-+SYS_OPENJPEG_LIBS := -L../openjpeg/build/bin -lopenjpeg
-+SYS_JBIG2DEC_CFLAGS := -I../jbig2dec
-+SYS_JBIG2DEC_LIBS := -L../jbig2dec/.libs -ljbig2dec
-+SYS_LIBJPEG_CFLAGS := -I../libjpeg
-+SYS_LIBJPEG_LIBS := -L../libjpeg/.libs -ljpeg
-+SYS_ZLIB_CFLAGS := -I../zlib
-+SYS_ZLIB_LIBS := -L../zlib -lz
++  CC = arm-linux-gnueabihf-gcc
++  CXX = arm-linux-gnueabihf-g++
++  LD = arm-linux-gnueabihf-ld
++  AR = arm-linux-gnueabihf-ar
++  AS = arm-linux-gnueabihf-as
++  CFLAGS += -O2 -fPIC -mcpu=cortex-a9 -mfpu=neon -DTOFU_CJK_LANG -DTOFU_CJK_EXT -DFZ_ENABLE_ICC=0 -DFZ_ENABLE_JS=0
++  HAVE_PTHREAD := yes
++  HAVE_LIBCRYPTO := no
++  HAVE_X11 := no
++  HAVE_GLFW := no
++  SYS_PTHREAD_CFLAGS :=
++  SYS_PTHREAD_LIBS := -lpthread
++  SYS_FREETYPE_CFLAGS := -I../freetype2/include
++  SYS_FREETYPE_LIBS := -L../freetype2/objs/.libs -lfreetype
++  SYS_GUMBO_CFLAGS := -I../gumbo/src
++  SYS_GUMBO_LIBS := -L../gumbo/.libs -lgumbo
++  SYS_HARFBUZZ_CFLAGS := -I../harfbuzz/src
++  SYS_HARFBUZZ_LIBS := -L../harfbuzz/src/.libs -lharfbuzz
++  SYS_OPENJPEG_CFLAGS := -I../openjpeg/src/lib/openjp2
++  SYS_OPENJPEG_LIBS := -L../openjpeg/build/bin -lopenjpeg
++  SYS_JBIG2DEC_CFLAGS := -I../jbig2dec
++  SYS_JBIG2DEC_LIBS := -L../jbig2dec/.libs -ljbig2dec
++  SYS_LIBJPEG_CFLAGS := -I../libjpeg
++  SYS_LIBJPEG_LIBS := -L../libjpeg/.libs -ljpeg
++  SYS_ZLIB_CFLAGS := -I../zlib
++  SYS_ZLIB_LIBS := -L../zlib -lz
 +endif
 +
  # Most variables when building for iOS are set up in ios/build_libs.sh,

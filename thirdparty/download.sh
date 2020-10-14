@@ -10,11 +10,12 @@ declare -A urls=(
 	["openjpeg"]="https://github.com/uclouvain/openjpeg/archive/v2.3.1.tar.gz"
 	["jbig2dec"]="https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs952/jbig2dec-0.18.tar.gz"
 	# Fonts
-	["freetype2"]="https://download.savannah.gnu.org/releases/freetype/freetype-2.10.2.tar.gz"
-	["harfbuzz"]="https://github.com/harfbuzz/harfbuzz/archive/2.6.8.tar.gz"
+	["freetype2"]="https://download.savannah.gnu.org/releases/freetype/freetype-2.10.3.tar.gz"
+	["harfbuzz"]="https://github.com/harfbuzz/harfbuzz/archive/2.7.2.tar.gz"
 	# Documents
+	["gumbo"]="https://github.com/google/gumbo-parser/archive/v0.10.1.tar.gz"
 	["djvulibre"]="http://downloads.sourceforge.net/djvu/djvulibre-3.5.27.tar.gz"
-	["mupdf"]="https://mupdf.com/downloads/archive/mupdf-1.17.0-source.tar.gz"
+	["mupdf"]="https://mupdf.com/downloads/archive/mupdf-1.18.0-source.tar.gz"
 )
 
 for name in "${@:-${!urls[@]}}" ; do

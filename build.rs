@@ -33,6 +33,7 @@ fn main() {
     println!("cargo:rustc-link-lib=bz2");
     println!("cargo:rustc-link-lib=jpeg");
     println!("cargo:rustc-link-lib=png16");
+    println!("cargo:rustc-link-lib=gumbo");
     println!("cargo:rustc-link-lib=openjp2");
     println!("cargo:rustc-link-lib=jbig2dec");
 }

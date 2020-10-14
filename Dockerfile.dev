@@ -3,6 +3,7 @@ FROM rust:1.43-buster
 RUN apt-get update && apt-get install -y libtool \
         pkg-config \
         jq \
+        libgumbo-dev \
         libdjvulibre-dev \
         libharfbuzz-dev \
         libsdl2-dev \
@@ -11,11 +12,11 @@ RUN apt-get update && apt-get install -y libtool \
         patch
         # end mupdf dependencies
 
-# TODO:: Remove when mupdf 1.17.0 is available
+# TODO:: Remove when mupdf 1.18.0 is available
 # https://packages.debian.org/source/testing/mupdf
 RUN cd /tmp \
-	&& wget -q "https://mupdf.com/downloads/archive/mupdf-1.17.0-source.tar.xz" -O - | tar -xJ \
-	&& cd /tmp/mupdf-1.17.0-source \
+	&& wget -q "https://mupdf.com/downloads/archive/mupdf-1.18.0-source.tar.xz" -O - | tar -xJ \
+	&& cd /tmp/mupdf-1.18.0-source \
 	&& make build=release libs apps \
 	&& make build=release prefix=usr install \
 	&& find usr/include usr/share usr/lib -type f -exec chmod 0644 {} + \

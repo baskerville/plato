@@ -20,6 +20,7 @@ cp libs/libjbig2dec.so dist/libs/libjbig2dec.so.0
 cp libs/libfreetype.so dist/libs/libfreetype.so.6
 cp libs/libharfbuzz.so dist/libs/libharfbuzz.so.0
 
+cp libs/libgumbo.so dist/libs/libgumbo.so.1
 cp libs/libdjvulibre.so dist/libs/libdjvulibre.so.21
 cp libs/libmupdf.so dist/libs
 
