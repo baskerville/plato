@@ -45,7 +45,7 @@ rustup target add arm-unknown-linux-gnueabihf
 
 ## Developer Tools
 
-Install the required dependencies: *MuPDF 1.18.0*, *DjVuLibre*, *HarfBuzz*, *Gumbo*, *OpenJPEG*, *jpeg*, *jbig2dec*, *zlib*.
+Install the required dependencies: *MuPDF 1.18.0*, *DjVuLibre*, *FreeType*, *HarfBuzz*.
 
 ### Emulator
 

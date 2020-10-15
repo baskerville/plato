@@ -3,29 +3,26 @@ FROM rust:1.43-buster
 RUN apt-get update && apt-get install -y libtool \
         pkg-config \
         jq \
-        libgumbo-dev \
         libdjvulibre-dev \
         libharfbuzz-dev \
+        libfreetype6-dev \
         libsdl2-dev \
-        # start mupdf dependencies
-        libjbig2dec0-dev \
         patch
-        # end mupdf dependencies
 
-# TODO:: Remove when mupdf 1.18.0 is available
-# https://packages.debian.org/source/testing/mupdf
+# TODO: Remove when MuPDF 1.18.0 is available
+# in https://packages.debian.org/source/testing/mupdf.
 RUN cd /tmp \
 	&& wget -q "https://mupdf.com/downloads/archive/mupdf-1.18.0-source.tar.xz" -O - | tar -xJ \
 	&& cd /tmp/mupdf-1.18.0-source \
-	&& make build=release libs apps \
+	&& make build=release libs \
 	&& make build=release prefix=usr install \
 	&& find usr/include usr/share usr/lib -type f -exec chmod 0644 {} + \
 	&& cp -r usr/* /usr/
 
-# Referenced in build.rs for mupdf_wrapper
+# Referenced in build.rs for mupdf_wrapper.
 ENV CARGO_TARGET_OS=linux
 
-# Build plato
+# Build Plato.
 WORKDIR /plato
 
 ADD . /plato
