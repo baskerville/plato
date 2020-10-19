@@ -3,7 +3,7 @@ use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::geom::{Rectangle, BorderSpec, CornerSpec};
 use crate::color::{BLACK, WHITE, BATTERY_FILL};
 use super::{View, ViewId, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
-use super::THICKNESS_LARGE;
+use super::{THICKNESS_LARGE, THICKNESS_MEDIUM, BORDER_RADIUS_SMALL};
 use super::icon::ICONS_PIXMAPS;
 use crate::gesture::GestureEvent;
 use crate::battery::Status;
@@ -11,11 +11,10 @@ use crate::unit::scale_by_dpi;
 use crate::font::Fonts;
 use crate::app::Context;
 
-const BATTERY_WIDTH: f32 = 58.0;
-const BATTERY_HEIGHT: f32 = 28.0;
-const BUMP_WIDTH: f32 = 10.0;
-const BUMP_HEIGHT: f32 = 14.0;
-const EDGE_WIDTH: f32 = 2.0;
+const BUMP_HEIGHT: f32 = 5.0 * THICKNESS_LARGE;
+const BUMP_WIDTH: f32 = 4.0 * THICKNESS_LARGE;
+const BATTERY_HEIGHT: f32 = 11.0 * THICKNESS_LARGE;
+const BATTERY_WIDTH: f32 = 2.0 * BATTERY_HEIGHT;
 
 pub struct Battery {
     id: Id,
@@ -57,7 +56,7 @@ impl View for Battery {
     fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
 
-        let border_radius = scale_by_dpi(THICKNESS_LARGE / 2.0, dpi) as i32;
+        let border_radius = scale_by_dpi(BORDER_RADIUS_SMALL, dpi) as i32;
         let border_thickness = scale_by_dpi(THICKNESS_LARGE, dpi) as i32;
 
         let batt_width = scale_by_dpi(BATTERY_WIDTH, dpi) as i32;
@@ -65,56 +64,47 @@ impl View for Battery {
 
         let bump_width = scale_by_dpi(BUMP_WIDTH, dpi) as i32;
         let bump_height = scale_by_dpi(BUMP_HEIGHT, dpi) as i32;
-        let edge_width = scale_by_dpi(EDGE_WIDTH, dpi) as i32;
+
+        let edge_width = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
 
         let dx = (self.rect.width() as i32 - (batt_width + bump_width - border_thickness)) / 2;
         let dy = (self.rect.height() as i32 - batt_height) / 2;
 
-        let pt = self.rect.min + pt!(dx, dy);
+        let mut pt = self.rect.min + pt!(dx, dy);
         let batt_rect = rect![pt, pt + pt!(batt_width, batt_height)];
 
         fb.draw_rectangle(&self.rect, WHITE);
+
+        let max_fill_width = batt_width - 2 * border_thickness;
+        let fill_width = (self.capacity.min(100.0).max(0.0) / 100.0 * max_fill_width as f32) as i32;
+        let fill_height = batt_height - 2 * border_thickness;
+        let x_offset_edge = pt.x + border_thickness + fill_width;
+        let x_offset_fill = x_offset_edge.saturating_sub(edge_width);
 
         fb.draw_rounded_rectangle_with_border(&batt_rect,
                                               &CornerSpec::Uniform(border_radius),
                                               &BorderSpec { thickness: border_thickness as u16,
                                                             color: BLACK },
-                                              &WHITE);
+                                              &|x, _| if x <= x_offset_fill { BATTERY_FILL }
+                                                      else if x <= x_offset_edge { BLACK }
+                                                      else { WHITE });
 
-        let pt = pt + pt!(batt_width - border_thickness as i32, (batt_height - bump_height) / 2);
+        pt += pt!(batt_width - border_thickness as i32, (batt_height - bump_height) / 2);
         let bump_rect = rect![pt, pt + pt!(bump_width, bump_height)];
 
         fb.draw_rounded_rectangle_with_border(&bump_rect,
-                                              &CornerSpec::Uniform(border_radius),
+                                              &CornerSpec::East(border_radius / 2),
                                               &BorderSpec { thickness: border_thickness as u16,
                                                             color: BLACK },
                                               &WHITE);
 
-        let pt = pt + pt!(0, border_thickness);
-        let hole_rect = rect![pt, pt + pt!(border_thickness,
-                                           bump_height - 2 * border_thickness)];
-
-        fb.draw_rectangle(&hole_rect, WHITE);
-        
-        let max_fill_width = batt_width - 2 * border_thickness;
-        let fill_width = (self.capacity.min(100.0) / 100.0 * max_fill_width as f32) as i32;
-        let fill_height = batt_height - 2 * border_thickness;
-
-        let pt = self.rect.min + pt!(dx, dy) + pt!(border_thickness);
-        let fill_rect = rect![pt, pt + pt!(fill_width, fill_height)];
-        fb.draw_rectangle(&fill_rect, BATTERY_FILL);
-
-        if fill_width > edge_width {
-            let pt = pt + pt!(fill_width - edge_width, 0);
-            let edge_rect = rect![pt, pt + pt!(edge_width, fill_height)];
-            fb.draw_rectangle(&edge_rect, BLACK);
-        }
+        pt = self.rect.min + pt!(dx, dy) + pt!(border_thickness);
 
         if self.status != Status::Discharging {
             let name = if self.status == Status::Charging { "plug" } else { "check_mark-small" };
             let pixmap = ICONS_PIXMAPS.get(name).unwrap();
-            let pt = pt + pt!((max_fill_width - pixmap.width as i32) / 2,
-                              (fill_height - pixmap.height as i32) / 2);
+            pt += pt!((max_fill_width - pixmap.width as i32) / 2,
+                      (fill_height - pixmap.height as i32) / 2);
             fb.draw_blended_pixmap(pixmap, pt, BLACK);
         }
     }
