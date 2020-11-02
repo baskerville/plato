@@ -906,7 +906,7 @@ pub fn run() -> Result<(), Error> {
                         }
                     }
                     view.handle_event(&Event::Reseed, &tx, &mut bus, &mut rq, &mut context);
-                } else {
+                } else if !view.is::<Home>() {
                     break;
                 }
             },
