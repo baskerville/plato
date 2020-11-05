@@ -24,9 +24,8 @@ lazy_static! {
                      "angle-left", "angle-right", "angle-left-small", "angle-right-small",
                      "return", "shift", "combine", "alternate", "delete-backward", "delete-forward",
                      "move-backward", "move-backward-short", "move-forward", "move-forward-short",
-                     "close",  "check_mark-small", "check_mark","check_mark-large", "bullet",
-                     "arrow-left", "arrow-right", "double_angle-left", "double_angle-right",
-                     "angle-down", "angle-up", "plus", "minus", "crop", "toc", "font_family",
+                     "close",  "check_mark-small", "check_mark", "check_mark-large", "bullet",
+                     "arrow-left", "arrow-right", "angle-down", "angle-up", "crop", "toc", "font_family",
                      "font_size", "line_height", "align-justify", "align-left", "align-right",
                      "align-center", "margin", "plug", "enclosed_menu", "contrast", "gray"].iter().cloned() {
             let path = dir.join(&format!("{}.svg", name));
