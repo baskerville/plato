@@ -12,7 +12,6 @@ use super::presets_list::PresetsList;
 use super::common::shift;
 use crate::frontlight::LightLevels;
 use crate::gesture::GestureEvent;
-use crate::input::FingerStatus;
 use crate::settings::{LightPreset, guess_frontlight};
 use crate::color::{BLACK, WHITE};
 use crate::unit::scale_by_dpi;
@@ -234,11 +233,11 @@ impl FrontlightWindow {
 impl View for FrontlightWindow {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
-            Event::Slider(SliderId::LightIntensity, value, FingerStatus::Up) => {
+            Event::Slider(SliderId::LightIntensity, value, _) => {
                 context.frontlight.set_intensity(value);
                 true
             },
-            Event::Slider(SliderId::LightWarmth, value, FingerStatus::Up) => {
+            Event::Slider(SliderId::LightWarmth, value, _) => {
                 context.frontlight.set_warmth(value);
                 true
             },
