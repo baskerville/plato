@@ -1,0 +1,13 @@
+ul {
+	margin: 0;
+	padding: 0;
+}
+
+li {
+	list-style-type: none;
+	margin-top: 1.12em;
+}
+
+a {
+	color: black;
+}

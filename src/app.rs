@@ -845,17 +845,6 @@ pub fn run() -> Result<(), Error> {
                     handle_event(view.as_mut(), &Event::Invalid(info2), &tx, &mut bus, &mut rq, &mut context);
                 }
             },
-            Event::OpenToc(ref toc, chap_index) => {
-                let r = Reader::from_toc(context.fb.rect(), toc, chap_index, &tx, &mut context);
-                let mut next_view = Box::new(r) as Box<dyn View>;
-                transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);
-                history.push(HistoryItem {
-                    view,
-                    rotation: context.display.rotation,
-                    monochrome: context.fb.monochrome(),
-                });
-                view = next_view;
-            },
             Event::Select(EntryId::About) => {
                 let dialog = Dialog::new(ViewId::AboutDialog,
                                          None,
@@ -867,7 +856,19 @@ pub fn run() -> Result<(), Error> {
             Event::Select(EntryId::SystemInfo) => {
                 view.children_mut().retain(|child| !child.is::<Menu>());
                 let html = sys_info_as_html();
-                let r = Reader::from_html(context.fb.rect(), &html, &tx, &mut context);
+                let r = Reader::from_html(context.fb.rect(), &html, None, &tx, &mut context);
+                let mut next_view = Box::new(r) as Box<dyn View>;
+                transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);
+                history.push(HistoryItem {
+                    view,
+                    rotation: context.display.rotation,
+                    monochrome: context.fb.monochrome(),
+                });
+                view = next_view;
+            },
+            Event::OpenHtml(ref html, ref link_uri) => {
+                view.children_mut().retain(|child| !child.is::<Menu>());
+                let r = Reader::from_html(context.fb.rect(), html, link_uri.as_deref(), &tx, &mut context);
                 let mut next_view = Box::new(r) as Box<dyn View>;
                 transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);
                 history.push(HistoryItem {

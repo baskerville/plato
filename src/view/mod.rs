@@ -53,7 +53,7 @@ use std::fmt::{self, Debug};
 use fxhash::FxHashMap;
 use downcast_rs::{Downcast, impl_downcast};
 use crate::font::Fonts;
-use crate::document::{Location, TextLocation, TocEntry};
+use crate::document::{Location, TextLocation};
 use crate::settings::{ButtonScheme, FirstColumn, SecondColumn, RotationLock};
 use crate::metadata::{Info, ZoomMode, SortMethod, TextAlign, SimpleStatus, PageScheme, Margin};
 use crate::geom::{LinearDir, CycleDir, Rectangle, Boundary};
@@ -278,7 +278,7 @@ pub enum Event {
     Key(KeyKind),
     AddDocument(Box<Info>),
     Open(Box<Info>),
-    OpenToc(Vec<TocEntry>, usize),
+    OpenHtml(String, Option<String>),
     LoadPixmap(usize),
     Update(UpdateMode),
     Invalid(Box<Info>),
@@ -516,6 +516,8 @@ pub enum EntryId {
     DefineSelection,
     SearchForSelection,
     AdjustSelection,
+    Annotations,
+    Bookmarks,
     RemoveAnnotation([TextLocation; 2]),
     EditAnnotationNote([TextLocation; 2]),
     RemoveAnnotationNote([TextLocation; 2]),

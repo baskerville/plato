@@ -44,7 +44,7 @@ use crate::settings::{DEFAULT_FONT_FAMILY, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIG
 use crate::frontlight::LightLevels;
 use crate::gesture::GestureEvent;
 use crate::document::{Document, open, Location, TextLocation, BoundedText, Neighbors, BYTES_PER_PAGE};
-use crate::document::{TocEntry, SimpleTocEntry, TocLocation, toc_as_html, chapter_from_index};
+use crate::document::{TocEntry, SimpleTocEntry, TocLocation, toc_as_html, annotations_as_html, bookmarks_as_html};
 use crate::document::html::HtmlDocument;
 use crate::metadata::{Info, FileInfo, ReaderInfo, Annotation, TextAlign, ZoomMode, PageScheme};
 use crate::metadata::{Margin, CroppingMargins, make_query};
@@ -58,7 +58,6 @@ const HISTORY_SIZE: usize = 32;
 const RECT_DIST_JITTER: f32 = 24.0;
 const ANNOTATION_DRIFT: u8 =  0x44;
 const HIGHLIGHT_DRIFT: u8 =  0x22;
-const TOC_SCHEME: &str = "toc:";
 const MEM_SCHEME: &str = "mem:";
 
 pub struct Reader {
@@ -66,10 +65,10 @@ pub struct Reader {
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     doc: Arc<Mutex<Box<dyn Document>>>,
-    cache: BTreeMap<usize, Resource>,
-    text: FxHashMap<usize, Vec<BoundedText>>,
-    annotations: FxHashMap<usize, Vec<Annotation>>,
-    chunks: Vec<RenderChunk>,
+    cache: BTreeMap<usize, Resource>,                // Cached page pixmaps.
+    chunks: Vec<RenderChunk>,                        // Chunks of pages being rendered.
+    text: FxHashMap<usize, Vec<BoundedText>>,        // Text of the current chunks.
+    annotations: FxHashMap<usize, Vec<Annotation>>,  // Annotations for the current chunks.
     focus: Option<ViewId>,
     search: Option<Search>,
     search_direction: LinearDir,
@@ -349,34 +348,27 @@ impl Reader {
         })
     }
 
-    pub fn from_toc(rect: Rectangle, toc: &[TocEntry], chap_index: usize, hub: &Hub, context: &mut Context) -> Reader {
+    pub fn from_html(rect: Rectangle, html: &str, link_uri: Option<&str>, hub: &Hub, context: &mut Context) -> Reader {
         let id = ID_FEEDER.next();
-        let html = toc_as_html(toc, chap_index);
 
-        let info = Info {
-            title: "Table of Contents".to_string(),
+        let mut info = Info {
             file: FileInfo {
-                path: PathBuf::from(TOC_SCHEME),
+                path: PathBuf::from(MEM_SCHEME),
                 kind: "html".to_string(),
                 size: html.len() as u64,
             },
             .. Default::default()
         };
 
-        let mut doc = HtmlDocument::new_from_memory(&html);
+        let mut doc = HtmlDocument::new_from_memory(html);
         let (width, height) = context.display.dims;
         let font_size = context.settings.reader.font_size;
         doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
         let pages_count = doc.pages_count();
+        info.title = doc.title().unwrap_or_default();
 
         let mut current_page = 0;
-
-        if let Some(chap) = chapter_from_index(chap_index, toc) {
-            let link_uri = match chap.location {
-                Location::Uri(ref uri) => format!("@{}", uri),
-                Location::Exact(offset) => format!("@{}", offset),
-                _ => "#".to_string(),
-            };
+        if let Some(link_uri) = link_uri {
             let mut loc = Location::Exact(0);
             while let Some((links, offset)) = doc.links(loc) {
                 if links.iter().any(|link| link.text == link_uri) {
@@ -408,57 +400,6 @@ impl Reader {
             state: State::Idle,
             info,
             current_page,
-            pages_count,
-            view_port: ViewPort::default(),
-            synthetic: false,
-            page_turns: 0,
-            contrast: Contrast::default(),
-            ephemeral: true,
-            reflowable: true,
-            finished: false,
-        }
-    }
-
-    pub fn from_html(rect: Rectangle, html: &str, hub: &Hub, context: &mut Context) -> Reader {
-        let id = ID_FEEDER.next();
-
-        let mut info = Info {
-            file: FileInfo {
-                path: PathBuf::from(MEM_SCHEME),
-                kind: "html".to_string(),
-                size: html.len() as u64,
-            },
-            .. Default::default()
-        };
-
-        let mut doc = HtmlDocument::new_from_memory(html);
-        let (width, height) = context.display.dims;
-        let font_size = context.settings.reader.font_size;
-        doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
-        let pages_count = doc.pages_count();
-        info.title = doc.title().unwrap_or_default();
-
-        hub.send(Event::Update(UpdateMode::Partial)).ok();
-
-        Reader {
-            id,
-            rect,
-            children: vec![],
-            doc: Arc::new(Mutex::new(Box::new(doc))),
-            cache: BTreeMap::new(),
-            text: FxHashMap::default(),
-            annotations: FxHashMap::default(),
-            chunks: Vec::new(),
-            focus: None,
-            search: None,
-            search_direction: LinearDir::Forward,
-            held_buttons: FxHashSet::default(),
-            selection: None,
-            target_annotation: None,
-            history: VecDeque::new(),
-            state: State::Idle,
-            info,
-            current_page: 0,
             pages_count,
             view_port: ViewPort::default(),
             synthetic: false,
@@ -1752,7 +1693,7 @@ impl Reader {
                 return;
             }
 
-            let entries = if self.reflowable {
+            let mut entries = if self.reflowable {
                 if self.ephemeral {
                     vec![EntryKind::Command("Save".to_string(), EntryId::Save)]
                 } else {
@@ -1772,6 +1713,14 @@ impl Reader {
                                             EntryId::SetZoomMode(ZoomMode::Custom(sf)),
                                             zoom_mode == ZoomMode::Custom(sf))])]
             };
+
+            if self.info.reader.as_ref().map_or(false, |r| !r.annotations.is_empty()) {
+                entries.push(EntryKind::Command("Annotations".to_string(), EntryId::Annotations));
+            }
+
+            if self.info.reader.as_ref().map_or(false, |r| !r.bookmarks.is_empty()) {
+                entries.push(EntryKind::Command("Bookmarks".to_string(), EntryId::Bookmarks));
+            }
 
             if !entries.is_empty() {
                 let title_menu = Menu::new(rect, ViewId::TitleMenu, MenuKind::DropDown, entries, context);
@@ -3041,7 +2990,7 @@ impl View for Reader {
                             },
                             DiagDir::SouthWest => {
                                 if self.search.is_none() {
-                                    if self.ephemeral && self.info.file.path == PathBuf::from(TOC_SCHEME) {
+                                    if self.ephemeral && self.info.file.path == PathBuf::from(MEM_SCHEME) {
                                         self.quit(context);
                                         hub.send(Event::Back).ok();
                                     } else {
@@ -3404,10 +3353,44 @@ impl View for Reader {
                 if let Some(toc) = self.toc()
                                        .or_else(|| doc.toc())
                                        .filter(|toc| !toc.is_empty()) {
-                    let chap_index = doc.chapter(self.current_page, &toc)
-                                        .map(|chap| chap.index)
-                                        .unwrap_or(usize::MAX);
-                    hub.send(Event::OpenToc(toc, chap_index)).ok();
+                    let chap = doc.chapter(self.current_page, &toc);
+                    let chap_index = chap.map_or(usize::MAX, |chap| chap.index);
+                    let html = toc_as_html(&toc, chap_index);
+                    let link_uri = chap.and_then(|chap| {
+                        match chap.location {
+                            Location::Uri(ref uri) => Some(format!("@{}", uri)),
+                            Location::Exact(offset) => Some(format!("@{}", offset)),
+                            _ => None,
+                        }
+                    });
+                    hub.send(Event::OpenHtml(html, link_uri)).ok();
+                }
+                true
+            },
+            Event::Select(EntryId::Annotations) => {
+                self.toggle_bars(Some(false), hub, rq, context);
+                let mut starts = self.annotations.values().flatten()
+                                     .map(|annot| annot.selection[0]).collect::<Vec<TextLocation>>();
+                starts.sort();
+                let active_range = starts.first().cloned().zip(starts.last().cloned());
+                if let Some(mut annotations) = self.info.reader.as_ref().map(|r| &r.annotations).cloned() {
+                    annotations.sort_by(|a, b| a.selection[0].cmp(&b.selection[0]));
+                    let html = annotations_as_html(&annotations, active_range);
+                    let link_uri = annotations.iter()
+                                              .filter(|annot| annot.selection[0].location() <= self.current_page)
+                                              .max_by_key(|annot| annot.selection[0])
+                                              .map(|annot| format!("@{}", annot.selection[0].location()));
+                    hub.send(Event::OpenHtml(html, link_uri)).ok();
+                }
+                true
+            },
+            Event::Select(EntryId::Bookmarks) => {
+                self.toggle_bars(Some(false), hub, rq, context);
+                if let Some(bookmarks) = self.info.reader.as_ref().map(|r| &r.bookmarks) {
+                    let html = bookmarks_as_html(&bookmarks, self.current_page, self.synthetic);
+                    let link_uri = bookmarks.range(..= self.current_page).next_back()
+                                            .map(|index| format!("@{}", index));
+                    hub.send(Event::OpenHtml(html, link_uri)).ok();
                 }
                 true
             },

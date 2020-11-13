@@ -10,6 +10,7 @@ use std::env;
 use std::process::Command;
 use std::path::Path;
 use std::ffi::OsStr;
+use std::collections::BTreeSet;
 use anyhow::{Error, format_err};
 use regex::Regex;
 use nix::sys::statvfs;
@@ -25,7 +26,7 @@ use self::pdf::PdfOpener;
 use self::epub::EpubDocument;
 use self::html::HtmlDocument;
 use crate::geom::{Boundary, CycleDir};
-use crate::metadata::{TextAlign};
+use crate::metadata::{TextAlign, Annotation};
 use crate::framebuffer::Pixmap;
 use crate::settings::INTERNAL_CARD_ROOT;
 use crate::device::CURRENT_DEVICE;
@@ -274,6 +275,53 @@ pub fn toc_as_html_aux(toc: &[TocEntry], chap_index: usize, depth: usize, buf: &
     buf.push_str("</ul>\n");
 }
 
+pub fn annotations_as_html(annotations: &[Annotation], active_range: Option<(TextLocation, TextLocation)>) -> String {
+    let mut buf = "<html>\n\t<head>\n\t\t<title>Annotations</title>\n\t\t\
+                   <link rel=\"stylesheet\" type=\"text/css\" href=\"css/annotations.css\"/>\n\t\
+                   </head>\n\t<body>\n".to_string();
+    buf.push_str("\t\t<ul>\n");
+    for annot in annotations {
+        let mut note = annot.note.replace('<', "&lt;").replace('>', "&gt;");
+        let mut text = annot.text.replace('<', "&lt;").replace('>', "&gt;");
+        let start = annot.selection[0];
+        if active_range.map_or(false, |(first, last)| start >= first && start <= last) {
+            if !note.is_empty() {
+                note = format!("<b>{}</b>", note);
+            }
+            text = format!("<b>{}</b>", text);
+        }
+        if note.is_empty() {
+            buf.push_str(&format!("\t\t<li><a href=\"@{}\">{}</a></li>\n", start.location(), text));
+        } else {
+            buf.push_str(&format!("\t\t<li><a href=\"@{}\"><i>{}</i> — {}</a></li>\n", start.location(), note, text));
+        }
+    }
+    buf.push_str("\t\t</ul>\n");
+    buf.push_str("\t</body>\n</html>");
+    buf
+}
+
+pub fn bookmarks_as_html(bookmarks: &BTreeSet<usize>, index: usize, synthetic: bool) -> String {
+    let mut buf = "<html>\n\t<head>\n\t\t<title>Bookmarks</title>\n\t\t\
+                   <link rel=\"stylesheet\" type=\"text/css\" href=\"css/bookmarks.css\"/>\n\t\
+                   </head>\n\t<body>\n".to_string();
+    buf.push_str("\t\t<ul>\n");
+    for bkm in bookmarks {
+        let mut text = if synthetic {
+            format!("{:.1}", *bkm as f64 / BYTES_PER_PAGE)
+        } else {
+            format!("{}", bkm + 1)
+        };
+        if *bkm == index {
+            text = format!("<b>{}</b>", text);
+        }
+        buf.push_str(&format!("\t\t<li><a href=\"@{}\">{}</a></li>\n", bkm, text));
+    }
+    buf.push_str("\t\t</ul>\n");
+    buf.push_str("\t</body>\n</html>");
+    buf
+}
+
 #[inline]
 fn chapter(index: usize, toc: &[TocEntry]) -> Option<&TocEntry> {
     let mut chap = None;
@@ -349,19 +397,6 @@ fn next_chapter<'a>(chap: Option<&TocEntry>, index: usize, toc: &'a [TocEntry]) 
         }
 
         let result = next_chapter(chap, index, &entry.children);
-        if result.is_some() {
-            return result;
-        }
-    }
-    None
-}
-
-pub fn chapter_from_index(index: usize, toc: &[TocEntry]) -> Option<&TocEntry> {
-    for entry in toc {
-        if entry.index == index {
-            return Some(entry);
-        }
-        let result = chapter_from_index(index, &entry.children);
         if result.is_some() {
             return result;
         }
