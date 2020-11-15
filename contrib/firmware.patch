@@ -1,7 +1,7 @@
 diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
---- a/etc/init.d/rcS	2020-08-27 20:33:47.000000000 +0200
-+++ b/etc/init.d/rcS	2020-08-27 20:33:55.000000000 +0200
-@@ -79,7 +79,12 @@
+--- a/etc/init.d/rcS	2020-11-15 11:47:09.000000000 +0100
++++ b/etc/init.d/rcS	2020-11-15 11:47:01.000000000 +0100
+@@ -78,7 +78,12 @@
  FS_CORRUPT=0
  dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || FS_CORRUPT=1
  [ ! -s /usr/local/Kobo/pickel ] && FORCE_FACTORY_RESET=1
