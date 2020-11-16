@@ -962,11 +962,12 @@ pub fn run() -> Result<(), Error> {
                 rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Gui));
             },
             Event::Select(EntryId::ToggleIntermissionImage(ref kind, ref path)) => {
+                let full_path = context.library.home.join(path);
                 let key = kind.key();
-                if context.settings.intermission_images.get(key) == Some(path) {
+                if context.settings.intermission_images.get(key) == Some(&full_path) {
                     context.settings.intermission_images.remove(key);
                 } else {
-                    context.settings.intermission_images.insert(key.to_string(), path.clone());
+                    context.settings.intermission_images.insert(key.to_string(), full_path);
                 }
             },
             Event::Select(EntryId::Rotate(n)) if n != context.display.rotation && view.might_rotate() => {

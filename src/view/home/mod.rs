@@ -824,6 +824,7 @@ impl Home {
             let book_index = self.book_index(index);
             let info = &self.visible_books[book_index];
             let path = &info.file.path;
+            let full_path = context.library.home.join(path);
 
             let mut entries = Vec::new();
 
@@ -851,7 +852,7 @@ impl Home {
                                IntermKind::Share].iter().map(|k| {
                                    EntryKind::CheckBox(k.label().to_string(),
                                                        EntryId::ToggleIntermissionImage(*k, path.clone()),
-                                                       images.get(k.key()) == Some(path))
+                                                       images.get(k.key()) == Some(&full_path))
                                }).collect::<Vec<EntryKind>>();
 
 
@@ -983,6 +984,8 @@ impl Home {
         }
         let mut trash = Library::new(trash_path, LibraryMode::Database);
         context.library.move_to(path, &mut trash)?;
+        let full_path = context.library.home.join(path);
+        context.settings.intermission_images.retain(|_, path| path != &full_path);
         let (mut files, _) = trash.list(&trash.home, None, false);
         let mut size = files.iter().map(|info| info.file.size).sum::<u64>();
         if size > context.settings.home.max_trash_size {

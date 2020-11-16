@@ -331,8 +331,9 @@ impl Default for ImportSettings {
             startup_trigger: true,
             traverse_hidden: false,
             extract_epub_metadata: true,
-            allowed_kinds: ["pdf", "djvu", "epub",
-                            "fb2", "xps", "oxps", "cbz"].iter().map(|k| k.to_string()).collect(),
+            allowed_kinds: ["pdf", "djvu", "epub", "fb2",
+                            "xps", "oxps", "html", "htm",
+                            "cbz", "png", "jpg", "jpeg"].iter().map(|k| k.to_string()).collect(),
         }
     }
 }
