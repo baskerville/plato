@@ -2994,10 +2994,10 @@ impl View for Reader {
                 true
             },
             Event::Submit(ViewId::GoToPageInput, ref text) => {
-                let re = Regex::new(r#"^([-+"'])?(.+)$"#).unwrap();
+                let re = Regex::new(r#"^([-+'])?(.+)$"#).unwrap();
                 if let Some(caps) = re.captures(text) {
                     let prefix = caps.get(1).map(|m| m.as_str());
-                    if prefix == Some("\"") || prefix == Some("'") {
+                    if prefix == Some("'") {
                         if let Some(location) = self.find_page_by_name(&caps[2]) {
                             self.go_to_page(location, true, hub, rq, context);
                         }
