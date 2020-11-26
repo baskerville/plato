@@ -27,6 +27,37 @@ This is a view of the books within the current directory.
 - Swipe west/east to go to the next/previous page.
 - Tap on a book entry to open it.
 
+## Search bar
+
+The input's text is interpreted as a regular expression, and a book will match if any of its title, subtitle, author, series or file path matches.
+
+One can target specific fields or states using selectors. A selector is a sequence of characters that starts with a single quote and is followed by a letter which represent a field or a state.
+
+### Field selectors
+
+The text that will be searched for is given after the selector.
+
+- *t*: title.
+- *u*: subtitle.
+- *a*: author.
+- *y*: year.
+- *l*: language.
+- *p*: publisher.
+- *s*: series.
+- *e*: edition.
+- *v*: volume.
+- *n*: number.
+
+### State selectors
+
+An exclamation mark can be prepended to a state selector's letter to invert its meaning.
+
+- *R*: reading.
+- *N*: new.
+- *F*: finished.
+- *A*: has annotations.
+- *B*: has bookmarks.
+
 ## Bottom bar
 
 Tap and hold the next/previous page icon to go the last/first page.

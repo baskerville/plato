@@ -1,4 +1,3 @@
 - ePUB renderer: RTL.
 - Metadata view.
-- Complex/fuzzy search queries?
 - Applications: Notes, Terminal, Browser.

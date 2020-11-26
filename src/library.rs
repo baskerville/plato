@@ -2,14 +2,13 @@ use std::fs::{self, File};
 use std::time::{SystemTime, Duration};
 use std::path::{PathBuf, Path};
 use std::collections::BTreeSet;
-use regex::Regex;
 use walkdir::WalkDir;
 use indexmap::IndexMap;
 use fxhash::{FxHashMap, FxHashSet, FxBuildHasher};
 use chrono::{Local, TimeZone};
 use filetime::{FileTime, set_file_handle_times};
 use anyhow::{Error, format_err};
-use crate::metadata::{Info, ReaderInfo, FileInfo, SimpleStatus, SortMethod};
+use crate::metadata::{Info, ReaderInfo, FileInfo, BookQuery, SimpleStatus, SortMethod};
 use crate::metadata::{sort, sorter, extract_metadata_from_epub};
 use crate::settings::{LibraryMode, ImportSettings};
 use crate::document::file_kind;
@@ -109,7 +108,7 @@ impl Library {
         }
     }
 
-    pub fn list<P: AsRef<Path>>(&self, prefix: P, query: Option<&Regex>, skip_files: bool) -> (Vec<Info>, BTreeSet<PathBuf>) {
+    pub fn list<P: AsRef<Path>>(&self, prefix: P, query: Option<&BookQuery>, skip_files: bool) -> (Vec<Info>, BTreeSet<PathBuf>) {
         let mut dirs = BTreeSet::new();
         let mut files = Vec::new();
 
@@ -131,14 +130,7 @@ impl Library {
                         if skip_files {
                             continue;
                         }
-                        if query.map_or(true, |q| {
-                            q.is_match(&info.title) ||
-                            q.is_match(&info.subtitle) ||
-                            q.is_match(&info.author) ||
-                            q.is_match(&info.series) ||
-                            info.file.path.to_str()
-                                .map_or(false, |s| q.is_match(s))
-                        }) {
+                        if query.map_or(true, |q| q.is_match(info)) {
                             files.push(info.clone());
                         }
                     }
@@ -174,7 +166,7 @@ impl Library {
                         let relat = path.strip_prefix(&self.home)
                                         .unwrap_or_else(|_| path.as_ref());
                         if skip_files || query.map_or(false, |q| {
-                            relat.to_str().map_or(true, |s| !q.is_match(s))
+                            relat.to_str().map_or(true, |s| !q.is_simple_match(s))
                         }) {
                             continue;
                         }

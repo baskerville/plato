@@ -15,12 +15,11 @@ use std::process::{Command, Child, Stdio};
 use std::io::{BufRead, BufReader};
 use fxhash::FxHashMap;
 use rand_core::RngCore;
-use regex::Regex;
 use serde_json::Value as JsonValue;
 use anyhow::{Error, format_err};
 use crate::library::Library;
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::metadata::{Info, Metadata, SortMethod, SimpleStatus, sort, make_query};
+use crate::metadata::{Info, Metadata, SortMethod, BookQuery, SimpleStatus, sort};
 use crate::view::{View, Event, Hub, Bus, RenderQueue, RenderData};
 use crate::view::{Id, ID_FEEDER, ViewId, EntryId, EntryKind};
 use crate::view::{SMALL_BAR_HEIGHT, BIG_BAR_HEIGHT, THICKNESS_MEDIUM};
@@ -60,7 +59,7 @@ pub struct Home {
     pages_count: usize,
     shelf_index: usize,
     focus: Option<ViewId>,
-    query: Option<Regex>,
+    query: Option<BookQuery>,
     sort_method: SortMethod,
     reverse_order: bool,
     visible_books: Metadata,
@@ -626,6 +625,7 @@ impl Home {
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let delta_y = small_height;
         let search_visible: bool;
+        let mut has_keyboard = false;
 
         if let Some(index) = rlocate::<SearchBar>(self) {
             if let Some(true) = enable {
@@ -685,11 +685,14 @@ impl Home {
                 }
             }
 
-            if rlocate::<Keyboard>(self).is_none() {
-                self.toggle_keyboard(true, false, Some(ViewId::HomeSearchInput), hub, rq, context);
-            }
+            if self.query.is_none() {
+                if rlocate::<Keyboard>(self).is_none() {
+                    self.toggle_keyboard(true, false, Some(ViewId::HomeSearchInput), hub, rq, context);
+                    has_keyboard = true;
+                }
 
-            hub.send(Event::Focus(Some(ViewId::HomeSearchInput))).ok();
+                hub.send(Event::Focus(Some(ViewId::HomeSearchInput))).ok();
+            }
 
             search_visible = true;
         }
@@ -710,7 +713,8 @@ impl Home {
                 rq.add(RenderData::new(self.child(self.shelf_index).id(), rect, UpdateMode::Partial));
                 // Render the views on top of the shelf.
                 rect.min.y = rect.max.y;
-                rect.max.y = self.child(self.shelf_index+4).rect().max.y;
+                let end_index = self.shelf_index + if has_keyboard { 4 } else { 2 };
+                rect.max.y = self.child(end_index).rect().max.y;
                 rq.add(RenderData::expose(rect, UpdateMode::Partial));
             } else {
                 for i in self.shelf_index - 1 ..= self.shelf_index + 1 {
@@ -831,6 +835,14 @@ impl Home {
             if let Some(parent) = path.parent() {
                 entries.push(EntryKind::Command("Select Parent".to_string(),
                                                 EntryId::SelectDirectory(context.library.home.join(parent))));
+            }
+
+            if !info.author.is_empty() {
+                entries.push(EntryKind::Command("Search Author".to_string(),
+                                                EntryId::SearchAuthor(info.author.clone())));
+            }
+
+            if !entries.is_empty() {
                 entries.push(EntryKind::Separator);
             }
 
@@ -1391,7 +1403,7 @@ impl View for Home {
                 true
             },
             Event::Submit(ViewId::HomeSearchInput, ref text) => {
-                self.query = make_query(text);
+                self.query = BookQuery::new(text);
                 if self.query.is_some() {
                     self.toggle_keyboard(false, false, None, hub, rq, context);
                     // Render the search bar and its separator.
@@ -1456,6 +1468,24 @@ impl View for Home {
             Event::ToggleSelectDirectory(ref path) |
             Event::Select(EntryId::ToggleSelectDirectory(ref path)) => {
                 self.toggle_select_directory(path, hub, rq, context);
+                true
+            },
+            Event::Select(EntryId::SearchAuthor(ref author)) => {
+                let text = format!("'a {}", author);
+                let query = BookQuery::new(&text);
+                if query.is_some() {
+                    self.query = query;
+                    self.toggle_search_bar(Some(true), false, hub, rq, context);
+                    self.toggle_keyboard(false, false, None, hub, rq, context);
+                    if let Some(search_bar) = self.children[self.shelf_index+2].downcast_mut::<SearchBar>() {
+                        search_bar.set_text(&text, rq, context);
+                    }
+                    // Render the search bar and its separator.
+                    for i in self.shelf_index + 1 ..= self.shelf_index + 2 {
+                        rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
+                    }
+                    self.refresh_visibles(true, true, rq, context);
+                }
                 true
             },
             Event::GoTo(location) => {
