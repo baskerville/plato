@@ -268,6 +268,7 @@ pub struct RefreshRateSettings {
 #[serde(default, rename_all = "kebab-case")]
 pub struct ReaderSettings {
     pub finished: FinishedAction,
+    pub south_east_corner: SouthEastCornerAction,
     pub strip_width: f32,
     pub corner_width: f32,
     pub font_path: String,
@@ -291,6 +292,13 @@ pub struct BatterySettings {
 pub enum FinishedAction {
     Notify,
     Close,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SouthEastCornerAction {
+    NextPage,
+    GoToPage,
 }
 
 impl Default for RefreshRateSettings {
@@ -317,6 +325,7 @@ impl Default for ReaderSettings {
     fn default() -> Self {
         ReaderSettings {
             finished: FinishedAction::Notify,
+            south_east_corner: SouthEastCornerAction::GoToPage,
             strip_width: 0.6,
             corner_width: 0.4,
             font_path: DEFAULT_FONT_PATH.to_string(),

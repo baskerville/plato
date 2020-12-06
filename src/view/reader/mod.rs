@@ -39,7 +39,7 @@ use crate::view::search_bar::SearchBar;
 use crate::view::keyboard::Keyboard;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::notification::Notification;
-use crate::settings::{guess_frontlight, FinishedAction};
+use crate::settings::{guess_frontlight, FinishedAction, SouthEastCornerAction};
 use crate::settings::{DEFAULT_FONT_FAMILY, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT, DEFAULT_MARGIN_WIDTH};
 use crate::frontlight::LightLevels;
 use crate::gesture::GestureEvent;
@@ -2874,7 +2874,14 @@ impl View for Reader {
                             DiagDir::NorthEast => self.toggle_bookmark(rq),
                             DiagDir::SouthEast => {
                                 if self.search.is_none() {
-                                    hub.send(Event::Toggle(ViewId::GoToPage)).ok();
+                                    match context.settings.reader.south_east_corner {
+                                        SouthEastCornerAction::GoToPage => {
+                                            hub.send(Event::Toggle(ViewId::GoToPage)).ok();
+                                        },
+                                        SouthEastCornerAction::NextPage => {
+                                            self.go_to_neighbor(CycleDir::Next, hub, rq, context);
+                                        },
+                                    }
                                 } else {
                                     self.go_to_neighbor(CycleDir::Next, hub, rq, context);
                                 }
