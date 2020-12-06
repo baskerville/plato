@@ -35,8 +35,8 @@ impl TouchEvents {
                         .corners(Some(CornerSpec::Uniform(small_height/2)));
         children.push(Box::new(icon) as Box<dyn View>);
         rq.add(RenderData::new(id, rect, UpdateMode::Full));
-        let strip_width = context.settings.strip_width;
-        let corner_width = context.settings.corner_width;
+        let strip_width = context.settings.reader.strip_width;
+        let corner_width = context.settings.reader.corner_width;
         TouchEvents {
             id,
             rect,

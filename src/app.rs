@@ -785,8 +785,12 @@ pub fn run() -> Result<(), Error> {
                             points.swap(0, 1);
                         }
                         let rect = context.fb.rect();
-                        let r1 = Region::from_point(points[0], rect, context.settings.strip_width, context.settings.corner_width);
-                        let r2 = Region::from_point(points[1], rect, context.settings.strip_width, context.settings.corner_width);
+                        let r1 = Region::from_point(points[0], rect,
+                                                    context.settings.reader.strip_width,
+                                                    context.settings.reader.corner_width);
+                        let r2 = Region::from_point(points[1], rect,
+                                                    context.settings.reader.strip_width,
+                                                    context.settings.reader.corner_width);
                         match (r1, r2) {
                             (Region::Corner(DiagDir::SouthWest), Region::Corner(DiagDir::NorthEast)) => {
                                 rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Full));

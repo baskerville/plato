@@ -66,8 +66,6 @@ pub struct Settings {
     pub auto_power_off: u8,
     pub time_format: String,
     pub date_format: String,
-    pub strip_width: f32,
-    pub corner_width: f32,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<LibrarySettings>,
     #[serde(skip_serializing_if = "FxHashMap::is_empty")]
@@ -270,6 +268,8 @@ pub struct RefreshRateSettings {
 #[serde(default, rename_all = "kebab-case")]
 pub struct ReaderSettings {
     pub finished: FinishedAction,
+    pub strip_width: f32,
+    pub corner_width: f32,
     pub font_path: String,
     pub font_family: String,
     pub font_size: f32,
@@ -316,14 +316,16 @@ impl Default for HomeSettings {
 impl Default for ReaderSettings {
     fn default() -> Self {
         ReaderSettings {
-            refresh_rate: RefreshRateSettings::default(),
             finished: FinishedAction::Notify,
+            strip_width: 0.6,
+            corner_width: 0.4,
             font_path: DEFAULT_FONT_PATH.to_string(),
             font_family: DEFAULT_FONT_FAMILY.to_string(),
             font_size: DEFAULT_FONT_SIZE,
             text_align: DEFAULT_TEXT_ALIGN,
             margin_width: DEFAULT_MARGIN_WIDTH,
             line_height: DEFAULT_LINE_HEIGHT,
+            refresh_rate: RefreshRateSettings::default(),
         }
     }
 }
@@ -376,8 +378,6 @@ impl Default for Settings {
             button_scheme: ButtonScheme::Natural,
             auto_suspend: 30,
             auto_power_off: 3,
-            strip_width: 0.6,
-            corner_width: 0.4,
             time_format: "%H:%M".to_string(),
             date_format: "%A, %B %-d, %Y".to_string(),
             intermission_images: FxHashMap::default(),

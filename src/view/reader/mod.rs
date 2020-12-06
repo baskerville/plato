@@ -2865,7 +2865,9 @@ impl View for Reader {
                     return true;
                 }
 
-                match Region::from_point(center, self.rect, context.settings.strip_width, context.settings.corner_width) {
+                match Region::from_point(center, self.rect,
+                                         context.settings.reader.strip_width,
+                                         context.settings.reader.corner_width) {
                     Region::Corner(diag_dir) => {
                         match diag_dir {
                             DiagDir::NorthWest => self.go_to_last_page(hub, rq, context),
