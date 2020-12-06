@@ -68,6 +68,7 @@ pub enum GestureEvent {
         angle: f32,
     },
     Cross(Point),
+    Diamond(Point),
     HoldFingerShort(Point, i32),
     HoldFingerLong(Point, i32),
     HoldButtonShort(ButtonCode),
@@ -89,6 +90,7 @@ impl fmt::Display for GestureEvent {
             GestureEvent::Spread { axis, strength, .. } => write!(f, "Spread {} {}", axis, strength),
             GestureEvent::Rotate { center, quarter_turns, .. } => write!(f, "Rotate {} {}", center, quarter_turns * 90),
             GestureEvent::Cross(pt) => write!(f, "Cross {}", pt),
+            GestureEvent::Diamond(pt) => write!(f, "Diamond {}", pt),
             GestureEvent::HoldFingerShort(pt, id) => write!(f, "Short-held finger {} {}", id, pt),
             GestureEvent::HoldFingerLong(pt, id) => write!(f, "Long-held finger {} {}", id, pt),
             GestureEvent::HoldButtonShort(code) => write!(f, "Short-held button {:?}", code),
@@ -225,6 +227,10 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                             (GestureEvent::Arrow { dir: Dir::East, start: s1, end: e1 }, GestureEvent::Arrow { dir: Dir::West, start: s2, end: e2 }) |
                             (GestureEvent::Arrow { dir: Dir::West, start: s2, end: e2 }, GestureEvent::Arrow { dir: Dir::East, start: s1, end: e1 }) if s1.x < s2.x => {
                                 ty.send(Event::Gesture(GestureEvent::Cross((s1+e1+s2+e2)/4))).ok();
+                            },
+                            (GestureEvent::Arrow { dir: Dir::West, start: s1, end: e1 }, GestureEvent::Arrow { dir: Dir::East, start: s2, end: e2 }) |
+                            (GestureEvent::Arrow { dir: Dir::East, start: s2, end: e2 }, GestureEvent::Arrow { dir: Dir::West, start: s1, end: e1 }) if s1.x < s2.x => {
+                                ty.send(Event::Gesture(GestureEvent::Diamond((s1+e1+s2+e2)/4))).ok();
                             },
                             (GestureEvent::Arrow { dir: d1, start: s1, end: e1 }, GestureEvent::Arrow { dir: d2, start: s2, end: e2 }) if d1 == d2 => {
                                 ty.send(Event::Gesture(GestureEvent::MultiArrow {

@@ -105,7 +105,10 @@ The following swipe sequences are recognized:
 - Bottom left corner: guess the frontlight if there's more than two frontlight presets defined, toggle the frontlight otherwise.
 - Bottom right corner: toggle the bitonal mode.
 
-Simultaneously performing an east arrow with the left hand and a west arrow with the right hand will lead you back to the home screen.
+Simultaneous swipe sequences:
+
+- Cross (east arrow with the left hand, west arrow with the right hand): go back to the home screen.
+- Diamond (west arrow with the left hand, east arrow with the right hand): toggle the top and bottom bars.
 
 ### Text Selection
 

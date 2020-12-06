@@ -2571,6 +2571,10 @@ impl View for Reader {
                 hub.send(Event::Back).ok();
                 true
             },
+            Event::Gesture(GestureEvent::Diamond(_)) => {
+                self.toggle_bars(None, hub, rq, context);
+                true
+            },
             Event::Gesture(GestureEvent::HoldButtonShort(code, ..)) => {
                 match code {
                     ButtonCode::Backward => self.go_to_chapter(CycleDir::Previous, hub, rq, context),
