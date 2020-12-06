@@ -41,6 +41,7 @@ pub mod dictionary;
 pub mod calculator;
 pub mod sketch;
 pub mod touch_events;
+pub mod rotation_values;
 
 use std::ops::{Deref, DerefMut};
 use std::time::Duration;
@@ -347,6 +348,7 @@ pub enum AppCmd {
         language: String,
     },
     TouchEvents,
+    RotationValues,
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
