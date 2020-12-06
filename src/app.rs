@@ -25,6 +25,7 @@ use crate::view::keyboard::{Layout};
 use crate::view::dictionary::Dictionary as DictionaryApp;
 use crate::view::calculator::Calculator;
 use crate::view::sketch::Sketch;
+use crate::view::touch_events::TouchEvents;
 use crate::document::sys_info_as_html;
 use crate::input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus, VAL_RELEASE, VAL_PRESS};
 use crate::input::{raw_events, device_events, usb_events, display_rotate_event, button_scheme_event};
@@ -34,7 +35,7 @@ use crate::settings::{ButtonScheme, Settings, SETTINGS_PATH, RotationLock};
 use crate::frontlight::{Frontlight, StandardFrontlight, NaturalFrontlight, PremixedFrontlight};
 use crate::lightsensor::{LightSensor, KoboLightSensor};
 use crate::battery::{Battery, KoboBattery};
-use crate::geom::{Rectangle, Edge};
+use crate::geom::{Rectangle, DiagDir, Region};
 use crate::view::home::Home;
 use crate::view::reader::Reader;
 use crate::view::dialog::Dialog;
@@ -780,20 +781,20 @@ pub fn run() -> Result<(), Error> {
                         break;
                     },
                     GestureEvent::MultiTap(mut points) => {
-                        let mut rect = context.fb.rect();
-                        let w = rect.width() as i32;
-                        let h = rect.height() as i32;
-                        let m = w.min(h);
-                        rect.shrink(&Edge::uniform(m / 12));
                         if points[0].x > points[1].x {
                             points.swap(0, 1);
                         }
-                        if points[0].dist2(points[1]) >= rect.diag2() {
-                            if points[0].y < points[1].y {
-                                tx.send(Event::Select(EntryId::TakeScreenshot)).ok();
-                            } else {
+                        let rect = context.fb.rect();
+                        let r1 = Region::from_point(points[0], rect, context.settings.strip_width, context.settings.corner_width);
+                        let r2 = Region::from_point(points[1], rect, context.settings.strip_width, context.settings.corner_width);
+                        match (r1, r2) {
+                            (Region::Corner(DiagDir::SouthWest), Region::Corner(DiagDir::NorthEast)) => {
                                 rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Full));
-                            }
+                            },
+                            (Region::Corner(DiagDir::NorthWest), Region::Corner(DiagDir::SouthEast)) => {
+                                tx.send(Event::Select(EntryId::TakeScreenshot)).ok();
+                            },
+                            _ => (),
                         }
                     },
                     _ => {
@@ -882,6 +883,9 @@ pub fn run() -> Result<(), Error> {
                     AppCmd::Calculator => Box::new(Calculator::new(context.fb.rect(), &tx, &mut rq, &mut context)?),
                     AppCmd::Dictionary { ref query, ref language } => Box::new(DictionaryApp::new(context.fb.rect(), query,
                                                                                                   language, &tx, &mut rq, &mut context)),
+                    AppCmd::TouchEvents => {
+                        Box::new(TouchEvents::new(context.fb.rect(), &mut rq, &mut context))
+                    },
                 };
                 transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);
                 history.push(HistoryItem {

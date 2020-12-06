@@ -85,8 +85,10 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
                         EntryKind::Command("Calculator".to_string(),
                                            EntryId::Launch(AppCmd::Calculator)),
                         EntryKind::Command("Sketch".to_string(),
-                                           EntryId::Launch(AppCmd::Sketch))];
-
+                                           EntryId::Launch(AppCmd::Sketch)),
+                        EntryKind::Separator,
+                        EntryKind::Command("Touch Events".to_string(),
+                                           EntryId::Launch(AppCmd::TouchEvents))];
         let mut entries = vec![EntryKind::Command("About".to_string(),
                                                   EntryId::About),
                                EntryKind::Command("System Info".to_string(),

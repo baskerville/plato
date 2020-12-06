@@ -50,6 +50,7 @@ use crate::view::menu::{Menu, MenuKind};
 use crate::view::dictionary::Dictionary;
 use crate::view::calculator::Calculator;
 use crate::view::sketch::Sketch;
+use crate::view::touch_events::TouchEvents;
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
 use crate::view::common::{toggle_input_history_menu, toggle_keyboard_layout_menu};
 use crate::helpers::{load_toml, save_toml};
@@ -292,6 +293,9 @@ fn main() -> Result<(), Error> {
                             let rot = (5 + context.display.rotation) % 4;
                             ty.send(DeviceEvent::RotateScreen(rot)).ok();
                         },
+                        Scancode::S => {
+                            tx.send(Event::Select(EntryId::TakeScreenshot)).ok();
+                        },
                         _ => (),
                     }
                 },
@@ -350,6 +354,9 @@ fn main() -> Result<(), Error> {
                         },
                         AppCmd::Dictionary { ref query, ref language } => {
                             Box::new(Dictionary::new(context.fb.rect(), query, language, &tx, &mut rq, &mut context))
+                        },
+                        AppCmd::TouchEvents => {
+                            Box::new(TouchEvents::new(context.fb.rect(), &mut rq, &mut context))
                         },
                     };
                     transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);

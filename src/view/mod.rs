@@ -40,6 +40,7 @@ pub mod reader;
 pub mod dictionary;
 pub mod calculator;
 pub mod sketch;
+pub mod touch_events;
 
 use std::ops::{Deref, DerefMut};
 use std::time::Duration;
@@ -345,6 +346,7 @@ pub enum AppCmd {
         query: String,
         language: String,
     },
+    TouchEvents,
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]

@@ -68,23 +68,23 @@ Tap the library label to bring up the library menu.
 
 ## Viewer
 
-The screen is divided into seven regions:
+The screen is divided into nine regions:
 
 ![Touch Regions](../artworks/touch_regions.svg)
 
 Tap gestures by region:
 
-- *LE* (Left Ear):
+- *WS* (West Strip):
 	- Normal Mode: previous page.
 	- Search Mode: previous results page.
-- *MB* (Middle Band): toggle the top and bottom bars.
-- *RE* (Right Ear):
+- *ES* (East Strip):
 	- Normal Mode: next page.
 	- Search Mode: next results page.
-- *TL* (Top Left Corner): previous location.
-- *TR* (Top Right Corner): toggle bookmark.
-- *BL* (Bottom Left Corner): table of contents in normal mode, previous page in search mode.
-- *BR* (Bottom Right Corner): go to page in normal mode, next page in search mode.
+- *CR* (Center Rectangle), *SS* (South Strip) and *NS* (North Strip): toggle the top and bottom bars.
+- *NWC* (North-West Corner): previous location.
+- *NEC* (North-East Corner): toggle bookmark.
+- *SWC* (South-West Corner): table of contents in normal mode, previous page in search mode.
+- *SEC* (South-East Corner): go to page in normal mode, next page in search mode.
 
 Swipe west/east to go to the next/previous page.
 

@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::sync::{Arc, Mutex};
 use fxhash::FxHashMap;
@@ -71,6 +72,29 @@ pub enum GestureEvent {
     HoldFingerLong(Point, i32),
     HoldButtonShort(ButtonCode),
     HoldButtonLong(ButtonCode),
+}
+
+impl fmt::Display for GestureEvent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            GestureEvent::Tap(pt) => write!(f, "Tap {}", pt),
+            GestureEvent::MultiTap(pts) => write!(f, "Multitap {} {}", pts[0], pts[1]),
+            GestureEvent::Swipe { dir, .. } => write!(f, "Swipe {}", dir),
+            GestureEvent::MultiSwipe { dir, .. } => write!(f, "Multiswipe {}", dir),
+            GestureEvent::Arrow { dir, .. } => write!(f, "Arrow {}", dir),
+            GestureEvent::MultiArrow { dir, .. } => write!(f, "Multiarrow {}", dir),
+            GestureEvent::Corner { dir, .. } => write!(f, "Corner {}", dir),
+            GestureEvent::MultiCorner { dir, .. } => write!(f, "Multicorner {}", dir),
+            GestureEvent::Pinch { axis, strength, .. } => write!(f, "Pinch {} {}", axis, strength),
+            GestureEvent::Spread { axis, strength, .. } => write!(f, "Spread {} {}", axis, strength),
+            GestureEvent::Rotate { center, quarter_turns, .. } => write!(f, "Rotate {} {}", center, quarter_turns * 90),
+            GestureEvent::Cross(pt) => write!(f, "Cross {}", pt),
+            GestureEvent::HoldFingerShort(pt, id) => write!(f, "Short-held finger {} {}", id, pt),
+            GestureEvent::HoldFingerLong(pt, id) => write!(f, "Long-held finger {} {}", id, pt),
+            GestureEvent::HoldButtonShort(code) => write!(f, "Short-held button {:?}", code),
+            GestureEvent::HoldButtonLong(code) => write!(f, "Long-held button {:?}", code),
+        }
+    }
 }
 
 #[derive(Debug)]

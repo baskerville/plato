@@ -49,7 +49,8 @@ use crate::document::html::HtmlDocument;
 use crate::metadata::{Info, FileInfo, ReaderInfo, Annotation, TextAlign, ZoomMode, PageScheme};
 use crate::metadata::{Margin, CroppingMargins, make_query};
 use crate::metadata::{DEFAULT_CONTRAST_EXPONENT, DEFAULT_CONTRAST_GRAY};
-use crate::geom::{Point, Rectangle, Boundary, CornerSpec, BorderSpec, Dir, DiagDir, CycleDir, LinearDir, Axis, halves};
+use crate::geom::{Point, Rectangle, Boundary, CornerSpec, BorderSpec};
+use crate::geom::{Dir, DiagDir, CycleDir, LinearDir, Axis, Region, halves};
 use crate::color::{BLACK, WHITE};
 use crate::app::Context;
 
@@ -2864,64 +2865,52 @@ impl View for Reader {
                     return true;
                 }
 
-                let w = self.rect.width() as i32;
-                let h = self.rect.height() as i32;
-                let m = w.min(h);
-                let db = m / 3;
-                let ds = db / 2;
-                let x1 = self.rect.min.x + db;
-                let x2 = self.rect.max.x - db;
-                let sx1 = self.rect.min.x + ds;
-                let sx2 = self.rect.max.x - ds;
-
-                if center.x < x1 {
-                    let dc = sx1 - center.x;
-                    // Top left corner.
-                    if dc > 0 && center.y < self.rect.min.y + dc {
-                        self.go_to_last_page(hub, rq, context);
-                    // Bottom left corner.
-                    } else if dc > 0 && center.y > self.rect.max.y - dc {
-                        if self.search.is_none() {
-                            if self.ephemeral && self.info.file.path == PathBuf::from(TOC_SCHEME) {
-                                self.quit(context);
-                                hub.send(Event::Back).ok();
-                            } else {
-                                hub.send(Event::Show(ViewId::TableOfContents)).ok();
-                            }
-                        } else {
-                            self.go_to_neighbor(CycleDir::Previous, hub, rq, context);
+                match Region::from_point(center, self.rect, context.settings.strip_width, context.settings.corner_width) {
+                    Region::Corner(diag_dir) => {
+                        match diag_dir {
+                            DiagDir::NorthWest => self.go_to_last_page(hub, rq, context),
+                            DiagDir::NorthEast => self.toggle_bookmark(rq),
+                            DiagDir::SouthEast => {
+                                if self.search.is_none() {
+                                    hub.send(Event::Toggle(ViewId::GoToPage)).ok();
+                                } else {
+                                    self.go_to_neighbor(CycleDir::Next, hub, rq, context);
+                                }
+                            },
+                            DiagDir::SouthWest => {
+                                if self.search.is_none() {
+                                    if self.ephemeral && self.info.file.path == PathBuf::from(TOC_SCHEME) {
+                                        self.quit(context);
+                                        hub.send(Event::Back).ok();
+                                    } else {
+                                        hub.send(Event::Show(ViewId::TableOfContents)).ok();
+                                    }
+                                } else {
+                                    self.go_to_neighbor(CycleDir::Previous, hub, rq, context);
+                                }
+                            },
                         }
-                    // Left ear.
-                    } else {
-                        if self.search.is_none() {
-                            self.go_to_neighbor(CycleDir::Previous, hub, rq, context);
-                        } else {
-                            self.go_to_results_neighbor(CycleDir::Previous, hub, rq, context);
+                    },
+                    Region::Strip(dir) => {
+                        match dir {
+                            Dir::West => {
+                                if self.search.is_none() {
+                                    self.go_to_neighbor(CycleDir::Previous, hub, rq, context);
+                                } else {
+                                    self.go_to_results_neighbor(CycleDir::Previous, hub, rq, context);
+                                }
+                            },
+                            Dir::East => {
+                                if self.search.is_none() {
+                                    self.go_to_neighbor(CycleDir::Next, hub, rq, context);
+                                } else {
+                                    self.go_to_results_neighbor(CycleDir::Next, hub, rq, context);
+                                }
+                            },
+                            Dir::South | Dir::North => self.toggle_bars(None, hub, rq, context),
                         }
-                    }
-                } else if center.x > x2 {
-                    let dc = center.x - sx2;
-                    // Top right corner.
-                    if dc > 0 && center.y < self.rect.min.y + dc {
-                        self.toggle_bookmark(rq);
-                    // Bottom right corner.
-                    } else if dc > 0 && center.y > self.rect.max.y - dc {
-                        if self.search.is_none() {
-                            hub.send(Event::Toggle(ViewId::GoToPage)).ok();
-                        } else {
-                            self.go_to_neighbor(CycleDir::Next, hub, rq, context);
-                        }
-                    // Right ear.
-                    } else {
-                        if self.search.is_none() {
-                            self.go_to_neighbor(CycleDir::Next, hub, rq, context);
-                        } else {
-                            self.go_to_results_neighbor(CycleDir::Next, hub, rq, context);
-                        }
-                    }
-                // Middle band.
-                } else {
-                    self.toggle_bars(None, hub, rq, context);
+                    },
+                    Region::Center => self.toggle_bars(None, hub, rq, context),
                 }
 
                 true
