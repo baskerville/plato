@@ -88,7 +88,7 @@ impl fmt::Display for GestureEvent {
             GestureEvent::MultiCorner { dir, .. } => write!(f, "Multicorner {}", dir),
             GestureEvent::Pinch { axis, strength, .. } => write!(f, "Pinch {} {}", axis, strength),
             GestureEvent::Spread { axis, strength, .. } => write!(f, "Spread {} {}", axis, strength),
-            GestureEvent::Rotate { center, quarter_turns, .. } => write!(f, "Rotate {} {}", center, quarter_turns * 90),
+            GestureEvent::Rotate { center, quarter_turns, .. } => write!(f, "Rotate {} {}", center, *quarter_turns as i32 * 90),
             GestureEvent::Cross(pt) => write!(f, "Cross {}", pt),
             GestureEvent::Diamond(pt) => write!(f, "Diamond {}", pt),
             GestureEvent::HoldFingerShort(pt, id) => write!(f, "Short-held finger {} {}", id, pt),
