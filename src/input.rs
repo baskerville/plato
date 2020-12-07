@@ -55,11 +55,13 @@ pub const KEY_HOME: u16 = 102;
 pub const KEY_LIGHT: u16 = 90;
 pub const KEY_BACKWARD: u16 = 193;
 pub const KEY_FORWARD: u16 = 194;
+pub const SLEEP_COVER: u16 = 59;
+// Synthetic touch button
+pub const BTN_TOUCH: u16 = 330;
 // The following key codes are fake, and are used to support
 // software toggles within this design
 pub const KEY_ROTATE_DISPLAY: u16 = 0xffff;
 pub const KEY_BUTTON_SCHEME: u16 = 0xfffe;
-pub const SLEEP_COVER: u16 = 59;
 
 pub const SINGLE_TOUCH_CODES: TouchCodes = TouchCodes {
     pressure: ABS_PRESSURE,
@@ -441,7 +443,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                     mirror_x = should_mirror.0;
                     mirror_y = should_mirror.1;
                 }
-            } else {
+            } else if evt.code != BTN_TOUCH {
                 if let Some(button_status) = ButtonStatus::try_from_raw(evt.value) {
                     ty.send(DeviceEvent::Button {
                         time: seconds(evt.time),
