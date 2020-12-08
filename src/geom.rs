@@ -12,6 +12,23 @@ pub enum Dir {
     West,
 }
 
+impl Dir {
+    pub fn opposite(self) -> Dir {
+        match self {
+            Dir::North => Dir::South,
+            Dir::South => Dir::North,
+            Dir::East => Dir::West,
+            Dir::West => Dir::East,
+        }
+    }
+    pub fn axis(self) -> Axis {
+        match self {
+            Dir::North | Dir::South => Axis::Vertical,
+            Dir::East | Dir::West => Axis::Horizontal,
+        }
+    }
+}
+
 impl fmt::Display for Dir {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -31,6 +48,17 @@ pub enum DiagDir {
     SouthWest,
 }
 
+impl DiagDir {
+    pub fn opposite(self) -> DiagDir {
+        match self {
+            DiagDir::NorthWest => DiagDir::SouthEast,
+            DiagDir::NorthEast => DiagDir::SouthWest,
+            DiagDir::SouthEast => DiagDir::NorthWest,
+            DiagDir::SouthWest => DiagDir::NorthEast,
+        }
+    }
+}
+
 impl fmt::Display for DiagDir {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -46,6 +74,7 @@ impl fmt::Display for DiagDir {
 pub enum Axis {
     Horizontal,
     Vertical,
+    Diagonal,
 }
 
 impl fmt::Display for Axis {
@@ -53,6 +82,7 @@ impl fmt::Display for Axis {
         match self {
             Axis::Horizontal => write!(f, "horizontal"),
             Axis::Vertical => write!(f, "vertical"),
+            Axis::Diagonal => write!(f, "diagonal"),
         }
     }
 }
@@ -318,23 +348,6 @@ pub fn circular_distances(a: u16, mut b: u16, p: u16) -> (u16, u16) {
     let d0 = b - a;
     let d1 = p - d0;
     (d0, d1)
-}
-
-impl Dir {
-    pub fn opposite(self) -> Dir {
-        match self {
-            Dir::North => Dir::South,
-            Dir::South => Dir::North,
-            Dir::East => Dir::West,
-            Dir::West => Dir::East,
-        }
-    }
-    pub fn axis(self) -> Axis {
-        match self {
-            Dir::North | Dir::South => Axis::Vertical,
-            Dir::East | Dir::West => Axis::Horizontal,
-        }
-    }
 }
 
 impl Point {

@@ -25,6 +25,11 @@ pub enum GestureEvent {
         start: Point,
         end: Point,
     },
+    SlantedSwipe {
+        dir: DiagDir,
+        start: Point,
+        end: Point,
+    },
     MultiSwipe {
         dir: Dir,
         starts: [Point; 2],
@@ -81,6 +86,7 @@ impl fmt::Display for GestureEvent {
             GestureEvent::Tap(pt) => write!(f, "Tap {}", pt),
             GestureEvent::MultiTap(pts) => write!(f, "Multitap {} {}", pts[0], pts[1]),
             GestureEvent::Swipe { dir, .. } => write!(f, "Swipe {}", dir),
+            GestureEvent::SlantedSwipe { dir, .. } => write!(f, "SlantedSwipe {}", dir),
             GestureEvent::MultiSwipe { dir, .. } => write!(f, "Multiswipe {}", dir),
             GestureEvent::Arrow { dir, .. } => write!(f, "Arrow {}", dir),
             GestureEvent::MultiArrow { dir, .. } => write!(f, "Multiarrow {}", dir),
@@ -224,6 +230,26 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                                     })).ok();
                                 }
                             },
+                            (GestureEvent::SlantedSwipe { dir: d1, start: s1, end: e1, .. },
+                             GestureEvent::SlantedSwipe { dir: d2, start: s2, end: e2, .. }) if d1 == d2.opposite() => {
+                                let ds = (s2 - s1).length();
+                                let de = (e2 - e1).length();
+                                if ds > de {
+                                    ty.send(Event::Gesture(GestureEvent::Pinch {
+                                        axis: Axis::Diagonal,
+                                        starts: [s1, s2],
+                                        ends: [e1, e2],
+                                        strength: (ds - de) as u32,
+                                    })).ok();
+                                } else {
+                                    ty.send(Event::Gesture(GestureEvent::Spread {
+                                        axis: Axis::Diagonal,
+                                        starts: [s1, s2],
+                                        ends: [e1, e2],
+                                        strength: (de - ds) as u32,
+                                    })).ok();
+                                }
+                            },
                             (GestureEvent::Arrow { dir: Dir::East, start: s1, end: e1 }, GestureEvent::Arrow { dir: Dir::West, start: s2, end: e2 }) |
                             (GestureEvent::Arrow { dir: Dir::West, start: s2, end: e2 }, GestureEvent::Arrow { dir: Dir::East, start: s1, end: e1 }) if s1.x < s2.x => {
                                 ty.send(Event::Gesture(GestureEvent::Cross((s1+e1+s2+e2)/4))).ok();
@@ -335,10 +361,19 @@ fn interpret_segment(sp: &[Point], tap_jitter: f32) -> GestureEvent {
                 }
             }
         } else {
-            GestureEvent::Swipe {
-                start: a,
-                end: b,
-                dir: ab.dir(),
+            let g = (ab.x as f32 / ab.y as f32).abs();
+            if g < 0.5 || g > 2.0 {
+                GestureEvent::Swipe {
+                    start: a,
+                    end: b,
+                    dir: ab.dir(),
+                }
+            } else {
+                GestureEvent::SlantedSwipe {
+                    start: a,
+                    end: b,
+                    dir: ab.diag_dir(),
+                }
             }
         }
     }
