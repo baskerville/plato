@@ -93,6 +93,11 @@ Swipe north/south to scroll the page stream when the zoom mode is fit-to-width.
 Rotate to change the screen orientation (one finger is the center, the other describes the desired rotation with a circular motion around the center: the two fingers should land and take off simultaneously).
 
 Spread (resp. pinch) horizontally to switch the zoom mode to fit-to-width (resp. fit-to-page).
+Spread (resp. pinch) diagonally to zoom in (resp. out) on the current page (the zoom mode is set to *custom*).
+
+When the zoom mode is *custom*:
+- Tapping a peripheral region moves the view port in the corresponding direction.
+- Swiping moves the view port in the swipe's opposite direction.
 
 The following swipe sequences are recognized:
 

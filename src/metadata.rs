@@ -10,6 +10,7 @@ use fxhash::FxHashMap;
 use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use titlecase::titlecase;
+use crate::geom::Point;
 use crate::document::{Document, SimpleTocEntry, TextLocation};
 use crate::document::asciify;
 use crate::document::epub::EpubDocument;
@@ -199,7 +200,7 @@ pub struct ReaderInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub zoom_mode: Option<ZoomMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub top_offset: Option<i32>,
+    pub page_offset: Option<Point>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rotation: Option<i8>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -228,11 +229,25 @@ pub struct ReaderInfo {
     pub annotations: Vec<Annotation>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub enum ZoomMode {
     FitToPage,
     FitToWidth,
+    Custom(f32),
 }
+
+impl PartialEq for ZoomMode {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (ZoomMode::FitToPage, ZoomMode::FitToPage) => true,
+            (ZoomMode::FitToWidth, ZoomMode::FitToWidth) => true,
+            (ZoomMode::Custom(z1), ZoomMode::Custom(z2)) => (z1 - z2).abs() < f32::EPSILON,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for ZoomMode {}
 
 impl ReaderInfo {
     pub fn progress(&self) -> f32 {
@@ -248,7 +263,7 @@ impl Default for ReaderInfo {
             pages_count: 1,
             finished: false,
             zoom_mode: None,
-            top_offset: None,
+            page_offset: None,
             rotation: None,
             cropping_margins: None,
             margin_width: None,

@@ -34,6 +34,7 @@ use sdl2::event::Event as SdlEvent;
 use sdl2::keyboard::{Scancode, Keycode};
 use sdl2::render::{WindowCanvas, BlendMode};
 use sdl2::pixels::{Color as SdlColor, PixelFormatEnum};
+use sdl2::mouse::MouseState;
 use sdl2::rect::Point as SdlPoint;
 use sdl2::rect::Rect as SdlRect;
 use crate::framebuffer::{Framebuffer, UpdateMode};
@@ -56,8 +57,8 @@ use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapp
 use crate::view::common::{toggle_input_history_menu, toggle_keyboard_layout_menu};
 use crate::helpers::{load_toml, save_toml};
 use crate::settings::{Settings, SETTINGS_PATH};
-use crate::geom::Rectangle;
-use crate::gesture::gesture_events;
+use crate::geom::{Rectangle, Axis};
+use crate::gesture::{GestureEvent, gesture_events};
 use crate::device::CURRENT_DEVICE;
 use crate::battery::{Battery, FakeBattery};
 use crate::frontlight::{Frontlight, LightLevels};
@@ -274,7 +275,8 @@ fn main() -> Result<(), Error> {
     let mut bus = VecDeque::with_capacity(4);
 
     'outer: loop {
-        if let Some(sdl_evt) = sdl_context.event_pump().unwrap().wait_event_timeout(20) {
+        let mut event_pump = sdl_context.event_pump().unwrap();
+        if let Some(sdl_evt) = event_pump.wait_event_timeout(20) {
             match sdl_evt {
                 SdlEvent::Quit { .. } |
                 SdlEvent::KeyDown { keycode: Some(Keycode::Escape), .. } => {
@@ -296,6 +298,21 @@ fn main() -> Result<(), Error> {
                         },
                         Scancode::S => {
                             tx.send(Event::Select(EntryId::TakeScreenshot)).ok();
+                        },
+                        Scancode::I | Scancode::O => {
+                            let mouse_state = MouseState::new(&event_pump);
+                            let x = mouse_state.x() as i32;
+                            let y = mouse_state.y() as i32;
+                            let center = pt!(x, y);
+                            if scancode == Scancode::I {
+                                tx.send(Event::Gesture(GestureEvent::Spread { center,
+                                                                              factor: 2.0,
+                                                                              axis: Axis::Diagonal })).ok();
+                            } else {
+                                tx.send(Event::Gesture(GestureEvent::Pinch { center,
+                                                                             factor: 0.5,
+                                                                             axis: Axis::Diagonal })).ok();
+                            }
                         },
                         _ => (),
                     }

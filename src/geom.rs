@@ -108,7 +108,7 @@ impl LinearDir {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Point {
     pub x: i32,
     pub y: i32,
