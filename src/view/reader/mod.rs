@@ -2493,14 +2493,14 @@ impl View for Reader {
                 };
                 true
             },
-            Event::Gesture(GestureEvent::Spread { axis: Axis::Horizontal, starts, .. }) if self.rect.includes(starts[0]) => {
+            Event::Gesture(GestureEvent::Spread { axis: Axis::Horizontal, center, .. }) if self.rect.includes(center) => {
                 if !self.reflowable {
                     self.set_zoom_mode(ZoomMode::FitToWidth, hub, rq, context);
                 }
                 true
 
             },
-            Event::Gesture(GestureEvent::Pinch { axis: Axis::Horizontal, starts, .. }) if self.rect.includes(starts[0]) => {
+            Event::Gesture(GestureEvent::Pinch { axis: Axis::Horizontal, center, .. }) if self.rect.includes(center) => {
                 if !self.reflowable {
                     self.set_zoom_mode(ZoomMode::FitToPage, hub, rq, context);
                 }

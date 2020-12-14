@@ -57,15 +57,13 @@ pub enum GestureEvent {
     },
     Pinch {
         axis: Axis,
-        strength: u32,
-        starts: [Point; 2],
-        ends: [Point; 2],
+        center: Point,
+        factor: f32,
     },
     Spread {
         axis: Axis,
-        strength: u32,
-        starts: [Point; 2],
-        ends: [Point; 2],
+        center: Point,
+        factor: f32,
     },
     Rotate {
         center: Point,
@@ -92,8 +90,8 @@ impl fmt::Display for GestureEvent {
             GestureEvent::MultiArrow { dir, .. } => write!(f, "Multiarrow {}", dir),
             GestureEvent::Corner { dir, .. } => write!(f, "Corner {}", dir),
             GestureEvent::MultiCorner { dir, .. } => write!(f, "Multicorner {}", dir),
-            GestureEvent::Pinch { axis, strength, .. } => write!(f, "Pinch {} {}", axis, strength),
-            GestureEvent::Spread { axis, strength, .. } => write!(f, "Spread {} {}", axis, strength),
+            GestureEvent::Pinch { axis, center, factor, .. } => write!(f, "Pinch {} {} {:.2}", axis, center, factor),
+            GestureEvent::Spread { axis, center, factor, .. } => write!(f, "Spread {} {} {:.2}", axis, center, factor),
             GestureEvent::Rotate { center, quarter_turns, .. } => write!(f, "Rotate {} {}", center, *quarter_turns as i32 * 90),
             GestureEvent::Cross(pt) => write!(f, "Cross {}", pt),
             GestureEvent::Diamond(pt) => write!(f, "Diamond {}", pt),
@@ -212,41 +210,41 @@ pub fn parse_gesture_events(rx: &Receiver<DeviceEvent>, ty: &Sender<Event>) {
                             },
                             (GestureEvent::Swipe { dir: d1, start: s1, end: e1, .. },
                              GestureEvent::Swipe { dir: d2, start: s2, end: e2, .. }) if d1 == d2.opposite() => {
+                                let center = (s1 + s2) / 2;
                                 let ds = (s2 - s1).length();
                                 let de = (e2 - e1).length();
-                                if ds > de {
+                                let factor = de / ds;
+                                if factor < 1.0 {
                                     ty.send(Event::Gesture(GestureEvent::Pinch {
                                         axis: d1.axis(),
-                                        starts: [s1, s2],
-                                        ends: [e1, e2],
-                                        strength: (ds - de) as u32,
+                                        center,
+                                        factor,
                                     })).ok();
                                 } else {
                                     ty.send(Event::Gesture(GestureEvent::Spread {
                                         axis: d1.axis(),
-                                        starts: [s1, s2],
-                                        ends: [e1, e2],
-                                        strength: (de - ds) as u32,
+                                        center,
+                                        factor,
                                     })).ok();
                                 }
                             },
                             (GestureEvent::SlantedSwipe { dir: d1, start: s1, end: e1, .. },
                              GestureEvent::SlantedSwipe { dir: d2, start: s2, end: e2, .. }) if d1 == d2.opposite() => {
+                                let center = (s1 + s2) / 2;
                                 let ds = (s2 - s1).length();
                                 let de = (e2 - e1).length();
-                                if ds > de {
+                                let factor = de / ds;
+                                if factor < 1.0 {
                                     ty.send(Event::Gesture(GestureEvent::Pinch {
                                         axis: Axis::Diagonal,
-                                        starts: [s1, s2],
-                                        ends: [e1, e2],
-                                        strength: (ds - de) as u32,
+                                        center,
+                                        factor,
                                     })).ok();
                                 } else {
                                     ty.send(Event::Gesture(GestureEvent::Spread {
                                         axis: Axis::Diagonal,
-                                        starts: [s1, s2],
-                                        ends: [e1, e2],
-                                        strength: (de - ds) as u32,
+                                        center,
+                                        factor,
                                     })).ok();
                                 }
                             },
