@@ -293,6 +293,8 @@ impl Device {
         }
     }
 
+    // The written rotation that makes the screen be in portrait mode
+    // with the Kobo logo at the bottom.
     pub fn startup_rotation(&self) -> i8 {
         match self.model {
             Model::LibraH2O => 0,
@@ -303,19 +305,21 @@ impl Device {
     }
 
     // Return a device independent rotation value given
-    // the device dependent rotation value *n*.
+    // the device dependent written rotation value *n*.
     pub fn to_canonical(&self, n: i8) -> i8 {
         let (_, dir) = self.mirroring_scheme();
         (4 + dir * (n - self.startup_rotation())) % 4
     }
 
-    // Return a device dependent rotation value given
+    // Return a device dependent written rotation value given
     // the device independent rotation value *n*.
     pub fn from_canonical(&self, n: i8) -> i8 {
         let (_, dir) = self.mirroring_scheme();
         (self.startup_rotation() + (4 + dir * n) % 4) % 4
     }
 
+    // Return a device dependent written rotation value given
+    // the device dependent read rotation value *n*.
     pub fn transformed_rotation(&self, n: i8) -> i8 {
         match self.model {
             Model::AuraHD | Model::AuraH2O => n ^ 2,
