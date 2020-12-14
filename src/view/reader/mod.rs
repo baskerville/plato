@@ -484,6 +484,10 @@ impl Reader {
                               ((1.0 - cropping_margin.right) * pixmap.width as f32).floor() as i32,
                               ((1.0 - cropping_margin.bottom) * pixmap.height as f32).floor() as i32];
             self.cache.insert(location, Resource { pixmap, frame, scale });
+        } else {
+            let pixmap = Pixmap::new(1, 1);
+            let frame = pixmap.rect();
+            self.cache.insert(location, Resource { pixmap, frame, scale });
         }
     }
 
