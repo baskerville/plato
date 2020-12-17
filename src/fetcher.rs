@@ -5,6 +5,7 @@ use std::thread;
 use std::fs::{self, File};
 use std::path::PathBuf;
 use reqwest::blocking::Client;
+use reqwest::StatusCode;
 use serde_json::json;
 use chrono::{Duration, Utc, Local, DateTime};
 use serde::{Serialize, Deserialize};
@@ -88,25 +89,60 @@ fn update_token(client: &Client, session: &mut Session, settings: &Settings) -> 
 
     let url = format!("{}/oauth/v2/token", &settings.base_url);
 
-    let tokens: JsonValue = client.post(&url)
-                                  .json(&query)
-                                  .send()?
-                                  .json()?;
-    session.access_token = Token {
-        data: tokens.get("access_token")
+    let resp = client.post(&url)
+        .json(&query)
+        .send()?;
+
+    let status = resp.status();
+    match status.as_u16() {
+        200..=299 => {
+            let tokens: JsonValue = resp.json()?;
+
+            session.access_token = Token {
+                data: tokens.get("access_token")
                     .and_then(|v| v.as_str())
                     .map(String::from)
                     .ok_or_else(|| format_err!("Missing access token."))?,
-        valid_until: tokens.get("expires_in")
-                           .and_then(|v| v.as_i64())
-                           .map(|d| Utc::now() + Duration::seconds(d))
-                           .ok_or_else(|| format_err!("Missing expires in."))?,
-    };
+                valid_until: tokens.get("expires_in")
+                    .and_then(|v| v.as_i64())
+                    .map(|d| Utc::now() + Duration::seconds(d))
+                    .ok_or_else(|| format_err!("Missing expires in."))?,
+            };
+            Ok(())
+        }
+        400 => {
+            let r: JsonValue = resp.json()?;
+            let error_message = r.get("error_description")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+                .unwrap_or_default();
 
-    Ok(())
+            Err(format_err!("Unable to authenticate: {}", error_message))
+        }
+        _ => {
+            Err(format_err!("{} encountered during authentication", status))
+        }
+    }
 }
 
 fn main() -> Result<(), Error> {
+    // Format errors that bubble up for plato output
+    match run() {
+        Err(e) => {
+            let event = json!({
+                "type": "notify",
+                "message": e.to_string(),
+            });
+
+            println!("{}", event);
+
+            Ok(())
+        }
+        _ => Ok(())
+    }
+}
+
+fn run() -> Result<(), Error> {
     let mut args = env::args().skip(1);
     let save_path = PathBuf::from(args.next()
                                       .ok_or_else(|| format_err!("Missing argument: save path."))?);
