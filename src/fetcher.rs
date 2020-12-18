@@ -190,7 +190,8 @@ fn run() -> Result<(), Error> {
             "order": "asc",
             "archive": 0,
             "page": page,
-            "perPage": 8,
+            "perPage": 100,
+            "detail": "metadata",
         });
 
         let entries: JsonValue = client.get(&url)
