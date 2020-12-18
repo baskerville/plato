@@ -36,7 +36,7 @@ Any 4.*X*.*Y* firmware, with *X* ≥ 6, will do.
 - Adjust the contrast.
 - Define words using *dictd* dictionaries.
 - Annotations, highlights and bookmarks.
-- Retrieve articles from online sources through [hooks](doc/HOOKS.md).
+- Retrieve articles from online sources through [hooks](doc/HOOKS.md) or from wallabag through the [built-in article fetcher](doc/ARTICLEFETCHER.md).
 
 [![Tn01](artworks/thumbnail01.png)](artworks/screenshot01.png) [![Tn02](artworks/thumbnail02.png)](artworks/screenshot02.png) [![Tn03](artworks/thumbnail03.png)](artworks/screenshot03.png) [![Tn04](artworks/thumbnail04.png)](artworks/screenshot04.png)
 
