@@ -126,6 +126,13 @@ fn update_token(client: &Client, session: &mut Session, settings: &Settings) -> 
 }
 
 fn main() -> Result<(), Error> {
+    let event = json!({
+                "type": "notify",
+                "message": "Article fetcher running",
+            });
+
+    println!("{}", event);
+
     // Format errors that bubble up for plato output
     match run() {
         Err(e) => {
