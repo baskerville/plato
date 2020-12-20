@@ -230,12 +230,13 @@ impl Library {
                     self.has_db_changed = true;
                 }
             // The path is known: update the fp.
-            } else if let Some(fp2) = self.paths.get(relat) {
+            } else if let Some(fp2) = self.paths.get(relat).cloned() {
                 println!("Update fingerprint for {}: {:016X} → {:016X}.", relat.display(), fp2, fp);
-                let info = self.db.remove(fp2).unwrap();
+                let info = self.db.remove(&fp2).unwrap();
                 self.db.insert(fp, info);
                 self.db[&fp].file.size = md.len();
-                let rp1 = self.reading_state_path(*fp2);
+                self.paths.insert(relat.to_path_buf(), fp);
+                let rp1 = self.reading_state_path(fp2);
                 let rp2 = self.reading_state_path(fp);
                 fs::rename(rp1, rp2).ok();
                 self.has_db_changed = true;
