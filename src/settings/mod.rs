@@ -98,6 +98,7 @@ pub struct LibrarySettings {
     pub sort_method: SortMethod,
     pub first_column: FirstColumn,
     pub second_column: SecondColumn,
+    pub thumbnail_previews: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub hooks: Vec<Hook>,
 }
@@ -112,6 +113,7 @@ impl Default for LibrarySettings {
             sort_method: SortMethod::Opened,
             first_column: FirstColumn::TitleAndAuthor,
             second_column: SecondColumn::Progress,
+            thumbnail_previews: true,
             hooks: Vec::new(),
         }
     }

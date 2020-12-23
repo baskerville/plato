@@ -12,7 +12,7 @@ use crate::font::{FontOpener, FontFamily};
 use crate::document::{Document, Location};
 use crate::document::pdf::PdfOpener;
 use crate::unit::{mm_to_px, pt_to_px};
-use crate::geom::{Rectangle, Edge};
+use crate::geom::{Point, Vec2, Rectangle, Edge};
 use crate::settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT};
 use super::parse::{parse_display, parse_edge, parse_float, parse_text_align, parse_text_indent, parse_width, parse_height, parse_inline_material};
 use super::parse::{parse_font_kind, parse_font_style, parse_font_weight, parse_font_size, parse_font_features, parse_font_variant, parse_letter_spacing};
@@ -1673,27 +1673,34 @@ impl Engine {
         merged_items
     }
 
-    pub fn render_page(&mut self, page: &[DrawCommand], resource_fetcher: &mut dyn ResourceFetcher) -> Pixmap {
-        let (width, height) = self.dims;
+    pub fn render_page(&mut self, page: &[DrawCommand], scale_factor: f32, resource_fetcher: &mut dyn ResourceFetcher) -> Pixmap {
+        let width = (self.dims.0 as f32 * scale_factor) as u32;
+        let height = (self.dims.1 as f32 * scale_factor) as u32;
         let mut fb = Pixmap::new(width, height);
 
         for dc in page {
             match dc {
-                DrawCommand::Text(TextCommand { position, plan, font_kind, font_style, font_weight, font_size, color, .. }) |
-                DrawCommand::ExtraText(TextCommand { position, plan, font_kind, font_style, font_weight, font_size, color, .. }) => {
+                DrawCommand::Text(TextCommand { position, plan, font_kind,
+                                                font_style, font_weight, font_size, color, .. }) |
+                DrawCommand::ExtraText(TextCommand { position, plan, font_kind, font_style,
+                                                     font_weight, font_size, color, .. }) => {
                     let font = self.fonts.as_mut().unwrap()
                                    .get_mut(*font_kind, *font_style, *font_weight);
-                    font.set_size(*font_size, self.dpi);
-                    font.render(&mut fb, *color, plan, *position);
+                    let font_size = (scale_factor * *font_size as f32) as u32;
+                    let position = Point::from(scale_factor * Vec2::from(*position));
+                    let plan = plan.scale(scale_factor);
+                    font.set_size(font_size, self.dpi);
+                    font.render(&mut fb, *color, &plan, position);
                 },
                 DrawCommand::Image(ImageCommand { position, path, scale, .. }) => {
                     if let Ok(buf) = resource_fetcher.fetch(path) {
                         PdfOpener::new().and_then(|opener| {
                             opener.open_memory(path, &buf)
                         }).and_then(|mut doc| {
-                            doc.pixmap(Location::Exact(0), *scale)
+                            doc.pixmap(Location::Exact(0), scale_factor * *scale)
                         }).map(|(pixmap, _)| {
-                            fb.draw_pixmap(&pixmap, *position);
+                            let position = Point::from(scale_factor * Vec2::from(*position));
+                            fb.draw_pixmap(&pixmap, position);
                         });
                     }
                 },

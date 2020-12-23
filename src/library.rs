@@ -17,6 +17,7 @@ use crate::helpers::{Fingerprint, save_json, load_json, IsHidden};
 pub const METADATA_FILENAME: &str = ".metadata.json";
 pub const FAT32_EPOCH_FILENAME: &str = ".fat32-epoch";
 pub const READING_STATES_DIRNAME: &str = ".reading-states";
+pub const THUMBNAIL_PREVIEWS_DIRNAME: &str = ".thumbnail-previews";
 
 pub struct Library {
     pub home: PathBuf,
@@ -73,6 +74,11 @@ impl Library {
                     }
                 }
             }
+        }
+
+        let path = home.as_ref().join(THUMBNAIL_PREVIEWS_DIRNAME);
+        if !path.exists() {
+            fs::create_dir(&path).ok();
         }
 
         let paths = if mode == LibraryMode::Database {
@@ -239,6 +245,10 @@ impl Library {
                 let rp1 = self.reading_state_path(fp2);
                 let rp2 = self.reading_state_path(fp);
                 fs::rename(rp1, rp2).ok();
+                let tpp = self.thumbnail_preview_path(fp2);
+                if tpp.exists() {
+                    fs::remove_file(tpp).ok();
+                }
                 self.has_db_changed = true;
             } else {
                 let fp1 = self.fat32_epoch.checked_sub(Duration::from_secs(1))
@@ -265,6 +275,9 @@ impl Library {
                     let rp1 = self.reading_state_path(nfp);
                     let rp2 = self.reading_state_path(fp);
                     fs::rename(rp1, rp2).ok();
+                    let tp1 = self.thumbnail_preview_path(nfp);
+                    let tp2 = self.thumbnail_preview_path(fp);
+                    fs::rename(tp1, tp2).ok();
                     if relat != self.db[&fp].file.path {
                         println!("Update path for {:016X}: {} → {}.",
                                  fp, self.db[&fp].file.path.display(), relat.display());
@@ -337,6 +350,11 @@ impl Library {
             fs::remove_file(rsp)?;
         }
 
+        let tpp = self.thumbnail_preview_path(fp);
+        if tpp.exists() {
+            fs::remove_file(tpp)?;
+        }
+
         if self.mode == LibraryMode::Database {
             self.paths.remove(path.as_ref());
             if self.db.shift_remove(&fp).is_some() {
@@ -382,6 +400,12 @@ impl Library {
         if rsp_src.exists() {
             let rsp_dest = other.reading_state_path(fp);
             fs::rename(&rsp_src, &rsp_dest)?;
+        }
+
+        let tpp_src = self.thumbnail_preview_path(fp);
+        if tpp_src.exists() {
+            let tpp_dest = other.thumbnail_preview_path(fp);
+            fs::rename(&tpp_src, &tpp_dest)?;
         }
 
         if self.mode == LibraryMode::Database {
@@ -523,6 +547,15 @@ impl Library {
         }
     }
 
+    pub fn thumbnail_preview<P: AsRef<Path>>(&self, path: P) -> PathBuf {
+        let fp = self.paths.get(path.as_ref()).cloned().unwrap_or_else(|| {
+            self.home.join(path.as_ref())
+                .metadata().unwrap()
+                .fingerprint(self.fat32_epoch).unwrap()
+        });
+        self.thumbnail_preview_path(fp)
+    }
+
     pub fn set_status<P: AsRef<Path>>(&mut self, path: P, status: SimpleStatus) {
         let fp = self.paths.get(path.as_ref()).cloned().unwrap_or_else(|| {
             self.home.join(path.as_ref())
@@ -639,5 +672,11 @@ impl Library {
         self.home
             .join(READING_STATES_DIRNAME)
             .join(format!("{:016X}.json", fp))
+    }
+
+    fn thumbnail_preview_path(&self, fp: u64) -> PathBuf {
+        self.home
+            .join(THUMBNAIL_PREVIEWS_DIRNAME)
+            .join(format!("{:016X}.png", fp))
     }
 }

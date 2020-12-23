@@ -18,7 +18,7 @@ use anyhow::{Error, format_err};
 use thiserror::Error;
 use globset::Glob;
 use walkdir::WalkDir;
-use crate::geom::Point;
+use crate::geom::{Point, Vec2};
 use crate::helpers::IsHidden;
 use crate::framebuffer::Framebuffer;
 
@@ -1555,6 +1555,23 @@ impl Default for RenderPlan {
 }
 
 impl RenderPlan {
+    pub fn scale(&self, scale: f32) -> RenderPlan {
+        let width = (scale * self.width as f32) as i32;
+        let scripts = self.scripts.clone();
+        let glyphs = self.glyphs.iter().map(|gp| {
+            GlyphPlan {
+                offset: Point::from(scale * Vec2::from(gp.offset)),
+                advance: Point::from(scale * Vec2::from(gp.advance)),
+                .. *gp
+            }
+        }).collect();
+        RenderPlan {
+            width,
+            scripts,
+            glyphs,
+        }
+    }
+
     pub fn space_out(&mut self, letter_spacing: i32) {
         if letter_spacing == 0 {
             return;

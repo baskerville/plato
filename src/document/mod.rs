@@ -120,6 +120,13 @@ pub trait Document: Send+Sync {
         Err(format_err!("This document can't be saved."))
     }
 
+    fn preview_pixmap(&mut self, width: f32, height: f32) -> Option<Pixmap> {
+        self.dims(0).and_then(|dims| {
+            let scale = (width / dims.0).min(height / dims.1);
+            self.pixmap(Location::Exact(0), scale)
+        }).map(|(pixmap, _)| pixmap)
+    }
+
     fn resolve_location(&mut self, loc: Location) -> Option<usize> {
         if self.pages_count() == 0 {
             return None;

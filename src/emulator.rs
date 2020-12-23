@@ -254,7 +254,8 @@ fn main() -> Result<(), Error> {
 
     let mut history: Vec<Box<dyn View>> = Vec::new();
     let mut rq = RenderQueue::new();
-    let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &mut rq, &mut context)?);
+    let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &tx,
+                                                     &mut rq, &mut context)?);
 
     let mut updating = FxHashMap::default();
 
@@ -338,7 +339,7 @@ fn main() -> Result<(), Error> {
                             }
                         }
                     }
-                    let info2 = info.clone();
+                    let path = info.file.path.clone();
                     if let Some(r) = Reader::new(context.fb.rect(), *info, &tx, &mut context) {
                         let mut next_view = Box::new(r) as Box<dyn View>;
                         transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);
@@ -351,7 +352,7 @@ fn main() -> Result<(), Error> {
                                 context.display.dims = dims;
                             }
                         }
-                        handle_event(view.as_mut(), &Event::Invalid(info2), &tx, &mut bus, &mut rq, &mut context);
+                        handle_event(view.as_mut(), &Event::Invalid(path), &tx, &mut bus, &mut rq, &mut context);
                     }
                 },
                 Event::OpenHtml(ref html, ref link_uri) => {
