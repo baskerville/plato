@@ -17,9 +17,9 @@ const SESSION_PATH: &str = ".session.json";
 // Nearly RFC 3339
 const DATE_FORMAT: &str = "%FT%T%z";
 const LISTENED_SIGNALS: &[libc::c_int] = &[
-    signal_hook::SIGINT, signal_hook::SIGHUP,
-    signal_hook::SIGQUIT, signal_hook::SIGTERM,
-    signal_hook::SIGUSR1, signal_hook::SIGUSR2,
+    signal_hook::consts::SIGINT, signal_hook::consts::SIGHUP,
+    signal_hook::consts::SIGQUIT, signal_hook::consts::SIGTERM,
+    signal_hook::consts::SIGUSR1, signal_hook::consts::SIGUSR2,
 ];
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -66,7 +66,7 @@ impl Default for Session {
 
 fn signal_receiver(signals: &[libc::c_int]) -> Result<crossbeam_channel::Receiver<libc::c_int>, Error> {
     let (s, r) = crossbeam_channel::bounded(4);
-    let signals = signal_hook::iterator::Signals::new(signals)?;
+    let mut signals = signal_hook::iterator::Signals::new(signals)?;
     thread::spawn(move || {
         for signal in signals.forever() {
             if s.send(signal).is_err() {
@@ -192,7 +192,7 @@ fn main() -> Result<(), Error> {
         if let Some(items) = entries.pointer("/_embedded/items").and_then(|v| v.as_array()) {
             for element in items {
                 if let Ok(sig) = signals.try_recv() {
-                    if sig != signal_hook::SIGUSR1 {
+                    if sig != signal_hook::consts::SIGUSR1 {
                         break 'outer;
                     }
                 }
