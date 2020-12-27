@@ -1219,11 +1219,7 @@ impl Home {
     }
 
     fn reseed(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
-        if self.sort_method == SortMethod::Progress ||
-           self.sort_method == SortMethod::Opened {
-            self.sort(false, &mut RenderQueue::new(), context);
-        }
-
+        context.library.sort(self.sort_method, self.reverse_order);
         self.refresh_visibles(true, false, &mut RenderQueue::new(), context);
 
         if let Some(top_bar) = self.child_mut(0).downcast_mut::<TopBar>() {
