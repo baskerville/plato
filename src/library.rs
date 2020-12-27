@@ -293,6 +293,7 @@ impl Library {
                         extract_metadata_from_epub(prefix.as_ref(), &mut info);
                     }
                     self.db.insert(fp, info);
+                    self.paths.insert(relat.to_path_buf(), fp);
                 }
 
                 self.has_db_changed = true;
