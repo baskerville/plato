@@ -5,7 +5,7 @@ use std::thread;
 use std::fs::{self, File};
 use std::path::PathBuf;
 use reqwest::blocking::Client;
-use reqwest::StatusCode;
+use semver::Version;
 use serde_json::json;
 use chrono::{Duration, Utc, Local, DateTime};
 use serde::{Serialize, Deserialize};
@@ -187,20 +187,23 @@ fn run() -> Result<(), Error> {
     let mut page = 1;
     let mut pages_count = 0;
     let mut downloads_count = 0;
-    let since = session.since;
     let url = format!("{}/api/entries", &settings.base_url);
 
-    'outer: loop {
-        let query = json!({
-            "since": since,
+    let mut query = json!({
+            "since": session.since,
             "sort": "updated",
             "order": "asc",
             "archive": 0,
             "page": page,
-            "perPage": 100,
-            "detail": "metadata",
+            "perPage": 8,
         });
 
+    if is_detail_available(&client, &settings) {
+        query["perPage"] = JsonValue::from(100);
+        query["detail"] = JsonValue::from("metadata");
+    }
+
+    'outer: loop {
         let entries: JsonValue = client.get(&url)
                                        .header(reqwest::header::AUTHORIZATION,
                                                format!("Bearer {}", &session.access_token.data))
@@ -335,6 +338,7 @@ fn run() -> Result<(), Error> {
         }
 
         page += 1;
+        query["page"] = JsonValue::from(page);
         if page > pages_count {
             break;
         }
@@ -361,4 +365,52 @@ fn run() -> Result<(), Error> {
 
     save_json(&session, SESSION_PATH).context("Can't save session.")?;
     Ok(())
+}
+
+// The "detail" field for the /api/entries endpoint significantly reduces response size
+// but is only available in wallabag v2.4.0+
+fn is_detail_available(client: &Client, settings: &Settings) -> bool {
+    let url = format!("{}/api/version", settings.base_url);
+
+    let response = client.get(&url).send();
+    let version = match response {
+        Ok(response) => {
+            let status = response.status();
+            match status.as_u16() {
+                200..=299 => {
+                    response.text().unwrap_or("".to_string())
+                }
+                400..=499 => {
+                    // api/version endpoint is deprecated and succeeded by api/info as of v2.4.0
+                    let url = format!("{}/api/info", settings.base_url);
+                    let response = client.get(&url).send();
+
+                    match response {
+                        Ok(response) => {
+                            let json: JsonValue = response.json().unwrap_or_default();
+
+                            json.get("version")
+                                .and_then(|v| v.as_str())
+                                .map(String::from)
+                                .unwrap_or("".to_string())
+                        }
+                        Err(_) => { "".to_string()}
+                    }
+                }
+                _ => {
+                    "".to_string()
+                }
+            }
+        }
+        Err(_) => { "".to_string()}
+    };
+
+    let api_version = Version::parse(version.trim_matches('"')).unwrap_or(Version::new(0,0,0));
+    let version_target = Version::new(2,4,0);
+
+    if api_version.ge(&version_target) {
+        return true
+    }
+
+    return false
 }

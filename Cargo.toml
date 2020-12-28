@@ -81,7 +81,11 @@ optional = true
 version = "0.3.1"
 optional = true
 
+[dependencies.semver]
+version = "0.10.0"
+optional = true
+
 [features]
 importer = ["getopts"]
 emulator = ["sdl2"]
-fetcher = ["reqwest", "crossbeam-channel", "signal-hook"]
+fetcher = ["reqwest", "crossbeam-channel", "signal-hook", "semver"]
