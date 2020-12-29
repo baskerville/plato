@@ -1190,6 +1190,7 @@ impl Home {
                                  .spawn()?;
         let stdout = process.stdout.take()
                             .ok_or_else(|| format_err!("Can't take stdout."))?;
+        let id = process.id();
         let hub2 = hub.clone();
         thread::spawn(move || {
             let reader = BufReader::new(stdout);
@@ -1226,6 +1227,7 @@ impl Home {
                     break;
                 }
             }
+            hub2.send(Event::CheckFetcher(id)).ok();
         });
         Ok(process)
     }
@@ -1530,6 +1532,23 @@ impl View for Home {
                 for fetcher in self.background_fetchers.values() {
                     if let Some(process) = fetcher.process.as_ref() {
                         unsafe { libc::kill(process.id() as libc::pid_t, libc::SIGUSR1) };
+                    }
+                }
+                true
+            },
+            Event::CheckFetcher(id) => {
+                for (path, fetcher) in &mut self.background_fetchers {
+                    if let Some(process) = fetcher.process.as_mut()
+                                                  .filter(|process| process.id() == id) {
+                        if let Ok(exit_status) = process.wait() {
+                            if !exit_status.success() {
+                                let msg = format!("{}: abnormal process termination.", path.display());
+                                let notif = Notification::new(ViewId::FetcherFailure,
+                                                              msg, hub, rq, context);
+                                self.children.push(Box::new(notif) as Box<dyn View>);
+                            }
+                        }
+                        break;
                     }
                 }
                 true
