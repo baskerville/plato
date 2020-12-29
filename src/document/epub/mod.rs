@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use std::collections::BTreeSet;
 use fxhash::FxHashMap;
 use zip::ZipArchive;
+use percent_encoding::percent_decode_str;
 use anyhow::{Error, format_err};
 use crate::framebuffer::Pixmap;
 use crate::helpers::{Normalize, decode_entities};
@@ -95,7 +96,9 @@ impl EpubDocument {
                 }).and_then(|entry| {
                     entry.attr("href")
                 }).and_then(|href| {
-                    let href_path = parent.join(&href.replace("%20", " ").replace("&amp;", "&"));
+                    let href = decode_entities(href);
+                    let href = percent_decode_str(&href).decode_utf8_lossy();
+                    let href_path = parent.join(href.as_ref());
                     href_path.to_str().and_then(|path| {
                         archive.by_name(path).map_err(|e| {
                             eprintln!("Can't retrieve '{}' from the archive: {}.", path, e)
@@ -199,7 +202,9 @@ impl EpubDocument {
 
                     // Example URI: pr03.html#codecomma_and_what_to_do_with_it
                     let rel_uri = child.find("content").and_then(|content| {
-                        content.attr("src").map(String::from)
+                        content.attr("src")
+                               .map(|src| percent_decode_str(&decode_entities(src)).decode_utf8_lossy()
+                                                                                   .into_owned())
                     }).unwrap_or_default();
 
                     let loc = toc_dir.join(&rel_uri).normalize().to_str()

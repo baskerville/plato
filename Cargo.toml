@@ -54,6 +54,7 @@ filetime = "0.2.13"
 fxhash = "0.2.1"
 rand_core = "0.6.0"
 rand_xoshiro = "0.6.0"
+percent-encoding = "2.1.0"
 
 [dependencies.getopts]
 version = "0.2.21"

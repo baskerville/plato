@@ -804,6 +804,7 @@ dependencies = [
  "libc",
  "nix",
  "paragraph-breaker",
+ "percent-encoding",
  "png",
  "rand_core",
  "rand_xoshiro",
