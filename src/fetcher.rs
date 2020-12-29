@@ -378,7 +378,7 @@ fn is_detail_available(client: &Client, settings: &Settings) -> bool {
             let status = response.status();
             match status.as_u16() {
                 200..=299 => {
-                    response.text().unwrap_or("".to_string())
+                    response.text().unwrap_or_else(|_| "".to_string())
                 }
                 400..=499 => {
                     // api/version endpoint is deprecated and succeeded by api/info as of v2.4.0
@@ -392,7 +392,7 @@ fn is_detail_available(client: &Client, settings: &Settings) -> bool {
                             json.get("version")
                                 .and_then(|v| v.as_str())
                                 .map(String::from)
-                                .unwrap_or("".to_string())
+                                .unwrap_or_else(|| "".to_string())
                         }
                         Err(_) => { "".to_string()}
                     }
@@ -405,12 +405,12 @@ fn is_detail_available(client: &Client, settings: &Settings) -> bool {
         Err(_) => { "".to_string()}
     };
 
-    let api_version = Version::parse(version.trim_matches('"')).unwrap_or(Version::new(0,0,0));
+    let api_version = Version::parse(version.trim_matches('"')).unwrap_or_else(|_| Version::new(0,0,0));
     let version_target = Version::new(2,4,0);
 
     if api_version.ge(&version_target) {
         return true
     }
 
-    return false
+    false
 }
