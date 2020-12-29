@@ -402,7 +402,7 @@ impl Reader {
             current_page,
             pages_count,
             view_port: ViewPort::default(),
-            synthetic: false,
+            synthetic: true,
             page_turns: 0,
             contrast: Contrast::default(),
             ephemeral: true,
