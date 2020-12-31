@@ -214,7 +214,7 @@ impl Library {
 
         for entry in WalkDir::new(prefix.as_ref()).min_depth(1)
                              .into_iter()
-                             .filter_entry(|e| settings.traverse_hidden || !e.is_hidden()) {
+                             .filter_entry(|e| !e.is_hidden()) {
             if entry.is_err() {
                 continue;
             }

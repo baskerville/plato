@@ -124,7 +124,6 @@ impl Default for LibrarySettings {
 pub struct ImportSettings {
     pub unshare_trigger: bool,
     pub startup_trigger: bool,
-    pub traverse_hidden: bool,
     pub extract_epub_metadata: bool,
     pub allowed_kinds: FxHashSet<String>,
 }
@@ -346,7 +345,6 @@ impl Default for ImportSettings {
         ImportSettings {
             unshare_trigger: true,
             startup_trigger: true,
-            traverse_hidden: false,
             extract_epub_metadata: true,
             allowed_kinds: ["pdf", "djvu", "epub", "fb2",
                             "xps", "oxps", "html", "htm",
