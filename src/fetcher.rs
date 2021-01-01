@@ -414,3 +414,125 @@ fn is_detail_available(client: &Client, settings: &Settings) -> bool {
 
     false
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockito::mock;
+
+    #[test]
+    fn test_update_token() {
+        let _m = mock("POST", "/oauth/v2/token")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{
+            "access_token": "foobar",
+            "expires_in": 3600,
+            "token_type": "bearer",
+            "scope": null,
+            "refresh_token": "foobarbaz"
+        }"#)
+            .create();
+
+        let client = Client::new();
+        let mut session = Session::default();
+        let settings = Settings{ base_url: mockito::server_url(), ..Default::default()};
+
+        let actual = update_token(&client, &mut session, &settings);
+        actual.expect("Expected update_token to return (), not error");
+
+        assert_eq!(session.access_token.data, "foobar");
+        assert!(session.access_token.valid_until.timestamp() > 0);
+    }
+
+    #[test]
+    fn test_update_token_missing_token() {
+        let _m = mock("POST", "/oauth/v2/token")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{
+            "expires_in": 3600,
+            "token_type": "bearer",
+            "scope": null,
+            "refresh_token": "foobarbaz"
+        }"#)
+            .create();
+
+        let client = Client::new();
+        let mut session = Session::default();
+        let settings = Settings{ base_url: mockito::server_url(), ..Default::default()};
+
+        let actual = update_token(&client, &mut session, &settings);
+        assert!(actual.is_err(), "expected error from missing access token");
+        assert!(actual.unwrap_err().to_string().contains("Missing access token"));
+    }
+
+    #[test]
+    fn test_update_token_wrong_credentials() {
+        let _m = mock("POST", "/oauth/v2/token")
+            .with_status(400)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{
+                "error": "invalid_grant",
+                "error_description": "Invalid username and password combination"
+            }"#)
+            .create();
+
+        let client = Client::new();
+        let mut session = Session::default();
+        let settings = Settings{ base_url: mockito::server_url(), ..Default::default()};
+
+        let actual = update_token(&client, &mut session, &settings);
+        assert!(actual.is_err(), "expected error from 400 status / wrong credentials");
+        assert!(actual.unwrap_err().to_string().contains("Unable to authenticate"));
+    }
+
+    #[test]
+    fn test_is_detail_available() {
+        let m = mock("GET", "/api/version")
+            .with_status(201)
+            .with_header("content-type", "text/plain")
+            .with_body("2.5.0")
+            .create();
+
+        let client = Client::new();
+        let settings = Settings{ base_url: mockito::server_url(), ..Default::default()};
+
+        let actual = is_detail_available(&client, &settings);
+        assert!(actual, "expected detail to be available from http response: {:?}", m)
+    }
+
+    #[test]
+    fn test_is_detail_available_failure() {
+        let m = mock("GET", "/api/version")
+            .with_status(404)
+            .with_header("content-type", "text/plain")
+            .create();
+
+        let client = Client::new();
+        let settings = Settings{ base_url: mockito::server_url(), ..Default::default()};
+
+        let actual = is_detail_available(&client, &settings);
+        assert!(!actual, "expected detail to not be available from http response: {:?}", m)
+    }
+
+    #[test]
+    fn test_is_detail_available_with_deprecated_endpoint() {
+        let m = mock("GET", "/api/version")
+            .with_status(404)
+            .create();
+
+        let n = mock("GET", "/api/info")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"appname":"wallabag","version":"2.4.1-dev","allowed_registration":true}"#)
+            .create();
+
+        let client = Client::new();
+        let settings = Settings { base_url: mockito::server_url(), ..Default::default() };
+
+        let actual = is_detail_available(&client, &settings);
+        assert!(actual, "expected detail to be available from http response: {:?}, {:?}", m, n)
+    }
+}
