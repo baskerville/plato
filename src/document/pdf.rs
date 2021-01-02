@@ -136,9 +136,19 @@ impl PdfDocument {
             let mut vec = Vec::new();
             let mut cur = outline;
             while !cur.is_null() {
-                let title = CStr::from_ptr((*cur).title).to_string_lossy().into_owned();
-                // TODO: handle page == -1
-                let location = Location::Exact((*cur).page as usize);
+                let location = if (*cur).page > -1 {
+                    Location::Exact((*cur).page as usize)
+                } else if !(*cur).uri.is_null() {
+                    let uri = CStr::from_ptr((*cur).uri).to_string_lossy().into_owned();
+                    Location::Uri(uri)
+                } else {
+                    Location::Exact(0)
+                };
+                let title = if !(*cur).title.is_null() {
+                    CStr::from_ptr((*cur).title).to_string_lossy().into_owned()
+                } else {
+                    "Untitled".to_string()
+                };
                 let current_index = *index;
                 *index += 1;
                 let children = if !(*cur).down.is_null() {
