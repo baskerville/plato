@@ -38,11 +38,12 @@ use sdl2::mouse::MouseState;
 use sdl2::rect::Point as SdlPoint;
 use sdl2::rect::Rect as SdlRect;
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::input::{DeviceEvent, FingerStatus};
+use crate::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use crate::document::sys_info_as_html;
 use crate::view::{View, Event, ViewId, EntryId, AppCmd, EntryKind};
 use crate::view::{process_render_queue, handle_event, RenderQueue, RenderData};
 use crate::view::home::Home;
+use crate::view::intermission::{Intermission, IntermKind};
 use crate::view::reader::Reader;
 use crate::view::notification::Notification;
 use crate::view::dialog::Dialog;
@@ -297,6 +298,13 @@ fn main() -> Result<(), Error> {
                             let rot = (5 + context.display.rotation) % 4;
                             ty.send(DeviceEvent::RotateScreen(rot)).ok();
                         },
+                        Scancode::P => {
+                            ty.send(DeviceEvent::Button {
+                                time: 0.0,
+                                code: ButtonCode::Power,
+                                status: ButtonStatus::Released,
+                            }).ok();
+                        }
                         Scancode::S => {
                             tx.send(Event::Select(EntryId::TakeScreenshot)).ok();
                         },
@@ -533,6 +541,22 @@ fn main() -> Result<(), Error> {
                 },
                 Event::Device(DeviceEvent::RotateScreen(n)) => {
                     tx.send(Event::Select(EntryId::Rotate(n))).ok();
+                },
+                Event::Device(DeviceEvent::Button { code: ButtonCode::Power, status: ButtonStatus::Released, .. }) => {
+                    if context.covered {
+                        if let Some(index) = locate::<Intermission>(view.as_mut()) {
+                            let rect = *view.child(index).rect();
+                            view.children_mut().remove(index);
+                            rq.add(RenderData::expose(rect, UpdateMode::Full));
+                        }
+                        context.covered = false;
+                        continue;
+                    }
+
+                    let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
+                    rq.add(RenderData::new(interm.id(), *interm.rect(), UpdateMode::Full));
+                    view.children_mut().push(Box::new(interm) as Box<dyn View>);
+                    context.covered = true;
                 },
                 Event::Select(EntryId::Quit) => {
                     break 'outer;
