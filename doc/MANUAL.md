@@ -1,3 +1,32 @@
+Table of Contents
+=================
+
+* [Home](#home)
+    * [Address bar](#address-bar)
+    * [Navigation bar](#navigation-bar)
+    * [Shelf](#shelf)
+    * [Search bar](#search-bar)
+        * [Field selectors](#field-selectors)
+        * [State selectors](#state-selectors)
+    * [Bottom bar](#bottom-bar)
+* [Reader](#reader)
+    * [Viewer](#viewer)
+        * [Text Selection](#text-selection)
+    * [Bottom bar](#bottom-bar-1)
+    * [Top bar](#top-bar)
+* [Home &amp; Reader](#home--reader)
+    * [Menus](#menus)
+    * [Top bar](#top-bar-1)
+    * [Bottom bar](#bottom-bar-2)
+    * [Keyboard](#keyboard)
+* [Cover Images](#cover-images)
+* [Applications](#applications)
+    * [Dictionary](#dictionary)
+    * [Calculator](#calculator)
+* [Input Fields](#input-fields)
+* [Annex](#annex)
+    * [Combination Sequences](#combination-sequences)
+
 # Home
 
 The following swipe sequences are recognized:
@@ -161,6 +190,17 @@ Keyboard layouts are described through a JSON object with the following keys:
 - *outputs*: list of output keys for each modifier combination (*none*, *shift*, *alt*, *shift+alt*).
 - *keys*: description of each key on the keyboard. The following special key names (and abbreviations) are recognized: *Shift* (*Sft*), *Return* (*Ret*), *Alternate* (*Alt*), *Combine* (*Cmb*), *MoveFwd* (*MoveF*, *MF*), *MoveBwd* (*MoveB*, *MB*), *DelFwd* (*DelF*, *DF*), *DelBwd* (*DelB*, *DB*), *Space* (*Spc*). *▢* is used to indicate an output key.
 - *widths*: width/height ratio for each key. The key gap's ratio is 0.06.
+
+# Cover Images
+
+The cover image displayed when the reader is powered off, suspended, or in shared mode can be changed by appending to `Settings.toml`:
+
+```
+[intermission-images]
+power-off = "/path/to/the/power-off/image.jpg"
+suspend = "/path/to/the/suspend/image.jpeg"
+share = "/path/to/the/share/image.png"
+```
 
 # Applications
 
