@@ -10,12 +10,13 @@ mod bottom_bar;
 use std::fs;
 use std::mem;
 use std::thread;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Child, Stdio};
 use std::io::{BufRead, BufReader};
 use fxhash::FxHashMap;
 use rand_core::RngCore;
-use serde_json::Value as JsonValue;
+use serde_json::{json, Value as JsonValue};
 use anyhow::{Error, format_err};
 use crate::library::Library;
 use crate::framebuffer::{Framebuffer, UpdateMode};
@@ -64,12 +65,13 @@ pub struct Home {
     reverse_order: bool,
     visible_books: Metadata,
     current_directory: PathBuf,
-    background_fetchers: FxHashMap<PathBuf, Fetcher>,
+    background_fetchers: FxHashMap<u32, Fetcher>,
 }
 
 #[derive(Debug)]
 struct Fetcher {
-    process: Option<Child>,
+    path: PathBuf,
+    process: Child,
     sort_method: Option<SortMethod>,
     first_column: Option<FirstColumn>,
     second_column: Option<SecondColumn>,
@@ -215,7 +217,6 @@ impl Home {
         let selected_library = context.settings.selected_library;
         for hook in &context.settings.libraries[selected_library].hooks {
             if context.library.home.join(&hook.path) == path {
-                context.library.flush();
                 self.insert_fetcher(hook, hub, context);
             }
         }
@@ -1132,12 +1133,10 @@ impl Home {
     }
 
     fn terminate_fetchers(&mut self, path: &Path, hub: &Hub) {
-        self.background_fetchers.retain(|dir, fetcher| {
-            if dir == path {
-                if let Some(process) = fetcher.process.as_mut() {
-                    unsafe { libc::kill(process.id() as libc::pid_t, libc::SIGTERM) };
-                    process.wait().ok();
-                }
+        self.background_fetchers.retain(|id, fetcher| {
+            if fetcher.path == path {
+                unsafe { libc::kill(*id as libc::pid_t, libc::SIGTERM) };
+                fetcher.process.wait().ok();
                 if let Some(sort_method) = fetcher.sort_method {
                     hub.send(Event::Select(EntryId::Sort(sort_method))).ok();
                 }
@@ -1155,26 +1154,28 @@ impl Home {
     }
 
     fn insert_fetcher(&mut self, hook: &Hook, hub: &Hub, context: &Context) {
-        let mut sort_method = hook.sort_method;
-        let mut first_column = hook.first_column;
-        let mut second_column = hook.second_column;
-        if let Some(sort_method) = sort_method.replace(self.sort_method) {
-            hub.send(Event::Select(EntryId::Sort(sort_method))).ok();
+        let dir = context.library.home.join(&hook.path);
+        match self.spawn_child(&dir, &hook.program, context.settings.wifi, context.online, hub) {
+            Ok(process) => {
+                let mut sort_method = hook.sort_method;
+                let mut first_column = hook.first_column;
+                let mut second_column = hook.second_column;
+                if let Some(sort_method) = sort_method.replace(self.sort_method) {
+                    hub.send(Event::Select(EntryId::Sort(sort_method))).ok();
+                }
+                let selected_library = context.settings.selected_library;
+                if let Some(first_column) = first_column.replace(context.settings.libraries[selected_library].first_column) {
+                    hub.send(Event::Select(EntryId::FirstColumn(first_column))).ok();
+                }
+                if let Some(second_column) = second_column.replace(context.settings.libraries[selected_library].second_column) {
+                    hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
+                }
+                self.background_fetchers.insert(process.id(),
+                                                Fetcher { path: hook.path.clone(), process,
+                                                          sort_method, first_column, second_column });
+            },
+            Err(e) => eprintln!("Can't spawn child: {}.", e),
         }
-        let selected_library = context.settings.selected_library;
-        if let Some(first_column) = first_column.replace(context.settings.libraries[selected_library].first_column) {
-            hub.send(Event::Select(EntryId::FirstColumn(first_column))).ok();
-        }
-        if let Some(second_column) = second_column.replace(context.settings.libraries[selected_library].second_column) {
-            hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
-        }
-        let process = hook.program.as_ref().and_then(|p| {
-            let dir = context.library.home.join(&hook.path);
-            self.spawn_child(&dir, p, context.settings.wifi, context.online, hub)
-                .map_err(|e| eprintln!("Can't spawn child: {}.", e)).ok()
-        });
-        self.background_fetchers.insert(hook.path.clone(),
-                                        Fetcher { process, sort_method, first_column, second_column });
     }
 
     fn spawn_child(&mut self, dir: &Path, program: &PathBuf, wifi: bool, online: bool, hub: &Hub) -> Result<Child, Error> {
@@ -1186,10 +1187,12 @@ impl Home {
                                  .arg(dir)
                                  .arg(wifi.to_string())
                                  .arg(online.to_string())
+                                 .stdin(Stdio::piped())
                                  .stdout(Stdio::piped())
                                  .spawn()?;
         let stdout = process.stdout.take()
                             .ok_or_else(|| format_err!("Can't take stdout."))?;
+        let id = process.id();
         let hub2 = hub.clone();
         thread::spawn(move || {
             let reader = BufReader::new(stdout);
@@ -1213,6 +1216,13 @@ impl Home {
                                     hub2.send(Event::SetWifi(enable)).ok();
                                 }
                             },
+                            Some("search") => {
+                                let path = event.get("path").and_then(JsonValue::as_str)
+                                                            .map(PathBuf::from);
+                                let query = event.get("query").and_then(JsonValue::as_str)
+                                                              .map(String::from);
+                                hub2.send(Event::FetcherSearch(id, path, query)).ok();
+                            },
                             Some("cleanUp") => {
                                 hub2.send(Event::Select(EntryId::CleanUp)).ok();
                             },
@@ -1226,6 +1236,7 @@ impl Home {
                     break;
                 }
             }
+            hub2.send(Event::CheckFetcher(id)).ok();
         });
         Ok(process)
     }
@@ -1527,9 +1538,33 @@ impl View for Home {
                 true
             },
             Event::Device(DeviceEvent::NetUp) => {
-                for fetcher in self.background_fetchers.values() {
-                    if let Some(process) = fetcher.process.as_ref() {
-                        unsafe { libc::kill(process.id() as libc::pid_t, libc::SIGUSR1) };
+                for fetcher in self.background_fetchers.values_mut() {
+                    if let Some(stdin) = fetcher.process.stdin.as_mut() {
+                        writeln!(stdin, "{}", json!({"type": "network", "status": "up"})).ok();
+                    }
+                }
+                true
+            },
+            Event::FetcherSearch(id, ref path, ref text) => {
+                let path = path.as_ref().unwrap_or_else(|| &context.library.home);
+                let query = text.as_ref().and_then(|text| BookQuery::new(text));
+                let (files, _) = context.library.list(path, query.as_ref(), false);
+                if let Some(fetcher) = self.background_fetchers.get_mut(&id) {
+                    if let Some(stdin) = fetcher.process.stdin.as_mut() {
+                        writeln!(stdin, "{}", json!({"type": "search", "results": &files})).ok();
+                    }
+                }
+                true
+            },
+            Event::CheckFetcher(id) => {
+                if let Some(fetcher) = self.background_fetchers.get_mut(&id) {
+                    if let Ok(exit_status) = fetcher.process.wait() {
+                        if !exit_status.success() {
+                            let msg = format!("{}: abnormal process termination.", fetcher.path.display());
+                            let notif = Notification::new(ViewId::FetcherFailure,
+                                                          msg, hub, rq, context);
+                            self.children.push(Box::new(notif) as Box<dyn View>);
+                        }
                     }
                 }
                 true

@@ -315,6 +315,8 @@ pub enum Event {
     CloseSub(ViewId),
     Search(String),
     SearchResult(usize, Vec<Boundary>),
+    FetcherSearch(u32, Option<PathBuf>, Option<String>),
+    CheckFetcher(u32),
     EndOfSearch,
     Finished,
     ClockTick,
@@ -416,6 +418,7 @@ pub enum ViewId {
     InvalidSearchQueryNotif,
     LowBatteryNotif,
     NetUpNotif,
+    FetcherFailure,
     SubMenu(u8),
 }
 

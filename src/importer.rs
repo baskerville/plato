@@ -14,8 +14,6 @@ mod frontlight;
 mod lightsensor;
 
 use std::env;
-use std::fs;
-use std::io::Read;
 use std::path::Path;
 use getopts::Options;
 use chrono::{Local, TimeZone};
@@ -23,7 +21,7 @@ use anyhow::{Error, Context, format_err};
 use crate::helpers::datetime_format;
 use crate::library::Library;
 use crate::settings::{LibraryMode, ImportSettings};
-use crate::metadata::{Info, extract_metadata_from_epub, extract_metadata_from_filename};
+use crate::metadata::{extract_metadata_from_epub, extract_metadata_from_filename};
 use crate::metadata::{consolidate, rename_from_info};
 
 fn main() -> Result<(), Error> {
@@ -38,7 +36,6 @@ fn main() -> Result<(), Error> {
     opts.optflag("F", "extract-metadata-filename", "Extract metadata from filenames.");
     opts.optflag("S", "consolidate", "Autocorrect simple typographic mistakes.");
     opts.optflag("N", "rename-from-info", "Rename files based on their information.");
-    opts.optflag("t", "traverse-hidden", "Traverse hidden directories.");
     opts.optopt("k", "allowed-kinds", "Comma separated list of allowed kinds.", "ALLOWED_KINDS");
     opts.optopt("a", "added-after", "Only process entries added after the given date-time.", "ADDED_DATETIME");
     opts.optopt("m", "library-mode", "The library mode (`database` or `filesystem`).", "LIBRARY_MODE");
@@ -46,7 +43,7 @@ fn main() -> Result<(), Error> {
     let matches = opts.parse(&args).context("Failed to parse the command line arguments.")?;
 
     if matches.opt_present("h") {
-        println!("{}", opts.usage("Usage: plato-import -h|-I|-C|-EFSN [-t] [-k ALLOWED_KINDS] [-a ADDED_DATETIME] [-m LIBRARY_MODE] LIBRARY_PATH"));
+        println!("{}", opts.usage("Usage: plato-import -h|-I|-C|-EFSN [-k ALLOWED_KINDS] [-a ADDED_DATETIME] [-m LIBRARY_MODE] LIBRARY_PATH"));
         return Ok(());
     }
 
@@ -58,7 +55,6 @@ fn main() -> Result<(), Error> {
 
     let mut import_settings = ImportSettings {
         extract_epub_metadata: false,
-        traverse_hidden: matches.opt_present("t"),
         .. Default::default()
     };
 

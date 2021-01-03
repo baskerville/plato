@@ -214,7 +214,7 @@ impl Library {
 
         for entry in WalkDir::new(prefix.as_ref()).min_depth(1)
                              .into_iter()
-                             .filter_entry(|e| settings.traverse_hidden || !e.is_hidden()) {
+                             .filter_entry(|e| !e.is_hidden()) {
             if entry.is_err() {
                 continue;
             }
@@ -548,12 +548,16 @@ impl Library {
     }
 
     pub fn thumbnail_preview<P: AsRef<Path>>(&self, path: P) -> PathBuf {
-        let fp = self.paths.get(path.as_ref()).cloned().unwrap_or_else(|| {
+        if path.as_ref().starts_with(THUMBNAIL_PREVIEWS_DIRNAME) {
             self.home.join(path.as_ref())
-                .metadata().unwrap()
-                .fingerprint(self.fat32_epoch).unwrap()
-        });
-        self.thumbnail_preview_path(fp)
+        } else {
+            let fp = self.paths.get(path.as_ref()).cloned().unwrap_or_else(|| {
+                self.home.join(path.as_ref())
+                    .metadata().unwrap()
+                    .fingerprint(self.fat32_epoch).unwrap()
+            });
+            self.thumbnail_preview_path(fp)
+        }
     }
 
     pub fn set_status<P: AsRef<Path>>(&mut self, path: P, status: SimpleStatus) {

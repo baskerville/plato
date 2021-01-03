@@ -124,7 +124,6 @@ impl Default for LibrarySettings {
 pub struct ImportSettings {
     pub unshare_trigger: bool,
     pub startup_trigger: bool,
-    pub traverse_hidden: bool,
     pub extract_epub_metadata: bool,
     pub allowed_kinds: FxHashSet<String>,
 }
@@ -231,7 +230,7 @@ pub enum SecondColumn {
 #[serde(default, rename_all = "kebab-case")]
 pub struct Hook {
     pub path: PathBuf,
-    pub program: Option<PathBuf>,
+    pub program: PathBuf,
     pub sort_method: Option<SortMethod>,
     pub first_column: Option<FirstColumn>,
     pub second_column: Option<SecondColumn>,
@@ -241,7 +240,7 @@ impl Default for Hook {
     fn default() -> Self {
         Hook {
             path: PathBuf::default(),
-            program: None,
+            program: PathBuf::default(),
             sort_method: None,
             first_column: None,
             second_column: None,
@@ -346,7 +345,6 @@ impl Default for ImportSettings {
         ImportSettings {
             unshare_trigger: true,
             startup_trigger: true,
-            traverse_hidden: false,
             extract_epub_metadata: true,
             allowed_kinds: ["pdf", "djvu", "epub", "fb2",
                             "xps", "oxps", "html", "htm",

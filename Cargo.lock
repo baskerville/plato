@@ -189,27 +189,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossbeam-channel"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dca26ee1f8d361640700bde38b2c37d8c22b3ce2d360e1fc1c74ea4b0aa7d775"
-dependencies = [
- "cfg-if 1.0.0",
- "crossbeam-utils",
-]
-
-[[package]]
-name = "crossbeam-utils"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02d96d1e189ef58269ebe5b97953da3274d83a93af647c2ddd6f9dab28cedb8d"
-dependencies = [
- "autocfg",
- "cfg-if 1.0.0",
- "lazy_static",
-]
-
-[[package]]
 name = "deflate"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -869,13 +848,12 @@ checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
 
 [[package]]
 name = "plato"
-version = "0.9.10"
+version = "0.9.11"
 dependencies = [
  "anyhow",
  "bitflags",
  "byteorder",
  "chrono",
- "crossbeam-channel",
  "downcast-rs",
  "entities",
  "filetime",
@@ -891,6 +869,7 @@ dependencies = [
  "mockito",
  "nix",
  "paragraph-breaker",
+ "percent-encoding",
  "png",
  "rand_core 0.6.0",
  "rand_xoshiro",
