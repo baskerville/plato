@@ -193,14 +193,22 @@ Keyboard layouts are described through a JSON object with the following keys:
 
 # Cover Images
 
-The cover image displayed when the reader is powered off, suspended, or in shared mode can be changed by appending to `Settings.toml`:
+The cover image displayed when the reader is powered off, suspended, or in shared mode can be changed using either method below:
 
-```
-[intermission-images]
-power-off = "/path/to/the/power-off/image.jpg"
-suspend = "/path/to/the/suspend/image.jpeg"
-share = "/path/to/the/share/image.png"
-```
+- Tap and hold an image in the home view, select `Set As`, and the state the image should be displayed for.
+    \
+    \
+    ![Changing plato cover image](../artworks/set_cover_image.png)
+
+
+- Update `Settings.toml` with the following:
+
+    ```
+    [intermission-images]
+    power-off = "/path/to/the/power-off/image.jpg"
+    suspend = "/path/to/the/suspend/image.jpeg"
+    share = "/path/to/the/share/image.png"
+    ```
 
 # Applications
 
