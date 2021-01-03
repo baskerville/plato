@@ -37,8 +37,8 @@ The events that can be written to standard output are:
 {"type": "addDocument", "info": OBJECT}
 // Enable or disable the WiFi.
 {"type": "setWifi", "enable": BOOL}
-// Search for books matching the given query.
-{"type": "search", "query": STRING}
+// Search for books inside `path` matching `query`.
+{"type": "search", "path": STRING, "query": STRING}
 // Import new entries and update existing entries in the current library.
 {"type": "import"}
 // Remove entries with dangling paths from the current library.
