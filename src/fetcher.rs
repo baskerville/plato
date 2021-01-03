@@ -1,9 +1,11 @@
 mod helpers;
 
+use std::io;
 use std::env;
-use std::thread;
 use std::fs::{self, File};
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use reqwest::blocking::Client;
 use serde_json::json;
 use chrono::{Duration, Utc, Local, DateTime};
@@ -16,11 +18,6 @@ const SETTINGS_PATH: &str = "Settings.toml";
 const SESSION_PATH: &str = ".session.json";
 // Nearly RFC 3339
 const DATE_FORMAT: &str = "%FT%T%z";
-const LISTENED_SIGNALS: &[libc::c_int] = &[
-    signal_hook::consts::SIGINT, signal_hook::consts::SIGHUP,
-    signal_hook::consts::SIGQUIT, signal_hook::consts::SIGTERM,
-    signal_hook::consts::SIGUSR1, signal_hook::consts::SIGUSR2,
-];
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
@@ -62,19 +59,6 @@ impl Default for Session {
             access_token: Token::default(),
         }
     }
-}
-
-fn signal_receiver(signals: &[libc::c_int]) -> Result<crossbeam_channel::Receiver<libc::c_int>, Error> {
-    let (s, r) = crossbeam_channel::bounded(4);
-    let mut signals = signal_hook::iterator::Signals::new(signals)?;
-    thread::spawn(move || {
-        for signal in signals.forever() {
-            if s.send(signal).is_err() {
-                break;
-            }
-        }
-    });
-    Ok(r)
 }
 
 fn update_token(client: &Client, session: &mut Session, settings: &Settings) -> Result<(), Error> {
@@ -120,15 +104,17 @@ fn main() -> Result<(), Error> {
                              .with_context(|| format!("Can't load settings from {}", SETTINGS_PATH))?;
     let mut session = load_json::<Session, _>(SESSION_PATH)
                                 .unwrap_or_default();
-    let signals = signal_receiver(LISTENED_SIGNALS)?;
 
     if !online {
-        let event = json!({
-            "type": "setWifi",
-            "enable": true,
-        });
-        println!("{}", event);
-        signals.recv()?;
+        if !wifi {
+            let event = json!({
+                "type": "setWifi",
+                "enable": true,
+            });
+            println!("{}", event);
+        }
+        let mut line = String::new();
+        io::stdin().read_line(&mut line)?;
     }
 
     if !save_path.exists() {
@@ -146,6 +132,9 @@ fn main() -> Result<(), Error> {
     let mut downloads_count = 0;
     let since = session.since;
     let url = format!("{}/api/entries", &settings.base_url);
+
+    let sigterm = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&sigterm))?;
 
     'outer: loop {
         let query = json!({
@@ -191,10 +180,8 @@ fn main() -> Result<(), Error> {
 
         if let Some(items) = entries.pointer("/_embedded/items").and_then(|v| v.as_array()) {
             for element in items {
-                if let Ok(sig) = signals.try_recv() {
-                    if sig != signal_hook::consts::SIGUSR1 {
-                        break 'outer;
-                    }
+                if sigterm.load(Ordering::Relaxed) {
+                    break 'outer
                 }
 
                 let id = element.get("id")
@@ -309,11 +296,13 @@ fn main() -> Result<(), Error> {
         println!("{}", event);
     }
 
-    let event = json!({
-        "type": "setWifi",
-        "enable": wifi,
-    });
-    println!("{}", event);
+    if !wifi {
+        let event = json!({
+            "type": "setWifi",
+            "enable": false,
+        });
+        println!("{}", event);
+    }
 
     save_json(&session, SESSION_PATH).context("Can't save session.")?;
     Ok(())
