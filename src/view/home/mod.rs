@@ -217,7 +217,6 @@ impl Home {
         let selected_library = context.settings.selected_library;
         for hook in &context.settings.libraries[selected_library].hooks {
             if context.library.home.join(&hook.path) == path {
-                context.library.flush();
                 self.insert_fetcher(hook, hub, context);
             }
         }
