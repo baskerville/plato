@@ -359,51 +359,11 @@ fn run() -> Result<(), Error> {
 // The "detail" field for the /api/entries endpoint significantly reduces response size
 // but is only available in wallabag v2.4.0+
 fn is_detail_available(client: &Client, settings: &Settings) -> bool {
-    let url = format!("{}/api/version", settings.base_url);
-
-    let response = client.get(&url).send();
-    let version = match response {
-        Ok(response) => {
-            let status = response.status();
-            match status.as_u16() {
-                200..=299 => {
-                    response.text().unwrap_or_else(|_| "".to_string())
-                }
-                400..=499 => {
-                    // api/version endpoint is deprecated and succeeded by api/info as of v2.4.0
-                    let url = format!("{}/api/info", settings.base_url);
-                    let response = client.get(&url).send();
-
-                    match response {
-                        Ok(response) => {
-                            let json: JsonValue = response.json().unwrap_or_default();
-
-                            json.get("version")
-                                .and_then(|v| v.as_str())
-                                .map(String::from)
-                                .unwrap_or_else(|| "".to_string())
-                        }
-                        Err(_) => { "".to_string()}
-                    }
-                }
-                _ => {
-                    "".to_string()
-                }
-            }
-        }
-        Err(_) => { "".to_string()}
-    };
-
-    let api_version = Version::parse(version.trim_matches('"')).unwrap_or_else(|_| Version::new(0,0,0));
-    let version_target = Version::new(2,4,0);
-
-    if api_version.ge(&version_target) {
-        return true
-    }
-
-    false
+    // /api/info is only available in 2.4.0 and up.
+    let url = format!("{}/api/info", settings.base_url);
+    client.get(&url).send()
+        .map_or(false, |response| response.status().is_success())
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -479,10 +439,10 @@ mod tests {
 
     #[test]
     fn test_is_detail_available() {
-        let m = mock("GET", "/api/version")
+        let m = mock("GET", "/api/info")
             .with_status(201)
-            .with_header("content-type", "text/plain")
-            .with_body("2.5.0")
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"appname":"wallabag","version":"2.4.1-dev","allowed_registration":true}"#)
             .create();
 
         let client = Client::new();
@@ -494,7 +454,7 @@ mod tests {
 
     #[test]
     fn test_is_detail_available_failure() {
-        let m = mock("GET", "/api/version")
+        let m = mock("GET", "/api/info")
             .with_status(404)
             .with_header("content-type", "text/plain")
             .create();
@@ -504,24 +464,5 @@ mod tests {
 
         let actual = is_detail_available(&client, &settings);
         assert!(!actual, "expected detail to not be available from http response: {:?}", m)
-    }
-
-    #[test]
-    fn test_is_detail_available_with_deprecated_endpoint() {
-        let m = mock("GET", "/api/version")
-            .with_status(404)
-            .create();
-
-        let n = mock("GET", "/api/info")
-            .with_status(201)
-            .with_header("content-type", "application/json")
-            .with_body(r#"{"appname":"wallabag","version":"2.4.1-dev","allowed_registration":true}"#)
-            .create();
-
-        let client = Client::new();
-        let settings = Settings { base_url: mockito::server_url(), ..Default::default() };
-
-        let actual = is_detail_available(&client, &settings);
-        assert!(actual, "expected detail to be available from http response: {:?}, {:?}", m, n)
     }
 }
