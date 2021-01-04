@@ -445,16 +445,14 @@ impl EpubDocument {
     fn chapter_aux<'a>(&mut self, toc: &'a [TocEntry], offset: usize, next_offset: usize, path: &str, chap_before: &mut Option<&'a TocEntry>, offset_before: &mut usize, chap_after: &mut Option<&'a TocEntry>, offset_after: &mut usize) {
         for entry in toc {
             if let Location::Uri(ref uri) = entry.location {
-                if uri.starts_with(path) {
-                    if let Some(entry_offset) = self.resolve_location(entry.location.clone()) {
-                        if entry_offset < offset && (chap_before.is_none() || entry_offset > *offset_before) {
-                            *chap_before = Some(entry);
-                            *offset_before = entry_offset;
-                        }
-                        if entry_offset >= offset && entry_offset < next_offset && (chap_after.is_none() || entry_offset < *offset_after) {
-                            *chap_after = Some(entry);
-                            *offset_after = entry_offset;
-                        }
+                if let Some(entry_offset) = self.resolve_location(entry.location.clone()) {
+                    if entry_offset < offset && (chap_before.is_none() || entry_offset > *offset_before) {
+                        *chap_before = Some(entry);
+                        *offset_before = entry_offset;
+                    }
+                    if entry_offset >= offset && entry_offset < next_offset && (chap_after.is_none() || entry_offset < *offset_after) {
+                        *chap_after = Some(entry);
+                        *offset_after = entry_offset;
                     }
                 }
             }
