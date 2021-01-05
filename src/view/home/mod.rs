@@ -71,6 +71,7 @@ pub struct Home {
 #[derive(Debug)]
 struct Fetcher {
     path: PathBuf,
+    full_path: PathBuf,
     process: Child,
     sort_method: Option<SortMethod>,
     first_column: Option<FirstColumn>,
@@ -210,9 +211,7 @@ impl Home {
         }
 
         let old_path = mem::replace(&mut self.current_directory, path.to_path_buf());
-        if !self.background_fetchers.is_empty() {
-            self.terminate_fetchers(&old_path, hub);
-        }
+        self.terminate_fetchers(&old_path, true, hub, context);
 
         let selected_library = context.settings.selected_library;
         for hook in &context.settings.libraries[selected_library].hooks {
@@ -1075,6 +1074,9 @@ impl Home {
             return;
         }
 
+        let old_path = mem::replace(&mut self.current_directory, PathBuf::default());
+        self.terminate_fetchers(&old_path, false, hub, context);
+
         let mut update_top_bar = false;
 
         if self.query.is_some() {
@@ -1111,7 +1113,6 @@ impl Home {
         }
 
         let home = context.library.home.clone();
-        self.current_directory = PathBuf::default();
         self.select_directory(&home, hub, rq, context);
     }
 
@@ -1132,19 +1133,29 @@ impl Home {
         context.library.flush();
     }
 
-    fn terminate_fetchers(&mut self, path: &Path, hub: &Hub) {
+    fn terminate_fetchers(&mut self, path: &Path, update: bool, hub: &Hub, context: &mut Context) {
         self.background_fetchers.retain(|id, fetcher| {
-            if fetcher.path == path {
+            if fetcher.full_path == path {
                 unsafe { libc::kill(*id as libc::pid_t, libc::SIGTERM) };
                 fetcher.process.wait().ok();
-                if let Some(sort_method) = fetcher.sort_method {
-                    hub.send(Event::Select(EntryId::Sort(sort_method))).ok();
-                }
-                if let Some(first_column) = fetcher.first_column {
-                    hub.send(Event::Select(EntryId::FirstColumn(first_column))).ok();
-                }
-                if let Some(second_column) = fetcher.second_column {
-                    hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
+                if update {
+                    if let Some(sort_method) = fetcher.sort_method {
+                        hub.send(Event::Select(EntryId::Sort(sort_method))).ok();
+                    }
+                    if let Some(first_column) = fetcher.first_column {
+                        hub.send(Event::Select(EntryId::FirstColumn(first_column))).ok();
+                    }
+                    if let Some(second_column) = fetcher.second_column {
+                        hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
+                    }
+                } else {
+                    let selected_library = context.settings.selected_library;
+                    if let Some(first_column) = fetcher.first_column {
+                        context.settings.libraries[selected_library].first_column = first_column;
+                    }
+                    if let Some(second_column) = fetcher.second_column {
+                        context.settings.libraries[selected_library].second_column = second_column;
+                    }
                 }
                 false
             } else {
@@ -1171,7 +1182,7 @@ impl Home {
                     hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
                 }
                 self.background_fetchers.insert(process.id(),
-                                                Fetcher { path: hook.path.clone(), process,
+                                                Fetcher { path: hook.path.clone(), full_path: dir, process,
                                                           sort_method, first_column, second_column });
             },
             Err(e) => eprintln!("Can't spawn child: {}.", e),
