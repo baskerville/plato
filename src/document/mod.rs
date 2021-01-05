@@ -414,7 +414,7 @@ fn next_chapter<'a>(chap: Option<&TocEntry>, index: usize, toc: &'a [TocEntry]) 
 pub fn chapter_from_uri<'a>(target_uri: &str, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
     for entry in toc {
         if let Location::Uri(ref uri) = entry.location {
-            if target_uri == uri {
+            if uri.starts_with(target_uri) {
                 return Some(entry);
             }
         }
