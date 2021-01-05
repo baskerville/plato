@@ -5,7 +5,7 @@ use std::collections::{BTreeSet, BTreeMap};
 use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
 use regex::Regex;
-use chrono::{Local, DateTime};
+use chrono::{Local, DateTime, TimeZone};
 use fxhash::FxHashMap;
 use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
@@ -51,6 +51,8 @@ pub struct Info {
     pub file: FileInfo,
     #[serde(skip)]
     pub reader: Option<ReaderInfo>,
+    #[serde(skip_serializing_if = "Option::is_none", skip_deserializing)]
+    pub _reader: Option<ReaderInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub toc: Option<Vec<SimpleTocEntry>>,
     #[serde(with = "datetime_format")]
@@ -299,6 +301,7 @@ impl Default for Info {
             file: FileInfo::default(),
             added: Local::now(),
             reader: None,
+            _reader: None,
             toc: None,
         }
     }
@@ -459,6 +462,8 @@ pub struct BookQuery {
     pub finished: Option<bool>,
     pub annotations: Option<bool>,
     pub bookmarks: Option<bool>,
+    pub opened_after: Option<(bool, DateTime<Local>)>,
+    pub added_after: Option<(bool, DateTime<Local>)>,
 }
 
 impl BookQuery {
@@ -490,6 +495,18 @@ impl BookQuery {
                         Some('F') => query.finished = Some(!invert),
                         Some('A') => query.annotations = Some(!invert),
                         Some('B') => query.bookmarks = Some(!invert),
+                        Some('O') => {
+                            buf.reverse();
+                            query.opened_after = Local.datetime_from_str(&buf.join(" "), datetime_format::FORMAT)
+                                                      .ok().map(|opened| (!invert, opened));
+                            buf.clear();
+                        },
+                        Some('D') => {
+                            buf.reverse();
+                            query.added_after = Local.datetime_from_str(&buf.join(" "), datetime_format::FORMAT)
+                                                     .ok().map(|added| (!invert, added));
+                            buf.clear();
+                        },
                         Some('\'') => buf.push(&word[1..]),
                         _ => (),
                     }
@@ -514,7 +531,9 @@ impl BookQuery {
            query.new.is_none() &&
            query.finished.is_none() &&
            query.annotations.is_none() &&
-           query.bookmarks.is_none() {
+           query.bookmarks.is_none() &&
+           query.opened_after.is_none() &&
+           query.added_after.is_none() {
             None
         } else {
             Some(query)
@@ -543,7 +562,9 @@ impl BookQuery {
         self.new.as_ref().map(|eq| info.simple_status().eq(&SimpleStatus::New) == *eq) != Some(false) &&
         self.finished.as_ref().map(|eq| info.simple_status().eq(&SimpleStatus::Finished) == *eq) != Some(false) &&
         self.annotations.as_ref().map(|eq| info.reader.as_ref().map_or(false, |r| !r.annotations.is_empty()) == *eq) != Some(false) &&
-        self.bookmarks.as_ref().map(|eq| info.reader.as_ref().map_or(false, |r| !r.bookmarks.is_empty()) == *eq) != Some(false)
+        self.bookmarks.as_ref().map(|eq| info.reader.as_ref().map_or(false, |r| !r.bookmarks.is_empty()) == *eq) != Some(false) &&
+        self.opened_after.as_ref().map(|(eq, opened)| info.reader.as_ref().map_or(false, |r| r.opened.gt(&opened)) == *eq) != Some(false) &&
+        self.added_after.as_ref().map(|(eq, added)| info.added.gt(&added) == *eq) != Some(false)
     }
 
 

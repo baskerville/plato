@@ -370,6 +370,15 @@ impl Default for Settings {
                 LibrarySettings {
                     name: "On Board".to_string(),
                     path: PathBuf::from(INTERNAL_CARD_ROOT),
+                    hooks: vec![
+                        Hook {
+                            path: PathBuf::from("Articles"),
+                            program: PathBuf::from("bin/article_fetcher/article_fetcher"),
+                            sort_method: Some(SortMethod::Added),
+                            first_column: Some(FirstColumn::TitleAndAuthor),
+                            second_column: Some(SecondColumn::Progress),
+                        }
+                    ],
                     .. Default::default()
                 },
                 LibrarySettings {

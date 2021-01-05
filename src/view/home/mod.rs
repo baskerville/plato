@@ -1210,29 +1210,38 @@ impl Home {
             for line_res in reader.lines() {
                 if let Ok(line) = line_res {
                     if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
-                        match event.get("type").and_then(JsonValue::as_str) {
+                        match event.get("type")
+                                   .and_then(JsonValue::as_str) {
                             Some("notify") => {
-                                if let Some(msg) = event.get("message").and_then(JsonValue::as_str) {
+                                if let Some(msg) = event.get("message")
+                                                        .and_then(JsonValue::as_str) {
                                     hub2.send(Event::Notify(msg.to_string())).ok();
                                 }
                             },
                             Some("addDocument") => {
-                                if let Some(info) = event.get("info").map(ToString::to_string)
+                                if let Some(info) = event.get("info")
+                                                         .map(ToString::to_string)
                                                          .and_then(|v| serde_json::from_str(&v).ok()) {
                                     hub2.send(Event::AddDocument(Box::new(info))).ok();
                                 }
                             },
                             Some("setWifi") => {
-                                if let Some(enable) = event.get("enable").and_then(JsonValue::as_bool) {
+                                if let Some(enable) = event.get("enable")
+                                                           .and_then(JsonValue::as_bool) {
                                     hub2.send(Event::SetWifi(enable)).ok();
                                 }
                             },
                             Some("search") => {
-                                let path = event.get("path").and_then(JsonValue::as_str)
-                                                            .map(PathBuf::from);
-                                let query = event.get("query").and_then(JsonValue::as_str)
-                                                              .map(String::from);
-                                hub2.send(Event::FetcherSearch(id, path, query)).ok();
+                                let path = event.get("path")
+                                                .and_then(JsonValue::as_str)
+                                                .map(PathBuf::from);
+                                let query = event.get("query")
+                                                 .and_then(JsonValue::as_str)
+                                                 .map(String::from);
+                                let sort_by = event.get("sortBy")
+                                                   .map(ToString::to_string)
+                                                   .and_then(|v| serde_json::from_str(&v).ok());
+                                hub2.send(Event::FetcherSearch { id, path, query, sort_by }).ok();
                             },
                             Some("cleanUp") => {
                                 hub2.send(Event::Select(EntryId::CleanUp)).ok();
@@ -1556,13 +1565,22 @@ impl View for Home {
                 }
                 true
             },
-            Event::FetcherSearch(id, ref path, ref text) => {
+            Event::FetcherSearch { id, ref path, ref query, ref sort_by } => {
                 let path = path.as_ref().unwrap_or_else(|| &context.library.home);
-                let query = text.as_ref().and_then(|text| BookQuery::new(text));
-                let (files, _) = context.library.list(path, query.as_ref(), false);
+                let query = query.as_ref().and_then(|text| BookQuery::new(text));
+                let (mut files, _) = context.library.list(path, query.as_ref(), false);
+                if let Some((sort_method, reverse_order)) = *sort_by {
+                    sort(&mut files, sort_method, reverse_order);
+                }
+                for entry in &mut files {
+                    // Let the *reader* field pass through.
+                    mem::swap(&mut entry.reader, &mut entry._reader);
+                }
                 if let Some(fetcher) = self.background_fetchers.get_mut(&id) {
                     if let Some(stdin) = fetcher.process.stdin.as_mut() {
-                        writeln!(stdin, "{}", json!({"type": "search", "results": &files})).ok();
+                        writeln!(stdin, "{}", json!({"type": "search",
+                                                     "path": context.library.home,
+                                                     "results": files})).ok();
                     }
                 }
                 true
@@ -1572,7 +1590,7 @@ impl View for Home {
                     if let Ok(exit_status) = fetcher.process.wait() {
                         if !exit_status.success() {
                             let msg = format!("{}: abnormal process termination.", fetcher.path.display());
-                            let notif = Notification::new(ViewId::FetcherFailure,
+                            let notif = Notification::new(ViewId::MessageNotif,
                                                           msg, hub, rq, context);
                             self.children.push(Box::new(notif) as Box<dyn View>);
                         }

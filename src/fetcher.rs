@@ -6,11 +6,10 @@ use std::fs::{self, File};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use reqwest::blocking::Client;
-use serde_json::json;
 use chrono::{Duration, Utc, Local, DateTime};
 use serde::{Serialize, Deserialize};
-use serde_json::Value as JsonValue;
+use serde_json::{json, Value as JsonValue};
+use reqwest::blocking::Client;
 use anyhow::{Error, Context, format_err};
 use self::helpers::{load_toml, load_json, save_json, decode_entities};
 
@@ -27,6 +26,9 @@ struct Settings {
     password: String,
     client_id: String,
     client_secret: String,
+    sync_finished: bool,
+    remove_finished: bool,
+    balance_limit: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,6 +36,9 @@ struct Settings {
 struct Session {
     since: i64,
     access_token: Token,
+    downloads_count: usize,
+    removals_count: usize,
+    last_opened: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,6 +62,9 @@ impl Default for Session {
         Session {
             since: 0,
             access_token: Token::default(),
+            downloads_count: 0,
+            removals_count: 0,
+            last_opened: "0000-00-00 00:00:00".to_string(),
         }
     }
 }
@@ -72,22 +80,39 @@ fn update_token(client: &Client, session: &mut Session, settings: &Settings) -> 
 
     let url = format!("{}/oauth/v2/token", &settings.base_url);
 
-    let tokens: JsonValue = client.post(&url)
-                                  .json(&query)
-                                  .send()?
-                                  .json()?;
-    session.access_token = Token {
-        data: tokens.get("access_token")
-                    .and_then(|v| v.as_str())
-                    .map(String::from)
-                    .ok_or_else(|| format_err!("Missing access token."))?,
-        valid_until: tokens.get("expires_in")
-                           .and_then(|v| v.as_i64())
-                           .map(|d| Utc::now() + Duration::seconds(d))
-                           .ok_or_else(|| format_err!("Missing expires in."))?,
-    };
+    let response = client.post(&url)
+                         .json(&query)
+                         .send()?;
+    let status = response.status();
+    let body: JsonValue = response.json()?;
 
-    Ok(())
+    if status.is_success() {
+        session.access_token = Token {
+            data: body.get("access_token")
+                      .and_then(|v| v.as_str())
+                      .map(String::from)
+                      .ok_or_else(|| format_err!("Missing access token."))?,
+            valid_until: body.get("expires_in")
+                             .and_then(|v| v.as_i64())
+                             .map(|d| Utc::now() + Duration::seconds(d))
+                             .ok_or_else(|| format_err!("Missing expires in."))?,
+        };
+        Ok(())
+    } else {
+        let err_desc = body.get("error_description")
+                           .and_then(JsonValue::as_str)
+                           .or_else(|| status.canonical_reason())
+                           .unwrap_or_else(|| status.as_str());
+        Err(format_err!("Failed to authentificate: {}.", err_desc))
+    }
+}
+
+// The *detail* parameter is only available in 2.4.0 and up.
+fn is_detail_available(client: &Client, settings: &Settings) -> bool {
+    // /api/info is only available in 2.4.0 and up.
+    let url = format!("{}/api/info", settings.base_url);
+    client.get(&url).send()
+          .map_or(false, |response| response.status().is_success())
 }
 
 fn main() -> Result<(), Error> {
@@ -108,8 +133,19 @@ fn main() -> Result<(), Error> {
     if !online {
         if !wifi {
             let event = json!({
+                "type": "notify",
+                "message": "Establishing a network connection.",
+            });
+            println!("{}", event);
+            let event = json!({
                 "type": "setWifi",
                 "enable": true,
+            });
+            println!("{}", event);
+        } else {
+            let event = json!({
+                "type": "notify",
+                "message": "Waiting for the network to come up.",
             });
             println!("{}", event);
         }
@@ -127,25 +163,144 @@ fn main() -> Result<(), Error> {
         update_token(&client, &mut session, &settings)?;
     }
 
-    let mut page = 1;
-    let mut pages_count = 0;
-    let mut downloads_count = 0;
-    let since = session.since;
-    let url = format!("{}/api/entries", &settings.base_url);
-
     let sigterm = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&sigterm))?;
 
-    'outer: loop {
-        let query = json!({
-            "since": since,
-            "sort": "updated",
-            "order": "asc",
-            "archive": 0,
-            "page": page,
-            "perPage": 8,
+    if settings.sync_finished || settings.remove_finished {
+        let event = json!({
+            "type": "search",
+            "path": save_path,
+            "query": format!("'F 'O {}", session.last_opened),
+            "sortBy": ("opened", false),
         });
+        println!("{}", event);
 
+        let mut line = String::new();
+        io::stdin().read_line(&mut line)?;
+
+        let last_removals_count = session.removals_count;
+        let mut archivals_count = 0;
+
+        if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
+            let library_path = event.get("path")
+                                    .and_then(JsonValue::as_str)
+                                    .map(PathBuf::from)
+                                    .unwrap_or_else(|| save_path.clone());
+            if let Some(results) = event.get("results").and_then(JsonValue::as_array) {
+                let message = if results.is_empty() {
+                    "No finished articles.".to_string()
+                } else {
+                    format!("Found {} finished article{}.", results.len(), if results.len() != 1 { "s" } else { "" })
+                };
+                let event = json!({
+                    "type": "notify",
+                    "message": &message,
+                });
+                println!("{}", event);
+
+                for entry in results {
+                    if sigterm.load(Ordering::Relaxed) {
+                        break;
+                    }
+
+                    if settings.sync_finished {
+                        if let Some(id) = entry.get("identifier")
+                                               .and_then(JsonValue::as_str)
+                                               .and_then(|v| v.parse::<u64>().ok()) {
+                            let url = format!("{}/api/entries/{}", &settings.base_url, id);
+                            let query = json!({"archive": 1});
+                            let response = client.patch(&url)
+                                                 .header(reqwest::header::AUTHORIZATION,
+                                                         format!("Bearer {}", &session.access_token.data))
+                                                 .json(&query)
+                                                 .send();
+                            let response = response.unwrap();
+                            if response.status().is_success() {
+                                archivals_count += 1;
+                            } else {
+                                let status = response.status();
+                                let body: JsonValue = response.json()?;
+                                let err_desc = body.get("error_description")
+                                                   .and_then(JsonValue::as_str)
+                                                   .or_else(|| status.canonical_reason())
+                                                   .unwrap_or_else(|| status.as_str());
+                                eprintln!("Can't mark {} as read: {}.", id, err_desc);
+                            }
+                        }
+                    }
+
+                    if settings.remove_finished {
+                        if let Some(relat) = entry.pointer("/file/path")
+                                                  .and_then(JsonValue::as_str) {
+                            let path = library_path.join(relat);
+                            match fs::remove_file(&path) {
+                                Ok(()) => session.removals_count = session.removals_count.wrapping_add(1),
+                                Err(e) => eprintln!("Can't remove {}: {}", path.display(), e),
+                            }
+                        }
+                    }
+
+                    if let Some(opened) = entry.pointer("/reader/opened")
+                                               .and_then(JsonValue::as_str) {
+                        session.last_opened = opened.to_string();
+                    }
+                }
+
+                if !results.is_empty() {
+                    if settings.sync_finished {
+                        let message = if archivals_count > 0 {
+                            format!("Marked {} finished article{} as read.", archivals_count, if archivals_count != 1 { "s" } else { "" })
+                        } else {
+                            "No finished articles marked as read.".to_string()
+                        };
+                        let event = json!({
+                            "type": "notify",
+                            "message": &message,
+                        });
+                        println!("{}", event);
+                    }
+
+                    if settings.remove_finished {
+                        let removals_count = session.removals_count.saturating_sub(last_removals_count);
+                        let message = if removals_count > 0 {
+                            format!("Removed {} finished article{}.", removals_count, if removals_count != 1 { "s" } else { "" })
+                        } else {
+                            "No finished articles removed.".to_string()
+                        };
+                        let event = json!({
+                            "type": "notify",
+                            "message": &message,
+                        });
+                        println!("{}", event);
+                        if removals_count > 0 {
+                            let event = json!({"type": "cleanUp"});
+                            println!("{}", event);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut page = 1;
+    let mut pages_count = 0;
+    let last_downloads_count = session.downloads_count;
+    let url = format!("{}/api/entries", &settings.base_url);
+    let mut query = json!({
+        "since": session.since,
+        "sort": "updated",
+        "order": "asc",
+        "archive": 0,
+        "page": page,
+        "perPage": 8,
+    });
+
+    if is_detail_available(&client, &settings) {
+        query["perPage"] = JsonValue::from(100);
+        query["detail"] = JsonValue::from("metadata");
+    }
+
+    'outer: loop {
         let entries: JsonValue = client.get(&url)
                                        .header(reqwest::header::AUTHORIZATION,
                                                format!("Bearer {}", &session.access_token.data))
@@ -180,22 +335,24 @@ fn main() -> Result<(), Error> {
 
         if let Some(items) = entries.pointer("/_embedded/items").and_then(|v| v.as_array()) {
             for element in items {
-                if sigterm.load(Ordering::Relaxed) {
-                    break 'outer
+                if sigterm.load(Ordering::Relaxed) ||
+                    (settings.balance_limit > 0 &&
+                     session.downloads_count.saturating_sub(session.removals_count) >= settings.balance_limit) {
+                    break 'outer;
                 }
 
                 let id = element.get("id")
-                                .and_then(|v| v.as_u64())
+                                .and_then(JsonValue::as_u64)
                                 .ok_or_else(|| format_err!("Missing id."))?;
 
                 let title = element.get("title")
-                                   .and_then(|v| v.as_str())
+                                   .and_then(JsonValue::as_str)
                                    .map(decode_entities)
                                    .map(String::from)
                                    .unwrap_or_default();
 
                 let published_by = element.get("published_by")
-                                          .and_then(|v| v.as_array())
+                                          .and_then(JsonValue::as_array)
                                           .map(|v| v.iter().filter_map(|x| x.as_str())
                                                            .filter(|x| !x.is_empty())
                                                            .collect::<Vec<&str>>())
@@ -203,7 +360,7 @@ fn main() -> Result<(), Error> {
                                           .filter(|v| !v.is_empty())
                                           .unwrap_or_default();
                 let domain_name = element.get("domain_name")
-                                         .and_then(|v| v.as_str())
+                                         .and_then(JsonValue::as_str)
                                          .map(String::from)
                                          .unwrap_or_default();
 
@@ -216,13 +373,13 @@ fn main() -> Result<(), Error> {
                 let year = element.get("published_at")
                                   .filter(|v| v.is_string())
                                   .or_else(|| element.get("created_at"))
-                                  .and_then(|v| v.as_str())
+                                  .and_then(JsonValue::as_str)
                                   .and_then(|v| DateTime::parse_from_str(v, DATE_FORMAT).ok())
                                   .map(|v| v.format("%Y").to_string())
                                   .unwrap_or_default();
 
                 let updated_at = element.get("updated_at")
-                                        .and_then(|v| v.as_str())
+                                        .and_then(JsonValue::as_str)
                                         .and_then(|v| DateTime::parse_from_str(v, DATE_FORMAT).ok())
                                         .ok_or_else(|| format_err!("Missing updated at."))?;
 
@@ -248,7 +405,7 @@ fn main() -> Result<(), Error> {
                     continue;
                 }
 
-                downloads_count += 1;
+                session.downloads_count = session.downloads_count.wrapping_add(1);
 
                 let file_info = json!({
                     "path": epub_path.to_str().unwrap_or(""),
@@ -278,12 +435,17 @@ fn main() -> Result<(), Error> {
         }
 
         page += 1;
+
         if page > pages_count {
             break;
         }
+
+        query["page"] = JsonValue::from(page);
     }
 
     if pages_count > 0 {
+        let downloads_count = session.downloads_count
+                                     .saturating_sub(last_downloads_count);
         let message = if downloads_count > 0 {
             format!("Downloaded {} article{}.", downloads_count, if downloads_count != 1 { "s" } else { "" })
         } else {

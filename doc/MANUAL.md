@@ -57,6 +57,8 @@ An exclamation mark can be prepended to a state selector's letter to invert its 
 - *F*: finished.
 - *A*: has annotations.
 - *B*: has bookmarks.
+- *O*: opened after the given date and time.
+- *D*: added after the given date and time.
 
 ## Bottom bar
 
