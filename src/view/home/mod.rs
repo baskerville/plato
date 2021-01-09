@@ -1218,17 +1218,17 @@ impl Home {
                                     hub2.send(Event::Notify(msg.to_string())).ok();
                                 }
                             },
-                            Some("addDocument") => {
-                                if let Some(info) = event.get("info")
-                                                         .map(ToString::to_string)
-                                                         .and_then(|v| serde_json::from_str(&v).ok()) {
-                                    hub2.send(Event::AddDocument(Box::new(info))).ok();
-                                }
-                            },
                             Some("setWifi") => {
                                 if let Some(enable) = event.get("enable")
                                                            .and_then(JsonValue::as_bool) {
                                     hub2.send(Event::SetWifi(enable)).ok();
+                                }
+                            },
+                            Some("addDocument") => {
+                                if let Some(info) = event.get("info")
+                                                         .map(ToString::to_string)
+                                                         .and_then(|v| serde_json::from_str(&v).ok()) {
+                                    hub2.send(Event::FetcherAddDocument(id, Box::new(info))).ok();
                                 }
                             },
                             Some("search") => {
@@ -1244,10 +1244,10 @@ impl Home {
                                 hub2.send(Event::FetcherSearch { id, path, query, sort_by }).ok();
                             },
                             Some("cleanUp") => {
-                                hub2.send(Event::Select(EntryId::CleanUp)).ok();
+                                hub2.send(Event::FetcherCleanUp(id)).ok();
                             },
                             Some("import") => {
-                                hub2.send(Event::Select(EntryId::Import)).ok();
+                                hub2.send(Event::FetcherImport(id)).ok();
                             },
                             _ => (),
                         }
@@ -1403,11 +1403,11 @@ impl View for Home {
                 self.load_library(index, hub, rq, context);
                 true
             },
-            Event::Select(EntryId::Import) => {
+            Event::Select(EntryId::Import) | Event::FetcherImport(_) => {
                 self.import(hub, rq, context);
                 true
             },
-            Event::Select(EntryId::CleanUp) => {
+            Event::Select(EntryId::CleanUp) | Event::FetcherCleanUp(_) => {
                 self.clean_up(hub, rq, context);
                 true
             },
@@ -1415,7 +1415,7 @@ impl View for Home {
                 self.flush(context);
                 true
             },
-            Event::AddDocument(ref info) => {
+            Event::FetcherAddDocument(_, ref info) => {
                 let info2 = info.clone();
                 self.add_document(*info2, hub, rq, context);
                 true

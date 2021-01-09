@@ -501,13 +501,16 @@ fn main() -> Result<(), Error> {
                                                   msg, &tx, &mut rq, &mut context);
                     view.children_mut().push(Box::new(notif) as Box<dyn View>);
                 },
-                Event::AddDocument(..) => {
-                    if view.is::<Home>() {
-                        view.handle_event(&evt, &tx, &mut bus, &mut rq, &mut context);
-                    } else {
+                Event::Device(DeviceEvent::NetUp) |
+                Event::CheckFetcher(..) |
+                Event::FetcherAddDocument(..) |
+                Event::FetcherSearch { .. } |
+                Event::FetcherCleanUp(..) |
+                Event::FetcherImport(..) if !view.is::<Home>() => {
+                    if let Some(home) = history.get_mut(0).filter(|view| view.is::<Home>()) {
                         let (tx, _rx) = mpsc::channel();
-                        history[0].handle_event(&evt, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
-                    };
+                        home.handle_event(&evt, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
+                    }
                 },
                 Event::SetWifi(enable) => {
                     if context.settings.wifi != enable {
@@ -522,14 +525,6 @@ fn main() -> Result<(), Error> {
                             context.online = false;
                         }
                     }
-                },
-                Event::Device(DeviceEvent::NetUp) => {
-                    if view.is::<Home>() {
-                        view.handle_event(&evt, &tx, &mut bus, &mut rq, &mut context);
-                    } else {
-                        let (tx, _rx) = mpsc::channel();
-                        history[0].handle_event(&evt, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
-                    };
                 },
                 Event::Device(DeviceEvent::RotateScreen(n)) => {
                     tx.send(Event::Select(EntryId::Rotate(n))).ok();

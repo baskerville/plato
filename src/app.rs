@@ -518,10 +518,10 @@ pub fn run() -> Result<(), Error> {
                         view.children_mut().push(Box::new(notif) as Box<dyn View>);
                         if view.is::<Home>() {
                             view.handle_event(&evt, &tx, &mut bus, &mut rq, &mut context);
-                        } else {
+                        } else if let Some(entry) = history.get_mut(0).filter(|entry| entry.view.is::<Home>()) {
                             let (tx, _rx) = mpsc::channel();
-                            history[0].view.handle_event(&evt, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
-                        };
+                            entry.view.handle_event(&evt, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
+                        }
                     },
                     DeviceEvent::Plug(power_source) => {
                         if context.plugged {
@@ -1031,13 +1031,15 @@ pub fn run() -> Result<(), Error> {
                                               msg, &tx, &mut rq, &mut context);
                 view.children_mut().push(Box::new(notif) as Box<dyn View>);
             },
-            Event::AddDocument(..) => {
-                if view.is::<Home>() {
-                    view.handle_event(&evt, &tx, &mut bus, &mut rq, &mut context);
-                } else {
+            Event::CheckFetcher(..) |
+            Event::FetcherAddDocument(..) |
+            Event::FetcherSearch { .. } |
+            Event::FetcherCleanUp(..) |
+            Event::FetcherImport(..) if !view.is::<Home>() => {
+                if let Some(entry) = history.get_mut(0).filter(|entry| entry.view.is::<Home>()) {
                     let (tx, _rx) = mpsc::channel();
-                    history[0].view.handle_event(&evt, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
-                };
+                    entry.view.handle_event(&evt, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
+                }
             },
             Event::Notify(msg) => {
                 let notif = Notification::new(ViewId::MessageNotif,

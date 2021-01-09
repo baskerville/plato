@@ -276,7 +276,6 @@ pub enum Event {
     Gesture(GestureEvent),
     Keyboard(KeyboardEvent),
     Key(KeyKind),
-    AddDocument(Box<Info>),
     Open(Box<Info>),
     OpenHtml(String, Option<String>),
     LoadPixmap(usize),
@@ -315,6 +314,9 @@ pub enum Event {
     CloseSub(ViewId),
     Search(String),
     SearchResult(usize, Vec<Boundary>),
+    FetcherCleanUp(u32),
+    FetcherImport(u32),
+    FetcherAddDocument(u32, Box<Info>),
     FetcherSearch {
         id: u32,
         path: Option<PathBuf>,
