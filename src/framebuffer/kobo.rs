@@ -163,8 +163,13 @@ impl Framebuffer for KoboFramebuffer {
         };
 
         if self.monochrome && mode != UpdateMode::Full {
-            flags |= EPDC_FLAG_FORCE_MONOCHROME;
-            waveform_mode = NTX_WFM_MODE_A2;
+            if mark >= 7 {
+                waveform_mode = NTX_WFM_MODE_DU;
+                flags |= EPDC_FLAG_USE_DITHERING_Y1;
+            } else {
+                waveform_mode = NTX_WFM_MODE_A2;
+                flags |= EPDC_FLAG_FORCE_MONOCHROME;
+            }
         }
 
         let result = if mark >= 7 {
