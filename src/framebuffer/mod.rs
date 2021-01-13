@@ -35,8 +35,10 @@ pub trait Framebuffer {
     fn save(&self, path: &str) -> Result<(), Error>;
     fn set_rotation(&mut self, n: i8) -> Result<(u32, u32), Error>;
     fn set_monochrome(&mut self, enable: bool);
+    fn set_dithered(&mut self, enable: bool);
     fn set_inverted(&mut self, enable: bool);
     fn monochrome(&self) -> bool;
+    fn dithered(&self) -> bool;
     fn inverted(&self) -> bool;
 
     fn toggle_inverted(&mut self) {
@@ -45,6 +47,10 @@ pub trait Framebuffer {
 
     fn toggle_monochrome(&mut self) {
         self.set_monochrome(!self.monochrome());
+    }
+
+    fn toggle_dithered(&mut self) {
+        self.set_dithered(!self.dithered());
     }
 
     fn rotation(&self) -> i8 {

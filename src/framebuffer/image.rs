@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::path::Path;
 use anyhow::{Error, Context, format_err};
 use super::{Framebuffer, UpdateMode};
 use crate::color::WHITE;
@@ -27,6 +28,15 @@ impl Pixmap {
 
     pub fn data_mut(&mut self) -> &mut [u8] {
         &mut self.data
+    }
+
+    pub fn from_png<P: AsRef<Path>>(path: P) -> Result<Pixmap, Error> {
+        let file = File::open(path.as_ref())?;
+        let decoder = png::Decoder::new(file);
+        let (info, mut reader) = decoder.read_info()?;
+        let mut pixmap = Pixmap::new(info.width, info.height);
+        reader.next_frame(pixmap.data_mut())?;
+        Ok(pixmap)
     }
 }
 
@@ -95,17 +105,24 @@ impl Framebuffer for Pixmap {
         Err(format_err!("Unsupported."))
     }
 
-    fn set_inverted(&mut self, _enable: bool) {
-    }
-
     fn set_monochrome(&mut self, _enable: bool) {
     }
 
-    fn inverted(&self) -> bool {
-        false
+    fn set_dithered(&mut self, _enable: bool) {
+    }
+
+    fn set_inverted(&mut self, _enable: bool) {
     }
 
     fn monochrome(&self) -> bool {
+        false
+    }
+
+    fn dithered(&self) -> bool {
+        false
+    }
+
+    fn inverted(&self) -> bool {
         false
     }
 

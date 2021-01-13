@@ -6,9 +6,11 @@ use std::slice;
 use std::os::unix::io::AsRawFd;
 use std::ops::Drop;
 use anyhow::{Error, Context};
+use lazy_static::lazy_static;
 use crate::geom::Rectangle;
 use crate::device::{CURRENT_DEVICE, Model};
 use super::{UpdateMode, Framebuffer};
+use super::image::Pixmap;
 use super::mxcfb_sys::*;
 
 impl Into<MxcfbRect> for Rectangle {
@@ -22,6 +24,7 @@ impl Into<MxcfbRect> for Rectangle {
     }
 }
 
+type ColorTransform = fn(u32, u32, u8) -> u8;
 type SetPixelRgb = fn(&mut KoboFramebuffer, u32, u32, [u8; 3]);
 type GetPixelRgb = fn(&KoboFramebuffer, u32, u32) -> [u8; 3];
 type AsRgb = fn(&KoboFramebuffer) -> Vec<u8>;
@@ -33,6 +36,8 @@ pub struct KoboFramebuffer {
     token: u32,
     flags: u32,
     monochrome: bool,
+    dithered: bool,
+    transform: ColorTransform,
     set_pixel_rgb: SetPixelRgb,
     get_pixel_rgb: GetPixelRgb,
     as_rgb: AsRgb,
@@ -79,6 +84,8 @@ impl KoboFramebuffer {
                    token: 1,
                    flags: 0,
                    monochrome: false,
+                   dithered: false,
+                   transform: transform_identity,
                    set_pixel_rgb,
                    get_pixel_rgb,
                    as_rgb,
@@ -96,7 +103,8 @@ impl KoboFramebuffer {
 
 impl Framebuffer for KoboFramebuffer {
     fn set_pixel(&mut self, x: u32, y: u32, color: u8) {
-        (self.set_pixel_rgb)(self, x, y, [color, color, color]);
+        let c = (self.transform)(x, y, color);
+        (self.set_pixel_rgb)(self, x, y, [c, c, c]);
     }
 
     fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32) {
@@ -106,20 +114,17 @@ impl Framebuffer for KoboFramebuffer {
         }
         let rgb = (self.get_pixel_rgb)(self, x, y);
         let color_alpha = color as f32 * alpha;
-        let red = color_alpha + (1.0 - alpha) * rgb[0] as f32;
-        let green = color_alpha + (1.0 - alpha) * rgb[1] as f32;
-        let blue = color_alpha + (1.0 - alpha) * rgb[2] as f32;
-        (self.set_pixel_rgb)(self, x, y, [red as u8, green as u8, blue as u8]);
+        let interp = (color_alpha + (1.0 - alpha) * rgb[0] as f32) as u8;
+        let c = (self.transform)(x, y, interp);
+        (self.set_pixel_rgb)(self, x, y, [c, c, c]);
     }
 
     fn invert_region(&mut self, rect: &Rectangle) {
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
                 let rgb = (self.get_pixel_rgb)(self, x as u32, y as u32);
-                let red = 255 - rgb[0];
-                let green = 255 - rgb[1];
-                let blue = 255 - rgb[2];
-                (self.set_pixel_rgb)(self, x as u32, y as u32, [red, green, blue]);
+                let color = 255 - rgb[0];
+                (self.set_pixel_rgb)(self, x as u32, y as u32, [color, color, color]);
             }
         }
     }
@@ -128,10 +133,8 @@ impl Framebuffer for KoboFramebuffer {
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
                 let rgb = (self.get_pixel_rgb)(self, x as u32, y as u32);
-                let red = rgb[0].saturating_sub(drift);
-                let green = rgb[1].saturating_sub(drift);
-                let blue = rgb[2].saturating_sub(drift);
-                (self.set_pixel_rgb)(self, x as u32, y as u32, [red, green, blue]);
+                let color = rgb[0].saturating_sub(drift);
+                (self.set_pixel_rgb)(self, x as u32, y as u32, [color, color, color]);
             }
         }
     }
@@ -139,40 +142,59 @@ impl Framebuffer for KoboFramebuffer {
     // Tell the driver that the screen needs to be redrawn.
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32, Error> {
         let update_marker = self.token;
-        let mut flags = self.flags;
         let mark = CURRENT_DEVICE.mark();
+        let mut flags = self.flags;
+        let mut monochrome = self.monochrome;
 
         let (update_mode, mut waveform_mode) = match mode {
-            UpdateMode::Gui => (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO),
-            UpdateMode::Partial  => {
+            UpdateMode::Gui => (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_GL16),
+            UpdateMode::Partial => {
                 if mark >= 7 {
                     (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_GLR16)
                 } else if CURRENT_DEVICE.model == Model::Aura {
                     flags |= EPDC_FLAG_USE_AAD;
                     (UPDATE_MODE_FULL, NTX_WFM_MODE_GLD16)
                 } else {
-                    (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO)
+                    (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_GL16)
                 }
             },
-            UpdateMode::Full     => (UPDATE_MODE_FULL, NTX_WFM_MODE_GC16),
-            UpdateMode::Fast     => (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2),
+            UpdateMode::Full => {
+                monochrome = false;
+                (UPDATE_MODE_FULL, NTX_WFM_MODE_GC16)
+            },
+            UpdateMode::Fast => (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2),
             UpdateMode::FastMono => {
                 flags |= EPDC_FLAG_FORCE_MONOCHROME;
                 (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2)
             },
         };
 
-        if self.monochrome && mode != UpdateMode::Full {
+        if monochrome {
             if mark >= 7 {
-                waveform_mode = NTX_WFM_MODE_DU;
-                flags |= EPDC_FLAG_USE_DITHERING_Y1;
+                if waveform_mode != NTX_WFM_MODE_A2 {
+                    waveform_mode = NTX_WFM_MODE_DU;
+                    if !self.dithered {
+                        flags |= EPDC_FLAG_USE_DITHERING_Y1;
+                    }
+                }
             } else {
                 waveform_mode = NTX_WFM_MODE_A2;
-                flags |= EPDC_FLAG_FORCE_MONOCHROME;
             }
         }
 
         let result = if mark >= 7 {
+            let mut quant_bit = 0;
+            let mut dither_mode = EPDC_FLAG_USE_DITHERING_PASSTHROUGH;
+
+            if self.dithered {
+                if monochrome {
+                    flags |= EPDC_FLAG_USE_DITHERING_Y1;
+                } else if mode == UpdateMode::Partial || mode == UpdateMode::Full {
+                    dither_mode = EPDC_FLAG_USE_DITHERING_ORDERED;
+                    quant_bit = 7;
+                }
+            }
+
             let update_data = MxcfbUpdateDataV2 {
                 update_region: (*rect).into(),
                 waveform_mode,
@@ -180,14 +202,18 @@ impl Framebuffer for KoboFramebuffer {
                 update_marker,
                 temp: TEMP_USE_AMBIENT,
                 flags,
-                dither_mode: 0,
-                quant_bit: 0,
+                dither_mode,
+                quant_bit,
                 alt_buffer_data: MxcfbAltBufferDataV2::default(),
             };
             unsafe {
                 send_update_v2(self.file.as_raw_fd(), &update_data)
             }
         } else {
+            if monochrome && !self.dithered {
+                flags |= EPDC_FLAG_FORCE_MONOCHROME;
+            }
+
             let update_data = MxcfbUpdateDataV1 {
                 update_region: (*rect).into(),
                 waveform_mode,
@@ -296,6 +322,26 @@ impl Framebuffer for KoboFramebuffer {
 
     fn monochrome(&self) -> bool {
         self.monochrome
+    }
+
+    fn set_dithered(&mut self, enable: bool) {
+        if enable == self.dithered {
+            return;
+        }
+
+        self.dithered = enable;
+
+        if CURRENT_DEVICE.mark() < 7 {
+            if enable {
+                self.transform = transform_dither_g16;
+            } else {
+                self.transform = transform_identity;
+            }
+        }
+    }
+
+    fn dithered(&self) -> bool {
+        self.dithered
     }
 
     fn width(&self) -> u32 {
@@ -416,6 +462,39 @@ fn as_rgb_32(fb: &KoboFramebuffer) -> Vec<u8> {
         rgb888.extend_from_slice(&[red, green, blue]);
     }
     rgb888
+}
+
+const DITHER_PITCH: u32 = 128;
+
+lazy_static! {
+    pub static ref DITHER_G16_DRIFTS: Vec<i8> = {
+        let pixmap = Pixmap::from_png("resources/blue_noise-128.png").unwrap();
+        // The gap between two succesive colors in G16 is 17.
+        // Map {0 .. 255} to {-9 .. 8}.
+        pixmap.data().iter().map(|v| (*v / 15) as i8 - 9).collect()
+    };
+}
+
+// The input color is in {0 .. 255}.
+// The output color is in G16.
+// G16 := {17 * i | i ∈ {0 .. 15}}.
+fn transform_dither_g16(x: u32, y: u32, color: u8) -> u8 {
+    // Get the address of the drift value.
+    let addr = (x % DITHER_PITCH) + (y % DITHER_PITCH) * DITHER_PITCH;
+    // Apply the drift to the input color.
+    let c = (color as i16 + DITHER_G16_DRIFTS[addr as usize] as i16).max(0).min(255);
+    // Compute the distance to the previous color in G16.
+    let d = c % 17;
+    // Return the nearest color in G16.
+    if d < 9 {
+        (c - d) as u8
+    } else {
+        (c + (17 - d)) as u8
+    }
+}
+
+fn transform_identity(_x: u32, _y: u32, color: u8) -> u8 {
+    color
 }
 
 fn fix_screen_info(file: &File) -> Result<FixScreenInfo, Error> {

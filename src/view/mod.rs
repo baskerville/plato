@@ -550,7 +550,7 @@ pub enum EntryId {
     ToggleShowHidden,
     ToggleFuzzy,
     ToggleInverted,
-    ToggleMonochrome,
+    ToggleDithered,
     ToggleWifi,
     Rotate(i8),
     Launch(AppCmd),

@@ -215,6 +215,7 @@ struct HistoryItem {
     view: Box<dyn View>,
     rotation: i8,
     monochrome: bool,
+    dithered: bool,
 }
 
 fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
@@ -814,16 +815,21 @@ pub fn run() -> Result<(), Error> {
             },
             Event::Open(info) => {
                 let rotation = context.display.rotation;
-                if let Some(n) = info.reader.as_ref()
-                                     .and_then(|r| r.rotation.map(|n| CURRENT_DEVICE.from_canonical(n))) {
-                    if CURRENT_DEVICE.orientation(n) != CURRENT_DEVICE.orientation(rotation) {
-                        updating.retain(|tok, _| context.fb.wait(*tok).is_err());
-                        if let Ok(dims) = context.fb.set_rotation(n) {
-                            raw_sender.send(display_rotate_event(n)).ok();
-                            context.display.rotation = n;
-                            context.display.dims = dims;
+                let dithered = context.fb.dithered();
+                if let Some(reader_info) = info.reader.as_ref() {
+                    if let Some(n) = reader_info.rotation.map(|n| CURRENT_DEVICE.from_canonical(n)) {
+                        if CURRENT_DEVICE.orientation(n) != CURRENT_DEVICE.orientation(rotation) {
+                            updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                            if let Ok(dims) = context.fb.set_rotation(n) {
+                                raw_sender.send(display_rotate_event(n)).ok();
+                                context.display.rotation = n;
+                                context.display.dims = dims;
+                            }
                         }
                     }
+                    context.fb.set_dithered(reader_info.dithered);
+                } else {
+                    context.fb.set_dithered(context.settings.reader.dithered_kinds.contains(&info.file.kind));
                 }
                 let path = info.file.path.clone();
                 if let Some(r) = Reader::new(context.fb.rect(), *info, &tx, &mut context) {
@@ -832,7 +838,8 @@ pub fn run() -> Result<(), Error> {
                     history.push(HistoryItem {
                         view,
                         rotation,
-                        monochrome: context.fb.monochrome()
+                        monochrome: context.fb.monochrome(),
+                        dithered,
                     });
                     view = next_view;
                 } else {
@@ -843,6 +850,7 @@ pub fn run() -> Result<(), Error> {
                             context.display.dims = dims;
                         }
                     }
+                    context.fb.set_dithered(dithered);
                     handle_event(view.as_mut(), &Event::Invalid(path), &tx, &mut bus, &mut rq, &mut context);
                 }
             },
@@ -864,6 +872,7 @@ pub fn run() -> Result<(), Error> {
                     view,
                     rotation: context.display.rotation,
                     monochrome: context.fb.monochrome(),
+                    dithered: context.fb.dithered(),
                 });
                 view = next_view;
             },
@@ -876,6 +885,7 @@ pub fn run() -> Result<(), Error> {
                     view,
                     rotation: context.display.rotation,
                     monochrome: context.fb.monochrome(),
+                    dithered: context.fb.dithered(),
                 });
                 view = next_view;
             },
@@ -901,7 +911,8 @@ pub fn run() -> Result<(), Error> {
                 history.push(HistoryItem {
                     view,
                     rotation: context.display.rotation,
-                    monochrome
+                    monochrome,
+                    dithered: context.fb.dithered(),
                 });
                 view = next_view;
             },
@@ -910,6 +921,9 @@ pub fn run() -> Result<(), Error> {
                     view = item.view;
                     if item.monochrome != context.fb.monochrome() {
                         context.fb.set_monochrome(item.monochrome);
+                    }
+                    if item.dithered != context.fb.dithered() {
+                        context.fb.set_dithered(item.dithered);
                     }
                     if CURRENT_DEVICE.orientation(item.rotation) != CURRENT_DEVICE.orientation(context.display.rotation) {
                         updating.retain(|tok, _| context.fb.wait(*tok).is_err());
@@ -971,9 +985,9 @@ pub fn run() -> Result<(), Error> {
                 context.fb.toggle_inverted();
                 rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Gui));
             },
-            Event::Select(EntryId::ToggleMonochrome) => {
-                context.fb.toggle_monochrome();
-                rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Gui));
+            Event::Select(EntryId::ToggleDithered) => {
+                context.fb.toggle_dithered();
+                rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Full));
             },
             Event::Select(EntryId::ToggleIntermissionImage(ref kind, ref path)) => {
                 let full_path = context.library.home.join(path);

@@ -3,6 +3,7 @@
 [ -d dist ] && rm -Rf dist
 
 [ -d bin ] || ./download.sh 'bin/*'
+[ -d resources ] || ./download.sh 'resources/*'
 [ -d hyphenation-patterns ] || ./download.sh 'hyphenation-patterns/*'
 [ -e target/arm-unknown-linux-gnueabihf/release/plato ] || ./build.sh
 
@@ -29,6 +30,7 @@ cp -R keyboard-layouts dist
 cp -R bin dist
 cp -R scripts dist
 cp -R icons dist
+cp -R resources dist
 cp -R fonts dist
 cp -R css dist
 find dist/css -name '*-user.css' -delete

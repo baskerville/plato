@@ -110,7 +110,7 @@ The following swipe sequences are recognized:
 - Top left/right corner: go to the previous/next bookmark.
 - Top left/right multi-corner: go to the previous/next annotation or highlight.
 - Bottom left corner: guess the frontlight if there's more than two frontlight presets defined, toggle the frontlight otherwise.
-- Bottom right corner: toggle the bitonal mode.
+- Bottom right corner: toggle the dithering mode.
 
 Simultaneous swipe sequences:
 

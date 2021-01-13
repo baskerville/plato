@@ -192,17 +192,24 @@ impl Framebuffer for WindowCanvas {
         Ok((width, height))
     }
 
-    fn set_inverted(&mut self, _enable: bool) {
-    }
-
     fn set_monochrome(&mut self, _enable: bool) {
     }
 
-    fn inverted(&self) -> bool {
-        false
+    fn set_dithered(&mut self, _enable: bool) {
+    }
+
+    fn set_inverted(&mut self, _enable: bool) {
     }
 
     fn monochrome(&self) -> bool {
+        false
+    }
+
+    fn dithered(&self) -> bool {
+        false
+    }
+
+    fn inverted(&self) -> bool {
         false
     }
 
@@ -480,10 +487,6 @@ fn main() -> Result<(), Error> {
                 },
                 Event::Select(EntryId::ToggleInverted) => {
                     context.fb.toggle_inverted();
-                    rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Gui));
-                },
-                Event::Select(EntryId::ToggleMonochrome) => {
-                    context.fb.toggle_monochrome();
                     rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Gui));
                 },
                 Event::Select(EntryId::TakeScreenshot) => {

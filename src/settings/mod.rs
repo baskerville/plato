@@ -278,6 +278,7 @@ pub struct ReaderSettings {
     pub text_align: TextAlign,
     pub margin_width: i32,
     pub line_height: f32,
+    pub dithered_kinds: FxHashSet<String>,
     pub refresh_rate: RefreshRateSettings,
 }
 
@@ -335,6 +336,7 @@ impl Default for ReaderSettings {
             text_align: DEFAULT_TEXT_ALIGN,
             margin_width: DEFAULT_MARGIN_WIDTH,
             line_height: DEFAULT_LINE_HEIGHT,
+            dithered_kinds: ["cbz", "png", "jpg", "jpeg"].iter().map(|k| k.to_string()).collect(),
             refresh_rate: RefreshRateSettings::default(),
         }
     }

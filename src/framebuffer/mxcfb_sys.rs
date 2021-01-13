@@ -216,8 +216,8 @@ pub const EPDC_FLAG_USE_DITHERING_Y1: libc::c_uint = 0x2000;
 pub const EPDC_FLAG_USE_DITHERING_Y4: libc::c_uint = 0x4000;
 pub const EPDC_FLAG_USE_DITHERING_NTX_D8: libc::c_uint = 0x100000;
 
-pub const EPDC_FLAG_USE_DITHERING_PASSTHROUGH: libc::c_uint = 0;
-// pub const EPDC_FLAG_USE_DITHERING_FLOYD_STEINBERG: libc::c_uint = 1;
-// pub const EPDC_FLAG_USE_DITHERING_ATKINSON: libc::c_uint = 2;
-pub const EPDC_FLAG_USE_DITHERING_ORDERED: libc::c_uint = 3;
-// pub const EPDC_FLAG_USE_DITHERING_QUANT_ONLY: libc::c_uint = 4;
+pub const EPDC_FLAG_USE_DITHERING_PASSTHROUGH: libc::c_int = 0;
+// pub const EPDC_FLAG_USE_DITHERING_FLOYD_STEINBERG: libc::c_int = 1;
+// pub const EPDC_FLAG_USE_DITHERING_ATKINSON: libc::c_int = 2;
+pub const EPDC_FLAG_USE_DITHERING_ORDERED: libc::c_int = 3;
+// pub const EPDC_FLAG_USE_DITHERING_QUANT_ONLY: libc::c_int = 4;

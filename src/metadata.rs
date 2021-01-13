@@ -199,6 +199,7 @@ pub struct ReaderInfo {
     pub current_page: usize,
     pub pages_count: usize,
     pub finished: bool,
+    pub dithered: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub zoom_mode: Option<ZoomMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -264,6 +265,7 @@ impl Default for ReaderInfo {
             current_page: 0,
             pages_count: 1,
             finished: false,
+            dithered: false,
             zoom_mode: None,
             page_offset: None,
             rotation: None,

@@ -1723,10 +1723,16 @@ impl Reader {
             }
 
             if !entries.is_empty() {
-                let title_menu = Menu::new(rect, ViewId::TitleMenu, MenuKind::DropDown, entries, context);
-                rq.add(RenderData::new(title_menu.id(), *title_menu.rect(), UpdateMode::Gui));
-                self.children.push(Box::new(title_menu) as Box<dyn View>);
+                entries.push(EntryKind::Separator);
             }
+
+            entries.push(EntryKind::CheckBox("Apply Dithering".to_string(),
+                                             EntryId::ToggleDithered,
+                                             context.fb.dithered()));
+
+            let title_menu = Menu::new(rect, ViewId::TitleMenu, MenuKind::DropDown, entries, context);
+            rq.add(RenderData::new(title_menu.id(), *title_menu.rect(), UpdateMode::Gui));
+            self.children.push(Box::new(title_menu) as Box<dyn View>);
         }
     }
 
@@ -2464,6 +2470,7 @@ impl Reader {
             r.current_page = self.current_page;
             r.pages_count = self.pages_count;
             r.finished = self.finished;
+            r.dithered = context.fb.dithered();
 
             if self.view_port.zoom_mode == ZoomMode::FitToPage {
                 r.zoom_mode = None;
@@ -2605,7 +2612,7 @@ impl View for Reader {
                     DiagDir::NorthWest => self.go_to_bookmark(CycleDir::Previous, hub, rq, context),
                     DiagDir::NorthEast => self.go_to_bookmark(CycleDir::Next, hub, rq, context),
                     DiagDir::SouthEast => {
-                        hub.send(Event::Select(EntryId::ToggleMonochrome)).ok();
+                        hub.send(Event::Select(EntryId::ToggleDithered)).ok();
                     },
                     DiagDir::SouthWest => {
                         if context.settings.frontlight_presets.len() > 1 {
