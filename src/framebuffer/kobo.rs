@@ -467,6 +467,7 @@ fn as_rgb_32(fb: &KoboFramebuffer) -> Vec<u8> {
 const DITHER_PITCH: u32 = 128;
 
 lazy_static! {
+    // Tileable blue noise matrix.
     pub static ref DITHER_G16_DRIFTS: Vec<i8> = {
         let pixmap = Pixmap::from_png("resources/blue_noise-128.png").unwrap();
         // The gap between two succesive colors in G16 is 17.
@@ -475,6 +476,7 @@ lazy_static! {
     };
 }
 
+// Ordered dithering.
 // The input color is in {0 .. 255}.
 // The output color is in G16.
 // G16 := {17 * i | i ∈ {0 .. 15}}.
