@@ -924,7 +924,6 @@ impl Home {
 
             let database = if library_settings.mode == LibraryMode::Database {
                 vec![EntryKind::Command("Import".to_string(), EntryId::Import),
-                     EntryKind::Command("Clean Up".to_string(), EntryId::CleanUp),
                      EntryKind::Command("Flush".to_string(), EntryId::Flush)]
             } else {
                 Vec::new()

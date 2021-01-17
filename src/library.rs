@@ -312,6 +312,41 @@ impl Library {
                 self.has_db_changed = true;
             }
         }
+
+        let home = &self.home;
+        let len = self.db.len();
+
+        self.db.retain(|fp, info| {
+            let path = home.join(&info.file.path);
+            if path.exists() {
+                true
+            } else {
+                println!("Remove entry: {:016X}, {}.", fp, info.file.path.display());
+                false
+            }
+        });
+
+        if self.db.len() != len {
+            self.has_db_changed = true;
+            let db = &self.db;
+            self.paths.retain(|_, fp| db.contains_key(fp));
+            self.modified_reading_states.retain(|fp| db.contains_key(fp));
+
+            let path = home.join(READING_STATES_DIRNAME);
+            for entry in fs::read_dir(&path).unwrap() {
+                if entry.is_err() {
+                    continue;
+                }
+                let entry = entry.unwrap();
+                if let Some(fp) = entry.path().file_stem()
+                                       .and_then(|v| v.to_str())
+                                       .and_then(|v| u64::from_str_radix(v, 16).ok()) {
+                    if !self.db.contains_key(&fp) {
+                        fs::remove_file(entry.path()).ok();
+                    }
+                }
+            }
+        }
     }
 
     pub fn add_document(&mut self, info: Info) {
@@ -433,67 +468,35 @@ impl Library {
 
     pub fn clean_up(&mut self) {
         if self.mode == LibraryMode::Database {
-            let home = &self.home;
-            let len = self.db.len();
-            self.db.retain(|fp, info| {
-                let path = home.join(&info.file.path);
-                if path.exists() {
-                    true
-                } else {
-                    println!("Remove entry: {:016X}, {}.", fp, info.file.path.display());
-                    false
-                }
-            });
-            self.paths.retain(|path, _| home.join(path).exists());
-            let db = &self.db;
-            self.modified_reading_states.retain(|fp| db.contains_key(fp));
+            return;
+        }
 
-            if self.db.len() != len {
-                self.has_db_changed = true;
+        let fps = WalkDir::new(&self.home)
+                          .min_depth(1).into_iter()
+                          .filter_map(|entry| entry.ok())
+                          .filter_map(|entry| {
+                              if entry.file_type().is_dir() {
+                                  None
+                              } else {
+                                  Some(entry.metadata().unwrap()
+                                            .fingerprint(self.fat32_epoch).unwrap())
+                              }
+                          })
+                          .collect::<FxHashSet<u64>>();
+        let path = self.home.join(READING_STATES_DIRNAME);
+        for entry in fs::read_dir(&path).unwrap() {
+            if entry.is_err() {
+                continue;
             }
-
-            let path = home.join(READING_STATES_DIRNAME);
-            for entry in fs::read_dir(&path).unwrap() {
-                if entry.is_err() {
-                    continue;
-                }
-                let entry = entry.unwrap();
-                if let Some(fp) = entry.path().file_stem()
-                                       .and_then(|v| v.to_str())
-                                       .and_then(|v| u64::from_str_radix(v, 16).ok()) {
-                    if !self.db.contains_key(&fp) {
-                        fs::remove_file(entry.path()).ok();
-                    }
-                }
-            }
-        } else {
-            let fps = WalkDir::new(&self.home)
-                              .min_depth(1).into_iter()
-                              .filter_map(|entry| entry.ok())
-                              .filter_map(|entry| {
-                                  if entry.file_type().is_dir() {
-                                      None
-                                  } else {
-                                      Some(entry.metadata().unwrap()
-                                                .fingerprint(self.fat32_epoch).unwrap())
-                                  }
-                              })
-                              .collect::<FxHashSet<u64>>();
-            let path = self.home.join(READING_STATES_DIRNAME);
-            for entry in fs::read_dir(&path).unwrap() {
-                if entry.is_err() {
-                    continue;
-                }
-                let entry = entry.unwrap();
-                if let Some(fp) = entry.path().file_stem()
-                                       .and_then(|v| v.to_str())
-                                       .and_then(|v| u64::from_str_radix(v, 16).ok()) {
-                    if !fps.contains(&fp) {
-                        println!("Remove reading state for {:016X}.", fp);
-                        self.reading_states.remove(&fp);
-                        self.modified_reading_states.remove(&fp);
-                        fs::remove_file(entry.path()).ok();
-                    }
+            let entry = entry.unwrap();
+            if let Some(fp) = entry.path().file_stem()
+                                   .and_then(|v| v.to_str())
+                                   .and_then(|v| u64::from_str_radix(v, 16).ok()) {
+                if !fps.contains(&fp) {
+                    println!("Remove reading state for {:016X}.", fp);
+                    self.reading_states.remove(&fp);
+                    self.modified_reading_states.remove(&fp);
+                    fs::remove_file(entry.path()).ok();
                 }
             }
         }
