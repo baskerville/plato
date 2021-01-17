@@ -31,7 +31,7 @@ fn main() -> Result<(), Error> {
 
     opts.optflag("h", "help", "Print this help message.");
     opts.optflag("I", "import", "Import new files or update existing files.");
-    opts.optflag("C", "clean-up", "Remove the reading states with unknown fingerprints.");
+    opts.optflag("C", "clean-up", "Remove reading states with unknown fingerprints.");
     opts.optflag("E", "extract-metadata-epub", "Extract metadata from ePUBs.");
     opts.optflag("F", "extract-metadata-filename", "Extract metadata from filenames.");
     opts.optflag("S", "consolidate", "Autocorrect simple typographic mistakes.");
