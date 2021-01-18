@@ -207,13 +207,12 @@ impl Library {
         (files, dirs)
     }
 
-    pub fn import<P: AsRef<Path>>(&mut self, prefix: P, settings: &ImportSettings) {
+    pub fn import(&mut self, settings: &ImportSettings) {
         if self.mode == LibraryMode::Filesystem {
             return;
         }
 
-        for entry in WalkDir::new(prefix.as_ref()).min_depth(1)
-                             .into_iter()
+        for entry in WalkDir::new(&self.home).min_depth(1).into_iter()
                              .filter_entry(|e| !e.is_hidden()) {
             if entry.is_err() {
                 continue;
@@ -221,7 +220,13 @@ impl Library {
 
             let entry = entry.unwrap();
             let path = entry.path();
-            let relat = path.strip_prefix(&self.home).unwrap_or_else(|_| path);
+
+            if path.is_dir() {
+                continue;
+            }
+
+            let relat = path.strip_prefix(&self.home)
+                            .unwrap_or_else(|_| path);
             let md = entry.metadata().unwrap();
             let fp = md.fingerprint(self.fat32_epoch).unwrap();
 
@@ -303,7 +308,7 @@ impl Library {
                         .. Default::default()
                     };
                     if settings.extract_epub_metadata {
-                        extract_metadata_from_epub(prefix.as_ref(), &mut info);
+                        extract_metadata_from_epub(&self.home, &mut info);
                     }
                     self.db.insert(fp, info);
                     self.paths.insert(relat.to_path_buf(), fp);

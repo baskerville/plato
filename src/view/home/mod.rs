@@ -1120,9 +1120,7 @@ impl Home {
     }
 
     fn import(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
-        let home = context.library.home.clone();
-        let settings = context.settings.import.clone();
-        context.library.import(&home, &settings);
+        context.library.import(&context.settings.import);
         context.library.sort(self.sort_method, self.reverse_order);
         self.refresh_visibles(true, false, hub, rq, context);
     }

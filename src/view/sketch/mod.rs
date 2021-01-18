@@ -190,7 +190,7 @@ impl Sketch {
             allowed_kinds: ["png".to_string()].iter().cloned().collect(),
             .. Default::default()
         };
-        context.library.import(&self.save_path, &import_settings);
+        context.library.import(&import_settings);
     }
 }
 

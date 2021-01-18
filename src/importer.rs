@@ -77,7 +77,7 @@ fn main() -> Result<(), Error> {
     let mut library = Library::new(&library_path, mode);
 
     if matches.opt_present("I") {
-        library.import(&library_path, &import_settings);
+        library.import(&import_settings);
     } else if matches.opt_present("C") {
         library.clean_up();
     } else {

@@ -101,16 +101,14 @@ impl Context {
     }
 
     pub fn batch_import(&mut self) {
-        let prefix = self.library.home.clone();
-        let import_settings = self.settings.import.clone();
-        self.library.import(&prefix, &import_settings);
+        self.library.import(&self.settings.import);
         let selected_library = self.settings.selected_library;
         for (index, library_settings) in self.settings.libraries.iter().enumerate() {
             if index == selected_library {
                 continue;
             }
             let mut library = Library::new(&library_settings.path, library_settings.mode);
-            library.import(&library_settings.path, &import_settings);
+            library.import(&self.settings.import);
             library.flush();
         }
     }
