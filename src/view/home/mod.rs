@@ -1008,7 +1008,6 @@ impl Home {
             }
             let mut trash = Library::new(trash_path, LibraryMode::Database);
             context.library.move_to(path, &mut trash)?;
-            let full_path = context.library.home.join(path);
             context.settings.intermission_images.retain(|_, path| path != &full_path);
             let (mut files, _) = trash.list(&trash.home, None, false);
             let mut size = files.iter().map(|info| info.file.size).sum::<u64>();
