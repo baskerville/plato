@@ -219,12 +219,11 @@ impl Library {
             }
 
             let entry = entry.unwrap();
-            let path = entry.path();
-
-            if path.is_dir() {
+            if entry.file_type().is_dir() {
                 continue;
             }
 
+            let path = entry.path();
             let relat = path.strip_prefix(&self.home)
                             .unwrap_or_else(|_| path);
             let md = entry.metadata().unwrap();
