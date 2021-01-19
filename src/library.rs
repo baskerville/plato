@@ -337,8 +337,10 @@ impl Library {
             self.paths.retain(|_, fp| db.contains_key(fp));
             self.modified_reading_states.retain(|fp| db.contains_key(fp));
 
-            let path = home.join(READING_STATES_DIRNAME);
-            for entry in fs::read_dir(&path).unwrap() {
+            let reading_states_dir = home.join(READING_STATES_DIRNAME);
+            let thumbnail_previews_dir = home.join(THUMBNAIL_PREVIEWS_DIRNAME);
+            for entry in fs::read_dir(&reading_states_dir).unwrap()
+                            .chain(fs::read_dir(&thumbnail_previews_dir).unwrap()) {
                 if entry.is_err() {
                     continue;
                 }
@@ -488,8 +490,21 @@ impl Library {
                               }
                           })
                           .collect::<FxHashSet<u64>>();
-        let path = self.home.join(READING_STATES_DIRNAME);
-        for entry in fs::read_dir(&path).unwrap() {
+
+        self.reading_states.retain(|fp, _| {
+            if fps.contains(fp) {
+                true
+            } else {
+                println!("Remove reading state for {:016X}.", fp);
+                false
+            }
+        });
+        self.modified_reading_states.retain(|fp| fps.contains(fp));
+
+        let reading_states_dir = self.home.join(READING_STATES_DIRNAME);
+        let thumbnail_previews_dir = self.home.join(THUMBNAIL_PREVIEWS_DIRNAME);
+        for entry in fs::read_dir(&reading_states_dir).unwrap()
+                        .chain(fs::read_dir(&thumbnail_previews_dir).unwrap()) {
             if entry.is_err() {
                 continue;
             }
@@ -498,9 +513,6 @@ impl Library {
                                    .and_then(|v| v.to_str())
                                    .and_then(|v| u64::from_str_radix(v, 16).ok()) {
                 if !fps.contains(&fp) {
-                    println!("Remove reading state for {:016X}.", fp);
-                    self.reading_states.remove(&fp);
-                    self.modified_reading_states.remove(&fp);
                     fs::remove_file(entry.path()).ok();
                 }
             }
