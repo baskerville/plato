@@ -101,7 +101,7 @@ impl Node {
                     "details" | "dialog" | "dd" | "div" | "dl" | "dt" | "fieldset" | "figcaption" |
                     "figure" | "footer" | "form" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "header" |
                     "hgroup" | "hr" | "html" | "li" | "main" | "nav" | "ol" | "p" | "pre" | "section" |
-                    "table" | "thead" | "tbody" | "tr" | "td" | "th" | "ul" => true,
+                    "table" | "thead" | "colgroup" | "tbody" | "tfoot" | "tr" | "caption" | "td" | "th" | "ul" => true,
                     _ => false,
                 }
             },
