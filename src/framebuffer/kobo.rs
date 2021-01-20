@@ -471,8 +471,16 @@ lazy_static! {
     pub static ref DITHER_G16_DRIFTS: Vec<i8> = {
         let pixmap = Pixmap::from_png("resources/blue_noise-128.png").unwrap();
         // The gap between two succesive colors in G16 is 17.
-        // Map {0 .. 255} to {-9 .. 8}.
-        pixmap.data().iter().map(|v| (*v / 15) as i8 - 9).collect()
+        // Map {0 .. 255} to {-8 .. 8}.
+        pixmap.data().iter().map(|&v| {
+            if v < 120 {
+                v as i8 / 15 - 8
+            } else if v == 120 {
+                0
+            } else {
+                ((v - 121) / 15) as i8
+            }
+        }).collect()
     };
 }
 
