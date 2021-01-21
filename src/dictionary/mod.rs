@@ -151,7 +151,7 @@ mod tests {
 
         dict = assert_dict_word_exists(dict, "bar", "test for case-sensitivity");
         dict = assert_dict_word_exists(dict, "Bar", "test for case-sensitivity");
-        dict = assert_dict_word_exists(dict, "straße", "test for non-latin case-sensitivity");
+        assert_dict_word_exists(dict, "straße", "test for non-latin case-sensitivity");
     }
 
     #[test]
