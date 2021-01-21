@@ -379,10 +379,11 @@ impl Library {
 
         if full_path.exists() {
             fs::remove_file(&full_path)?;
-            if let Some(parent) = full_path.parent() {
-                if parent != self.home {
-                    fs::remove_dir(parent).ok();
-                }
+        }
+
+        if let Some(parent) = full_path.parent() {
+            if parent != self.home {
+                fs::remove_dir(parent).ok();
             }
         }
 
@@ -688,6 +689,14 @@ impl Library {
             save_json(&self.db, self.home.join(METADATA_FILENAME))
                      .map_err(|e| eprintln!("{}", e)).ok();
             self.has_db_changed = false;
+        }
+    }
+
+    pub fn is_empty(&self) -> Option<bool> {
+        if self.mode == LibraryMode::Database {
+            Some(self.db.is_empty())
+        } else {
+            None
         }
     }
 

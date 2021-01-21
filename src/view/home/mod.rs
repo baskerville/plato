@@ -972,6 +972,17 @@ impl Home {
             entries.push(EntryKind::CheckBox("Thumbnail Previews".to_string(),
                                              EntryId::ThumbnailPreviews,
                                              library_settings.thumbnail_previews));
+
+            let trash_path = context.library.home.join(TRASH_DIRNAME);
+            if trash_path.is_dir() {
+                let trash = Library::new(trash_path, LibraryMode::Database);
+                if trash.is_empty() == Some(false) {
+                    entries.push(EntryKind::Separator);
+                    entries.push(EntryKind::Command("Empty Trash".to_string(),
+                                                    EntryId::EmptyTrash));
+                }
+            }
+
             let library_menu = Menu::new(rect, ViewId::LibraryMenu, MenuKind::DropDown, entries, context);
             rq.add(RenderData::new(library_menu.id(), *library_menu.rect(), UpdateMode::Gui));
             self.children.push(Box::new(library_menu) as Box<dyn View>);
@@ -994,6 +1005,33 @@ impl Home {
         }
 
         self.refresh_visibles(true, false, hub, rq, context);
+    }
+
+    fn empty_trash(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
+        let trash_path = context.library.home.join(TRASH_DIRNAME);
+        if !trash_path.is_dir() {
+            return;
+        }
+        let mut trash = Library::new(trash_path, LibraryMode::Database);
+        let (files, _) = trash.list(&trash.home, None, false);
+        if files.is_empty() {
+            return;
+        }
+        let mut count = 0;
+        for info in files {
+            match trash.remove(info.file.path) {
+                Err(e) => eprintln!("{}", e),
+                Ok(()) => count += 1,
+            }
+        }
+        trash.flush();
+        let message = format!("Removed {} book{}.", count, if count != 1 { "s" } else { "" });
+        let notif = Notification::new(ViewId::MessageNotif,
+                                      message,
+                                      hub,
+                                      rq,
+                                      context);
+        self.children.push(Box::new(notif) as Box<dyn View>);
     }
 
     fn remove(&mut self, path: &Path, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) -> Result<(), Error> {
@@ -1485,6 +1523,10 @@ impl View for Home {
                 for i in self.shelf_index - 2..=self.shelf_index - 1 {
                     rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                 }
+                true
+            },
+            Event::Select(EntryId::EmptyTrash) => {
+                self.empty_trash(hub, rq, context);
                 true
             },
             Event::Select(EntryId::Remove(ref path)) | Event::FetcherRemoveDocument(_, ref path) => {

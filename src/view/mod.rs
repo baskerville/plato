@@ -504,6 +504,7 @@ pub enum EntryId {
     CleanUp,
     Sort(SortMethod),
     ReverseOrder,
+    EmptyTrash,
     Remove(PathBuf),
     MoveTo(PathBuf, usize),
     AddDirectory(PathBuf),
