@@ -5,6 +5,7 @@ use crate::input::TouchProto;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
+    Nia,
     LibraH2O,
     Forma32GB,
     Forma,
@@ -35,6 +36,7 @@ pub enum Orientation {
 impl fmt::Display for Model {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Model::Nia           => write!(f, "Nia"),
             Model::LibraH2O      => write!(f, "Libra H₂O"),
             Model::Forma32GB     => write!(f, "Forma 32GB"),
             Model::Forma         => write!(f, "Forma"),
@@ -154,6 +156,12 @@ impl Device {
                 dims: (1264, 1680),
                 dpi: 300,
             },
+            "luna" => Device {
+                model: Model::Nia,
+                proto: TouchProto::MultiB,
+                dims: (758, 1024),
+                dpi: 212,
+            },
             _ => Device {
                 model: if model_number == "320" { Model::TouchC } else { Model::TouchAB },
                 proto: TouchProto::Single,
@@ -240,6 +248,7 @@ impl Device {
 
     pub fn mark(&self) -> u8 {
         match self.model {
+            Model::Nia |
             Model::LibraH2O |
             Model::Forma32GB |
             Model::Forma |
