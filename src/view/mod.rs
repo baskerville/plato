@@ -314,9 +314,8 @@ pub enum Event {
     CloseSub(ViewId),
     Search(String),
     SearchResult(usize, Vec<Boundary>),
-    FetcherCleanUp(u32),
-    FetcherImport(u32),
     FetcherAddDocument(u32, Box<Info>),
+    FetcherRemoveDocument(u32, PathBuf),
     FetcherSearch {
         id: u32,
         path: Option<PathBuf>,

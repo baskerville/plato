@@ -507,9 +507,8 @@ fn main() -> Result<(), Error> {
                 Event::Device(DeviceEvent::NetUp) |
                 Event::CheckFetcher(..) |
                 Event::FetcherAddDocument(..) |
-                Event::FetcherSearch { .. } |
-                Event::FetcherCleanUp(..) |
-                Event::FetcherImport(..) if !view.is::<Home>() => {
+                Event::FetcherRemoveDocument(..) |
+                Event::FetcherSearch { .. } if !view.is::<Home>() => {
                     if let Some(home) = history.get_mut(0).filter(|view| view.is::<Home>()) {
                         let (tx, _rx) = mpsc::channel();
                         home.handle_event(&evt, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);

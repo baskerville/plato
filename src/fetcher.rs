@@ -117,6 +117,8 @@ fn is_detail_available(client: &Client, settings: &Settings) -> bool {
 
 fn main() -> Result<(), Error> {
     let mut args = env::args().skip(1);
+    let library_path = PathBuf::from(args.next()
+                                         .ok_or_else(|| format_err!("Missing argument: library path."))?);
     let save_path = PathBuf::from(args.next()
                                       .ok_or_else(|| format_err!("Missing argument: save path."))?);
     let wifi = args.next()
@@ -182,10 +184,6 @@ fn main() -> Result<(), Error> {
         let mut archivals_count = 0;
 
         if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
-            let library_path = event.get("path")
-                                    .and_then(JsonValue::as_str)
-                                    .map(PathBuf::from)
-                                    .unwrap_or_else(|| save_path.clone());
             if let Some(results) = event.get("results").and_then(JsonValue::as_array) {
                 let message = if results.is_empty() {
                     "No finished articles.".to_string()
@@ -230,13 +228,14 @@ fn main() -> Result<(), Error> {
                     }
 
                     if settings.remove_finished {
-                        if let Some(relat) = entry.pointer("/file/path")
-                                                  .and_then(JsonValue::as_str) {
-                            let path = library_path.join(relat);
-                            match fs::remove_file(&path) {
-                                Ok(()) => session.removals_count = session.removals_count.wrapping_add(1),
-                                Err(e) => eprintln!("Can't remove {}: {}", path.display(), e),
-                            }
+                        if let Some(path) = entry.pointer("/file/path")
+                                                 .and_then(JsonValue::as_str) {
+                            let event = json!({
+                                "type": "removeDocument",
+                                "path": path,
+                            });
+                            println!("{}", event);
+                            session.removals_count = session.removals_count.wrapping_add(1)
                         }
                     }
 
@@ -272,10 +271,6 @@ fn main() -> Result<(), Error> {
                             "message": &message,
                         });
                         println!("{}", event);
-                        if removals_count > 0 {
-                            let event = json!({"type": "cleanUp"});
-                            println!("{}", event);
-                        }
                     }
                 }
             }
@@ -407,30 +402,32 @@ fn main() -> Result<(), Error> {
 
                 session.downloads_count = session.downloads_count.wrapping_add(1);
 
-                let file_info = json!({
-                    "path": epub_path.to_str().unwrap_or(""),
-                    "kind": "epub",
-                    "size": file.metadata().ok()
-                                .map_or(0, |m| m.len()),
-                });
+                if let Ok(path) = epub_path.strip_prefix(&library_path) {
+                    let file_info = json!({
+                        "path": path,
+                        "kind": "epub",
+                        "size": file.metadata().ok()
+                                    .map_or(0, |m| m.len()),
+                    });
 
-                let info = json!({
-                    "title": title,
-                    "author": author,
-                    "year": year,
-                    "identifier": id.to_string(),
-                    "added": updated_at.with_timezone(&Local)
-                                       .format("%Y-%m-%d %H:%M:%S")
-                                       .to_string(),
-                    "file": file_info,
-                });
+                    let info = json!({
+                        "title": title,
+                        "author": author,
+                        "year": year,
+                        "identifier": id.to_string(),
+                        "added": updated_at.with_timezone(&Local)
+                                           .format("%Y-%m-%d %H:%M:%S")
+                                           .to_string(),
+                        "file": file_info,
+                    });
 
-                let event = json!({
-                    "type": "addDocument",
-                    "info": &info,
-                });
+                    let event = json!({
+                        "type": "addDocument",
+                        "info": &info,
+                    });
 
-                println!("{}", event);
+                    println!("{}", event);
+                }
             }
         }
 

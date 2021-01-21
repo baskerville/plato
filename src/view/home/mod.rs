@@ -978,13 +978,10 @@ impl Home {
         }
     }
 
-    fn add_document(&mut self, mut info: Info, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
-        if let Ok(path) = info.file.path.strip_prefix(&context.library.home) {
-            info.file.path = path.to_path_buf();
-            context.library.add_document(info);
-            self.sort(false, hub, rq, context);
-            self.refresh_visibles(true, false, hub, rq, context);
-        }
+    fn add_document(&mut self, info: Info, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
+        context.library.add_document(info);
+        self.sort(false, hub, rq, context);
+        self.refresh_visibles(true, false, hub, rq, context);
     }
 
     fn set_status(&mut self, path: &Path, status: SimpleStatus, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
@@ -1166,8 +1163,9 @@ impl Home {
     }
 
     fn insert_fetcher(&mut self, hook: &Hook, hub: &Hub, context: &Context) {
-        let dir = context.library.home.join(&hook.path);
-        match self.spawn_child(&dir, &hook.program, context.settings.wifi, context.online, hub) {
+        let library_path = &context.library.home;
+        let save_path = context.library.home.join(&hook.path);
+        match self.spawn_child(library_path, &save_path, &hook.program, context.settings.wifi, context.online, hub) {
             Ok(process) => {
                 let mut sort_method = hook.sort_method;
                 let mut first_column = hook.first_column;
@@ -1183,20 +1181,21 @@ impl Home {
                     hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
                 }
                 self.background_fetchers.insert(process.id(),
-                                                Fetcher { path: hook.path.clone(), full_path: dir, process,
+                                                Fetcher { path: hook.path.clone(), full_path: save_path, process,
                                                           sort_method, first_column, second_column });
             },
             Err(e) => eprintln!("Can't spawn child: {}.", e),
         }
     }
 
-    fn spawn_child(&mut self, dir: &Path, program: &PathBuf, wifi: bool, online: bool, hub: &Hub) -> Result<Child, Error> {
+    fn spawn_child(&mut self, library_path: &Path, save_path: &Path, program: &Path, wifi: bool, online: bool, hub: &Hub) -> Result<Child, Error> {
         let path = program.canonicalize()?;
         let parent = path.parent()
                          .unwrap_or_else(|| Path::new(""));
         let mut process = Command::new(&path)
                                  .current_dir(parent)
-                                 .arg(dir)
+                                 .arg(library_path)
+                                 .arg(save_path)
                                  .arg(wifi.to_string())
                                  .arg(online.to_string())
                                  .stdin(Stdio::piped())
@@ -1232,6 +1231,12 @@ impl Home {
                                     hub2.send(Event::FetcherAddDocument(id, Box::new(info))).ok();
                                 }
                             },
+                            Some("removeDocument") => {
+                                if let Some(path) = event.get("path")
+                                                         .and_then(JsonValue::as_str) {
+                                    hub2.send(Event::FetcherRemoveDocument(id, PathBuf::from(path))).ok();
+                                }
+                            },
                             Some("search") => {
                                 let path = event.get("path")
                                                 .and_then(JsonValue::as_str)
@@ -1243,12 +1248,6 @@ impl Home {
                                                    .map(ToString::to_string)
                                                    .and_then(|v| serde_json::from_str(&v).ok());
                                 hub2.send(Event::FetcherSearch { id, path, query, sort_by }).ok();
-                            },
-                            Some("cleanUp") => {
-                                hub2.send(Event::FetcherCleanUp(id)).ok();
-                            },
-                            Some("import") => {
-                                hub2.send(Event::FetcherImport(id)).ok();
                             },
                             _ => (),
                         }
@@ -1404,11 +1403,11 @@ impl View for Home {
                 self.load_library(index, hub, rq, context);
                 true
             },
-            Event::Select(EntryId::Import) | Event::FetcherImport(_) => {
+            Event::Select(EntryId::Import) => {
                 self.import(hub, rq, context);
                 true
             },
-            Event::Select(EntryId::CleanUp) | Event::FetcherCleanUp(_) => {
+            Event::Select(EntryId::CleanUp) => {
                 self.clean_up(hub, rq, context);
                 true
             },
@@ -1417,8 +1416,7 @@ impl View for Home {
                 true
             },
             Event::FetcherAddDocument(_, ref info) => {
-                let info2 = info.clone();
-                self.add_document(*info2, hub, rq, context);
+                self.add_document(*info.clone(), hub, rq, context);
                 true
             },
             Event::Select(EntryId::SetStatus(ref path, status)) => {
@@ -1489,7 +1487,7 @@ impl View for Home {
                 }
                 true
             },
-            Event::Select(EntryId::Remove(ref path)) => {
+            Event::Select(EntryId::Remove(ref path)) | Event::FetcherRemoveDocument(_, ref path) => {
                 self.remove(path, hub, rq, context)
                     .map_err(|e| eprintln!("{}", e))
                     .ok();
@@ -1580,7 +1578,6 @@ impl View for Home {
                 if let Some(fetcher) = self.background_fetchers.get_mut(&id) {
                     if let Some(stdin) = fetcher.process.stdin.as_mut() {
                         writeln!(stdin, "{}", json!({"type": "search",
-                                                     "path": context.library.home,
                                                      "results": files})).ok();
                     }
                 }

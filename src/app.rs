@@ -1045,9 +1045,8 @@ pub fn run() -> Result<(), Error> {
             },
             Event::CheckFetcher(..) |
             Event::FetcherAddDocument(..) |
-            Event::FetcherSearch { .. } |
-            Event::FetcherCleanUp(..) |
-            Event::FetcherImport(..) if !view.is::<Home>() => {
+            Event::FetcherRemoveDocument(..) |
+            Event::FetcherSearch { .. } if !view.is::<Home>() => {
                 if let Some(entry) = history.get_mut(0).filter(|entry| entry.view.is::<Home>()) {
                     let (tx, _rx) = mpsc::channel();
                     entry.view.handle_event(&evt, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
