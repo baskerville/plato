@@ -345,7 +345,7 @@ pub fn run() -> Result<(), Error> {
     let mut fb = KoboFramebuffer::new(FB_DEVICE).context("Can't create framebuffer.")?;
     let initial_rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
     let startup_rotation = CURRENT_DEVICE.startup_rotation();
-    if initial_rotation != startup_rotation {
+    if !CURRENT_DEVICE.has_gyroscope() && initial_rotation != startup_rotation {
         fb.set_rotation(startup_rotation).ok();
     }
 
@@ -1099,7 +1099,7 @@ pub fn run() -> Result<(), Error> {
         }
     }
 
-    if context.display.rotation != initial_rotation {
+    if !CURRENT_DEVICE.has_gyroscope() && context.display.rotation != initial_rotation {
         context.fb.set_rotation(initial_rotation).ok();
     }
 
