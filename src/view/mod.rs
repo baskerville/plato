@@ -414,16 +414,7 @@ pub enum ViewId {
     MarginCropper,
     TopBottomBars,
     TableOfContents,
-    MessageNotif,
-    BoundaryNotif,
-    TakeScreenshotNotif,
-    SaveDocumentNotif,
-    SaveSketchNotif,
-    LoadSketchNotif,
-    NoSearchResultsNotif,
-    InvalidSearchQueryNotif,
-    LowBatteryNotif,
-    NetUpNotif,
+    MessageNotif(Id),
     SubMenu(u8),
 }
 

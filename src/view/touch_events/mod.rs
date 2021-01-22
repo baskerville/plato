@@ -3,7 +3,7 @@ use crate::geom::{Rectangle, Region, Dir, CornerSpec};
 use crate::view::icon::Icon;
 use crate::view::notification::Notification;
 use crate::view::{View, Event, Hub, Bus, RenderQueue, RenderData};
-use crate::view::{ViewId, Id, ID_FEEDER};
+use crate::view::{Id, ID_FEEDER};
 use crate::view::SMALL_BAR_HEIGHT;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::font::Fonts;
@@ -52,7 +52,7 @@ impl View for TouchEvents {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
             Event::Gesture(ge) => {
-                let notif = Notification::new(ViewId::LoadSketchNotif, ge.to_string(), hub, rq, context);
+                let notif = Notification::new(ge.to_string(), hub, rq, context);
                 self.children.push(Box::new(notif) as Box<dyn View>);
                 true
             },

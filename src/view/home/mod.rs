@@ -1026,11 +1026,7 @@ impl Home {
         }
         trash.flush();
         let message = format!("Removed {} book{}.", count, if count != 1 { "s" } else { "" });
-        let notif = Notification::new(ViewId::MessageNotif,
-                                      message,
-                                      hub,
-                                      rq,
-                                      context);
+        let notif = Notification::new(message, hub, rq, context);
         self.children.push(Box::new(notif) as Box<dyn View>);
     }
 
@@ -1494,11 +1490,8 @@ impl View for Home {
                     }
                     self.refresh_visibles(true, true, hub, rq, context);
                 } else {
-                    let notif = Notification::new(ViewId::InvalidSearchQueryNotif,
-                                                  "Invalid search query.".to_string(),
-                                                  hub,
-                                                  rq,
-                                                  context);
+                    let notif = Notification::new("Invalid search query.".to_string(),
+                                                  hub, rq, context);
                     self.children.push(Box::new(notif) as Box<dyn View>);
                 }
                 true
@@ -1630,8 +1623,7 @@ impl View for Home {
                     if let Ok(exit_status) = fetcher.process.wait() {
                         if !exit_status.success() {
                             let msg = format!("{}: abnormal process termination.", fetcher.path.display());
-                            let notif = Notification::new(ViewId::MessageNotif,
-                                                          msg, hub, rq, context);
+                            let notif = Notification::new(msg, hub, rq, context);
                             self.children.push(Box::new(notif) as Box<dyn View>);
                         }
                     }

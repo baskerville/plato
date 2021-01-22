@@ -773,11 +773,8 @@ impl Reader {
                         };
                         match action {
                             FinishedAction::Notify => {
-                                let notif = Notification::new(ViewId::BoundaryNotif,
-                                                              "No next page.".to_string(),
-                                                              hub,
-                                                              rq,
-                                                              context);
+                                let notif = Notification::new("No next page.".to_string(),
+                                                              hub, rq, context);
                                 self.children.push(Box::new(notif) as Box<dyn View>);
                             },
                             FinishedAction::Close => {
@@ -787,11 +784,8 @@ impl Reader {
                         }
                     },
                     CycleDir::Previous => {
-                        let notif = Notification::new(ViewId::BoundaryNotif,
-                                                      "No previous page.".to_string(),
-                                                      hub,
-                                                      rq,
-                                                      context);
+                        let notif = Notification::new("No previous page.".to_string(),
+                                                      hub, rq, context);
                         self.children.push(Box::new(notif) as Box<dyn View>);
                     },
                 }
@@ -3189,8 +3183,7 @@ impl View for Reader {
                         self.toggle_results_bar(true, rq, context);
                     },
                     None => {
-                        let notif = Notification::new(ViewId::InvalidSearchQueryNotif,
-                                                      "Invalid search query.".to_string(),
+                        let notif = Notification::new("Invalid search query.".to_string(),
                                                       hub, rq, context);
                         self.children.push(Box::new(notif) as Box<dyn View>);
                     },
@@ -3446,11 +3439,8 @@ impl View for Reader {
                 let results_count = self.search.as_ref().map(|s| s.results_count)
                                         .unwrap_or(usize::MAX);
                 if results_count == 0 {
-                    let notif = Notification::new(ViewId::NoSearchResultsNotif,
-                                                  "No search results.".to_string(),
-                                                  hub,
-                                                  rq,
-                                                  context);
+                    let notif = Notification::new("No search results.".to_string(),
+                                                  hub, rq, context);
                     self.children.push(Box::new(notif) as Box<dyn View>);
                     self.toggle_search_bar(true, hub, rq, context);
                     hub.send(Event::Focus(Some(ViewId::ReaderSearchInput))).ok();
@@ -3497,11 +3487,8 @@ impl View for Reader {
                             self.search(text, query, hub, rq);
                         },
                         None => {
-                            let notif = Notification::new(ViewId::InvalidSearchQueryNotif,
-                                                          "Invalid search query.".to_string(),
-                                                          hub,
-                                                          rq,
-                                                          context);
+                            let notif = Notification::new("Invalid search query.".to_string(),
+                                                          hub, rq, context);
                             self.children.push(Box::new(notif) as Box<dyn View>);
                         },
                     }
@@ -3572,7 +3559,7 @@ impl View for Reader {
                     Err(e) => format!("{}", e),
                     Ok(()) => format!("Saved {}.", name),
                 };
-                let notif = Notification::new(ViewId::SaveDocumentNotif, msg, hub, rq, context);
+                let notif = Notification::new(msg, hub, rq, context);
                 self.children.push(Box::new(notif) as Box<dyn View>);
                 true
             },

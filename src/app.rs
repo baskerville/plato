@@ -510,8 +510,7 @@ pub fn run() -> Result<(), Error> {
                         let essid = Command::new("scripts/essid.sh").output()
                                             .map(|o| String::from_utf8_lossy(&o.stdout).trim_end().to_string())
                                             .unwrap_or_default();
-                        let notif = Notification::new(ViewId::NetUpNotif,
-                                                      format!("Network is up ({}, {}).", ip, essid),
+                        let notif = Notification::new(format!("Network is up ({}, {}).", ip, essid),
                                                       &tx, &mut rq, &mut context);
                         context.online = true;
                         view.children_mut().push(Box::new(notif) as Box<dyn View>);
@@ -662,8 +661,7 @@ pub fn run() -> Result<(), Error> {
                         exit_status = ExitStatus::PowerOff;
                         break;
                     } else if v < context.settings.battery.warn {
-                        let notif = Notification::new(ViewId::LowBatteryNotif,
-                                                      "The battery capacity is getting low.".to_string(),
+                        let notif = Notification::new("The battery capacity is getting low.".to_string(),
                                                       &tx, &mut rq, &mut context);
                         view.children_mut().push(Box::new(notif) as Box<dyn View>);
                     }
@@ -1039,8 +1037,7 @@ pub fn run() -> Result<(), Error> {
                     Err(e) => format!("{}", e),
                     Ok(_) => format!("Saved {}.", name),
                 };
-                let notif = Notification::new(ViewId::TakeScreenshotNotif,
-                                              msg, &tx, &mut rq, &mut context);
+                let notif = Notification::new(msg, &tx, &mut rq, &mut context);
                 view.children_mut().push(Box::new(notif) as Box<dyn View>);
             },
             Event::CheckFetcher(..) |
@@ -1053,8 +1050,7 @@ pub fn run() -> Result<(), Error> {
                 }
             },
             Event::Notify(msg) => {
-                let notif = Notification::new(ViewId::MessageNotif,
-                                              msg, &tx, &mut rq, &mut context);
+                let notif = Notification::new(msg, &tx, &mut rq, &mut context);
                 view.children_mut().push(Box::new(notif) as Box<dyn View>);
             },
             Event::Select(EntryId::Reboot) => {

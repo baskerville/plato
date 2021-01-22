@@ -495,13 +495,11 @@ fn main() -> Result<(), Error> {
                         Err(e) => format!("Couldn't take screenshot: {}).", e),
                         Ok(_) => format!("Saved {}.", name),
                     };
-                    let notif = Notification::new(ViewId::TakeScreenshotNotif,
-                                                  msg, &tx, &mut rq, &mut context);
+                    let notif = Notification::new(msg, &tx, &mut rq, &mut context);
                     view.children_mut().push(Box::new(notif) as Box<dyn View>);
                 },
                 Event::Notify(msg) => {
-                    let notif = Notification::new(ViewId::MessageNotif,
-                                                  msg, &tx, &mut rq, &mut context);
+                    let notif = Notification::new(msg, &tx, &mut rq, &mut context);
                     view.children_mut().push(Box::new(notif) as Box<dyn View>);
                 },
                 Event::Device(DeviceEvent::NetUp) |
