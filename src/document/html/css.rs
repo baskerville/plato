@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use fxhash::FxHashSet;
 
 #[derive(Debug, Clone)]
@@ -189,7 +190,7 @@ impl<'a> CssParser<'a> {
             }
         }
 
-        selectors.sort_by(|a, b| b.specificity().cmp(&a.specificity()));
+        selectors.sort_by_key(|a| Reverse(a.specificity()));
 
         selectors
     }

@@ -356,7 +356,7 @@ impl Home {
             let mut page_guess = page_position * self.visible_books.len() as f32 / max_lines as f32;
             let page_ceil = page_guess.ceil();
 
-            if (page_ceil - page_guess) < f32::EPSILON {
+            if (page_ceil - page_guess).abs() < f32::EPSILON {
                 page_guess = page_ceil;
             }
 
@@ -437,11 +437,7 @@ impl Home {
                                     self.rect.max.x,
                                     self.rect.max.y - small_height - small_thickness];
 
-            let number = match id {
-                Some(ViewId::GoToPageInput) => true,
-                _ => false,
-            };
-
+            let number = matches!(id, Some(ViewId::GoToPageInput));
             let keyboard = Keyboard::new(&mut kb_rect, number, context);
             self.children.insert(index, Box::new(keyboard) as Box<dyn View>);
 
@@ -1108,7 +1104,7 @@ impl Home {
             return;
         }
 
-        let old_path = mem::replace(&mut self.current_directory, PathBuf::default());
+        let old_path = mem::take(&mut self.current_directory);
         self.terminate_fetchers(&old_path, false, hub, context);
 
         let mut update_top_bar = false;
@@ -1600,7 +1596,7 @@ impl View for Home {
                 true
             },
             Event::FetcherSearch { id, ref path, ref query, ref sort_by } => {
-                let path = path.as_ref().unwrap_or_else(|| &context.library.home);
+                let path = path.as_ref().unwrap_or(&context.library.home);
                 let query = query.as_ref().and_then(|text| BookQuery::new(text));
                 let (mut files, _) = context.library.list(path, query.as_ref(), false);
                 if let Some((sort_method, reverse_order)) = *sort_by {

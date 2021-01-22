@@ -170,7 +170,7 @@ impl Library {
                         }
                     } else {
                         let relat = path.strip_prefix(&self.home)
-                                        .unwrap_or_else(|_| path.as_ref());
+                                        .unwrap_or(path);
                         if skip_files || query.map_or(false, |q| {
                             relat.to_str().map_or(true, |s| !q.is_simple_match(s))
                         }) {
@@ -225,7 +225,7 @@ impl Library {
 
             let path = entry.path();
             let relat = path.strip_prefix(&self.home)
-                            .unwrap_or_else(|_| path);
+                            .unwrap_or(path);
             let md = entry.metadata().unwrap();
             let fp = md.fingerprint(self.fat32_epoch).unwrap();
 
@@ -598,7 +598,7 @@ impl Library {
                 SimpleStatus::Reading | SimpleStatus::Finished => {
                     if let Some(info) = self.db.get_mut(&fp) {
                         let reader_info = info.reader
-                                              .get_or_insert_with(|| ReaderInfo::default());
+                                              .get_or_insert_with(ReaderInfo::default);
                         reader_info.finished = status == SimpleStatus::Finished;
                         self.modified_reading_states.insert(fp);
                     }
@@ -613,7 +613,7 @@ impl Library {
                 },
                 SimpleStatus::Reading | SimpleStatus::Finished => {
                     let reader_info = self.reading_states.entry(fp)
-                                          .or_insert_with(|| ReaderInfo::default());
+                                          .or_insert_with(ReaderInfo::default);
                     reader_info.finished = status == SimpleStatus::Finished;
                     self.modified_reading_states.insert(fp);
                 },

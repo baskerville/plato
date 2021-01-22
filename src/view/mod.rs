@@ -252,7 +252,7 @@ pub fn process_render_queue(view: &dyn View, rq: &mut RenderQueue, context: &mut
 
         for (id, rect) in pairs.into_iter().rev() {
             if let Some(id) = id {
-                ids.entry(id).or_insert_with(|| Vec::new()).push(rect);
+                ids.entry(id).or_insert_with(Vec::new).push(rect);
             } else {
                 bgs.push(rect);
             }
@@ -559,10 +559,7 @@ pub enum EntryId {
 
 impl EntryKind {
     pub fn is_separator(&self) -> bool {
-        match *self {
-            EntryKind::Separator => true,
-            _ => false,
-        }
+        matches!(*self, EntryKind::Separator)
     }
 
     pub fn text(&self) -> &str {
@@ -641,6 +638,12 @@ impl RenderQueue {
         self.entry((data.mode, data.wait)).or_insert_with(|| {
             Vec::new()
         }).push((data.id, data.rect));
+    }
+}
+
+impl Default for RenderQueue {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

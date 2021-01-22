@@ -913,7 +913,7 @@ impl Reader {
                     if (start >= words[0].location && start <= words[words.len()-1].location) ||
                        (end >= words[0].location && end <= words[words.len()-1].location) {
                         self.annotations.entry(chunk.location)
-                            .or_insert_with(|| Vec::new())
+                            .or_insert_with(Vec::new)
                             .push(annot.clone());
                     }
                 }
@@ -1165,12 +1165,9 @@ impl Reader {
                                     self.rect.max.x,
                                     self.rect.max.y - small_height - small_thickness];
 
-            let number = match id {
-                Some(ViewId::GoToPageInput) |
-                Some(ViewId::GoToResultsPageInput) |
-                Some(ViewId::NamePageInput) => true,
-                _ => false,
-            };
+            let number = matches!(id, Some(ViewId::GoToPageInput) |
+                                      Some(ViewId::GoToResultsPageInput) |
+                                      Some(ViewId::NamePageInput));
 
             let index = rlocate::<Filler>(self).unwrap_or(0);
 
@@ -3148,14 +3145,14 @@ impl View for Reader {
 
                 if let Some(sel) = selection {
                     let text = self.text_excerpt(sel).unwrap();
-                    self.info.reader.as_mut().map(|r| {
+                    if let Some(r) = self.info.reader.as_mut() {
                         r.annotations.push(Annotation {
                             selection: sel,
                             note: note.to_string(),
                             text,
                             modified: Local::now(),
                         });
-                    });
+                    }
                     if let Some(rect) = self.text_rect(sel) {
                         rq.add(RenderData::new(self.id, rect, UpdateMode::Gui));
                     }
@@ -3454,14 +3451,14 @@ impl View for Reader {
             Event::Select(EntryId::HighlightSelection) => {
                 if let Some(sel) = self.selection.take() {
                     let text = self.text_excerpt([sel.start, sel.end]).unwrap();
-                    self.info.reader.as_mut().map(|r| {
+                    if let Some(r) = self.info.reader.as_mut() {
                         r.annotations.push(Annotation {
                             selection: [sel.start, sel.end],
                             note: String::new(),
                             text,
                             modified: Local::now(),
                         });
-                    });
+                    }
                     if let Some(rect) = self.text_rect([sel.start, sel.end]) {
                         rq.add(RenderData::new(self.id, rect, UpdateMode::Gui));
                     }
@@ -3500,15 +3497,15 @@ impl View for Reader {
                 true
             },
             Event::Select(EntryId::GoToSelectedPageName) => {
-                self.selected_text().and_then(|text| {
+                if let Some(loc) = self.selected_text().and_then(|text| {
                     let end = text.find(|c: char| !c.is_ascii_digit() &&
-                                                  !Digit::from_char(c).is_ok() &&
+                                                  Digit::from_char(c).is_err() &&
                                                   !c.is_ascii_uppercase())
-                                  .unwrap_or(text.len());
+                                  .unwrap_or_else(|| text.len());
                     self.find_page_by_name(&text[..end])
-                }).map(|loc| {
+                }) {
                     self.go_to_page(loc, true, hub, rq, context);
-                });
+                }
                 if let Some(rect) = self.selection_rect() {
                     rq.add(RenderData::new(self.id, rect, UpdateMode::Gui));
                 }

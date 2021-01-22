@@ -96,32 +96,24 @@ impl Node {
     pub fn is_block(&self) -> bool {
         match *self {
             Node::Element(ElementData { ref name, .. }) => {
-                match name.as_str() {
-                    "address" | "anonymous" | "article" | "aside" | "blockquote" | "body" | "head" |
-                    "details" | "dialog" | "dd" | "div" | "dl" | "dt" | "fieldset" | "figcaption" |
-                    "figure" | "footer" | "form" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "header" |
-                    "hgroup" | "hr" | "html" | "li" | "main" | "nav" | "ol" | "p" | "pre" | "section" |
-                    "table" | "thead" | "colgroup" | "tbody" | "tfoot" | "tr" | "caption" | "td" | "th" | "ul" => true,
-                    _ => false,
-                }
+                matches!(name.as_str(),
+                         "address" | "anonymous" | "article" | "aside" | "blockquote" | "body" | "head" |
+                         "details" | "dialog" | "dd" | "div" | "dl" | "dt" | "fieldset" | "figcaption" |
+                         "figure" | "footer" | "form" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "header" |
+                         "hgroup" | "hr" | "html" | "li" | "main" | "nav" | "ol" | "p" | "pre" | "section" |
+                         "table" | "thead" | "colgroup" | "tbody" | "tfoot" | "tr" | "caption" | "td" | "th" | "ul")
             },
             _ => false,
         }
     }
 
     pub fn is_whitespace(&self) -> bool {
-        match *self {
-            Node::Whitespace(..) => true,
-            _ => false,
-        }
+        matches!(*self, Node::Whitespace(..))
     }
 
 
     pub fn is_element(&self) -> bool {
-        match *self {
-            Node::Element(..) => true,
-            _ => false,
-        }
+        matches!(*self, Node::Element(..))
     }
 
     pub fn attr(&self, name: &str) -> Option<&str> {

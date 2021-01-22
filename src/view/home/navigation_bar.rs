@@ -51,11 +51,11 @@ impl NavigationBar {
         let first = self.children.first()
                         .and_then(|child| child.downcast_ref::<DirectoriesBar>())
                         .map(|dirs_bar| dirs_bar.path.clone())
-                        .unwrap_or_else(|| PathBuf::default());
+                        .unwrap_or_else(PathBuf::default);
         let mut last = self.children.last()
                            .and_then(|child| child.downcast_ref::<DirectoriesBar>())
                            .map(|dirs_bar| dirs_bar.path.clone())
-                           .unwrap_or_else(|| PathBuf::default());
+                           .unwrap_or_else(PathBuf::default);
 
         // Remove the trailing children.
         if let Some((leftovers_count, ancestor)) = last.ancestors().enumerate()
@@ -139,7 +139,7 @@ impl NavigationBar {
                 }
             }
 
-            if levels > self.max_levels || current == &context.library.home {
+            if levels > self.max_levels || current == context.library.home {
                 break;
             }
 
@@ -164,7 +164,7 @@ impl NavigationBar {
         }
 
         // Move and populate the children.
-        current = if path_dirs.is_empty() && path.as_ref() != &context.library.home {
+        current = if path_dirs.is_empty() && path.as_ref() != context.library.home {
             path.as_ref().parent().unwrap_or_else(|| &Path::new(""))
         } else {
             path.as_ref()
@@ -229,8 +229,8 @@ impl NavigationBar {
         let bars_count = (self.children.len()+1)/2;
         let mut values = vec![0; bars_count];
 
-        for i in 0..bars_count {
-            values[i] = self.children[2*i].rect().height() as i32 - min_height;
+        for (i, value) in values.iter_mut().enumerate().take(bars_count) {
+            *value = self.children[2*i].rect().height() as i32 - min_height;
         }
 
         let sum: i32 = values.iter().sum();

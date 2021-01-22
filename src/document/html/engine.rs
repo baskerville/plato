@@ -295,8 +295,8 @@ impl Engine {
         draw_state.position.y += style.padding.top;
 
         let has_blocks = node.children().and_then(|children| {
-            children.iter().skip_while(|child| child.is_whitespace())
-                    .next().map(Node::is_block)
+            children.iter().find(|child| !child.is_whitespace())
+                    .map(Node::is_block)
         });
 
         if has_blocks == Some(true) {
@@ -305,8 +305,9 @@ impl Engine {
                             .push(DrawCommand::Marker(root_data.start_offset + node.offset()));
             }
             if let Some(children) = node.children() {
-                let mut inner_loop_context = LoopContext::default();
-                inner_loop_context.parent = Some(node);
+                let mut inner_loop_context = LoopContext {
+                    parent: Some(node), .. Default::default()
+                };
 
                 if node.tag_name() == Some("tr") {
                     inner_loop_context.is_first = loop_context.is_first;
@@ -428,7 +429,7 @@ impl Engine {
                         inner_loop_context.index = index;
 
                         if child.tag_name() == Some("anonymous") {
-                            inner_loop_context.parent = loop_context.parent.clone();
+                            inner_loop_context.parent = loop_context.parent;
                             inner_loop_context.index = loop_context.index;
                         }
 
@@ -732,7 +733,6 @@ impl Engine {
                         style: parent_style.clone(),
                     }));
                 }
-                return;
             },
             Node::Whitespace(TextData { offset, text }) => {
                 inlines.push(InlineMaterial::Text(TextMaterial {
@@ -827,7 +827,7 @@ impl Engine {
                                                             style.font_style,
                                                             style.font_weight);
                                     font.set_size(font_size, self.dpi);
-                                    font.plan(&buf, None, style.font_features.as_ref().map(Vec::as_slice))
+                                    font.plan(&buf, None, style.font_features.as_deref())
                                 };
                                 plan.space_out(style.letter_spacing);
 
@@ -950,7 +950,7 @@ impl Engine {
                                                     style.font_style,
                                                     style.font_weight);
                             font.set_size(font_size, self.dpi);
-                            font.plan(&buf, None, style.font_features.as_ref().map(Vec::as_slice))
+                            font.plan(&buf, None, style.font_features.as_deref())
                         };
                         plan.space_out(style.letter_spacing);
                         items.push(ParagraphItem::Box {
@@ -1200,7 +1200,6 @@ impl Engine {
         let mut markers_index = 0;
         let mut last_x_position = 0;
         let mut is_first_line = true;
-        let mut j = 0;
 
         if let Some(prefix) = draw_state.prefix.as_ref() {
             let font_size = (style.font_size * 64.0) as u32;
@@ -1208,7 +1207,7 @@ impl Engine {
                 let font = self.fonts.as_mut().unwrap()
                                .get_mut(style.font_kind, style.font_style, style.font_weight);
                 font.set_size(font_size, self.dpi);
-                font.plan(prefix, None, style.font_features.as_ref().map(Vec::as_slice))
+                font.plan(prefix, None, style.font_features.as_deref())
             };
             let (start_x, _) = para_shape[0];
             let pt = pt!(start_x - prefix_plan.width, position.y);
@@ -1224,13 +1223,13 @@ impl Engine {
                     font_kind: style.font_kind,
                     font_style: style.font_style,
                     font_weight: style.font_weight,
-                    font_size: font_size,
+                    font_size,
                     color: style.color,
                 }));
             }
         }
 
-        for bp in bps {
+        for (j, bp) in bps.into_iter().enumerate() {
             let drift = if glue_drifts.is_empty() {
                 0.0
             } else {
@@ -1416,7 +1415,7 @@ impl Engine {
                         let font = self.fonts.as_mut().unwrap()
                                        .get_mut(style.font_kind, style.font_style, style.font_weight);
                         font.set_size(font_size, self.dpi);
-                        font.plan("-", None, style.font_features.as_ref().map(Vec::as_slice))
+                        font.plan("-", None, style.font_features.as_deref())
                     };
                     if let Some(DrawCommand::Text(TextCommand { ref mut rect, ref mut plan, ref mut text, .. })) = page.last_mut() {
                         rect.max.x += hyphen_plan.width;
@@ -1439,8 +1438,6 @@ impl Engine {
                 position.y = root_data.rect.min.y + space_top;
                 page = Vec::new();
             }
-
-            j += 1;
         }
 
         while let Some(offset) = markers.get(markers_index) {
@@ -1464,7 +1461,7 @@ impl Engine {
                                     element.font_style,
                                     element.font_weight);
             font.set_size(element.font_size, self.dpi);
-            font.plan(chunk, None, element.font_features.as_ref().map(Vec::as_slice))
+            font.plan(chunk, None, element.font_features.as_deref())
         };
         plan.space_out(element.letter_spacing);
         ParagraphItem::Box {
@@ -1499,7 +1496,7 @@ impl Engine {
                         let font = self.fonts.as_mut().unwrap()
                                        .get_mut(element.font_kind, element.font_style, element.font_weight);
                         font.set_size(element.font_size, self.dpi);
-                        font.plan("-", None, element.font_features.as_ref().map(Vec::as_slice)).width
+                        font.plan("-", None, element.font_features.as_deref()).width
                     } else {
                         0
                     };
@@ -1694,14 +1691,14 @@ impl Engine {
                 },
                 DrawCommand::Image(ImageCommand { position, path, scale, .. }) => {
                     if let Ok(buf) = resource_fetcher.fetch(path) {
-                        PdfOpener::new().and_then(|opener| {
+                        if let Some((pixmap, _)) = PdfOpener::new().and_then(|opener| {
                             opener.open_memory(path, &buf)
                         }).and_then(|mut doc| {
                             doc.pixmap(Location::Exact(0), scale_factor * *scale)
-                        }).map(|(pixmap, _)| {
+                        }) {
                             let position = Point::from(scale_factor * Vec2::from(*position));
                             fb.draw_pixmap(&pixmap, position);
-                        });
+                        }
                     }
                 },
                 _ => (),

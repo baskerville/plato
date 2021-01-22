@@ -282,7 +282,7 @@ impl Framebuffer for KoboFramebuffer {
             self.var_info.rotate = *v as u32;
 
             let result = unsafe {
-                write_variable_screen_info(self.file.as_raw_fd(), &mut self.var_info)
+                write_variable_screen_info(self.file.as_raw_fd(), &self.var_info)
             };
 
             if let Err(e) = result {
@@ -473,12 +473,10 @@ lazy_static! {
         // The gap between two succesive colors in G16 is 17.
         // Map {0 .. 255} to {-8 .. 8}.
         pixmap.data().iter().map(|&v| {
-            if v < 120 {
-                v as i8 / 15 - 8
-            } else if v == 120 {
-                0
-            } else {
-                ((v - 121) / 15) as i8
+            match v {
+                  0..=119 => v as i8 / 15 - 8,
+                      120 => 0,
+                121..=255 => ((v - 121) / 15) as i8,
             }
         }).collect()
     };

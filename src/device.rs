@@ -186,45 +186,28 @@ impl Device {
     }
 
     pub fn has_natural_light(&self) -> bool {
-        match self.frontlight_kind() {
-            FrontlightKind::Standard => false,
-            _ => true,
-        }
+        self.frontlight_kind() != FrontlightKind::Standard
     }
 
     pub fn has_lightsensor(&self) -> bool {
-        match self.model {
-            Model::AuraONE |
-            Model::AuraONELimEd => true,
-            _ => false,
-        }
+        matches!(self.model,
+                 Model::AuraONE | Model::AuraONELimEd)
     }
 
     pub fn has_gyroscope(&self) -> bool {
-        match self.model {
-            Model::Forma | Model::Forma32GB | Model::LibraH2O => true,
-            _ => false,
-        }
+        matches!(self.model,
+                 Model::Forma | Model::Forma32GB | Model::LibraH2O)
     }
 
     pub fn has_page_turn_buttons(&self) -> bool {
-        match self.model {
-            Model::Forma | Model::Forma32GB | Model::LibraH2O => true,
-            _ => false,
-        }
+        matches!(self.model,
+                 Model::Forma | Model::Forma32GB | Model::LibraH2O)
     }
 
     pub fn has_removable_storage(&self) -> bool {
-        match self.model {
-            Model::AuraH2O |
-            Model::Aura |
-            Model::AuraHD |
-            Model::Mini |
-            Model::Glo |
-            Model::TouchAB |
-            Model::TouchC => true,
-            _ => false,
-        }
+        matches!(self.model,
+                 Model::AuraH2O | Model::Aura | Model::AuraHD |
+                 Model::Mini | Model::Glo | Model::TouchAB | Model::TouchC)
     }
 
     pub fn should_invert_buttons(&self, rotation: i8) -> bool {

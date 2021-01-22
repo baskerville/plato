@@ -101,7 +101,7 @@ impl Keyboard {
                                      (y + key_height).round() as i32];
                 let kind = match kind {
                     KeyKind::Output(c) if *c != ' ' => KeyKind::Output(layout.outputs[level][i][j-dj]),
-                    _ => { dj = j + 1; kind.clone() },
+                    _ => { dj = j + 1; *kind },
                 };
                 let mut key = Key::new(key_rect, kind);
                 if number && kind == KeyKind::Alternate {
@@ -261,13 +261,11 @@ impl View for Keyboard {
     }
 
     fn might_skip(&self, evt: &Event) -> bool {
-        match *evt {
-            Event::Key(..) |
-            Event::Gesture(..) |
-            Event::Device(DeviceEvent::Finger { .. }) |
-            Event::Select(..) => false,
-            _ => true,
-        }
+        !matches!(*evt,
+                  Event::Key(..) |
+                  Event::Gesture(..) |
+                  Event::Device(DeviceEvent::Finger { .. }) |
+                  Event::Select(..))
     }
 
     fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, _fonts: &mut Fonts) {

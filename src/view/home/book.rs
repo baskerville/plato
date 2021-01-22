@@ -124,20 +124,20 @@ impl View for Book {
             let tw = 3 * th / 4;
 
             if preview_path.exists() {
-                PdfOpener::new().and_then(|opener| {
+                if let Some((pixmap, _)) = PdfOpener::new().and_then(|opener| {
                     opener.open(preview_path)
                 }).and_then(|mut doc| {
                     doc.dims(0).and_then(|dims| {
                         let scale = (tw as f32 / dims.0).min(th as f32 / dims.1);
                         doc.pixmap(Location::Exact(0), scale)
                     })
-                }).map(|(pixmap, _)| {
+                }) {
                     let dx = (tw - pixmap.width as i32) / 2;
                     let dy = (th - pixmap.height as i32) / 2;
                     let pt = pt!(self.rect.min.x + padding + dx,
                                  self.rect.min.y + x_height / 2 + dy);
                     fb.draw_pixmap(&pixmap, pt);
-                });
+                }
             }
 
             width -= tw + padding;

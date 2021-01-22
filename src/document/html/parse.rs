@@ -56,8 +56,8 @@ pub fn parse_font_size(value: &str, em: f32, rem: f32) -> Option<f32> {
                     _ => None,
                 }
             })
-        } else if value.ends_with('%') {
-            value[..value.len() - 1].parse::<f32>().ok().map(|v| {
+        } else if let Some(percent) = value.strip_suffix('%') {
+            percent.parse::<f32>().ok().map(|v| {
                 v / 100.0 * em
             })
         } else {
@@ -129,8 +129,8 @@ pub fn parse_vertical_align(value: &str, em: f32, rem: f32, line_height: i32, dp
         Some(pt_to_px(0.4 * em, dpi).round() as i32)
     } else if value == "sub" || value == "bottom" {
         Some(pt_to_px(-0.2 * em, dpi).round() as i32)
-    } else if value.ends_with('%') {
-        value[..value.len() - 1].parse::<f32>().ok().map(|v| {
+    } else if let Some(percent) = value.strip_suffix('%') {
+        percent.parse::<f32>().ok().map(|v| {
             (v / 100.0 * line_height as f32) as i32
         })
     } else {
@@ -196,8 +196,8 @@ pub fn parse_list_style_type(value: &str) -> Option<ListStyleType> {
 pub fn parse_width(value: &str, em: f32, rem: f32, width: i32, dpi: u16) -> Option<i32> {
     if value == "auto" {
         Some(0)
-    } else if value.ends_with('%') {
-        value[..value.len() - 1].parse::<f32>().ok().map(|v| {
+    } else if let Some(percent) = value.strip_suffix('%') {
+        percent.parse::<f32>().ok().map(|v| {
             (v / 100.0 * width as f32) as i32
         })
     } else {
@@ -208,8 +208,8 @@ pub fn parse_width(value: &str, em: f32, rem: f32, width: i32, dpi: u16) -> Opti
 pub fn parse_height(value: &str, em: f32, rem: f32, width: i32, dpi: u16) -> Option<i32> {
     if value == "auto" {
         Some(0)
-    } else if value.ends_with('%') {
-        value[..value.len() - 1].parse::<f32>().ok().map(|v| {
+    } else if let Some(percent) = value.strip_suffix('%') {
+        percent.parse::<f32>().ok().map(|v| {
             (v / 100.0 * width as f32) as i32
         })
     } else {
@@ -222,8 +222,8 @@ fn parse_edge_length(value: &str, em: f32, rem: f32, width: i32, auto_value: i32
         auto_value
     } else if value == "0" {
         0
-    } else if value.ends_with('%') {
-        value[..value.len() - 1].parse::<f32>().ok().map(|v| {
+    } else if let Some(percent) = value.strip_suffix('%') {
+        percent.parse::<f32>().ok().map(|v| {
             (v / 100.0 * width as f32) as i32
         }).unwrap_or_default()
     } else {
@@ -266,8 +266,8 @@ pub fn parse_text_align(value: &str) -> Option<TextAlign> {
 pub fn parse_line_height(value: &str, em: f32, rem: f32, dpi: u16) -> Option<i32> {
     if value == "normal" {
         Some(pt_to_px(1.2 * em, dpi).round() as i32)
-    } else if value.ends_with('%') {
-        value[..value.len() - 1].parse::<f32>().ok().map(|v| {
+    } else if let Some(percent) = value.strip_suffix('%') {
+        percent.parse::<f32>().ok().map(|v| {
             pt_to_px(v / 100.0 * em as f32, dpi).round() as i32
         })
     } else if value.ends_with(|c: char| !c.is_ascii_alphabetic()) {
@@ -280,8 +280,8 @@ pub fn parse_line_height(value: &str, em: f32, rem: f32, dpi: u16) -> Option<i32
 }
 
 pub fn parse_text_indent(value: &str, em: f32, rem: f32, width: i32, dpi: u16) -> Option<i32> {
-    if value.ends_with('%') {
-        value[..value.len() - 1].parse::<f32>().ok().map(|v| {
+    if let Some(percent) = value.strip_suffix('%') {
+        percent.parse::<f32>().ok().map(|v| {
             (v / 100.0 * width as f32) as i32
         })
     } else {

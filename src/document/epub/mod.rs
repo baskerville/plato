@@ -420,25 +420,23 @@ impl EpubDocument {
 
     pub fn categories(&self) -> BTreeSet<String> {
         let mut result = BTreeSet::new();
-        self.info.find("metadata")
-            .and_then(Node::children)
-            .map(|children| {
-                for child in children {
-                    if child.tag_qualified_name() == Some("dc:subject") {
-                        if let Some(subject) = child.text().map(|text| decode_entities(text)) {
-                            // Pipe separated list of BISAC categories
-                            if subject.contains(" / ") {
-                                for categ in subject.split('|') {
-                                    let start_index = if let Some(index) = categ.find(" - ") { index+3 } else { 0 };
-                                    result.insert(categ[start_index..].trim().replace(" / ", "."));
-                                }
-                            } else {
-                                result.insert(subject.into_owned());
+        if let Some(children) = self.info.find("metadata").and_then(Node::children) {
+            for child in children {
+                if child.tag_qualified_name() == Some("dc:subject") {
+                    if let Some(subject) = child.text().map(|text| decode_entities(text)) {
+                        // Pipe separated list of BISAC categories
+                        if subject.contains(" / ") {
+                            for categ in subject.split('|') {
+                                let start_index = if let Some(index) = categ.find(" - ") { index+3 } else { 0 };
+                                result.insert(categ[start_index..].trim().replace(" / ", "."));
                             }
+                        } else {
+                            result.insert(subject.into_owned());
                         }
                     }
                 }
-            });
+            }
+        }
         result
     }
 

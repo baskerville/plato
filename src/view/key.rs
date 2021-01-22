@@ -70,7 +70,7 @@ impl<'de> Deserialize<'de> for KeyKind {
                         if value.chars().count() != 1 {
                             return Err(serde::de::Error::unknown_field(value, FIELDS));
                         }
-                        value.chars().next().map(|c| KeyKind::Output(c))
+                        value.chars().next().map(KeyKind::Output)
                              .ok_or_else(|| serde::de::Error::custom("impossible"))
                     },
                 }
@@ -91,10 +91,7 @@ pub enum KeyLabel {
 
 impl KeyKind {
     pub fn is_variable_output(&self) -> bool {
-        match self {
-            KeyKind::Output(ch) if *ch != ' ' => true,
-            _ => false
-        }
+        matches!(self, KeyKind::Output(ch) if *ch != ' ')
     }
 
     pub fn label(self, ratio: f32) -> KeyLabel {

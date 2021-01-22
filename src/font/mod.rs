@@ -1489,8 +1489,7 @@ impl Font {
                 pos += glyph.advance;
             }
 
-            let fallback_faces: BTreeSet<*mut FtFace> = fallback_faces.into_iter().map(|(_, v)| v).collect();
-            for face in fallback_faces.into_iter() {
+            for (_, face) in fallback_faces {
                 FT_Done_Face(face);
             }
         }

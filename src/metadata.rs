@@ -158,10 +158,7 @@ impl CroppingMargins {
     }
 
     pub fn is_split(&self) -> bool {
-        match *self {
-            CroppingMargins::Any(..) => false,
-            _ => true,
-        }
+        !matches!(*self, CroppingMargins::Any(..))
     }
 }
 
@@ -594,14 +591,10 @@ pub enum SortMethod {
 
 impl SortMethod {
     pub fn reverse_order(self) -> bool {
-        match self {
-            SortMethod::Author |
-            SortMethod::Title |
-            SortMethod::Kind |
-            SortMethod::FileName |
-            SortMethod::FilePath => false,
-            _ => true,
-        }
+        !matches!(self,
+                  SortMethod::Author | SortMethod::Title |
+                  SortMethod::Kind | SortMethod::FileName |
+                  SortMethod::FilePath)
     }
 
     pub fn label(&self) -> &str {

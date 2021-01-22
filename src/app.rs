@@ -165,7 +165,7 @@ impl Context {
         }
 
         let history = self.input_history.entry(id)
-                          .or_insert_with(|| VecDeque::new());
+                          .or_insert_with(VecDeque::new);
 
         if history.front().map(String::as_str) != Some(text) {
             history.push_front(text.to_string());
