@@ -85,7 +85,7 @@ impl HtmlDocument {
             content,
             engine: Engine::new(),
             pages: Vec::new(),
-            parent: PathBuf::from(""),
+            parent: PathBuf::default(),
             size,
             viewer_stylesheet: PathBuf::from(VIEWER_STYLESHEET),
             user_stylesheet: PathBuf::from(USER_STYLESHEET),
@@ -174,7 +174,7 @@ impl HtmlDocument {
 
     fn build_pages(&mut self) -> Vec<Page> {
         let mut stylesheet = Vec::new();
-        let spine_dir = PathBuf::from("");
+        let spine_dir = PathBuf::default();
 
         if let Ok(text) = fs::read_to_string(&self.viewer_stylesheet) {
             let (mut css, _) = CssParser::new(&text).parse(RuleKind::Viewer);

@@ -22,7 +22,7 @@ impl PageLabel {
         PageLabel {
             id: ID_FEEDER.next(),
             rect,
-            children: vec![],
+            children: Vec::new(),
             current_page,
             pages_count,
             synthetic,

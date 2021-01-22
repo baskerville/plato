@@ -36,7 +36,7 @@ impl<'a> Default for Page<'a> {
         Page {
             start_index: 0,
             end_index: 0,
-            lines: vec![],
+            lines: Vec::new(),
         }
     }
 }
@@ -61,7 +61,7 @@ impl<'a> Default for Line<'a> {
         Line {
             width: 0,
             labels_count: 0,
-            items: vec![],
+            items: Vec::new(),
         }
     }
 }
@@ -89,7 +89,7 @@ impl DirectoriesBar {
             path: path.as_ref().to_path_buf(),
             current_page: 0,
             selection_page: None,
-            pages: vec![vec![]],
+            pages: vec![Vec::new()],
         }
     }
 
@@ -293,7 +293,7 @@ impl DirectoriesBar {
     }
 
     fn make_children(&self, page: &Page, layout: &Layout, current_directory: &Path, directories: &BTreeSet<PathBuf>, has_selection: &mut bool) -> Vec<Box<dyn View>> {
-        let mut children = vec![];
+        let mut children = Vec::new();
         let Layout { x_height, padding, max_line_width, max_lines } = *layout;
         let background = TEXT_BUMP_SMALL[0];
         let vertical_space = self.rect.height() as i32 - max_lines as i32 * x_height;

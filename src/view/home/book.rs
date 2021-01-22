@@ -35,7 +35,7 @@ impl Book {
         Book {
             id: ID_FEEDER.next(),
             rect,
-            children: vec![],
+            children: Vec::new(),
             info,
             index,
             first_column,

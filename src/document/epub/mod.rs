@@ -315,7 +315,7 @@ impl EpubDocument {
 
     fn build_display_list(&mut self, index: usize, start_offset: usize) -> Vec<Page> {
         let mut text = String::new();
-        let mut spine_dir = PathBuf::from("");
+        let mut spine_dir = PathBuf::default();
 
         {
             let path = &self.spine[index].path;

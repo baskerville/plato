@@ -25,7 +25,7 @@ impl Directory {
         Directory {
             id: ID_FEEDER.next(),
             rect,
-            children: vec![],
+            children: Vec::new(),
             path,
             selected,
             align,

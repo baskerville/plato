@@ -28,7 +28,7 @@ impl Slider {
         Slider {
             id: ID_FEEDER.next(),
             rect,
-            children: vec![],
+            children: Vec::new(),
             slider_id,
             value,
             min_value,

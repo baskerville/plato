@@ -29,7 +29,7 @@ impl Battery {
         Battery {
             id: ID_FEEDER.next(),
             rect,
-            children: vec![],
+            children: Vec::new(),
             capacity,
             status,
         }

@@ -21,7 +21,7 @@ impl LibraryLabel {
         LibraryLabel {
             id: ID_FEEDER.next(),
             rect,
-            children: vec![],
+            children: Vec::new(),
             name: name.to_string(),
             count,
             filter,

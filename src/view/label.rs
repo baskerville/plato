@@ -22,7 +22,7 @@ impl Label {
         Label {
             id: ID_FEEDER.next(),
             rect,
-            children: vec![],
+            children: Vec::new(),
             text,
             align,
             event: None,

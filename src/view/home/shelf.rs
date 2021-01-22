@@ -42,7 +42,7 @@ impl Shelf {
         Shelf {
             id: ID_FEEDER.next(),
             rect,
-            children: vec![],
+            children: Vec::new(),
             max_lines,
             first_column,
             second_column,
@@ -97,7 +97,7 @@ impl Shelf {
                             }
                         })
                     });
-                    Some(PathBuf::from(""))
+                    Some(PathBuf::default())
                 } else {
                     Some(thumb_path)
                 }

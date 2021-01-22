@@ -67,7 +67,7 @@ impl Notification {
         Notification {
             id,
             rect,
-            children: vec![],
+            children: Vec::new(),
             text,
             max_width: max_message_width,
             index,

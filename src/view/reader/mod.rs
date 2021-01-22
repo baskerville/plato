@@ -384,7 +384,7 @@ impl Reader {
         Reader {
             id,
             rect,
-            children: vec![],
+            children: Vec::new(),
             doc: Arc::new(Mutex::new(Box::new(doc))),
             cache: BTreeMap::new(),
             text: FxHashMap::default(),

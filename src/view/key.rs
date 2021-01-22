@@ -134,7 +134,7 @@ impl Key {
         Key {
             id: ID_FEEDER.next(),
             rect,
-            children: vec![],
+            children: Vec::new(),
             kind,
             pressure: 0,
             active: false,

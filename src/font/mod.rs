@@ -1549,7 +1549,7 @@ impl Default for RenderPlan {
         RenderPlan {
             width: 0,
             scripts: FxHashMap::default(),
-            glyphs: vec![],
+            glyphs: Vec::new(),
         }
     }
 }

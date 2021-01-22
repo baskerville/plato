@@ -16,7 +16,7 @@ impl Filler {
         Filler {
             id: ID_FEEDER.next(),
             rect,
-            children: vec![],
+            children: Vec::new(),
             color,
         }
     }

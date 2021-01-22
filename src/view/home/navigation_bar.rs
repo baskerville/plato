@@ -51,11 +51,11 @@ impl NavigationBar {
         let first = self.children.first()
                         .and_then(|child| child.downcast_ref::<DirectoriesBar>())
                         .map(|dirs_bar| dirs_bar.path.clone())
-                        .unwrap_or_else(|| PathBuf::from(""));
+                        .unwrap_or_else(|| PathBuf::default());
         let mut last = self.children.last()
                            .and_then(|child| child.downcast_ref::<DirectoriesBar>())
                            .map(|dirs_bar| dirs_bar.path.clone())
-                           .unwrap_or_else(|| PathBuf::from(""));
+                           .unwrap_or_else(|| PathBuf::default());
 
         // Remove the trailing children.
         if let Some((leftovers_count, ancestor)) = last.ancestors().enumerate()

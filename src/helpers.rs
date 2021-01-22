@@ -111,7 +111,7 @@ pub trait Normalize: ToOwned {
 
 impl Normalize for Path {
     fn normalize(&self) -> PathBuf {
-        let mut result = PathBuf::from("");
+        let mut result = PathBuf::default();
 
         for c in self.components() {
             match c {

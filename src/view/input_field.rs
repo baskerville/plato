@@ -81,7 +81,7 @@ impl InputField {
         InputField {
             id: ID_FEEDER.next(),
             rect,
-            children: vec![],
+            children: Vec::new(),
             view_id,
             text: "".to_string(),
             partial: "".to_string(),

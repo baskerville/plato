@@ -26,7 +26,7 @@ impl Clock {
         Clock {
             id: ID_FEEDER.next(),
             rect: *rect,
-            children: vec![],
+            children: Vec::new(),
             format,
             time,
         }
