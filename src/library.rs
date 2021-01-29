@@ -1,4 +1,5 @@
 use std::fs::{self, File};
+use std::str::FromStr;
 use std::time::{SystemTime, Duration};
 use std::path::{PathBuf, Path};
 use std::collections::BTreeSet;
@@ -12,7 +13,7 @@ use crate::metadata::{Info, ReaderInfo, FileInfo, BookQuery, SimpleStatus, SortM
 use crate::metadata::{sort, sorter, extract_metadata_from_epub};
 use crate::settings::{LibraryMode, ImportSettings};
 use crate::document::file_kind;
-use crate::helpers::{Fingerprint, save_json, load_json, IsHidden};
+use crate::helpers::{Fingerprint, Fp, save_json, load_json, IsHidden};
 
 pub const METADATA_FILENAME: &str = ".metadata.json";
 pub const FAT32_EPOCH_FILENAME: &str = ".fat32-epoch";
@@ -22,10 +23,10 @@ pub const THUMBNAIL_PREVIEWS_DIRNAME: &str = ".thumbnail-previews";
 pub struct Library {
     pub home: PathBuf,
     pub mode: LibraryMode,
-    pub db: IndexMap<u64, Info, FxBuildHasher>,
-    pub paths: FxHashMap<PathBuf, u64>,
-    pub reading_states: FxHashMap<u64, ReaderInfo>,
-    pub modified_reading_states: FxHashSet<u64>,
+    pub db: IndexMap<Fp, Info, FxBuildHasher>,
+    pub paths: FxHashMap<PathBuf, Fp>,
+    pub reading_states: FxHashMap<Fp, ReaderInfo>,
+    pub modified_reading_states: FxHashSet<Fp>,
     pub has_db_changed: bool,
     pub fat32_epoch: SystemTime,
     pub sort_method: SortMethod,
@@ -35,7 +36,7 @@ pub struct Library {
 
 impl Library {
     pub fn new<P: AsRef<Path>>(home: P, mode: LibraryMode) -> Self {
-        let mut db: IndexMap<u64, Info, FxBuildHasher> = if mode == LibraryMode::Database {
+        let mut db: IndexMap<Fp, Info, FxBuildHasher> = if mode == LibraryMode::Database {
             let path = home.as_ref().join(METADATA_FILENAME);
             match load_json(&path) {
                 Err(e) => {
@@ -61,13 +62,13 @@ impl Library {
             let entry = entry.unwrap();
             let path = entry.path();
             if let Some(fp) = path.file_stem().and_then(|v| v.to_str())
-                                  .and_then(|v| u64::from_str_radix(v, 16).ok()) {
+                                  .and_then(|v| Fp::from_str(v).ok()) {
                 if let Ok(reader_info) = load_json(path).map_err(|e| eprintln!("{}", e)) {
                     if mode == LibraryMode::Database {
                         if let Some(info) = db.get_mut(&fp) {
                             info.reader = Some(reader_info);
                         } else {
-                            eprintln!("Unknown fingerprint: {:016X}.", fp);
+                            eprintln!("Unknown fingerprint: {}.", fp);
                         }
                     } else {
                         reading_states.insert(fp, reader_info);
@@ -186,8 +187,8 @@ impl Library {
                             kind,
                             size,
                         };
-                        let secs = (fp >> 32) as i64;
-                        let nsecs = ((fp & ((1<<32) - 1)) % 1_000_000_000) as u32;
+                        let secs = (*fp >> 32) as i64;
+                        let nsecs = ((*fp & ((1<<32) - 1)) % 1_000_000_000) as u32;
                         let added = Local.timestamp(secs, nsecs);
                         let info = Info {
                             file,
@@ -232,7 +233,7 @@ impl Library {
             // The fp is know: update the path if it changed.
             if self.db.contains_key(&fp) {
                 if relat != self.db[&fp].file.path {
-                    println!("Update path for {:016X}: {} → {}.",
+                    println!("Update path for {}: {} → {}.",
                              fp, self.db[&fp].file.path.display(), relat.display());
                     self.paths.remove(&self.db[&fp].file.path);
                     self.paths.insert(relat.to_path_buf(), fp);
@@ -241,7 +242,7 @@ impl Library {
                 }
             // The path is known: update the fp.
             } else if let Some(fp2) = self.paths.get(relat).cloned() {
-                println!("Update fingerprint for {}: {:016X} → {:016X}.", relat.display(), fp2, fp);
+                println!("Update fingerprint for {}: {} → {}.", relat.display(), fp2, fp);
                 let info = self.db.remove(&fp2).unwrap();
                 self.db.insert(fp, info);
                 self.db[&fp].file.size = md.len();
@@ -273,7 +274,7 @@ impl Library {
                 // drift by one second, when the file is created within an operating system
                 // and moved within another.
                 if let Some(nfp) = nfp {
-                    println!("Update fingerprint for {}: {:016X} → {:016X}.", self.db[&nfp].file.path.display(), nfp, fp);
+                    println!("Update fingerprint for {}: {} → {}.", self.db[&nfp].file.path.display(), nfp, fp);
                     let info = self.db.remove(&nfp).unwrap();
                     self.db.insert(fp, info);
                     let rp1 = self.reading_state_path(nfp);
@@ -283,7 +284,7 @@ impl Library {
                     let tp2 = self.thumbnail_preview_path(fp);
                     fs::rename(tp1, tp2).ok();
                     if relat != self.db[&fp].file.path {
-                        println!("Update path for {:016X}: {} → {}.",
+                        println!("Update path for {}: {} → {}.",
                                  fp, self.db[&fp].file.path.display(), relat.display());
                         self.paths.remove(&self.db[&fp].file.path);
                         self.paths.insert(relat.to_path_buf(), fp);
@@ -295,7 +296,7 @@ impl Library {
                     if !settings.allowed_kinds.contains(&kind) {
                         continue;
                     }
-                    println!("Add new entry: {:016X}, {}.", fp, relat.display());
+                    println!("Add new entry: {}, {}.", fp, relat.display());
                     let size = md.len();
                     let file = FileInfo {
                         path: relat.to_path_buf(),
@@ -325,7 +326,7 @@ impl Library {
             if path.exists() {
                 true
             } else {
-                println!("Remove entry: {:016X}, {}.", fp, info.file.path.display());
+                println!("Remove entry: {}, {}.", fp, info.file.path.display());
                 false
             }
         });
@@ -346,7 +347,7 @@ impl Library {
                 let entry = entry.unwrap();
                 if let Some(fp) = entry.path().file_stem()
                                        .and_then(|v| v.to_str())
-                                       .and_then(|v| u64::from_str_radix(v, 16).ok()) {
+                                       .and_then(|v| Fp::from_str(v).ok()) {
                     if !self.db.contains_key(&fp) {
                         fs::remove_file(entry.path()).ok();
                     }
@@ -489,13 +490,13 @@ impl Library {
                                             .fingerprint(self.fat32_epoch).unwrap())
                               }
                           })
-                          .collect::<FxHashSet<u64>>();
+                          .collect::<FxHashSet<Fp>>();
 
         self.reading_states.retain(|fp, _| {
             if fps.contains(fp) {
                 true
             } else {
-                println!("Remove reading state for {:016X}.", fp);
+                println!("Remove reading state for {}.", fp);
                 false
             }
         });
@@ -511,7 +512,7 @@ impl Library {
             let entry = entry.unwrap();
             if let Some(fp) = entry.path().file_stem()
                                    .and_then(|v| v.to_str())
-                                   .and_then(|v| u64::from_str_radix(v, 16).ok()) {
+                                   .and_then(|v| Fp::from_str(v).ok()) {
                 if !fps.contains(&fp) {
                     fs::remove_file(entry.path()).ok();
                 }
@@ -650,13 +651,13 @@ impl Library {
             let entry = entry.unwrap();
             let path = entry.path();
             if let Some(fp) = path.file_stem().and_then(|v| v.to_str())
-                                  .and_then(|v| u64::from_str_radix(v, 16).ok()) {
+                                  .and_then(|v| Fp::from_str(v).ok()) {
                 if let Ok(reader_info) = load_json(path).map_err(|e| eprintln!("{}", e)) {
                     if self.mode == LibraryMode::Database {
                         if let Some(info) = self.db.get_mut(&fp) {
                             info.reader = Some(reader_info);
                         } else {
-                            eprintln!("Unknown fingerprint: {:016X}.", fp);
+                            eprintln!("Unknown fingerprint: {}.", fp);
                         }
                     } else {
                         self.reading_states.insert(fp, reader_info);
@@ -700,15 +701,15 @@ impl Library {
         }
     }
 
-    fn reading_state_path(&self, fp: u64) -> PathBuf {
+    fn reading_state_path(&self, fp: Fp) -> PathBuf {
         self.home
             .join(READING_STATES_DIRNAME)
-            .join(format!("{:016X}.json", fp))
+            .join(format!("{}.json", fp))
     }
 
-    fn thumbnail_preview_path(&self, fp: u64) -> PathBuf {
+    fn thumbnail_preview_path(&self, fp: Fp) -> PathBuf {
         self.home
             .join(THUMBNAIL_PREVIEWS_DIRNAME)
-            .join(format!("{:016X}.png", fp))
+            .join(format!("{}.png", fp))
     }
 }

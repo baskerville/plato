@@ -1,11 +1,16 @@
 use std::io;
 use std::char;
+use std::fmt;
+use std::str::FromStr;
 use std::borrow::Cow;
 use std::time::SystemTime;
+use std::num::ParseIntError;
 use std::fs::{self, File, Metadata};
 use std::path::{Path, PathBuf, Component};
 use fxhash::FxHashMap;
-use serde::{Serialize, Deserialize};
+use std::ops::{Deref, DerefMut};
+use serde::{Serialize, Serializer, Deserialize, Deserializer};
+use serde::de::{self, Visitor};
 use lazy_static::lazy_static;
 use entities::ENTITIES;
 use walkdir::DirEntry;
@@ -94,14 +99,81 @@ pub fn save_toml<T, P: AsRef<Path>>(data: &T, path: P) -> Result<(), Error> wher
 }
 
 pub trait Fingerprint {
-    fn fingerprint(&self, epoch: SystemTime) -> io::Result<u64>;
+    fn fingerprint(&self, epoch: SystemTime) -> io::Result<Fp>;
 }
 
 impl Fingerprint for Metadata {
-    fn fingerprint(&self, epoch: SystemTime) -> io::Result<u64> {
+    fn fingerprint(&self, epoch: SystemTime) -> io::Result<Fp> {
         let m = self.modified()?.duration_since(epoch)
                     .map_or_else(|e| e.duration().as_secs(), |v| v.as_secs());
-        Ok(m.rotate_left(32) ^ self.len())
+        Ok(Fp(m.rotate_left(32) ^ self.len()))
+    }
+}
+
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+pub struct Fp(u64);
+
+impl Deref for Fp {
+    type Target = u64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Fp {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl FromStr for Fp {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        u64::from_str_radix(s, 16).map(|v| Fp(v))
+    }
+}
+
+impl fmt::Display for Fp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:016X}", self.0)
+    }
+}
+
+impl Serialize for Fp {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+struct FpVisitor;
+
+impl<'de> Visitor<'de> for FpVisitor {
+    type Value = Fp;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Self::Value::from_str(value)
+             .map_err(|e| E::custom(format!("Can't parse fingerprint: {}", e)))
+    }
+}
+
+impl<'de> Deserialize<'de> for Fp {
+    fn deserialize<D>(deserializer: D) -> Result<Fp, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FpVisitor)
     }
 }
 
