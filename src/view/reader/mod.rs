@@ -1741,7 +1741,7 @@ impl Reader {
             }
 
             let mut families = family_names(&context.settings.reader.font_path)
-                                           .map_err(|e| eprintln!("Can't get family names: {}", e))
+                                           .map_err(|e| eprintln!("Can't get family names: {:#}.", e))
                                            .unwrap_or_default();
             let current_family = self.info.reader.as_ref()
                                      .and_then(|r| r.font_family.clone())

@@ -84,7 +84,7 @@ impl View for RotationValues {
                         self.taps_count - CORNERS_COUNT
                     };
                     context.fb.set_rotation(rotation)
-                           .map_err(|e| eprintln!("{}", e))
+                           .map_err(|e| eprintln!("Can't set rotation: {:#}.", e))
                            .ok();
                     if context.fb.rotation() == self.read_rotation {
                         self.written_rotation = rotation;

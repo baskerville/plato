@@ -40,7 +40,7 @@ fn main() -> Result<(), Error> {
     opts.optopt("a", "added-after", "Only process entries added after the given date-time.", "ADDED_DATETIME");
     opts.optopt("m", "library-mode", "The library mode (`database` or `filesystem`).", "LIBRARY_MODE");
 
-    let matches = opts.parse(&args).context("Failed to parse the command line arguments.")?;
+    let matches = opts.parse(&args).context("failed to parse the command line arguments")?;
 
     if matches.opt_present("h") {
         println!("{}", opts.usage("Usage: plato-import -h|-I|-C|-EFSN [-k ALLOWED_KINDS] [-a ADDED_DATETIME] [-m LIBRARY_MODE] LIBRARY_PATH"));
@@ -48,7 +48,7 @@ fn main() -> Result<(), Error> {
     }
 
     if matches.free.is_empty() {
-        return Err(format_err!("Missing required argument: library path."));
+        return Err(format_err!("missing required argument: library path"));
     }
 
     let library_path = Path::new(&matches.free[0]);

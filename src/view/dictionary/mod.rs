@@ -56,7 +56,7 @@ fn query_to_content(query: &str, language: &String, fuzzy: bool, target: Option<
         }
 
         if let Some(results) = dict.lookup(query, fuzzy)
-                                   .map_err(|e| eprintln!("{}", e))
+                                   .map_err(|e| eprintln!("Can't search dictionary: {:#}.", e))
                                    .ok().filter(|r| !r.is_empty()) {
 
             if target.is_none() {

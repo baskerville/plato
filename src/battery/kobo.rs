@@ -40,7 +40,7 @@ impl Battery for KoboBattery {
             "Discharging" => Ok(Status::Discharging),
             "Charging" => Ok(Status::Charging),
             "Not charging" | "Full" => Ok(Status::Charged),
-            _ => Err(format_err!("Unknown battery status.")),
+            _ => Err(format_err!("unknown battery status")),
 
         }
     }

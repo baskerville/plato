@@ -68,33 +68,33 @@ pub fn decode_entities(text: &str) -> Cow<str> {
 
 pub fn load_json<T, P: AsRef<Path>>(path: P) -> Result<T, Error> where for<'a> T: Deserialize<'a> {
     let file = File::open(path.as_ref())
-                    .with_context(|| format!("Cannot open file {}.", path.as_ref().display()))?;
+                    .with_context(|| format!("can't open file {}", path.as_ref().display()))?;
     serde_json::from_reader(file)
-               .with_context(|| format!("Cannot parse JSON from {}.", path.as_ref().display()))
+               .with_context(|| format!("can't parse JSON from {}", path.as_ref().display()))
                .map_err(Into::into)
 }
 
 pub fn save_json<T, P: AsRef<Path>>(data: &T, path: P) -> Result<(), Error> where T: Serialize {
     let file = File::create(path.as_ref())
-                    .with_context(|| format!("Cannot create file {}.", path.as_ref().display()))?;
+                    .with_context(|| format!("can't create file {}", path.as_ref().display()))?;
     serde_json::to_writer_pretty(file, data)
-               .with_context(|| format!("Cannot serialize to JSON file {}.", path.as_ref().display()))
+               .with_context(|| format!("can't serialize to JSON file {}", path.as_ref().display()))
                .map_err(Into::into)
 }
 
 pub fn load_toml<T, P: AsRef<Path>>(path: P) -> Result<T, Error> where for<'a> T: Deserialize<'a> {
     let s = fs::read_to_string(path.as_ref())
-               .with_context(|| format!("Cannot read file {}.", path.as_ref().display()))?;
+               .with_context(|| format!("can't read file {}", path.as_ref().display()))?;
     toml::from_str(&s)
-         .with_context(|| format!("Cannot parse TOML content from {}.", path.as_ref().display()))
+         .with_context(|| format!("can't parse TOML content from {}", path.as_ref().display()))
          .map_err(Into::into)
 }
 
 pub fn save_toml<T, P: AsRef<Path>>(data: &T, path: P) -> Result<(), Error> where T: Serialize {
     let s = toml::to_string(data)
-                 .context("Cannot convert to TOML format.")?;
+                 .context("can't convert to TOML format")?;
     fs::write(path.as_ref(), &s)
-       .with_context(|| format!("Cannot write to file {}.", path.as_ref().display()))
+       .with_context(|| format!("can't write to file {}", path.as_ref().display()))
        .map_err(Into::into)
 }
 
@@ -164,7 +164,7 @@ impl<'de> Visitor<'de> for FpVisitor {
         E: de::Error,
     {
         Self::Value::from_str(value)
-             .map_err(|e| E::custom(format!("Can't parse fingerprint: {}", e)))
+             .map_err(|e| E::custom(format!("can't parse fingerprint: {}", e)))
     }
 }
 

@@ -192,7 +192,7 @@ pub fn render(view: &dyn View, wait: bool, ids: &FxHashMap<Id, Vec<Rectangle>>, 
             if wait {
                 updating.retain(|tok, urect| {
                     !render_rect.overlaps(urect) ||
-                     fb.wait(*tok).map_err(|err| eprintln!("{}", err)).is_err()
+                     fb.wait(*tok).map_err(|err| eprintln!("Can't wait: {:#}.", err)).is_err()
                 });
             }
 
@@ -264,7 +264,7 @@ pub fn process_render_queue(view: &dyn View, rq: &mut RenderQueue, context: &mut
         for rect in rects {
             match context.fb.update(&rect, mode) {
                 Ok(tok) => { updating.insert(tok, rect); },
-                Err(err) => { eprintln!("{}", err); },
+                Err(err) => { eprintln!("Can't update {}: {:#}.", rect, err); },
             }
         }
     }

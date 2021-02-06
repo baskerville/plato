@@ -117,7 +117,7 @@ pub trait Document: Send+Sync {
     }
 
     fn save(&self, _path: &str) -> Result<(), Error> {
-        Err(format_err!("This document can't be saved."))
+        Err(format_err!("this document can't be saved"))
     }
 
     fn preview_pixmap(&mut self, width: f32, height: f32) -> Option<Pixmap> {
@@ -197,12 +197,12 @@ pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<dyn Document>> {
         match k.as_ref() {
             "epub" => {
                 EpubDocument::new(&path)
-                             .map_err(|e| eprintln!("{}: {}.", path.as_ref().display(), e))
+                             .map_err(|e| eprintln!("{}: {:#}.", path.as_ref().display(), e))
                              .map(|d| Box::new(d) as Box<dyn Document>).ok()
             },
             "html" | "htm" => {
                 HtmlDocument::new(&path)
-                             .map_err(|e| eprintln!("{}: {}.", path.as_ref().display(), e))
+                             .map_err(|e| eprintln!("{}: {:#}.", path.as_ref().display(), e))
                              .map(|d| Box::new(d) as Box<dyn Document>).ok()
             },
             "djvu" | "djv" => {
@@ -464,7 +464,7 @@ pub fn sys_info_as_html() -> String {
 
     let output = Command::new("scripts/ip.sh")
                          .output()
-                         .map_err(|e| eprintln!("Can't execute command: {}", e))
+                         .map_err(|e| eprintln!("Can't execute command: {:#}.", e))
                          .ok();
 
     if let Some(stdout) = output.filter(|output| output.status.success())
@@ -509,7 +509,7 @@ pub fn sys_info_as_html() -> String {
     let output = Command::new("/bin/ntx_hwconfig")
                          .args(&["-s", "/dev/mmcblk0"])
                          .output()
-                         .map_err(|e| eprintln!("Can't execute command: {}", e))
+                         .map_err(|e| eprintln!("Can't execute command: {:#}.", e))
                          .ok();
 
     let mut map = FxHashMap::default();

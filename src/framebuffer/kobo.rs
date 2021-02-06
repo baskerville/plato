@@ -51,7 +51,7 @@ impl KoboFramebuffer {
         let file = OpenOptions::new().read(true)
                                      .write(true)
                                      .open(&path)
-                                     .with_context(|| format!("Can't open framebuffer device {}.", path.as_ref().display()))?;
+                                     .with_context(|| format!("can't open framebuffer device {}", path.as_ref().display()))?;
 
         let var_info = var_screen_info(&file)?;
         let fix_info = fix_screen_info(&file)?;
@@ -68,7 +68,7 @@ impl KoboFramebuffer {
         };
 
         if frame == libc::MAP_FAILED {
-            Err(Error::from(io::Error::last_os_error()).context("Can't map memory."))
+            Err(Error::from(io::Error::last_os_error()).context("can't map memory"))
         } else {
             let (set_pixel_rgb, get_pixel_rgb, as_rgb): (SetPixelRgb, GetPixelRgb, AsRgb) = if var_info.bits_per_pixel > 16 {
                 (set_pixel_rgb_32, get_pixel_rgb_32, as_rgb_32)
@@ -229,7 +229,7 @@ impl Framebuffer for KoboFramebuffer {
         };
 
         match result {
-            Err(e) => Err(Error::from(e).context("Can't send framebuffer update.")),
+            Err(e) => Err(Error::from(e).context("can't send framebuffer update")),
             _ => {
                 self.token = self.token.wrapping_add(1);
                 Ok(update_marker)
@@ -252,17 +252,17 @@ impl Framebuffer for KoboFramebuffer {
                 wait_for_update_v1(self.file.as_raw_fd(), &token)
             }
         };
-        result.context("Can't wait for framebuffer update.")
+        result.context("can't wait for framebuffer update")
     }
 
     fn save(&self, path: &str) -> Result<(), Error> {
         let (width, height) = self.dims();
-        let file = File::create(path).with_context(|| format!("Can't create output file {}.", path))?;
+        let file = File::create(path).with_context(|| format!("can't create output file {}", path))?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set_depth(png::BitDepth::Eight);
         encoder.set_color(png::ColorType::RGB);
-        let mut writer = encoder.write_header().with_context(|| format!("Can't write PNG header for {}.", path))?;
-        writer.write_image_data(&(self.as_rgb)(self)).with_context(|| format!("Can't write PNG data to {}.", path))?;
+        let mut writer = encoder.write_header().with_context(|| format!("can't write PNG header for {}", path))?;
+        writer.write_image_data(&(self.as_rgb)(self)).with_context(|| format!("can't write PNG data to {}", path))?;
         Ok(())
     }
 
@@ -287,7 +287,7 @@ impl Framebuffer for KoboFramebuffer {
 
             if let Err(e) = result {
                 return Err(Error::from(e)
-                                 .context("Can't set variable screen info."));
+                                 .context("can't set variable screen info"));
             }
 
             // If the first call changed the rotation value, we can exit the loop.
@@ -511,7 +511,7 @@ fn fix_screen_info(file: &File) -> Result<FixScreenInfo, Error> {
         read_fixed_screen_info(file.as_raw_fd(), &mut info)
     };
     match result {
-        Err(e) => Err(Error::from(e).context("Can't get fixed screen info.")),
+        Err(e) => Err(Error::from(e).context("can't get fixed screen info")),
         _ => Ok(info),
     }
 }
@@ -522,7 +522,7 @@ fn var_screen_info(file: &File) -> Result<VarScreenInfo, Error> {
         read_variable_screen_info(file.as_raw_fd(), &mut info)
     };
     match result {
-        Err(e) => Err(Error::from(e).context("Can't get variable screen info.")),
+        Err(e) => Err(Error::from(e).context("can't get variable screen info")),
         _ => Ok(info),
     }
 }

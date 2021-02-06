@@ -230,7 +230,7 @@ pub fn parse_raw_events(paths: &[String], tx: &Sender<InputEvent>) -> Result<(),
 
     for path in paths.iter() {
         let file = File::open(path)
-                        .with_context(|| format!("Can't open input file {}", path))?;
+                        .with_context(|| format!("can't open input file {}", path))?;
         let fd = file.as_raw_fd();
         files.push(file);
         pfds.push(libc::pollfd {

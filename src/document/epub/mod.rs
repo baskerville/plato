@@ -67,7 +67,7 @@ impl EpubDocument {
             root.find("rootfile")
                 .and_then(|e| e.attr("full-path"))
                 .map(String::from)
-        }.ok_or_else(|| format_err!("Can't get the OPF path."))?;
+        }.ok_or_else(|| format_err!("can't get the OPF path"))?;
 
         let parent = Path::new(&opf_path).parent()
                           .unwrap_or_else(|| Path::new(""));
@@ -84,11 +84,11 @@ impl EpubDocument {
 
         {
             let manifest = info.find("manifest")
-                                  .ok_or_else(|| format_err!("The manifest is missing."))?;
+                                  .ok_or_else(|| format_err!("the manifest is missing"))?;
 
             let children = info.find("spine")
                                   .and_then(Node::children)
-                                  .ok_or_else(|| format_err!("The spine is missing."))?;
+                                  .ok_or_else(|| format_err!("the spine is missing"))?;
 
             for child in children {
                 let vertebra_opt = child.attr("idref").and_then(|idref| {
@@ -101,7 +101,7 @@ impl EpubDocument {
                     let href_path = parent.join(href.as_ref());
                     href_path.to_str().and_then(|path| {
                         archive.by_name(path).map_err(|e| {
-                            eprintln!("Can't retrieve '{}' from the archive: {}.", path, e)
+                            eprintln!("Can't retrieve '{}' from the archive: {:#}.", path, e)
                         // We're assuming that the size of the spine is less than 4 GiB.
                         }).map(|zf| (zf.size() as usize, path.to_string())).ok()
                     })
@@ -114,7 +114,7 @@ impl EpubDocument {
         }
 
         if spine.is_empty() {
-            return Err(format_err!("The spine is empty."));
+            return Err(format_err!("the spine is empty"));
         }
 
         Ok(EpubDocument {

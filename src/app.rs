@@ -218,21 +218,15 @@ struct HistoryItem {
 
 fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let rtc = Rtc::new(RTC_DEVICE)
-                  .map_err(|e| eprintln!("Can't open RTC device: {}", e))
+                  .map_err(|e| eprintln!("Can't open RTC device: {:#}.", e))
                   .ok();
     let path = Path::new(SETTINGS_PATH);
-    let settings = load_toml::<Settings, _>(path);
-
-    if let Err(ref e) = settings {
-        if path.exists() {
-            eprintln!("Can't load settings: {}", e);
-        }
-    }
-
-    let mut settings = settings.unwrap_or_default();
+    let mut settings = load_toml::<Settings, _>(path)
+                                .map_err(|e| eprintln!("Can't load settings: {:#}.", e))
+                                .unwrap_or_default();
 
     if settings.libraries.is_empty() {
-        return Err(format_err!("No libraries found."));
+        return Err(format_err!("no libraries found"));
     }
 
     if settings.selected_library >= settings.libraries.len() {
@@ -242,12 +236,12 @@ fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let library_settings = &settings.libraries[settings.selected_library];
     let library = Library::new(&library_settings.path, library_settings.mode);
 
-    let fonts = Fonts::load().context("Can't load fonts.")?;
+    let fonts = Fonts::load().context("can't load fonts")?;
 
-    let battery = Box::new(KoboBattery::new().context("Can't create battery.")?) as Box<dyn Battery>;
+    let battery = Box::new(KoboBattery::new().context("can't create battery")?) as Box<dyn Battery>;
 
     let lightsensor = if CURRENT_DEVICE.has_lightsensor() {
-        Box::new(KoboLightSensor::new().context("Can't create light sensor.")?) as Box<dyn LightSensor>
+        Box::new(KoboLightSensor::new().context("can't create light sensor")?) as Box<dyn LightSensor>
     } else {
         Box::new(0u16) as Box<dyn LightSensor>
     };
@@ -255,11 +249,11 @@ fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let levels = settings.frontlight_levels;
     let frontlight = match CURRENT_DEVICE.frontlight_kind() {
         FrontlightKind::Standard => Box::new(StandardFrontlight::new(levels.intensity)
-                                        .context("Can't create standard frontlight.")?) as Box<dyn Frontlight>,
+                                        .context("can't create standard frontlight")?) as Box<dyn Frontlight>,
         FrontlightKind::Natural => Box::new(NaturalFrontlight::new(levels.intensity, levels.warmth)
-                                        .context("Can't create natural frontlight.")?) as Box<dyn Frontlight>,
+                                        .context("can't create natural frontlight")?) as Box<dyn Frontlight>,
         FrontlightKind::Premixed => Box::new(PremixedFrontlight::new(levels.intensity, levels.warmth)
-                                        .context("Can't create premixed frontlight.")?) as Box<dyn Frontlight>,
+                                        .context("can't create premixed frontlight")?) as Box<dyn Frontlight>,
     };
 
     Ok(Context::new(fb, rtc, library, settings,
@@ -342,14 +336,14 @@ enum ExitStatus {
 pub fn run() -> Result<(), Error> {
     let mut inactive_since = Instant::now();
     let mut exit_status = ExitStatus::Quit;
-    let mut fb = KoboFramebuffer::new(FB_DEVICE).context("Can't create framebuffer.")?;
+    let mut fb = KoboFramebuffer::new(FB_DEVICE).context("can't create framebuffer")?;
     let initial_rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
     let startup_rotation = CURRENT_DEVICE.startup_rotation();
     if !CURRENT_DEVICE.has_gyroscope() && initial_rotation != startup_rotation {
         fb.set_rotation(startup_rotation).ok();
     }
 
-    let mut context = build_context(Box::new(fb)).context("Can't build context.")?;
+    let mut context = build_context(Box::new(fb)).context("can't build context")?;
     if context.settings.import.startup_trigger {
         context.batch_import();
     }
@@ -576,11 +570,11 @@ pub fn run() -> Result<(), Error> {
                             context.shared = false;
                             Command::new("scripts/usb-disable.sh").status().ok();
                             env::set_current_dir(&current_dir)
-                                .map_err(|e| eprintln!("Unable to set current directory to {}: {}", current_dir.display(), e))
+                                .map_err(|e| eprintln!("Can't set current directory to {}: {:#}.", current_dir.display(), e))
                                 .ok();
                             let path = Path::new(SETTINGS_PATH);
                             if let Ok(settings) = load_toml::<Settings, _>(path)
-                                                            .map_err(|e| eprintln!("Can't load settings: {}", e)) {
+                                                            .map_err(|e| eprintln!("Can't load settings: {:#}.", e)) {
                                 context.settings = settings;
                             }
                             if context.settings.wifi {
@@ -671,7 +665,7 @@ pub fn run() -> Result<(), Error> {
                 tasks.retain(|task| task.id != TaskId::PrepareSuspend);
                 updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                 let path = Path::new(SETTINGS_PATH);
-                save_toml(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {}", e)).ok();
+                save_toml(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {:#}.", e)).ok();
                 context.library.flush();
 
                 if context.settings.frontlight {
@@ -693,7 +687,7 @@ pub fn run() -> Result<(), Error> {
                 if context.settings.auto_power_off > 0 {
                     context.rtc.iter().for_each(|rtc| {
                         rtc.set_alarm(context.settings.auto_power_off)
-                           .map_err(|e| eprintln!("Can't set alarm: {}.", e))
+                           .map_err(|e| eprintln!("Can't set alarm: {:#}.", e))
                            .ok();
                     });
                 }
@@ -709,12 +703,12 @@ pub fn run() -> Result<(), Error> {
                 if context.settings.auto_power_off > 0 {
                     if let Some(enabled) = context.rtc.as_ref()
                                                   .and_then(|rtc| rtc.is_alarm_enabled()
-                                                                     .map_err(|e| eprintln!("Can't get alarm: {}", e))
+                                                                     .map_err(|e| eprintln!("Can't get alarm: {:#}", e))
                                                                      .ok()) {
                         if enabled {
                             context.rtc.iter().for_each(|rtc| {
                                 rtc.disable_alarm()
-                                   .map_err(|e| eprintln!("Can't disable alarm: {}.", e))
+                                   .map_err(|e| eprintln!("Can't disable alarm: {:#}.", e))
                                    .ok();
                             });
                         } else {
@@ -745,7 +739,8 @@ pub fn run() -> Result<(), Error> {
                     view = item.view;
                 }
                 let path = Path::new(SETTINGS_PATH);
-                save_toml(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {}", e)).ok();
+                save_toml(&context.settings, path)
+                         .map_err(|e| eprintln!("Can't save settings: {:#}.", e)).ok();
                 context.library.flush();
 
                 if context.settings.frontlight {
@@ -1062,7 +1057,7 @@ pub fn run() -> Result<(), Error> {
             },
             Event::Select(EntryId::RebootInNickel) => {
                 fs::remove_file("bootlock").map_err(|e| {
-                    eprintln!("Couldn't remove the bootlock file: {}", e);
+                    eprintln!("Couldn't remove the bootlock file: {:#}.", e);
                 }).ok();
                 exit_status = ExitStatus::Reboot;
                 break;
@@ -1107,7 +1102,7 @@ pub fn run() -> Result<(), Error> {
     context.library.flush();
 
     let path = Path::new(SETTINGS_PATH);
-    save_toml(&context.settings, path).context("Can't save settings.")?;
+    save_toml(&context.settings, path).context("can't save settings")?;
 
     match exit_status {
         ExitStatus::Reboot => {

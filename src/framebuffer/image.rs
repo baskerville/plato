@@ -92,17 +92,17 @@ impl Framebuffer for Pixmap {
 
     fn save(&self, path: &str) -> Result<(), Error> {
         let (width, height) = self.dims();
-        let file = File::create(path).with_context(|| format!("Can't create output file {}.", path))?;
+        let file = File::create(path).with_context(|| format!("can't create output file {}", path))?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set_depth(png::BitDepth::Eight);
         encoder.set_color(png::ColorType::Grayscale);
-        let mut writer = encoder.write_header().with_context(|| format!("Can't write PNG header for {}.", path))?;
-        writer.write_image_data(&self.data).with_context(|| format!("Can't write PNG data to {}.", path))?;
+        let mut writer = encoder.write_header().with_context(|| format!("can't write PNG header for {}", path))?;
+        writer.write_image_data(&self.data).with_context(|| format!("can't write PNG data to {}", path))?;
         Ok(())
     }
 
     fn set_rotation(&mut self, _n: i8) -> Result<(u32, u32), Error> {
-        Err(format_err!("Unsupported."))
+        Err(format_err!("unsupported"))
     }
 
     fn set_monochrome(&mut self, _enable: bool) {

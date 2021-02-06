@@ -169,13 +169,13 @@ impl Framebuffer for WindowCanvas {
 
     fn save(&self, path: &str) -> Result<(), Error> {
         let (width, height) = self.dims();
-        let file = File::create(path).with_context(|| format!("Can't create output file {}.", path))?;
+        let file = File::create(path).with_context(|| format!("can't create output file {}", path))?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set_depth(png::BitDepth::Eight);
         encoder.set_color(png::ColorType::RGB);
-        let mut writer = encoder.write_header().with_context(|| format!("Can't write PNG header for {}.", path))?;
+        let mut writer = encoder.write_header().with_context(|| format!("can't write PNG header for {}", path))?;
         let data = self.read_pixels(self.viewport(), PixelFormatEnum::RGB24).unwrap_or_default();
-        writer.write_image_data(&data).with_context(|| format!("Can't write PNG data to {}.", path))?;
+        writer.write_image_data(&data).with_context(|| format!("can't write PNG data to {}", path))?;
         Ok(())
     }
 
@@ -560,7 +560,7 @@ fn main() -> Result<(), Error> {
     context.library.flush();
 
     let path = Path::new(SETTINGS_PATH);
-    save_toml(&context.settings, path).context("Can't save settings.")?;
+    save_toml(&context.settings, path).context("can't save settings")?;
 
     Ok(())
 }

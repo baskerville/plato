@@ -77,9 +77,9 @@ impl Calculator {
                                  .stderr(Stdio::piped())
                                  .spawn()?;
         let stdout = process.stdout.take()
-                            .ok_or_else(|| format_err!("Can't take stdout."))?;
+                            .ok_or_else(|| format_err!("can't take stdout"))?;
         let stderr = process.stderr.take()
-                            .ok_or_else(|| format_err!("Can't take stderr."))?;
+                            .ok_or_else(|| format_err!("can't take stderr"))?;
 
         let hub2 = hub.clone();
         thread::spawn(move || {
@@ -476,7 +476,7 @@ impl Calculator {
 
     fn quit(&mut self, context: &mut Context) {
         unsafe { libc::kill(self.process.id() as libc::pid_t, libc::SIGTERM) };
-        self.process.wait().map_err(|e| eprintln!("Can't wait child process: {}.", e)).ok();
+        self.process.wait().map_err(|e| eprintln!("Can't wait for child process: {:#}.", e)).ok();
         context.settings.calculator.font_size = self.font_size;
         context.settings.calculator.margin_width = self.margin_width;
     }

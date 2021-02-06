@@ -439,7 +439,7 @@ pub fn make_query(text: &str) -> Option<Regex> {
                    .replace("ae", "(ae|æ)")
                    .replace("oe", "(oe|œ)");
     Regex::new(&format!("(?i){}", text))
-          .map_err(|e| eprintln!("{}", e))
+          .map_err(|e| eprintln!("Can't create query: {:#}.", e))
           .ok()
 }
 
@@ -734,7 +734,7 @@ pub fn extract_metadata_from_epub(prefix: &Path, info: &mut Info) {
             info.language = doc.language().unwrap_or_default();
             info.categories.append(&mut doc.categories());
         },
-        Err(e) => eprintln!("Can't open {}: {}", info.file.path.display(), e),
+        Err(e) => eprintln!("Can't open {}: {:#}.", info.file.path.display(), e),
     }
 }
 
@@ -818,7 +818,7 @@ pub fn rename_from_info(prefix: &Path, info: &mut Info) {
         let new_path = old_path.with_file_name(&new_file_name);
         if old_path != new_path {
             match fs::rename(&old_path, &new_path) {
-                Err(e) => eprintln!("Can't rename {} to {}: {}.",
+                Err(e) => eprintln!("Can't rename {} to {}: {:#}.",
                                     old_path.display(),
                                     new_path.display(), e),
                 Ok(..) => {

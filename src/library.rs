@@ -40,9 +40,7 @@ impl Library {
             let path = home.as_ref().join(METADATA_FILENAME);
             match load_json(&path) {
                 Err(e) => {
-                    if path.exists() {
-                        eprintln!("{}", e);
-                    }
+                    eprintln!("Can't load database: {:#}.", e);
                     IndexMap::with_capacity_and_hasher(0, FxBuildHasher::default())
                 },
                 Ok(v) => v,
@@ -63,7 +61,7 @@ impl Library {
             let path = entry.path();
             if let Some(fp) = path.file_stem().and_then(|v| v.to_str())
                                   .and_then(|v| Fp::from_str(v).ok()) {
-                if let Ok(reader_info) = load_json(path).map_err(|e| eprintln!("{}", e)) {
+                if let Ok(reader_info) = load_json(path).map_err(|e| eprintln!("Can't load reading state: {:#}.", e)) {
                     if mode == LibraryMode::Database {
                         if let Some(info) = db.get_mut(&fp) {
                             info.reader = Some(reader_info);
@@ -93,7 +91,7 @@ impl Library {
             let file = File::create(&path).unwrap();
             let mtime = FileTime::from_unix_time(315_532_800, 0);
             set_file_handle_times(&file, None, Some(mtime))
-                    .map_err(|e| eprintln!("{}", e)).ok();
+                    .map_err(|e| eprintln!("Can't set file times: {:#}.", e)).ok();
         }
 
         let fat32_epoch = path.metadata().unwrap().modified().unwrap();
@@ -376,7 +374,7 @@ impl Library {
         let fp = self.paths.get(path.as_ref()).cloned().or_else(|| {
            full_path.metadata().ok()
                     .and_then(|md| md.fingerprint(self.fat32_epoch).ok())
-        }).ok_or_else(|| format_err!("Can't get fingerprint of {}.", path.as_ref().display()))?;
+        }).ok_or_else(|| format_err!("can't get fingerprint of {}", path.as_ref().display()))?;
 
         if full_path.exists() {
             fs::remove_file(&full_path)?;
@@ -414,14 +412,14 @@ impl Library {
 
     pub fn move_to<P: AsRef<Path>>(&mut self, path: P, other: &mut Library) -> Result<(), Error> {
         if !self.home.join(path.as_ref()).exists() {
-            return Err(format_err!("Can't move non-existing file {}.", path.as_ref().display()));
+            return Err(format_err!("can't move non-existing file {}", path.as_ref().display()));
         }
 
         let fp = self.paths.get(path.as_ref()).cloned().or_else(|| {
             self.home.join(path.as_ref())
                 .metadata().ok()
                 .and_then(|md| md.fingerprint(self.fat32_epoch).ok())
-        }).ok_or_else(|| format_err!("Can't get fingerprint of {}.", path.as_ref().display()))?;
+        }).ok_or_else(|| format_err!("can't get fingerprint of {}", path.as_ref().display()))?;
 
         let src = self.home.join(path.as_ref());
         let mut dest = other.home.join(path.as_ref());
@@ -433,7 +431,7 @@ impl Library {
             let prefix = Local::now().format("%Y%m%d_%H%M%S ");
             let name = dest.file_name().and_then(|name| name.to_str())
                            .map(|name| prefix.to_string() + name)
-                           .ok_or_else(|| format_err!("Can't compute new name for {}.", dest.display()))?;
+                           .ok_or_else(|| format_err!("can't compute new name for {}", dest.display()))?;
             dest.set_file_name(name);
         }
 
@@ -628,9 +626,7 @@ impl Library {
 
             match load_json(&path) {
                 Err(e) => {
-                    if path.exists() {
-                        eprintln!("Can't load {}: {}", path.display(), e);
-                    }
+                    eprintln!("Can't reload database: {:#}.", e);
                     return;
                 },
                 Ok(v) => {
@@ -652,7 +648,7 @@ impl Library {
             let path = entry.path();
             if let Some(fp) = path.file_stem().and_then(|v| v.to_str())
                                   .and_then(|v| Fp::from_str(v).ok()) {
-                if let Ok(reader_info) = load_json(path).map_err(|e| eprintln!("{}", e)) {
+                if let Ok(reader_info) = load_json(path).map_err(|e| eprintln!("Can't load reading state: {:#}.", e)) {
                     if self.mode == LibraryMode::Database {
                         if let Some(info) = self.db.get_mut(&fp) {
                             info.reader = Some(reader_info);
@@ -680,7 +676,7 @@ impl Library {
             };
             if let Some(reader_info) = reader_info {
                 save_json(reader_info, self.reading_state_path(*fp))
-                         .map_err(|e| eprintln!("{}", e)).ok();
+                         .map_err(|e| eprintln!("Can't save reading state: {:#}.", e)).ok();
             }
         }
 
@@ -688,7 +684,7 @@ impl Library {
 
         if self.has_db_changed {
             save_json(&self.db, self.home.join(METADATA_FILENAME))
-                     .map_err(|e| eprintln!("{}", e)).ok();
+                     .map_err(|e| eprintln!("Can't save database: {:#}.", e)).ok();
             self.has_db_changed = false;
         }
     }

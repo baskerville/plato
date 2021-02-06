@@ -1015,8 +1015,8 @@ impl Home {
         }
         let mut count = 0;
         for info in files {
-            match trash.remove(info.file.path) {
-                Err(e) => eprintln!("{}", e),
+            match trash.remove(&info.file.path) {
+                Err(e) => eprintln!("Can't erase {}: {:#}.", info.file.path.display(), e),
                 Ok(()) => count += 1,
             }
         }
@@ -1043,7 +1043,7 @@ impl Home {
                 while size > context.settings.home.max_trash_size {
                     let info = files.pop().unwrap();
                     if let Err(e) = trash.remove(&info.file.path) {
-                        eprintln!("{}", e);
+                        eprintln!("Can't erase {}: {:#}", info.file.path.display(), e);
                         break;
                     }
                     size -= info.file.size;
@@ -1214,7 +1214,7 @@ impl Home {
                                                 Fetcher { path: hook.path.clone(), full_path: save_path, process,
                                                           sort_method, first_column, second_column });
             },
-            Err(e) => eprintln!("Can't spawn child: {}.", e),
+            Err(e) => eprintln!("Can't spawn child: {:#}.", e),
         }
     }
 
@@ -1232,7 +1232,7 @@ impl Home {
                                  .stdout(Stdio::piped())
                                  .spawn()?;
         let stdout = process.stdout.take()
-                            .ok_or_else(|| format_err!("Can't take stdout."))?;
+                            .ok_or_else(|| format_err!("can't take stdout"))?;
         let id = process.id();
         let hub2 = hub.clone();
         thread::spawn(move || {
@@ -1520,13 +1520,13 @@ impl View for Home {
             },
             Event::Select(EntryId::Remove(ref path)) | Event::FetcherRemoveDocument(_, ref path) => {
                 self.remove(path, hub, rq, context)
-                    .map_err(|e| eprintln!("{}", e))
+                    .map_err(|e| eprintln!("Can't remove document: {:#}.", e))
                     .ok();
                 true
             },
             Event::Select(EntryId::MoveTo(ref path, index)) => {
                 self.move_to(path, index, hub, rq, context)
-                    .map_err(|e| eprintln!("{}", e))
+                    .map_err(|e| eprintln!("Can't move document: {:#}.", e))
                     .ok();
                 true
             },
