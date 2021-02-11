@@ -314,7 +314,7 @@ impl NavigationBar {
 #[inline]
 fn guess_bar_size(dirs: &BTreeSet<PathBuf>) -> usize {
     (dirs.iter().map(|dir| dir.as_os_str().len())
-         .sum::<usize>()/300).max(1).min(4)
+         .sum::<usize>()/300).clamp(1, 4)
 }
 
 impl View for NavigationBar {

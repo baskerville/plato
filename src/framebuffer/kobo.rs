@@ -490,7 +490,7 @@ fn transform_dither_g16(x: u32, y: u32, color: u8) -> u8 {
     // Get the address of the drift value.
     let addr = (x % DITHER_PITCH) + (y % DITHER_PITCH) * DITHER_PITCH;
     // Apply the drift to the input color.
-    let c = (color as i16 + DITHER_G16_DRIFTS[addr as usize] as i16).max(0).min(255);
+    let c = (color as i16 + DITHER_G16_DRIFTS[addr as usize] as i16).clamp(0, 255);
     // Compute the distance to the previous color in G16.
     let d = c % 17;
     // Return the nearest color in G16.

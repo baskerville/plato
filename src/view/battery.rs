@@ -76,7 +76,7 @@ impl View for Battery {
         fb.draw_rectangle(&self.rect, WHITE);
 
         let max_fill_width = batt_width - 2 * border_thickness;
-        let fill_width = (self.capacity.min(100.0).max(0.0) / 100.0 * max_fill_width as f32) as i32;
+        let fill_width = (self.capacity.clamp(0.0, 100.0) / 100.0 * max_fill_width as f32) as i32;
         let fill_height = batt_height - 2 * border_thickness;
         let x_offset_edge = pt.x + border_thickness + fill_width;
         let x_offset_fill = x_offset_edge.saturating_sub(edge_width);

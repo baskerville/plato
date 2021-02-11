@@ -86,7 +86,7 @@ impl NaturalFrontlight {
 
     fn set(&mut self, c: LightColor, percent: f32) {
         let max_value = self.maxima[&c] as f32;
-        let value = (percent.max(0.0).min(100.0) / 100.0 * max_value) as i16;
+        let value = (percent.clamp(0.0, 100.0) / 100.0 * max_value) as i16;
         let mut file = &self.values[&c];
         write!(file, "{}", value).unwrap();
         let mut file = &self.powers[&c];

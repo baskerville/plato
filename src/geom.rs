@@ -275,8 +275,7 @@ pub fn nearest_segment_point(p: Vec2, a: Vec2, b: Vec2) -> (Vec2, f32) {
         return (a, 0.0);
     }
 
-    let mut t = ap.dot(ab) / l2;
-    t = t.min(1.0).max(0.0);
+    let t = (ap.dot(ab) / l2).clamp(0.0, 1.0);
     (a + t * ab, t)
 }
 

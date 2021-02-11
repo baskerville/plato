@@ -202,7 +202,7 @@ fn draw_segment(pixmap: &mut Pixmap, ts: &mut TouchState, position: Point, time:
                           (position.y - ts.pt.y) as f32).length();
             let speed = d / (time - ts.time) as f32;
             let base_radius = pen.size as f32 / 2.0;
-            let radius = base_radius + (1.0 + base_radius.sqrt()) * speed.max(pen.min_speed).min(pen.max_speed) / (pen.max_speed - pen.min_speed);
+            let radius = base_radius + (1.0 + base_radius.sqrt()) * speed.clamp(pen.min_speed, pen.max_speed) / (pen.max_speed - pen.min_speed);
             (ts.radius, radius)
         } else {
             (ts.radius, ts.radius)

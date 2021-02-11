@@ -46,7 +46,7 @@ impl Slider {
                             .min(self.rect.max.x - big_radius);
         let progress = ((x_offset - self.rect.min.x - small_radius) as f32 /
                         (self.rect.width() as i32 - button_diameter) as f32)
-                       .min(1.0).max(0.0);
+                       .clamp(0.0, 1.0);
         self.value = self.min_value + progress * (self.max_value - self.min_value);
     }
 

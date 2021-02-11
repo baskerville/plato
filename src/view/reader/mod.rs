@@ -621,7 +621,7 @@ impl Reader {
             if let Some((lines, _)) = doc.lines(Location::Exact(location)) {
                 if let Some(mut y_pos) = find_cut(&frame, frame.min.y + next_top_offset,
                                                   scale, LinearDir::Forward, &lines) {
-                    y_pos = y_pos.max(frame.min.y).min(frame.max.y - 1);
+                    y_pos = y_pos.clamp(frame.min.y, frame.max.y - 1);
                     next_top_offset = y_pos - frame.min.y;
                 }
             }
@@ -708,7 +708,7 @@ impl Reader {
                             if let Some((lines, _)) = doc.lines(Location::Exact(location)) {
                                 if let Some(mut y_pos) = find_cut(&frame, frame.min.y + next_top_offset,
                                                                   scale, LinearDir::Forward, &lines) {
-                                    y_pos = y_pos.max(frame.min.y).min(frame.max.y - 1);
+                                    y_pos = y_pos.clamp(frame.min.y, frame.max.y - 1);
                                     next_top_offset = y_pos - frame.min.y;
                                 }
                             }
@@ -977,7 +977,7 @@ impl Reader {
                         if let Some((lines, _)) = doc.lines(Location::Exact(last_chunk.location)) {
                             let pixmap_frame = self.cache[&last_chunk.location].frame;
                             if let Some(mut y_pos) = find_cut(&pixmap_frame, last_chunk.frame.max.y, last_chunk.scale, LinearDir::Backward, &lines) {
-                                y_pos = y_pos.max(pixmap_frame.min.y).min(pixmap_frame.max.y - 1);
+                                y_pos = y_pos.clamp(pixmap_frame.min.y, pixmap_frame.max.y - 1);
                                 last_chunk.frame.max.y = y_pos;
                             }
                         }
