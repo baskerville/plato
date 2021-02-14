@@ -233,7 +233,7 @@ impl<B: Read + Seek> DictReaderDz<B> {
                 ufile_length: uncompressed as u64 })
     }
 
-    fn get_chunks_for(&self, start_offset: u64, length: u64) -> Result<Vec<Chunk>, DictError> {
+    fn get_chunks_for(&self, start_offset: u64, length: u64) -> Vec<Chunk> {
         let mut chunks = Vec::new();
         let start_chunk = start_offset as usize / self.uchunk_length;
         let end_chunk = (start_offset + length) as usize / self.uchunk_length;
@@ -245,7 +245,7 @@ impl<B: Read + Seek> DictReaderDz<B> {
             chunks.push(Chunk { offset: self.chunk_offsets[id], length: chunk_length });
         }
 
-        Ok(chunks)
+        chunks
     }
 
     // Inflate a dictdz chunk.
@@ -268,7 +268,7 @@ impl<B: Read + Seek> DictReader for DictReaderDz<B> {
                       seek beyond the end of uncompressed data was requested")));
         }
         let mut data = Vec::new();
-        for chunk in self.get_chunks_for(start_offset, length)? {
+        for chunk in self.get_chunks_for(start_offset, length) {
             let pos = self.dzdict.seek(SeekFrom::Start(chunk.offset as u64))?;
             if pos != (chunk.offset as u64) {
                 return Err(DictError::IoError(io::Error::new(io::ErrorKind::Other, format!(

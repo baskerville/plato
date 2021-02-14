@@ -131,7 +131,7 @@ impl FromStr for Fp {
     type Err = ParseIntError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        u64::from_str_radix(s, 16).map(|v| Fp(v))
+        u64::from_str_radix(s, 16).map(Fp)
     }
 }
 
