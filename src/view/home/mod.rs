@@ -41,7 +41,7 @@ use self::navigation_bar::NavigationBar;
 use self::shelf::Shelf;
 use self::bottom_bar::BottomBar;
 use crate::gesture::GestureEvent;
-use crate::geom::{Rectangle, Dir, CycleDir, halves};
+use crate::geom::{Rectangle, Dir, DiagDir, CycleDir, halves};
 use crate::input::{DeviceEvent, ButtonCode, ButtonStatus};
 use crate::device::CURRENT_DEVICE;
 use crate::unit::scale_by_dpi;
@@ -289,6 +289,36 @@ impl Home {
 
         self.update_shelf(false, hub, rq, context);
         self.update_bottom_bar(rq, context);
+    }
+
+    fn go_to_status_change(&mut self, dir: CycleDir, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
+        if self.pages_count < 2 {
+            return;
+        }
+
+        let max_lines = self.children[self.shelf_index].as_ref().downcast_ref::<Shelf>().unwrap().max_lines;
+        let index_lower = self.current_page * max_lines;
+        let index_upper = (index_lower + max_lines).min(self.visible_books.len());
+        let book_index = match dir {
+            CycleDir::Next => index_upper.saturating_sub(1),
+            CycleDir::Previous => index_lower,
+        };
+        let status = self.visible_books[book_index].simple_status();
+
+        let page = match dir {
+            CycleDir::Next => self.visible_books[book_index+1..].iter()
+                                  .position(|info| info.simple_status() != status)
+                                  .map(|delta| self.current_page + 1 + delta / max_lines),
+            CycleDir::Previous => self.visible_books[..book_index].iter().rev()
+                                      .position(|info| info.simple_status() != status)
+                                      .map(|delta| self.current_page - 1 - delta / max_lines),
+        };
+
+        if let Some(page) = page {
+            self.current_page = page;
+            self.update_shelf(false, hub, rq, context);
+            self.update_bottom_bar(rq, context);
+        }
     }
 
     // NOTE: This function assumes that the shelf wasn't resized.
@@ -1353,6 +1383,15 @@ impl View for Home {
                         self.select_directory(&path, hub, rq, context);
                     },
                     Dir::South => self.toggle_search_bar(None, true, hub, rq, context),
+                };
+                true
+            },
+            Event::Gesture(GestureEvent::Corner { dir, .. }) => {
+                match dir {
+                    DiagDir::NorthWest |
+                    DiagDir::SouthWest => self.go_to_status_change(CycleDir::Previous, hub, rq, context),
+                    DiagDir::NorthEast |
+                    DiagDir::SouthEast => self.go_to_status_change(CycleDir::Next, hub, rq, context),
                 };
                 true
             },

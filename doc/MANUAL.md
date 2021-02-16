@@ -27,6 +27,11 @@ This is a view of the books within the current directory.
 - Swipe west/east to go to the next/previous page.
 - Tap on a book entry to open it.
 
+The following swipe sequences are recognized:
+
+- Arrow west/east: go to the first/last page.
+- Top or bottom left/right corner: go to the previous/next status change.
+
 ## Search bar
 
 The input's text is interpreted as a regular expression, and a book will match if any of its title, subtitle, author, series or file path matches.
