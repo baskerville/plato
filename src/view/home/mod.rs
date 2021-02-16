@@ -778,6 +778,9 @@ impl Home {
                                EntryKind::RadioButton("Date Added".to_string(),
                                                       EntryId::Sort(SortMethod::Added),
                                                       self.sort_method == SortMethod::Added),
+                               EntryKind::RadioButton("Status".to_string(),
+                                                      EntryId::Sort(SortMethod::Status),
+                                                      self.sort_method == SortMethod::Status),
                                EntryKind::RadioButton("Progress".to_string(),
                                                       EntryId::Sort(SortMethod::Progress),
                                                       self.sort_method == SortMethod::Progress),
@@ -995,8 +998,7 @@ impl Home {
         context.library.set_status(path, status);
 
         // Is the current sort method affected by this change?
-        if self.sort_method == SortMethod::Progress ||
-           self.sort_method == SortMethod::Opened {
+        if self.sort_method.is_status_related() {
             self.sort(false, hub, rq, context);
         }
 
@@ -1178,6 +1180,9 @@ impl Home {
                     }
                 } else {
                     let selected_library = context.settings.selected_library;
+                    if let Some(sort_method) = fetcher.sort_method {
+                        context.settings.libraries[selected_library].sort_method = sort_method;
+                    }
                     if let Some(first_column) = fetcher.first_column {
                         context.settings.libraries[selected_library].first_column = first_column;
                     }
@@ -1421,6 +1426,8 @@ impl View for Home {
                 true
             },
             Event::Select(EntryId::Sort(sort_method)) => {
+                let selected_library = context.settings.selected_library;
+                context.settings.libraries[selected_library].sort_method = sort_method;
                 self.set_sort_method(sort_method, hub, rq, context);
                 true
             },

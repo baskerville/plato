@@ -290,7 +290,6 @@ pub enum Event {
     ResultsGoTo(usize),
     CropMargins(Box<Margin>),
     Chapter(CycleDir),
-    Sort(SortMethod),
     SelectDirectory(PathBuf),
     ToggleSelectDirectory(PathBuf),
     NavigationBarResized(i32),

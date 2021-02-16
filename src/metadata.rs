@@ -578,6 +578,7 @@ impl BookQuery {
 pub enum SortMethod {
     Opened,
     Added,
+    Status,
     Progress,
     Title,
     Year,
@@ -597,10 +598,17 @@ impl SortMethod {
                   SortMethod::FilePath)
     }
 
+    pub fn is_status_related(self) -> bool {
+        matches!(self,
+                 SortMethod::Opened | SortMethod::Status |
+                 SortMethod::Progress)
+    }
+
     pub fn label(&self) -> &str {
         match *self {
             SortMethod::Opened => "Date Opened",
             SortMethod::Added => "Date Added",
+            SortMethod::Status => "Status",
             SortMethod::Progress => "Progress",
             SortMethod::Author => "Author",
             SortMethod::Title => "Title",
@@ -633,6 +641,7 @@ pub fn sorter(sort_method: SortMethod) -> fn(&Info, &Info) -> Ordering {
     match sort_method {
         SortMethod::Opened => sort_opened,
         SortMethod::Added => sort_added,
+        SortMethod::Status => sort_status,
         SortMethod::Progress => sort_progress,
         SortMethod::Author => sort_author,
         SortMethod::Title => sort_title,
@@ -666,6 +675,20 @@ pub fn sort_author(i1: &Info, i2: &Info) -> Ordering {
 
 pub fn sort_title(i1: &Info, i2: &Info) -> Ordering {
     i1.alphabetic_title().cmp(i2.alphabetic_title())
+}
+
+pub fn sort_status(i1: &Info, i2: &Info) -> Ordering {
+    match (i1.simple_status(), i2.simple_status()) {
+        (SimpleStatus::Reading, SimpleStatus::Reading) |
+        (SimpleStatus::Finished, SimpleStatus::Finished) => sort_opened(i1, i2),
+        (SimpleStatus::New, SimpleStatus::New) => sort_added(i1, i2),
+        (SimpleStatus::New, SimpleStatus::Finished) => Ordering::Greater,
+        (SimpleStatus::Finished, SimpleStatus::New) => Ordering::Less,
+        (SimpleStatus::New, SimpleStatus::Reading) => Ordering::Less,
+        (SimpleStatus::Reading, SimpleStatus::New) => Ordering::Greater,
+        (SimpleStatus::Finished, SimpleStatus::Reading) => Ordering::Less,
+        (SimpleStatus::Reading, SimpleStatus::Finished) => Ordering::Greater,
+    }
 }
 
 // Ordering: Finished < New < Reading.
