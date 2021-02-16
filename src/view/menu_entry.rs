@@ -6,7 +6,7 @@ use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, Entry
 use super::icon::ICONS_PIXMAPS;
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::gesture::GestureEvent;
-use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
+use crate::font::{Fonts, font_from_style, NORMAL_STYLE, SPECIAL_STYLE};
 use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::app::Context;
 
@@ -83,7 +83,7 @@ impl View for MenuEntry {
                             bus.push_back(Event::Validate);
                         }
                     },
-                    EntryKind::SubMenu(_, ref entries) => {
+                    EntryKind::SubMenu(_, ref entries) | EntryKind::More(ref entries) => {
                         bus.push_back(Event::SubMenu(self.anchor, entries.clone()));
                     },
                     EntryKind::Message(_) => {
@@ -113,7 +113,12 @@ impl View for MenuEntry {
 
     fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
-        let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
+        let style = if matches!(self.kind, EntryKind::More(..)) {
+            SPECIAL_STYLE
+        } else {
+            NORMAL_STYLE
+        };
+        let font = font_from_style(fonts, &style, dpi);
         let x_height = font.x_heights.0 as i32;
         let padding = 4 * font.em() as i32;
 
@@ -140,8 +145,9 @@ impl View for MenuEntry {
         let (icon_name, x_offset) = match self.kind {
             EntryKind::CheckBox(_, _, value) if value => ("check_mark", 0),
             EntryKind::RadioButton(_, _, value) if value => ("bullet", 0),
-            EntryKind::SubMenu(..) => ("angle-right-small",
-                                       self.rect.width() as i32 - padding / 2),
+            EntryKind::SubMenu(..) |
+            EntryKind::More(..) => ("angle-right-small",
+                                    self.rect.width() as i32 - padding / 2),
             _ => ("", 0),
         };
 

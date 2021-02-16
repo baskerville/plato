@@ -480,6 +480,7 @@ pub enum EntryKind {
     CheckBox(String, EntryId, bool),
     RadioButton(String, EntryId, bool),
     SubMenu(String, Vec<EntryKind>),
+    More(Vec<EntryKind>),
     Separator,
 }
 
@@ -569,6 +570,7 @@ impl EntryKind {
             EntryKind::CheckBox(ref s, ..) |
             EntryKind::RadioButton(ref s, ..) |
             EntryKind::SubMenu(ref s, ..) => s,
+            EntryKind::More(..) => "More",
             _ => "",
         }
     }

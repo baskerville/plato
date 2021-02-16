@@ -102,7 +102,7 @@ impl Menu {
             }
             let index = kind_counts[0] + kind_counts[1] - 1;
             let more = entries.drain(index..).collect::<Vec<EntryKind>>();
-            entries.push(EntryKind::SubMenu("More".to_string(), more));
+            entries.push(EntryKind::More(more));
         }
 
         let mut y_pos = y_start + dir * (border_space - border_thickness);

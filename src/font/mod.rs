@@ -35,6 +35,12 @@ pub const NORMAL_STYLE: Style = Style {
     size: FONT_SIZES[1],
 };
 
+pub const SPECIAL_STYLE: Style = Style {
+    family: Family::SansSerif,
+    variant: Variant::ITALIC,
+    size: FONT_SIZES[1],
+};
+
 pub const KBD_CHAR: Style = Style {
     family: Family::Keyboard,
     variant: Variant::REGULAR,
