@@ -273,6 +273,10 @@ fn parse_usb_events(tx: &Sender<DeviceEvent>) {
     let path = CString::new("/tmp/nickel-hardware-status").unwrap();
     let fd = unsafe { libc::open(path.as_ptr(), libc::O_NONBLOCK | libc::O_RDWR) };
 
+    if fd < 0 {
+        return;
+    }
+
     let mut pfd = libc::pollfd {
         fd,
         events: libc::POLLIN,
