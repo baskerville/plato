@@ -147,7 +147,7 @@ impl Framebuffer for KoboFramebuffer {
         let mut monochrome = self.monochrome;
 
         let (update_mode, mut waveform_mode) = match mode {
-            UpdateMode::Gui => (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_GL16),
+            UpdateMode::Gui => (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO),
             UpdateMode::Partial => {
                 if mark >= 7 {
                     (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_GLR16)
@@ -155,7 +155,7 @@ impl Framebuffer for KoboFramebuffer {
                     flags |= EPDC_FLAG_USE_AAD;
                     (UPDATE_MODE_FULL, NTX_WFM_MODE_GLD16)
                 } else {
-                    (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_GL16)
+                    (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO)
                 }
             },
             UpdateMode::Full => {
