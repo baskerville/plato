@@ -8,11 +8,11 @@ The following swipe sequences are recognized:
 
 ## Address bar
 
-When the navigation bar is present, this optional bar can be shown by swipping from the top bar to the shelf, and hidden by swipping from the shelf to the top bar.
+When the navigation bar is present, this optional bar can be shown by swiping from the top bar to the shelf, and hidden by swiping from the shelf to the top bar.
 
 ## Navigation bar
 
-This optional bar can be shown by swipping from the top bar to the shelf, and hidden by swipping from the shelf to the top bar.
+This optional bar can be shown by swiping from the top bar to the shelf, and hidden by swiping from the shelf to the top bar.
 
 This bar shows at most `max-levels` directory levels starting at the current directory. It can be used to navigate within the directory hierarchy.
 
