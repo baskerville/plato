@@ -1,10 +1,11 @@
 mod preset;
 
 use std::env;
+use std::ops::Index;
 use std::fmt::{self, Debug};
 use std::path::PathBuf;
 use std::collections::BTreeMap;
-use fxhash::{FxHashMap, FxHashSet};
+use fxhash::FxHashSet;
 use serde::{Serialize, Deserialize};
 use crate::metadata::{SortMethod, TextAlign};
 use crate::frontlight::LightLevels;
@@ -18,6 +19,8 @@ pub const SETTINGS_PATH: &str = "Settings.toml";
 pub const DEFAULT_FONT_PATH: &str = "/mnt/onboard/fonts";
 pub const INTERNAL_CARD_ROOT: &str = "/mnt/onboard";
 pub const EXTERNAL_CARD_ROOT: &str = "/mnt/sd";
+pub const LOGO_SPECIAL_PATH: &str = "logo:";
+pub const COVER_SPECIAL_PATH: &str = "cover:";
 // Default font size in points.
 pub const DEFAULT_FONT_SIZE: f32 = 11.0;
 // Default margin width in millimeters.
@@ -50,6 +53,44 @@ impl fmt::Display for ButtonScheme {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum IntermKind {
+    Suspend,
+    PowerOff,
+    Share,
+}
+
+impl IntermKind {
+    pub fn text(&self) -> &str {
+        match self {
+            IntermKind::Suspend => "Sleeping",
+            IntermKind::PowerOff => "Powered off",
+            IntermKind::Share => "Shared",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Intermissions {
+    suspend: PathBuf,
+    power_off: PathBuf,
+    share: PathBuf,
+}
+
+impl Index<IntermKind> for Intermissions {
+    type Output = PathBuf;
+
+    fn index(&self, key: IntermKind) -> &Self::Output {
+        match key {
+            IntermKind::Suspend => &self.suspend,
+            IntermKind::PowerOff => &self.power_off,
+            IntermKind::Share => &self.share,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct Settings {
@@ -68,8 +109,7 @@ pub struct Settings {
     pub date_format: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<LibrarySettings>,
-    #[serde(skip_serializing_if = "FxHashMap::is_empty")]
-    pub intermission_images: FxHashMap<String, PathBuf>,
+    pub intermissions: Intermissions,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub frontlight_presets: Vec<LightPreset>,
     pub home: HomeSettings,
@@ -349,8 +389,7 @@ impl Default for ImportSettings {
             startup_trigger: true,
             extract_epub_metadata: true,
             allowed_kinds: ["pdf", "djvu", "epub", "fb2",
-                            "xps", "oxps", "html", "htm",
-                            "cbz", "png", "jpg", "jpeg"].iter().map(|k| k.to_string()).collect(),
+                            "xps", "oxps", "cbz"].iter().map(|k| k.to_string()).collect(),
         }
     }
 }
@@ -400,7 +439,11 @@ impl Default for Settings {
             auto_power_off: 3,
             time_format: "%H:%M".to_string(),
             date_format: "%A, %B %-d, %Y".to_string(),
-            intermission_images: FxHashMap::default(),
+            intermissions: Intermissions {
+                suspend: PathBuf::from(LOGO_SPECIAL_PATH),
+                power_off: PathBuf::from(LOGO_SPECIAL_PATH),
+                share: PathBuf::from(LOGO_SPECIAL_PATH),
+            },
             home: HomeSettings::default(),
             reader: ReaderSettings::default(),
             import: ImportSettings::default(),

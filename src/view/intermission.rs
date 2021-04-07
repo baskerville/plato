@@ -1,10 +1,12 @@
 use std::path::PathBuf;
 use crate::device::CURRENT_DEVICE;
-use crate::document::pdf::PdfOpener;
+use crate::document::{Location, open};
 use crate::geom::Rectangle;
 use crate::font::{Fonts, font_from_style, DISPLAY_STYLE};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue};
 use crate::framebuffer::Framebuffer;
+use crate::settings::{IntermKind, LOGO_SPECIAL_PATH, COVER_SPECIAL_PATH};
+use crate::metadata::{SortMethod, BookQuery, sort};
 use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::app::Context;
 
@@ -19,48 +21,28 @@ pub struct Intermission {
 pub enum Message {
     Text(String),
     Image(PathBuf),
+    Cover(PathBuf),
 }
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum IntermKind {
-    Suspend,
-    PowerOff,
-    Share,
-}
-
-impl IntermKind {
-    pub fn text(&self) -> &str {
-        match self {
-            IntermKind::Suspend => "Sleeping",
-            IntermKind::PowerOff => "Powered off",
-            IntermKind::Share => "Shared",
-        }
-    }
-
-    pub fn label(&self) -> &str {
-        match self {
-            IntermKind::Suspend => "Suspend Image",
-            IntermKind::PowerOff => "Power Off Image",
-            IntermKind::Share => "Share Image",
-        }
-    }
-
-    pub fn key(&self) -> &str {
-        match self {
-            IntermKind::Suspend => "suspend",
-            IntermKind::PowerOff => "power-off",
-            IntermKind::Share => "share",
-        }
-    }
-}
-
 
 impl Intermission {
     pub fn new(rect: Rectangle, kind: IntermKind, context: &Context) -> Intermission {
-        let message = if let Some(path) = context.settings.intermission_images.get(kind.key()) {
-            Message::Image(path.clone())
-        } else {
-            Message::Text(kind.text().to_string())
+        let path = &context.settings.intermissions[kind];
+        let message = match path.to_str() {
+            Some(LOGO_SPECIAL_PATH) => Message::Text(kind.text().to_string()),
+            Some(COVER_SPECIAL_PATH) => {
+                let query = BookQuery {
+                    reading: Some(true),
+                    .. Default::default()
+                };
+                let (mut files, _) = context.library.list(&context.library.home, Some(&query), false);
+                sort(&mut files, SortMethod::Opened, true);
+                if !files.is_empty() {
+                    Message::Cover(context.library.home.join(&files[0].file.path))
+                } else {
+                    Message::Text(kind.text().to_string())
+                }
+            },
+            _ => Message::Image(path.clone()),
         };
         Intermission {
             id: ID_FEEDER.next(),
@@ -109,11 +91,10 @@ impl View for Intermission {
 
                 font.render(fb, scheme[1], &plan, pt!(dx, dy));
 
-                let doc = PdfOpener::new().and_then(|o| o.open("icons/dodecahedron.svg")).unwrap();
-                let page = doc.page(0).unwrap();
-                let (width, height) = page.dims();
+                let mut doc = open("icons/dodecahedron.svg").unwrap();
+                let (width, height) = doc.dims(0).unwrap();
                 let scale = (plan.width as f32 / width.max(height) as f32) / 4.0;
-                let pixmap = page.pixmap(scale).unwrap();
+                let (pixmap, _) = doc.pixmap(Location::Exact(0), scale).unwrap();
                 let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
                 let dy = dy + 2 * x_height;
                 let pt = self.rect.min + pt!(dx, dy);
@@ -121,18 +102,27 @@ impl View for Intermission {
                 fb.draw_blended_pixmap(&pixmap, pt, scheme[1]);
             },
             Message::Image(ref path) => {
-                if let Some(doc) = PdfOpener::new().and_then(|o| o.open(path)) {
-                    if let Some(page) = doc.page(0) {
-                        let (width, height) = page.dims();
+                if let Some(mut doc) = open(path) {
+                    if let Some((width, height)) = doc.dims(0) {
                         let w_ratio = self.rect.width() as f32 / width;
                         let h_ratio = self.rect.height() as f32 / height;
                         let scale = w_ratio.min(h_ratio);
-                        if let Some(pixmap) = page.pixmap(scale) {
+                        if let Some((pixmap, _)) = doc.pixmap(Location::Exact(0), scale) {
                             let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
                             let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
                             let pt = self.rect.min + pt!(dx, dy);
                             fb.draw_pixmap(&pixmap, pt);
                         }
+                    }
+                }
+            },
+            Message::Cover(ref path) => {
+                if let Some(mut doc) = open(path) {
+                    if let Some(pixmap) = doc.preview_pixmap(self.rect.width() as f32, self.rect.height() as f32) {
+                        let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
+                        let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
+                        let pt = self.rect.min + pt!(dx, dy);
+                        fb.draw_pixmap(&pixmap, pt);
                     }
                 }
             },

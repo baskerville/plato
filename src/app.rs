@@ -32,7 +32,7 @@ use crate::input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus, VAL_RELEA
 use crate::input::{raw_events, device_events, usb_events, display_rotate_event, button_scheme_event};
 use crate::gesture::{GestureEvent, gesture_events};
 use crate::helpers::{load_json, load_toml, save_toml, IsHidden};
-use crate::settings::{ButtonScheme, Settings, SETTINGS_PATH, RotationLock};
+use crate::settings::{ButtonScheme, Settings, SETTINGS_PATH, RotationLock, IntermKind};
 use crate::frontlight::{Frontlight, StandardFrontlight, NaturalFrontlight, PremixedFrontlight};
 use crate::lightsensor::{LightSensor, KoboLightSensor};
 use crate::battery::{Battery, KoboBattery};
@@ -40,7 +40,7 @@ use crate::geom::{Rectangle, DiagDir, Region};
 use crate::view::home::Home;
 use crate::view::reader::Reader;
 use crate::view::dialog::Dialog;
-use crate::view::intermission::{Intermission, IntermKind};
+use crate::view::intermission::Intermission;
 use crate::view::notification::Notification;
 use crate::device::{CURRENT_DEVICE, Orientation, FrontlightKind};
 use crate::library::Library;
@@ -446,6 +446,7 @@ pub fn run() -> Result<(), Error> {
                         } else if tasks.iter().any(|task| task.id == TaskId::Suspend) {
                             resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut rq, &mut context);
                         } else {
+                            view.handle_event(&Event::Suspend, &tx, &mut bus, &mut rq, &mut context);
                             let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
                             rq.add(RenderData::new(interm.id(), *interm.rect(), UpdateMode::Full));
                             schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
@@ -465,6 +466,7 @@ pub fn run() -> Result<(), Error> {
                             continue;
                         }
 
+                        view.handle_event(&Event::Suspend, &tx, &mut bus, &mut rq, &mut context);
                         let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
                         rq.add(RenderData::new(interm.id(), *interm.rect(), UpdateMode::Full));
                         schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
@@ -754,6 +756,7 @@ pub fn run() -> Result<(), Error> {
                             .ok();
                     context.online = false;
                 }
+
                 let interm = Intermission::new(context.fb.rect(), IntermKind::Share, &context);
                 rq.add(RenderData::new(interm.id(), *interm.rect(), UpdateMode::Full));
                 view.children_mut().push(Box::new(interm) as Box<dyn View>);
@@ -980,15 +983,6 @@ pub fn run() -> Result<(), Error> {
                 context.fb.toggle_dithered();
                 rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Full));
             },
-            Event::Select(EntryId::ToggleIntermissionImage(ref kind, ref path)) => {
-                let full_path = context.library.home.join(path);
-                let key = kind.key();
-                if context.settings.intermission_images.get(key) == Some(&full_path) {
-                    context.settings.intermission_images.remove(key);
-                } else {
-                    context.settings.intermission_images.insert(key.to_string(), full_path);
-                }
-            },
             Event::Select(EntryId::Rotate(n)) if n != context.display.rotation && view.might_rotate() => {
                 updating.retain(|tok, _| context.fb.wait(*tok).is_err());
                 if let Ok(dims) = context.fb.set_rotation(n) {
@@ -1070,6 +1064,7 @@ pub fn run() -> Result<(), Error> {
                 }
                 let seconds = 60 * context.settings.auto_suspend as u64;
                 if inactive_since.elapsed() > Duration::from_secs(seconds) {
+                    view.handle_event(&Event::Suspend, &tx, &mut bus, &mut rq, &mut context);
                     let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
                     rq.add(RenderData::new(interm.id(), *interm.rect(), UpdateMode::Full));
                     schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
