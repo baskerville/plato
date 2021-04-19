@@ -496,6 +496,7 @@ pub enum EntryId {
     ReverseOrder,
     EmptyTrash,
     Remove(PathBuf),
+    CopyTo(PathBuf, usize),
     MoveTo(PathBuf, usize),
     AddDirectory(PathBuf),
     SelectDirectory(PathBuf),

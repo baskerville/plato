@@ -896,13 +896,19 @@ impl Home {
             let selected_library = context.settings.selected_library;
             let libraries = context.settings.libraries.iter().enumerate()
                                    .filter(|(index, _)| *index != selected_library)
-                                   .map(|(index, lib)|  {
-                                       EntryKind::Command(lib.name.clone(),
-                                                          EntryId::MoveTo(path.clone(), index))
-                                   }).collect::<Vec<EntryKind>>();
+                                   .map(|(index, lib)| (index, lib.name.clone()))
+                                   .collect::<Vec<(usize, String)>>();
             if !libraries.is_empty() {
-                entries.push(EntryKind::SubMenu("Move To".to_string(), libraries));
-
+                let copy_to = libraries.iter().map(|(index, name)| {
+                    EntryKind::Command(name.clone(),
+                                       EntryId::CopyTo(path.clone(), *index))
+                }).collect::<Vec<EntryKind>>();
+                let move_to = libraries.iter().map(|(index, name)| {
+                    EntryKind::Command(name.clone(),
+                                       EntryId::MoveTo(path.clone(), *index))
+                }).collect::<Vec<EntryKind>>();
+                entries.push(EntryKind::SubMenu("Copy To".to_string(), copy_to));
+                entries.push(EntryKind::SubMenu("Move To".to_string(), move_to));
             }
 
             entries.push(EntryKind::Command("Remove".to_string(),
@@ -1069,6 +1075,14 @@ impl Home {
             context.library.remove(path)?;
         }
         self.refresh_visibles(true, false, hub, rq, context);
+        Ok(())
+    }
+
+    fn copy_to(&mut self, path: &Path, index: usize, context: &mut Context) -> Result<(), Error> {
+        let library_settings = &context.settings.libraries[index];
+        let mut library = Library::new(&library_settings.path, library_settings.mode);
+        context.library.copy_to(path, &mut library)?;
+        library.flush();
         Ok(())
     }
 
@@ -1550,6 +1564,12 @@ impl View for Home {
             Event::Select(EntryId::Remove(ref path)) | Event::FetcherRemoveDocument(_, ref path) => {
                 self.remove(path, hub, rq, context)
                     .map_err(|e| eprintln!("Can't remove document: {:#}.", e))
+                    .ok();
+                true
+            },
+            Event::Select(EntryId::CopyTo(ref path, index)) => {
+                self.copy_to(path, index, context)
+                    .map_err(|e| eprintln!("Can't copy document: {:#}.", e))
                     .ok();
                 true
             },

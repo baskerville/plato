@@ -3,11 +3,12 @@ use std::str::FromStr;
 use std::time::{SystemTime, Duration};
 use std::path::{PathBuf, Path};
 use std::collections::BTreeSet;
+use std::io::{Error as IoError, ErrorKind};
 use walkdir::WalkDir;
 use indexmap::IndexMap;
 use fxhash::{FxHashMap, FxHashSet, FxBuildHasher};
 use chrono::{Local, TimeZone};
-use filetime::{FileTime, set_file_handle_times};
+use filetime::{FileTime, set_file_mtime, set_file_handle_times};
 use anyhow::{Error, format_err};
 use crate::metadata::{Info, ReaderInfo, FileInfo, BookQuery, SimpleStatus, SortMethod};
 use crate::metadata::{sort, sorter, extract_metadata_from_epub};
@@ -40,7 +41,9 @@ impl Library {
             let path = home.as_ref().join(METADATA_FILENAME);
             match load_json(&path) {
                 Err(e) => {
-                    eprintln!("Can't load database: {:#}.", e);
+                    if e.downcast_ref::<IoError>().map(|e| e.kind()) != Some(ErrorKind::NotFound) {
+                        eprintln!("Can't load database: {:#}.", e);
+                    }
                     IndexMap::with_capacity_and_hasher(0, FxBuildHasher::default())
                 },
                 Ok(v) => v,
@@ -410,16 +413,93 @@ impl Library {
         Ok(())
     }
 
+    pub fn copy_to<P: AsRef<Path>>(&mut self, path: P, other: &mut Library) -> Result<(), Error> {
+        let src = self.home.join(path.as_ref());
+
+        if !src.exists() {
+            return Err(format_err!("can't copy non-existing file {}", path.as_ref().display()));
+        }
+
+        let md = src.metadata()?;
+        let fp = self.paths.get(path.as_ref()).cloned()
+                     .or_else(|| md.fingerprint(self.fat32_epoch).ok())
+                     .ok_or_else(|| format_err!("can't get fingerprint of {}", path.as_ref().display()))?;
+
+        let mut dest = other.home.join(path.as_ref());
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        if dest.exists() {
+            let prefix = Local::now().format("%Y%m%d_%H%M%S ");
+            let name = dest.file_name().and_then(|name| name.to_str())
+                           .map(|name| prefix.to_string() + name)
+                           .ok_or_else(|| format_err!("can't compute new name for {}", dest.display()))?;
+            dest.set_file_name(name);
+        }
+
+        fs::copy(&src, &dest)?;
+        let mtime = FileTime::from_last_modification_time(&md);
+        set_file_mtime(&dest, mtime)?;
+
+        let rsp_src = self.reading_state_path(fp);
+        if rsp_src.exists() {
+            let rsp_dest = other.reading_state_path(fp);
+            fs::copy(&rsp_src, &rsp_dest)?;
+        }
+
+        let tpp_src = self.thumbnail_preview_path(fp);
+        if tpp_src.exists() {
+            let tpp_dest = other.thumbnail_preview_path(fp);
+            fs::copy(&tpp_src, &tpp_dest)?;
+        }
+
+        if other.mode == LibraryMode::Database {
+            let info = self.db.get(&fp).cloned()
+                           .or_else(||
+                               self.reading_states.get(&fp).cloned()
+                                   .map(|reader_info| Info {
+                                       file: FileInfo {
+                                           size: md.len(),
+                                           kind: file_kind(&dest).unwrap_or_default(),
+                                           .. Default::default()
+                                       },
+                                       reader: Some(reader_info),
+                                       .. Default::default()
+                                   })
+                           );
+            if let Some(mut info) = info {
+                let dest_path = dest.strip_prefix(&other.home)?;
+                info.file.path = dest_path.to_path_buf();
+                other.db.insert(fp, info);
+                other.paths.insert(dest_path.to_path_buf(), fp);
+                other.has_db_changed = true;
+            }
+        } else {
+            let reader_info = self.reading_states.get(&fp).cloned()
+                                  .or_else(|| self.db.get(&fp).cloned()
+                                                  .and_then(|info| info.reader));
+            if let Some(reader_info) = reader_info {
+                other.reading_states.insert(fp, reader_info);
+            }
+        }
+
+        other.modified_reading_states.insert(fp);
+
+        Ok(())
+    }
+
     pub fn move_to<P: AsRef<Path>>(&mut self, path: P, other: &mut Library) -> Result<(), Error> {
-        if !self.home.join(path.as_ref()).exists() {
+        let src = self.home.join(path.as_ref());
+
+        if !src.exists() {
             return Err(format_err!("can't move non-existing file {}", path.as_ref().display()));
         }
 
-        let fp = self.paths.get(path.as_ref()).cloned().or_else(|| {
-            self.home.join(path.as_ref())
-                .metadata().ok()
-                .and_then(|md| md.fingerprint(self.fat32_epoch).ok())
-        }).ok_or_else(|| format_err!("can't get fingerprint of {}", path.as_ref().display()))?;
+        let md = src.metadata()?;
+        let fp = self.paths.get(path.as_ref()).cloned()
+                     .or_else(|| md.fingerprint(self.fat32_epoch).ok())
+                     .ok_or_else(|| format_err!("can't get fingerprint of {}", path.as_ref().display()))?;
 
         let src = self.home.join(path.as_ref());
         let mut dest = other.home.join(path.as_ref());
@@ -449,8 +529,21 @@ impl Library {
             fs::rename(&tpp_src, &tpp_dest)?;
         }
 
-        if self.mode == LibraryMode::Database {
-            if let Some(mut info) = self.db.shift_remove(&fp) {
+        if other.mode == LibraryMode::Database {
+            let info = self.db.shift_remove(&fp)
+                           .or_else(||
+                               self.reading_states.remove(&fp)
+                                   .map(|reader_info| Info {
+                                       file: FileInfo {
+                                           size: md.len(),
+                                           kind: file_kind(&dest).unwrap_or_default(),
+                                           .. Default::default()
+                                       },
+                                       reader: Some(reader_info),
+                                       .. Default::default()
+                                   })
+                           );
+            if let Some(mut info) = info {
                 let dest_path = dest.strip_prefix(&other.home)?;
                 info.file.path = dest_path.to_path_buf();
                 other.db.insert(fp, info);
@@ -460,7 +553,10 @@ impl Library {
                 other.has_db_changed = true;
             }
         } else {
-            if let Some(reader_info) = self.reading_states.remove(&fp) {
+            let reader_info = self.reading_states.remove(&fp)
+                                  .or_else(|| self.db.shift_remove(&fp)
+                                                  .and_then(|info| info.reader));
+            if let Some(reader_info) = reader_info {
                 other.reading_states.insert(fp, reader_info);
             }
         }
