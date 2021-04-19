@@ -371,6 +371,30 @@ impl Library {
         self.has_db_changed = true;
     }
 
+    pub fn rename<P: AsRef<Path>>(&mut self, path: P, file_name: &str) -> Result<(), Error> {
+        let src = self.home.join(path.as_ref());
+
+        let fp = self.paths.remove(path.as_ref()).or_else(|| {
+           src.metadata().ok()
+              .and_then(|md| md.fingerprint(self.fat32_epoch).ok())
+        }).ok_or_else(|| format_err!("can't get fingerprint of {}", path.as_ref().display()))?;
+
+        let mut dest = src.clone();
+        dest.set_file_name(file_name);
+        fs::rename(&src, &dest)?;
+
+        if self.mode == LibraryMode::Database {
+            let new_path = dest.strip_prefix(&self.home)?;
+            self.paths.insert(new_path.to_path_buf(), fp);
+            if let Some(info) = self.db.get_mut(&fp) {
+                info.file.path = new_path.to_path_buf();
+                self.has_db_changed = true;
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn remove<P: AsRef<Path>>(&mut self, path: P) -> Result<(), Error> {
         let full_path = self.home.join(path.as_ref());
 
