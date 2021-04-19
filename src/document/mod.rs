@@ -105,6 +105,8 @@ pub trait Document: Send+Sync {
     fn set_margin_width(&mut self, width: i32);
     fn set_text_align(&mut self, text_align: TextAlign);
     fn set_line_height(&mut self, line_height: f32);
+    fn set_hyphen_penalty(&mut self, hyphen_penalty: i32);
+    fn set_stretch_tolerance(&mut self, stretch_tolerance: f32);
 
     fn title(&self) -> Option<String>;
     fn author(&self) -> Option<String>;

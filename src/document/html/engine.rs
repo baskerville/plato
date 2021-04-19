@@ -13,6 +13,7 @@ use crate::document::{Document, Location};
 use crate::document::pdf::PdfOpener;
 use crate::unit::{mm_to_px, pt_to_px};
 use crate::geom::{Point, Vec2, Rectangle, Edge};
+use crate::settings::{HYPHEN_PENALTY, STRETCH_TOLERANCE};
 use crate::settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT};
 use super::parse::{parse_display, parse_edge, parse_float, parse_text_align, parse_text_indent};
 use super::parse::{parse_width, parse_height, parse_inline_material, parse_font_kind, parse_font_style};
@@ -32,8 +33,6 @@ use super::style::{Stylesheet, specified_values};
 const DEFAULT_DPI: u16 = 300;
 const DEFAULT_WIDTH: u32 = 1404;
 const DEFAULT_HEIGHT: u32 = 1872;
-const HYPHEN_PENALTY: i32 = 50;
-const STRETCH_TOLERANCE: f32 = 1.26;
 
 pub type Page = Vec<DrawCommand>;
 
@@ -43,7 +42,12 @@ pub trait ResourceFetcher {
 
 // TODO: Add min_font_size.
 pub struct Engine {
+    // The fonts used for each CSS font family.
     fonts: Option<Fonts>,
+    // The penalty for lines ending with a hyphen.
+    hyphen_penalty: i32,
+    // The stretching/shrinking allowed for word spaces.
+    stretch_tolerance: f32,
     // Page margins in pixels.
     pub margin: Edge,
     // Font size in points.
@@ -65,6 +69,8 @@ impl Engine {
 
         Engine {
             fonts: None,
+            hyphen_penalty: HYPHEN_PENALTY,
+            stretch_tolerance: STRETCH_TOLERANCE,
             margin,
             font_size: DEFAULT_FONT_SIZE,
             text_align: DEFAULT_TEXT_ALIGN,
@@ -79,6 +85,14 @@ impl Engine {
         if self.fonts.is_none() {
             self.fonts = default_fonts().ok();
         }
+    }
+
+    pub fn set_hyphen_penalty(&mut self, hyphen_penalty: i32) {
+        self.hyphen_penalty = hyphen_penalty;
+    }
+
+    pub fn set_stretch_tolerance(&mut self, stretch_tolerance: f32) {
+        self.stretch_tolerance = stretch_tolerance;
     }
 
     pub fn set_margin(&mut self, margin: &Edge) {
@@ -930,7 +944,7 @@ impl Engine {
                                         },
                                     }
                                 } else if end_index < text.len() {
-                                    let penalty = if c == '-' { HYPHEN_PENALTY } else { 0 };
+                                    let penalty = if c == '-' { self.hyphen_penalty } else { 0 };
                                     let flagged = penalty > 0;
                                     items.push(ParagraphItem::Penalty { width: 0, penalty, flagged });
                                 }
@@ -987,7 +1001,7 @@ impl Engine {
         };
 
         let stretch_tolerance = if style.text_align == TextAlign::Justify {
-            STRETCH_TOLERANCE
+            self.stretch_tolerance
         } else {
             10.0
         };
@@ -1151,7 +1165,7 @@ impl Engine {
                 }
             }
 
-            bps = standard_fit(&items, &line_lengths, STRETCH_TOLERANCE);
+            bps = standard_fit(&items, &line_lengths, self.stretch_tolerance);
         }
 
         // Remove unselected optional hyphens (prevents broken ligatures).
@@ -1494,7 +1508,7 @@ impl Engine {
                                 hyph_items.push(subelem);
                                 index += segment.len();
                                 if index < chunk.len() {
-                                    hyph_items.push(ParagraphItem::Penalty { width: hyphen_width, penalty: HYPHEN_PENALTY, flagged: true });
+                                    hyph_items.push(ParagraphItem::Penalty { width: hyphen_width, penalty: self.hyphen_penalty, flagged: true });
                                 }
                             }
                             let len_after = hyph_items.len();

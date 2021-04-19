@@ -847,6 +847,16 @@ impl Document for EpubDocument {
         self.cache.clear();
     }
 
+    fn set_hyphen_penalty(&mut self, hyphen_penalty: i32) {
+        self.engine.set_hyphen_penalty(hyphen_penalty);
+        self.cache.clear();
+    }
+
+    fn set_stretch_tolerance(&mut self, stretch_tolerance: f32) {
+        self.engine.set_stretch_tolerance(stretch_tolerance);
+        self.cache.clear();
+    }
+
     fn title(&self) -> Option<String> {
         self.metadata("dc:title")
     }

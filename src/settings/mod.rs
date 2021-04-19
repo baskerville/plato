@@ -31,6 +31,8 @@ pub const DEFAULT_LINE_HEIGHT: f32 = 1.2;
 pub const DEFAULT_FONT_FAMILY: &str = "Libertinus Serif";
 // Default text alignment.
 pub const DEFAULT_TEXT_ALIGN: TextAlign = TextAlign::Left;
+pub const HYPHEN_PENALTY: i32 = 50;
+pub const STRETCH_TOLERANCE: f32 = 1.26;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -319,7 +321,15 @@ pub struct ReaderSettings {
     pub margin_width: i32,
     pub line_height: f32,
     pub dithered_kinds: FxHashSet<String>,
+    pub paragraph_breaker: ParagraphBreakerSettings,
     pub refresh_rate: RefreshRateSettings,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct ParagraphBreakerSettings {
+    pub hyphen_penalty: i32,
+    pub stretch_tolerance: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -363,6 +373,15 @@ impl Default for HomeSettings {
     }
 }
 
+impl Default for ParagraphBreakerSettings {
+    fn default() -> Self {
+        ParagraphBreakerSettings {
+            hyphen_penalty: HYPHEN_PENALTY,
+            stretch_tolerance: STRETCH_TOLERANCE,
+        }
+    }
+}
+
 impl Default for ReaderSettings {
     fn default() -> Self {
         ReaderSettings {
@@ -377,6 +396,7 @@ impl Default for ReaderSettings {
             margin_width: DEFAULT_MARGIN_WIDTH,
             line_height: DEFAULT_LINE_HEIGHT,
             dithered_kinds: ["cbz", "png", "jpg", "jpeg"].iter().map(|k| k.to_string()).collect(),
+            paragraph_breaker: ParagraphBreakerSettings::default(),
             refresh_rate: RefreshRateSettings::default(),
         }
     }

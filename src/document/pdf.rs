@@ -265,6 +265,12 @@ impl Document for PdfDocument {
 
     fn set_line_height(&mut self, _line_height: f32) {
     }
+
+    fn set_hyphen_penalty(&mut self, _hyphen_penalty: i32) {
+    }
+
+    fn set_stretch_tolerance(&mut self, _stretch_tolerance: f32) {
+    }
 }
 
 impl<'a> PdfPage<'a> {
