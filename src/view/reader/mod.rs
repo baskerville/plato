@@ -2711,7 +2711,8 @@ impl View for Reader {
                             let mut rect = rects[i].0;
                             while rects[i].1 < start_high {
                                 let next_rect = rects[i+1].0;
-                                if rect.min.y < next_rect.max.y && next_rect.min.y < rect.max.y {
+                                if rect.max.y.min(next_rect.max.y) - rect.min.y.max(next_rect.min.y) >
+                                   rect.height().min(next_rect.height()) as i32 / 2 {
                                     if rects[i+1].1 == start_high {
                                         if rect.min.x < next_rect.min.x {
                                             rect.max.x = next_rect.min.x;
@@ -2738,7 +2739,8 @@ impl View for Reader {
                             let mut rect = rects[i].0;
                             while rects[i].1 > end_low {
                                 let prev_rect = rects[i-1].0;
-                                if rect.min.y < prev_rect.max.y && prev_rect.min.y < rect.max.y {
+                                if rect.max.y.min(prev_rect.max.y) - rect.min.y.max(prev_rect.min.y) >
+                                   rect.height().min(prev_rect.height()) as i32 / 2 {
                                     if rects[i-1].1 == end_low {
                                         if rect.min.x > prev_rect.min.x {
                                             rect.min.x = prev_rect.max.x;
@@ -3692,7 +3694,8 @@ impl View for Reader {
                                 fb.invert_region(search_rect);
                             }
                             if let Some(last) = last_rect {
-                                if rect.min.y < last.max.y && last.min.y < rect.max.y && (last.max.x < rect.min.x || rect.max.x < last.min.x) {
+                                if rect.max.y.min(last.max.y) - rect.min.y.max(last.min.y) > rect.height().min(last.height()) as i32 / 2 &&
+                                   (last.max.x < rect.min.x || rect.max.x < last.min.x) {
                                     let space = if last.max.x < rect.min.x {
                                         rect![last.max.x, (last.min.y + rect.min.y) / 2,
                                               rect.min.x, (last.max.y + rect.max.y) / 2]
@@ -3722,7 +3725,9 @@ impl View for Reader {
                                     fb.shift_region(sel_rect, drift);
                                 }
                                 if let Some(last) = last_rect {
-                                    if rect.min.y < last.max.y && last.min.y < rect.max.y && (last.max.x < rect.min.x || rect.max.x < last.min.x) {
+                                    // Are `rect` and `last` on the same line?
+                                    if rect.max.y.min(last.max.y) - rect.min.y.max(last.min.y) > rect.height().min(last.height()) as i32 / 2 &&
+                                       (last.max.x < rect.min.x || rect.max.x < last.min.x) {
                                         let space = if last.max.x < rect.min.x {
                                             rect![last.max.x, (last.min.y + rect.min.y) / 2,
                                                   rect.min.x, (last.max.y + rect.max.y) / 2]
@@ -3750,7 +3755,8 @@ impl View for Reader {
                                 fb.invert_region(sel_rect);
                             }
                             if let Some(last) = last_rect {
-                                if rect.min.y < last.max.y && last.min.y < rect.max.y && (last.max.x < rect.min.x || rect.max.x < last.min.x) {
+                                if rect.max.y.min(last.max.y) - rect.min.y.max(last.min.y) > rect.height().min(last.height()) as i32 / 2 &&
+                                   (last.max.x < rect.min.x || rect.max.x < last.min.x) {
                                     let space = if last.max.x < rect.min.x {
                                         rect![last.max.x, (last.min.y + rect.min.y) / 2,
                                               rect.min.x, (last.max.y + rect.max.y) / 2]
