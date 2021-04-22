@@ -705,34 +705,11 @@ impl Engine {
                 }
             },
             Node::Text(TextData { offset, text }) => {
-                let mut index = 0;
-                while let Some(start_delta) = text[index..].find('&') {
-                    if start_delta > 0 {
-                        inlines.push(InlineMaterial::Text(TextMaterial {
-                            offset: *offset + index,
-                            text: text[index..index+start_delta].to_string(),
-                            style: parent_style.clone(),
-                        }));
-                    }
-                    index += start_delta;
-                    if let Some(end_delta) = text[index..].find(';') {
-                        inlines.push(InlineMaterial::Text(TextMaterial {
-                            offset: *offset + index,
-                            text: decode_entities(&text[index..=index+end_delta]).into_owned(),
-                            style: parent_style.clone(),
-                        }));
-                        index += end_delta + 1;
-                    } else {
-                        break;
-                    }
-                }
-                if index < text.len() {
-                    inlines.push(InlineMaterial::Text(TextMaterial {
-                        offset: *offset + index,
-                        text: text[index..].to_string(),
-                        style: parent_style.clone(),
-                    }));
-                }
+                inlines.push(InlineMaterial::Text(TextMaterial {
+                    offset: *offset,
+                    text: decode_entities(&text).into_owned(),
+                    style: parent_style.clone(),
+                }));
             },
             Node::Whitespace(TextData { offset, text }) => {
                 inlines.push(InlineMaterial::Text(TextMaterial {
