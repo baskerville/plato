@@ -220,6 +220,13 @@ impl InlineMaterial {
             _ => None,
         }
     }
+
+    pub fn text(&self) -> Option<&str> {
+        match self {
+            InlineMaterial::Text(TextMaterial { ref text, .. }) => Some(text),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -750,8 +750,8 @@ impl Engine {
             items.push(ParagraphItem::Glue { width: 0, stretch: big_stretch, shrink: 0 });
         }
 
-        for m in inlines.iter() {
-            match m {
+        for (index, mater) in inlines.iter().enumerate() {
+            match mater {
                 InlineMaterial::Image(ImageMaterial { offset, path, style }) => {
                     let (mut width, mut height) = (style.width, style.height);
                     let mut scale = 1.0;
@@ -861,7 +861,13 @@ impl Engine {
                                         continue;
                                     }
 
-                                    let last_c = text[..start_index+i].chars().next_back();
+                                    let last_c = text[..start_index+i].chars().next_back().or_else(|| {
+                                        if index > 0 {
+                                            inlines[index-1].text().and_then(|text| text.chars().next_back())
+                                        } else {
+                                            None
+                                        }
+                                    });
 
                                     if !parent_style.retain_whitespace && (c == ' ' || c.is_control()) &&
                                         (last_c.map(|c| c == ' ' || c.is_control()) == Some(true)) {
