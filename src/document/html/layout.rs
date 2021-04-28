@@ -66,9 +66,17 @@ pub struct StyleData {
     pub font_features: Option<Vec<String>>,
     pub color: u8,
     pub letter_spacing: i32,
+    pub word_spacing: WordSpacing,
     pub vertical_align: i32,
     pub list_style_type: Option<ListStyleType>,
     pub uri: Option<String>,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum WordSpacing {
+    Normal,
+    Length(i32),
+    Ratio(f32),
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -186,6 +194,7 @@ impl Default for StyleData {
             font_features: None,
             color: BLACK,
             letter_spacing: 0,
+            word_spacing: WordSpacing::Normal,
             vertical_align: 0,
             list_style_type: None,
             uri: None,

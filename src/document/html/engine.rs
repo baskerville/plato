@@ -14,14 +14,17 @@ use crate::document::pdf::PdfOpener;
 use crate::unit::{mm_to_px, pt_to_px};
 use crate::geom::{Point, Vec2, Rectangle, Edge};
 use crate::settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT};
-use super::parse::{parse_display, parse_edge, parse_float, parse_text_align, parse_text_indent, parse_width, parse_height, parse_inline_material};
-use super::parse::{parse_font_kind, parse_font_style, parse_font_weight, parse_font_size, parse_font_features, parse_font_variant, parse_letter_spacing};
+use super::parse::{parse_display, parse_edge, parse_float, parse_text_align, parse_text_indent};
+use super::parse::{parse_width, parse_height, parse_inline_material, parse_font_kind, parse_font_style};
+use super::parse::{parse_font_weight, parse_font_size, parse_font_features, parse_font_variant};
+use super::parse::{parse_letter_spacing, parse_word_spacing};
 use super::parse::{parse_line_height, parse_vertical_align, parse_color, parse_list_style_type};
 use super::dom::{Node, ElementData, TextData};
 use super::layout::{StyleData, InlineMaterial, TextMaterial, ImageMaterial};
 use super::layout::{GlueMaterial, PenaltyMaterial, ChildArtifact, SiblingStyle, LoopContext};
 use super::layout::{RootData, DrawState, DrawCommand, TextCommand, ImageCommand, FontKind, Fonts};
-use super::layout::{TextAlign, ParagraphElement, TextElement, ImageElement, Display, Float, ListStyleType, LineStats};
+use super::layout::{TextAlign, ParagraphElement, TextElement, ImageElement, Display, Float};
+use super::layout::{WordSpacing, ListStyleType, LineStats};
 use super::layout::{hyph_lang, collapse_margins, DEFAULT_HYPH_LANG, HYPHENATION_PATTERNS};
 use super::layout::{EM_SPACE_RATIOS, WORD_SPACE_RATIOS, FONT_SPACES};
 use super::style::{Stylesheet, specified_values};
@@ -177,6 +180,10 @@ impl Engine {
         style.letter_spacing = props.get("letter-spacing")
                                     .and_then(|value| parse_letter_spacing(value, style.font_size, self.font_size, self.dpi))
                                     .unwrap_or(parent_style.letter_spacing);
+
+        style.word_spacing = props.get("word-spacing")
+                                    .and_then(|value| parse_word_spacing(value, style.font_size, self.font_size, self.dpi))
+                                    .unwrap_or(parent_style.word_spacing);
 
         style.vertical_align = props.get("vertical-align")
                                     .and_then(|value| parse_vertical_align(value, style.font_size, self.font_size, style.line_height, self.dpi))
@@ -619,6 +626,10 @@ impl Engine {
                                             .and_then(|value| parse_letter_spacing(value, style.font_size, self.font_size, self.dpi))
                                             .unwrap_or(parent_style.letter_spacing);
 
+                style.word_spacing = props.get("word-spacing")
+                                            .and_then(|value| parse_word_spacing(value, style.font_size, self.font_size, self.dpi))
+                                            .unwrap_or(parent_style.word_spacing);
+
                 style.vertical_align = props.get("vertical-align")
                                             .and_then(|value| parse_vertical_align(value, style.font_size, self.font_size, style.line_height, self.dpi))
                                             .unwrap_or(parent_style.vertical_align);
@@ -724,17 +735,15 @@ impl Engine {
     fn make_paragraph_items(&mut self, inlines: &[InlineMaterial], parent_style: &StyleData, line_width: i32, resource_fetcher: &mut dyn ResourceFetcher) -> (Vec<ParagraphItem<ParagraphElement>>, Vec<ImageElement>) {
         let mut items = Vec::new();
         let mut floats = Vec::new();
-        let font_size = (parent_style.font_size * 64.0) as u32;
-        let space_plan = {
+        let big_stretch = 3 * {
+            let font_size = (parent_style.font_size * 64.0) as u32;
             let font = self.fonts.as_mut().unwrap()
                            .get_mut(parent_style.font_kind,
                                     parent_style.font_style,
                                     parent_style.font_weight);
             font.set_size(font_size, self.dpi);
-            font.plan(" 0.", None, None)
+            font.plan(" ", None, None).width
         };
-
-        let big_stretch = 3 * space_plan.glyph_advance(0);
 
         if parent_style.text_align == TextAlign::Center {
             items.push(ParagraphItem::Box { width: 0, data: ParagraphElement::Nothing });
@@ -789,6 +798,14 @@ impl Engine {
                 },
                 InlineMaterial::Text(TextMaterial { offset, text, style }) => {
                     let font_size = (style.font_size * 64.0) as u32;
+                    let space_plan = {
+                        let font = self.fonts.as_mut().unwrap()
+                                       .get_mut(parent_style.font_kind,
+                                                parent_style.font_style,
+                                                parent_style.font_weight);
+                        font.set_size(font_size, self.dpi);
+                        font.plan(" 0.", None, None)
+                    };
                     let mut start_index = 0;
                     for (end_index, _is_hardbreak) in LineBreakIterator::new(&text) {
                         for chunk in text[start_index..end_index].split_inclusive(char::is_whitespace) {
@@ -862,13 +879,11 @@ impl Engine {
                                         space_plan.glyph_advance(0)
                                     };
 
-                                    width += 2 * style.letter_spacing;
-
-                                    let (stretch, shrink) = if style.font_kind != FontKind::Monospace {
-                                        (width / 2, width / 3)
-                                    } else {
-                                        (0, 0)
-                                    };
+                                    width += match style.word_spacing {
+                                        WordSpacing::Normal => 0,
+                                        WordSpacing::Length(l) => l,
+                                        WordSpacing::Ratio(r) => (r * width as f32) as i32,
+                                    } + style.letter_spacing;
 
                                     if parent_style.retain_whitespace && last_c == Some('\n') {
                                         items.push(ParagraphItem::Box { width: 0, data: ParagraphElement::Nothing });
@@ -882,10 +897,10 @@ impl Engine {
 
                                     match parent_style.text_align {
                                         TextAlign::Justify => {
-                                            items.push(ParagraphItem::Glue { width, stretch, shrink });
+                                            items.push(ParagraphItem::Glue { width, stretch: width/2, shrink: width/3 });
                                         },
                                         TextAlign::Center => {
-                                            if is_unbreakable {
+                                            if style.font_kind == FontKind::Monospace {
                                                 items.push(ParagraphItem::Glue { width, stretch: 0, shrink: 0 });
                                             } else {
                                                 let stretch = 3 * width;
@@ -898,7 +913,7 @@ impl Engine {
                                             }
                                         },
                                         TextAlign::Left | TextAlign::Right => {
-                                            if is_unbreakable {
+                                            if style.font_kind == FontKind::Monospace {
                                                 items.push(ParagraphItem::Glue { width, stretch: 0, shrink: 0 });
                                             } else {
                                                 let stretch = 3 * width;
