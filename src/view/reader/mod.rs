@@ -230,7 +230,6 @@ impl Reader {
             let (width, height) = context.display.dims;
             let font_size = info.reader.as_ref().and_then(|r| r.font_size)
                                 .unwrap_or(settings.reader.font_size);
-            let first_location = doc.resolve_location(Location::Exact(0))?;
 
             doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
 
@@ -262,6 +261,7 @@ impl Reader {
                 doc.set_text_align(text_align);
             }
 
+            let first_location = doc.resolve_location(Location::Exact(0))?;
             let mut view_port = ViewPort::default();
             let mut contrast = Contrast::default();
             let pages_count = doc.pages_count();
