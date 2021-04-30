@@ -1403,9 +1403,17 @@ impl Engine {
             }
         }
 
-        while let Some(offset) = markers.get(markers_index) {
-            page.push(DrawCommand::Marker(root_data.start_offset + *offset));
-            markers_index += 1;
+        let last_page = if !page.is_empty() {
+            Some(&mut page)
+        } else {
+            display_list.iter_mut().rev().find(|page| !page.is_empty())
+        };
+
+        if let Some(last_page) = last_page {
+            while let Some(offset) = markers.get(markers_index) {
+                last_page.push(DrawCommand::Marker(root_data.start_offset + *offset));
+                markers_index += 1;
+            }
         }
 
         rects.push(page_rect.take());
