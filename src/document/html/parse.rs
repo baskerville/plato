@@ -1,6 +1,7 @@
 use fxhash::FxHashSet;
 use regex::Regex;
-use super::layout::{FontKind, FontStyle, FontWeight, TextAlign, Display, Float, ListStyleType};
+use super::layout::{FontKind, FontStyle, FontWeight, WordSpacing};
+use super::layout::{TextAlign, Display, Float, ListStyleType};
 use super::layout::{InlineMaterial, GlueMaterial, PenaltyMaterial};
 use crate::geom::Edge;
 use crate::unit::{pt_to_px, pc_to_px, mm_to_px, in_to_px};
@@ -119,6 +120,17 @@ pub fn parse_letter_spacing(value: &str, em: f32, rem: f32, dpi: u16) -> Option<
         Some(0)
     } else {
         parse_length(value, em, rem, dpi)
+    }
+}
+
+pub fn parse_word_spacing(value: &str, em: f32, rem: f32, dpi: u16) -> Option<WordSpacing> {
+    if value == "normal" {
+        Some(WordSpacing::Normal)
+    } else if let Some(percent) = value.strip_suffix('%') {
+        percent.parse::<f32>().ok()
+               .map(|v| WordSpacing::Ratio(v / 100.0))
+    } else {
+        parse_length(value, em, rem, dpi).map(WordSpacing::Length)
     }
 }
 
