@@ -3647,8 +3647,7 @@ impl View for Reader {
             Event::Select(EntryId::Quit) |
             Event::Select(EntryId::Reboot) |
             Event::Select(EntryId::RebootInNickel) |
-            Event::Back |
-            Event::Suspend => {
+            Event::Back => {
                 self.quit(context);
                 false
             },

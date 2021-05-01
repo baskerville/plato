@@ -62,7 +62,7 @@ fn main() -> Result<(), Error> {
                 "type": "notify",
                 "message": "Establishing a network connection.",
             });
-            println!("{}", event);
+            // println!("{}", event);
             let event = json!({
                 "type": "setWifi",
                 "enable": true,
@@ -73,7 +73,7 @@ fn main() -> Result<(), Error> {
                 "type": "notify",
                 "message": "Waiting for the network to come up.",
             });
-            println!("{}", event);
+            // println!("{}", event);
         }
         let mut line = String::new();
         io::stdin().read_line(&mut line)?;
@@ -114,7 +114,7 @@ fn main() -> Result<(), Error> {
                     "type": "notify",
                     "message": &message,
                 });
-            println!("{}", event);
+            // println!("{}", event);
 
             current_num = num;
         }
@@ -195,6 +195,21 @@ fn main() -> Result<(), Error> {
             println!("{}", event);
         }
     }
+
+    // if pages_count > 0 {
+    //     let downloads_count = session.downloads_count
+    //                                  .saturating_sub(last_downloads_count);
+    //     let message = if downloads_count > 0 {
+    //         format!("Downloaded {} comic{}.", downloads_count, if downloads_count != 1 { "s" } else { "" })
+    //     } else {
+    //         "No comics downloaded.".to_string()
+    //     };
+    //     let event = json!({
+    //         "type": "notify",
+    //         "message": &message,
+    //     });
+    //     println!("{}", event);
+    // }
 
     if !wifi {
         let event = json!({
