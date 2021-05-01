@@ -385,7 +385,7 @@ impl Default for ParagraphBreakerSettings {
 impl Default for ReaderSettings {
     fn default() -> Self {
         ReaderSettings {
-            finished: FinishedAction::Notify,
+            finished: FinishedAction::Close,
             south_east_corner: SouthEastCornerAction::GoToPage,
             strip_width: 0.6,
             corner_width: 0.4,

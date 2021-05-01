@@ -1,0 +1,171 @@
+# selected-library = 0
+# Possible values: "English", "Russian".
+keyboard-layout = "English"
+frontlight = true
+wifi = false
+# Handle the Sleep Cover event.
+sleep-cover = true
+# Automatically enters shared mode when connected to a computer.
+auto-share = false
+# Defines how the back and forward buttons are mapped to the
+# *page forward* and *page backward* actions.
+# Possible values: "natural", "inverted".
+button-scheme = "natural"
+# The number of minutes of inactivity after which a device
+# will automatically go to sleep. *Zero* means *never*.
+auto-suspend = 30
+# The delay, in days, after which a suspended device
+# will power off. *Zero* means *never*.
+auto-power-off = 3
+# Formats used for the clock and the clock's pop-up menu.
+# The available specifiers are described at:
+# https://docs.rs/chrono/latest/chrono/format/strftime/index.html
+time-format = "%H:%M"
+date-format = "%A, %B %-d, %Y"
+
+# You can create libraries by adding further [[libraries]] entries.
+[[libraries]]
+name = "On Board"
+path = "/mnt/onboard"
+# Possible values: "database", "filesystem".
+mode = "database"
+sort-method = "opened"
+first-column = "title-and-author"
+second-column = "progress"
+thumbnail-previews = true
+
+# This example fetcher retrieves articles through the *Wallabag* protocol.
+# See `doc/ARTICLE_FETCHER.md` on how to configure it.
+[[libraries.hooks]]
+path = "Articles"
+program = "bin/article_fetcher/article_fetcher"
+sort-method = "added"
+first-column = "title-and-author"
+second-column = "progress"
+
+# Remove this entry if you don't have an external card slot
+# on your device.
+[[libraries]]
+name = "Removable"
+path = "/mnt/sd"
+mode = "database"
+sort-method = "opened"
+first-column = "title-and-author"
+second-column = "progress"
+thumbnail-previews = true
+
+# Defines the images displayed when entering an intermission.
+# Possible values: "logo:", "cover:", "/path/to/image/file".
+# If a relative file path is given, it will be relative to
+# the installation directory.
+[intermissions]
+suspend = "logo:"
+power-off = "logo:"
+share = "logo:"
+
+[home]
+# Show the address bar that display the path of the current directory.
+address-bar = false
+# Show the navigation bar that displays the directory hierarchy.
+navigation-bar = true
+# The maximum number of levels shown above the current directory.
+max-levels = 3
+# The size limit, in bytes, of the trash. Once the limit is reached,
+# documents will be automatically removed until the invariant is restored.
+max-trash-size = 33_554_432
+
+[reader]
+# How to react when a book is finished.
+# Possible values: "notify", "close".
+finished = "close"
+# The action triggered when tapping the south-east corner.
+# Possible values: "go-to-page", "next-page".
+south-east-corner = "go-to-page"
+# The width ratio, relative to `min(W, H) / 2`, of the strip and corner touch regions.
+# Launch the *Touch Events* application to display the current touch regions.
+strip-width = 0.6
+corner-width = 0.4
+# The path for the user's font directory.
+font-path = "/mnt/onboard/fonts"
+# The default serif font.
+font-family = "Libertinus Serif"
+# The default font size, in points.
+font-size = 11.0
+# The default text alignment.
+# Possible values: "left", "right", "center", "justify".
+text-align = "left"
+# The default margin width, in millimeters.
+margin-width = 8
+# The default line height, in ems.
+line-height = 1.2
+# The file extensions of the files that will automatically be dithered
+# when opened for the first time.
+dithered-kinds = ["cbz", "jpg", "png", "jpeg"]
+
+[reader.paragraph-breaker]
+# The penalty for hyphenated lines. The maximum value is 10_000.
+hyphen-penalty = 50
+# The stretch/shrink tolerance of inter-word spaces.
+stretch-tolerance = 1.26
+
+# Refresh the screen every `regular` page turns when the colors aren't inverted,
+# and every `inverted` page turns when they are. *Zero* means *never*.
+[reader.refresh-rate]
+regular = 8
+inverted = 2
+
+[import]
+# Start the import process when the device is unplugged from a computer.
+unshare-trigger = true
+# Start the import process when *Plato* starts.
+startup-trigger = true
+# Extract the metadata of EPUB documents.
+extract-epub-metadata = true
+# The file extensions of the file that will be considered during the
+# import process.
+allowed-kinds = ["djvu", "xps", "fb2", "pdf", "oxps", "cbz", "epub"]
+
+[dictionary]
+# The default font size and margin width, for the Dictionary application.
+# The units are the same as in the `[reader]` section.
+font-size = 11.0
+margin-width = 4
+
+[sketch]
+# The path to a directory where the sketches will be saved.
+# Relative paths are relative to the current library's path.
+save-path = "Sketches"
+# Create a notification when a sketch is successfully saved.
+notify-success = true
+
+[sketch.pen]
+# The diameter of the pen tip, in pixels.
+size = 2
+# Vary the diameter according to the pen's velocity.
+dynamic = true
+# The current pen color.
+# Possible values: 0 … 255.
+color = 0
+# The pen speeds, in pixels per seconds, that clamps the pen's speed.
+# min-speed = 36
+# max-speed = 1800
+
+[calculator]
+# The default font size and margin width, for the Calculator application.
+# The units are the same as in the `[reader]` section.
+font-size = 8.0
+margin-width = 2
+# The number of remembered inputs.
+history-size = 4_096
+
+[battery]
+# Warn about the battery level being low, when the level
+# goes below `warn` percents.
+warn = 10.0
+# Shut the device down when the battery level goes below
+# `power-off` percents.
+power-off = 3.0
+
+[frontlight-levels]
+intensity = 0.0
+warmth = 0.0
