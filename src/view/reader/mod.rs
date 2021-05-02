@@ -2986,7 +2986,11 @@ impl View for Reader {
                                          context.settings.reader.corner_width) {
                     Region::Corner(diag_dir) => {
                         match diag_dir {
-                            DiagDir::NorthWest => self.go_to_last_page(hub, rq, context),
+                            DiagDir::NorthWest => {
+                                // self.go_to_last_page(hub, rq, context);
+                                self.quit(context);
+                                hub.send(Event::Back).ok();
+                            },
                             DiagDir::NorthEast => self.toggle_bookmark(rq),
                             DiagDir::SouthEast => {
                                 if self.search.is_none() {
