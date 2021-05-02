@@ -405,6 +405,16 @@ impl Document for HtmlDocument {
         self.pages.clear();
     }
 
+    fn set_hyphen_penalty(&mut self, hyphen_penalty: i32) {
+        self.engine.set_hyphen_penalty(hyphen_penalty);
+        self.pages.clear();
+    }
+
+    fn set_stretch_tolerance(&mut self, stretch_tolerance: f32) {
+        self.engine.set_stretch_tolerance(stretch_tolerance);
+        self.pages.clear();
+    }
+
     fn title(&self) -> Option<String> {
         self.content.find("head")
             .and_then(Node::children)
