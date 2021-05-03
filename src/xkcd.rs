@@ -121,6 +121,12 @@ fn main() -> Result<(), Error> {
     }
 
     for num in current_num - settings.num_comics_to_download as u64..current_num + 1 {
+
+        let comic_path = save_path.join(&format!("{}.png", num));
+        if comic_path.exists() {
+            continue;
+        }
+
         let url = format!("{}/{}/info.0.json", &BASE_URL, &num);
 
         let data: JsonValue = client.get(&url)
@@ -130,10 +136,6 @@ fn main() -> Result<(), Error> {
         if data.get("num").is_none() {
             continue;
         }
-
-        let num = data.get("num")
-            .and_then(|v| v.as_u64())
-            .unwrap();
 
         let title = data.get("title")
             .and_then(JsonValue::as_str)
@@ -152,11 +154,6 @@ fn main() -> Result<(), Error> {
             .map(decode_entities)
             .map(String::from)
             .unwrap_or_default();
-
-        let comic_path = save_path.join(&format!("{}.png", safe_title));
-        if comic_path.exists() {
-            continue;
-        }
 
         let mut file = File::create(&comic_path)?;
 
