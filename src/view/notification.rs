@@ -12,7 +12,7 @@ use crate::input::DeviceEvent;
 use crate::unit::scale_by_dpi;
 use crate::app::Context;
 
-const NOTIFICATION_CLOSE_DELAY: Duration = Duration::from_secs(4);
+const NOTIFICATION_CLOSE_DELAY: Duration = Duration::from_secs(2);
 
 pub struct Notification {
     id: Id,
