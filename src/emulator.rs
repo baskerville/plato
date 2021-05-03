@@ -66,6 +66,7 @@ use crate::lightsensor::LightSensor;
 use crate::library::Library;
 use crate::font::Fonts;
 use crate::app::Context;
+use png::Info;
 
 pub const APP_NAME: &str = "Plato";
 const DEFAULT_ROTATION: i8 = 1;
@@ -82,8 +83,10 @@ pub fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let lightsensor = Box::new(0u16) as Box<dyn LightSensor>;
     let fonts = Fonts::load()?;
 
+    let last_read = Box::new(Info::default());
+
     Ok(Context::new(fb, None, library, settings,
-                    fonts, battery, frontlight, lightsensor))
+                    fonts, battery, frontlight, lightsensor, last_read))
 }
 
 #[inline]

@@ -2996,7 +2996,14 @@ impl View for Reader {
                                 if self.search.is_none() {
                                     match context.settings.reader.south_east_corner {
                                         SouthEastCornerAction::GoToPage => {
-                                            hub.send(Event::Toggle(ViewId::GoToPage)).ok();
+                                            // hub.send(Event::Toggle(ViewId::GoToPage)).ok();
+
+                                            self.quit(context);
+                                            hub.send(Event::Back).ok();
+
+                                            hub.send(Event::Open(context.last_read.clone())).ok();
+
+                                            context.last_read = Box::new(self.info.clone());
                                         },
                                         SouthEastCornerAction::NextPage => {
                                             self.go_to_neighbor(CycleDir::Next, hub, rq, context);

@@ -46,6 +46,7 @@ use crate::device::{CURRENT_DEVICE, Orientation, FrontlightKind};
 use crate::library::Library;
 use crate::font::Fonts;
 use crate::rtc::Rtc;
+use crate::metadata::Info;
 
 pub const APP_NAME: &str = "Plato";
 const FB_DEVICE: &str = "/dev/fb0";
@@ -83,12 +84,13 @@ pub struct Context {
     pub covered: bool,
     pub shared: bool,
     pub online: bool,
+    pub last_read: Box<Info>,
 }
 
 impl Context {
     pub fn new(fb: Box<dyn Framebuffer>, rtc: Option<Rtc>, library: Library,
                settings: Settings, fonts: Fonts, battery: Box<dyn Battery>,
-               frontlight: Box<dyn Frontlight>, lightsensor: Box<dyn LightSensor>) -> Context {
+               frontlight: Box<dyn Frontlight>, lightsensor: Box<dyn LightSensor>, last_read: Box<Info>) -> Context {
         let dims = fb.dims();
         let rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
         let rng = Xoroshiro128Plus::seed_from_u64(Local::now().timestamp_nanos() as u64);
@@ -112,6 +114,7 @@ impl Context {
             covered: false,
             shared: false,
             online: false,
+            last_read
         }
     }
 
@@ -271,8 +274,10 @@ fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
             .context("can't create premixed frontlight")?) as Box<dyn Frontlight>,
     };
 
+    let last_read = Box::new(Info::default());
+
     Ok(Context::new(fb, rtc, library, settings,
-                    fonts, battery, frontlight, lightsensor))
+                    fonts, battery, frontlight, lightsensor, last_read))
 }
 
 fn schedule_task(id: TaskId, event: Event, delay: Duration, hub: &Sender<Event>, tasks: &mut Vec<Task>) {
