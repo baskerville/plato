@@ -2649,6 +2649,8 @@ impl View for Reader {
                 true
             },
             Event::Gesture(GestureEvent::Cross(_)) => {
+                context.last_read = Box::new(self.info.clone());
+
                 self.quit(context);
                 hub.send(Event::Back).ok();
                 true
@@ -2933,6 +2935,8 @@ impl View for Reader {
                             Some(Location::Uri(caps[1].to_string()))
                         };
                         if let Some(location) = loc_opt {
+                            context.last_read = Box::new(self.info.clone());
+
                             self.quit(context);
                             hub.send(Event::Back).ok();
                             hub.send(Event::GoToLocation(location)).ok();
@@ -2988,6 +2992,9 @@ impl View for Reader {
                         match diag_dir {
                             DiagDir::NorthWest => {
                                 // self.go_to_last_page(hub, rq, context);
+
+                                context.last_read = Box::new(self.info.clone());
+
                                 self.quit(context);
                                 hub.send(Event::Back).ok();
                             },
@@ -3016,6 +3023,8 @@ impl View for Reader {
                             DiagDir::SouthWest => {
                                 if self.search.is_none() {
                                     if self.ephemeral && self.info.file.path == PathBuf::from(MEM_SCHEME) {
+                                        context.last_read = Box::new(self.info.clone());
+
                                         self.quit(context);
                                         hub.send(Event::Back).ok();
                                     } else {
@@ -3665,6 +3674,8 @@ impl View for Reader {
                 true
             },
             Event::Device(DeviceEvent::Button { code: ButtonCode::Home, status: ButtonStatus::Pressed, .. }) => {
+                context.last_read = Box::new(self.info.clone());
+
                 self.quit(context);
                 hub.send(Event::Back).ok();
                 true
@@ -3673,6 +3684,8 @@ impl View for Reader {
             Event::Select(EntryId::Reboot) |
             Event::Select(EntryId::RebootInNickel) |
             Event::Back => {
+                context.last_read = Box::new(self.info.clone());
+
                 self.quit(context);
                 false
             },
