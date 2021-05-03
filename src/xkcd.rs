@@ -120,7 +120,7 @@ fn main() -> Result<(), Error> {
         }
     }
 
-    for num in current_num - settings.num_comics_to_download as u64..current_num {
+    for num in current_num - settings.num_comics_to_download as u64..current_num + 1 {
         let url = format!("{}/{}/info.0.json", &BASE_URL, &num);
 
         let data: JsonValue = client.get(&url)
@@ -210,6 +210,13 @@ fn main() -> Result<(), Error> {
     //     });
     //     println!("{}", event);
     // }
+
+    let message = "Done!".to_string();
+    let event = json!({
+            "type": "notify",
+            "message": &message,
+        });
+    println!("{}", event);
 
     if !wifi {
         let event = json!({
