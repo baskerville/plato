@@ -18,6 +18,7 @@ use fxhash::FxHashMap;
 use rand_core::RngCore;
 use serde_json::{json, Value as JsonValue};
 use anyhow::{Error, format_err};
+use rand::seq::SliceRandom;
 use crate::library::Library;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::metadata::{Info, Metadata, SortMethod, BookQuery, SimpleStatus, sort};
@@ -48,6 +49,7 @@ use crate::unit::scale_by_dpi;
 use crate::color::BLACK;
 use crate::font::Fonts;
 use crate::app::Context;
+use std::ffi::OsStr;
 
 pub const TRASH_DIRNAME: &str = ".trash";
 
@@ -250,6 +252,31 @@ impl Home {
 
         self.update_shelf(true, hub, rq, context);
         self.update_bottom_bar(rq, context);
+
+        let folder_name = path.file_name();
+        match folder_name {
+            None => {}
+            Some(folder_name) => {
+                let folder_name_args = folder_name.to_str().unwrap().split("!").collect::<Vec<_>>();
+                if folder_name_args.len() > 1 {
+                    for i in 0..folder_name_args.len() {
+                        match folder_name_args[i] {
+                            "random" => {
+                                let random_file = self.visible_books.choose(&mut rand::thread_rng());
+
+                                match random_file {
+                                    None => {}
+                                    Some(random_file) => {
+                                        hub.send(Event::Open(Box::new(random_file.clone()))).ok();
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn adjust_shelf_top_edge(&mut self) {
@@ -929,12 +956,12 @@ impl Home {
             {
                 let images = &context.settings.intermission_images;
                 let submenu = [IntermKind::Suspend,
-                               IntermKind::PowerOff,
-                               IntermKind::Share].iter().map(|k| {
-                                   EntryKind::CheckBox(k.label().to_string(),
-                                                       EntryId::ToggleIntermissionImage(*k, path.clone()),
-                                                       images.get(k.key()) == Some(&full_path))
-                               }).collect::<Vec<EntryKind>>();
+                    IntermKind::PowerOff,
+                    IntermKind::Share].iter().map(|k| {
+                    EntryKind::CheckBox(k.label().to_string(),
+                                        EntryId::ToggleIntermissionImage(*k, path.clone()),
+                                        images.get(k.key()) == Some(&full_path))
+                }).collect::<Vec<EntryKind>>();
 
 
                 entries.push(EntryKind::SubMenu("Set As".to_string(), submenu))
