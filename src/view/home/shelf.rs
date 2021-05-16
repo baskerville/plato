@@ -62,7 +62,9 @@ impl Shelf {
         self.thumbnail_previews = thumbnail_previews;
     }
 
-    pub fn update(&mut self, metadata: &[Info], hub: &Hub, rq: &mut RenderQueue, context: &Context) {
+    pub fn
+
+    update(&mut self, metadata: &[Info], hub: &Hub, rq: &mut RenderQueue, context: &Context) {
         self.children.clear();
         let dpi = CURRENT_DEVICE.dpi;
         let big_height = scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32;

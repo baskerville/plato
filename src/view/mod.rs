@@ -413,6 +413,7 @@ pub enum ViewId {
     AboutDialog,
     ShareDialog,
     MarginCropper,
+    Rotate,
     TopBottomBars,
     TableOfContents,
     MessageNotif(Id),

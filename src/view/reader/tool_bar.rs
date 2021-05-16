@@ -203,11 +203,11 @@ impl ToolBar {
                                     Event::Show(ViewId::SearchBar));
         children.push(Box::new(search_icon) as Box<dyn View>);
 
-        let toc_icon = Icon::new("toc",
+        let rotate_icon = Icon::new("gray",
                                  rect![rect.max.x - side, rect.max.y - side,
                                        rect.max.x, rect.max.y],
-                                 Event::Show(ViewId::TableOfContents));
-        children.push(Box::new(toc_icon) as Box<dyn View>);
+                                 Event::Show(ViewId::Rotate));
+        children.push(Box::new(rotate_icon) as Box<dyn View>);
 
         ToolBar {
             id,
