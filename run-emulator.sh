@@ -2,6 +2,7 @@
 
 if ! [ -e Settings.toml ]; then
 	cat <<- EOF > Settings.toml
+	selected-library = 0
 	[[libraries]]
 	name = "Example"
 	path = "$PWD"
