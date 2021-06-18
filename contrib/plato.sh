@@ -17,19 +17,19 @@ if [ "$PLATO_STANDALONE" ] ; then
 		REM_TRIES=$((REM_TRIES-1))
 		usleep 400000
 	done
-
-	# Turn off the blinking LEDs
-	# https://www.tablix.org/~avian/blog/archives/2013/03/blinken_kindle/
-	LEDS_INTERFACE=/sys/devices/platform/pmic_light.1/lit
-	echo "ch 4" > "$LEDS_INTERFACE"
-	echo "cur 0" > "$LEDS_INTERFACE"
-	echo "dc 0" > "$LEDS_INTERFACE"
 else
 	# shellcheck disable=SC2046
 	export $(grep -sE '^(INTERFACE|WIFI_MODULE|DBUS_SESSION_BUS_ADDRESS|NICKEL_HOME|LANG)=' /proc/"$(pidof -s nickel)"/environ)
 	sync
 	killall -TERM nickel hindenburg sickel fickel adobehost fmon > /dev/null 2>&1
 fi
+
+# Turn off the blinking LEDs
+# https://www.tablix.org/~avian/blog/archives/2013/03/blinken_kindle/
+LEDS_INTERFACE=/sys/devices/platform/pmic_light.1/lit
+echo "ch 4" > "$LEDS_INTERFACE"
+echo "cur 0" > "$LEDS_INTERFACE"
+echo "dc 0" > "$LEDS_INTERFACE"
 
 # Remount the SD card read-write if it's mounted read-only
 grep -q ' /mnt/sd .*[ ,]ro[ ,]' /proc/mounts && mount -o remount,rw /mnt/sd
