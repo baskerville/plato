@@ -81,6 +81,12 @@ finished = "close"
 # The action triggered when tapping the south-east corner.
 # Possible values: "go-to-page", "next-page".
 south-east-corner = "go-to-page"
+# The action triggered when tapping the south strip.
+# Possible values: "toggle-bars", "next-page".
+south-strip-action = "toggle-bars"
+# The action triggered when tapping the west strip.
+# Possible values: "previous-page", "next-page".
+west-strip-action = "previous-page"
 # The width ratio, relative to `min(W, H) / 2`, of the strip and corner touch regions.
 # Launch the *Touch Events* application to display the current touch regions.
 strip-width = 0.6

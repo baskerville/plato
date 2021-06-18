@@ -39,7 +39,7 @@ use crate::view::search_bar::SearchBar;
 use crate::view::keyboard::Keyboard;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::notification::Notification;
-use crate::settings::{guess_frontlight, FinishedAction, SouthEastCornerAction};
+use crate::settings::{guess_frontlight, FinishedAction, SouthEastCornerAction, SouthStripAction, WestStripAction};
 use crate::settings::{DEFAULT_FONT_FAMILY, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT, DEFAULT_MARGIN_WIDTH};
 use crate::settings::{HYPHEN_PENALTY, STRETCH_TOLERANCE};
 use crate::frontlight::LightLevels;
@@ -3020,7 +3020,14 @@ impl View for Reader {
                         match dir {
                             Dir::West => {
                                 if self.search.is_none() {
-                                    self.go_to_neighbor(CycleDir::Previous, hub, rq, context);
+                                    match context.settings.reader.west_strip {
+                                        WestStripAction::PreviousPage => {
+                                            self.go_to_neighbor(CycleDir::Previous, hub, rq, context);
+                                        }
+                                        WestStripAction::NextPage => {
+                                            self.go_to_neighbor(CycleDir::Next, hub, rq, context);
+                                        }
+                                    }
                                 } else {
                                     self.go_to_results_neighbor(CycleDir::Previous, hub, rq, context);
                                 }
@@ -3032,7 +3039,15 @@ impl View for Reader {
                                     self.go_to_results_neighbor(CycleDir::Next, hub, rq, context);
                                 }
                             },
-                            Dir::South | Dir::North => self.toggle_bars(None, hub, rq, context),
+                            Dir::South => match context.settings.reader.south_strip {
+                                SouthStripAction::ToggleBars => {
+                                    self.toggle_bars(None, hub, rq, context);
+                                }
+                                SouthStripAction::NextPage => {
+                                    self.go_to_neighbor(CycleDir::Next, hub, rq, context);
+                                }
+                            },
+                            Dir::North => self.toggle_bars(None, hub, rq, context),
                         }
                     },
                     Region::Center => self.toggle_bars(None, hub, rq, context),
