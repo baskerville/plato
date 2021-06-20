@@ -312,6 +312,8 @@ pub struct RefreshRateSettings {
 pub struct ReaderSettings {
     pub finished: FinishedAction,
     pub south_east_corner: SouthEastCornerAction,
+    pub south_strip: SouthStripAction,
+    pub west_strip: WestStripAction,
     pub strip_width: f32,
     pub corner_width: f32,
     pub font_path: String,
@@ -353,6 +355,20 @@ pub enum SouthEastCornerAction {
     GoToPage,
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SouthStripAction {
+    ToggleBars,
+    NextPage,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum WestStripAction {
+    PreviousPage,
+    NextPage,
+}
+
 impl Default for RefreshRateSettings {
     fn default() -> Self {
         RefreshRateSettings {
@@ -387,6 +403,8 @@ impl Default for ReaderSettings {
         ReaderSettings {
             finished: FinishedAction::Close,
             south_east_corner: SouthEastCornerAction::GoToPage,
+            south_strip: SouthStripAction::ToggleBars,
+            west_strip: WestStripAction::PreviousPage,
             strip_width: 0.6,
             corner_width: 0.4,
             font_path: DEFAULT_FONT_PATH.to_string(),
