@@ -16,7 +16,7 @@ use crate::document::asciify;
 use crate::document::epub::EpubDocument;
 use crate::helpers::datetime_format;
 
-pub const DEFAULT_CONTRAST_EXPONENT: f32 = 1.0;
+pub const DEFAULT_CONTRAST_EXPONENT: f32 = 5.0;
 pub const DEFAULT_CONTRAST_GRAY: f32 = 224.0;
 
 pub type Metadata = Vec<Info>;

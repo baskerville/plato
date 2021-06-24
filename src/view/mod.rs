@@ -62,6 +62,7 @@ use crate::input::{DeviceEvent, FingerStatus};
 use crate::gesture::GestureEvent;
 use self::calculator::LineOrigin;
 use self::key::KeyKind;
+use self::intermission::IntermKind;
 use crate::app::Context;
 
 // Border thicknesses in pixels, at 300 DPI.
@@ -412,6 +413,7 @@ pub enum ViewId {
     AboutDialog,
     ShareDialog,
     MarginCropper,
+    Rotate,
     TopBottomBars,
     TableOfContents,
     MessageNotif(Id),
@@ -506,6 +508,7 @@ pub enum EntryId {
     ToggleSelectDirectory(PathBuf),
     SetStatus(PathBuf, SimpleStatus),
     SearchAuthor(String),
+    ToggleIntermissionImage(IntermKind, PathBuf),
     RemovePreset(usize),
     FirstColumn(FirstColumn),
     SecondColumn(SecondColumn),

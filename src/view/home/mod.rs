@@ -18,6 +18,7 @@ use fxhash::FxHashMap;
 use rand_core::RngCore;
 use serde_json::{json, Value as JsonValue};
 use anyhow::{Error, format_err};
+use rand::seq::SliceRandom;
 use crate::library::Library;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::metadata::{Info, Metadata, SortMethod, BookQuery, SimpleStatus, sort};
@@ -34,6 +35,7 @@ use crate::view::menu::{Menu, MenuKind};
 use crate::view::menu_entry::MenuEntry;
 use crate::view::search_bar::SearchBar;
 use crate::view::notification::Notification;
+use crate::view::intermission::IntermKind;
 use super::top_bar::TopBar;
 use self::address_bar::AddressBar;
 use self::navigation_bar::NavigationBar;
@@ -47,6 +49,7 @@ use crate::unit::scale_by_dpi;
 use crate::color::BLACK;
 use crate::font::Fonts;
 use crate::app::Context;
+use std::ffi::OsStr;
 
 pub const TRASH_DIRNAME: &str = ".trash";
 
@@ -239,8 +242,8 @@ impl Home {
             let nav_bar = self.children[index].as_mut().downcast_mut::<NavigationBar>().unwrap();
             nav_bar.set_path(&self.current_directory, &dirs, rq, context);
             self.adjust_shelf_top_edge();
-            rq.add(RenderData::new(self.child(index+1).id(),
-                                   *self.child(index+1).rect(),
+            rq.add(RenderData::new(self.child(index + 1).id(),
+                                   *self.child(index + 1).rect(),
                                    UpdateMode::Partial));
             rq.add(RenderData::new(self.child(index).id(),
                                    *self.child(index).rect(),
@@ -249,13 +252,38 @@ impl Home {
 
         self.update_shelf(true, hub, rq, context);
         self.update_bottom_bar(rq, context);
+
+        let folder_name = path.file_name();
+        match folder_name {
+            None => {}
+            Some(folder_name) => {
+                let folder_name_args = folder_name.to_str().unwrap().split("!").collect::<Vec<_>>();
+                if folder_name_args.len() > 1 {
+                    for i in 0..folder_name_args.len() {
+                        match folder_name_args[i] {
+                            "random" => {
+                                let random_file = self.visible_books.choose(&mut rand::thread_rng());
+
+                                match random_file {
+                                    None => {}
+                                    Some(random_file) => {
+                                        hub.send(Event::Open(Box::new(random_file.clone()))).ok();
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn adjust_shelf_top_edge(&mut self) {
         let index = self.shelf_index - 2;
-        let y_shift = self.children[index].rect().max.y - self.children[index+1].rect().min.y;
-        *self.children[index+1].rect_mut() += pt!(0, y_shift);
-        self.children[index+2].rect_mut().min.y = self.children[index+1].rect().max.y;
+        let y_shift = self.children[index].rect().max.y - self.children[index + 1].rect().min.y;
+        *self.children[index + 1].rect_mut() += pt!(0, y_shift);
+        self.children[index + 2].rect_mut().min.y = self.children[index + 1].rect().max.y;
     }
 
     fn toggle_select_directory(&mut self, path: &Path, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
@@ -281,10 +309,10 @@ impl Home {
         match dir {
             CycleDir::Next if self.current_page < self.pages_count.saturating_sub(1) => {
                 self.current_page += 1;
-            },
+            }
             CycleDir::Previous if self.current_page > 0 => {
                 self.current_page -= 1;
-            },
+            }
             _ => return,
         }
 
@@ -307,12 +335,12 @@ impl Home {
         let status = self.visible_books[book_index].simple_status();
 
         let page = match dir {
-            CycleDir::Next => self.visible_books[book_index+1..].iter()
-                                  .position(|info| info.simple_status() != status)
-                                  .map(|delta| self.current_page + 1 + delta / max_lines),
+            CycleDir::Next => self.visible_books[book_index + 1..].iter()
+                .position(|info| info.simple_status() != status)
+                .map(|delta| self.current_page + 1 + delta / max_lines),
             CycleDir::Previous => self.visible_books[..book_index].iter().rev()
-                                      .position(|info| info.simple_status() != status)
-                                      .map(|delta| self.current_page - 1 - delta / max_lines),
+                .position(|info| info.simple_status() != status)
+                .map(|delta| self.current_page - 1 - delta / max_lines),
         };
 
         if let Some(page) = page {
@@ -336,7 +364,7 @@ impl Home {
 
         self.pages_count = (self.visible_books.len() as f32 / max_lines as f32).ceil() as usize;
 
-        if reset_page  {
+        if reset_page {
             self.current_page = 0;
         } else if self.current_page >= self.pages_count {
             self.current_page = self.pages_count.saturating_sub(1);
@@ -351,21 +379,21 @@ impl Home {
     fn update_first_column(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let selected_library = context.settings.selected_library;
         self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>().unwrap()
-           .set_first_column(context.settings.libraries[selected_library].first_column);
+            .set_first_column(context.settings.libraries[selected_library].first_column);
         self.update_shelf(false, hub, rq, context);
     }
 
     fn update_second_column(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let selected_library = context.settings.selected_library;
         self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>().unwrap()
-           .set_second_column(context.settings.libraries[selected_library].second_column);
+            .set_second_column(context.settings.libraries[selected_library].second_column);
         self.update_shelf(false, hub, rq, context);
     }
 
     fn update_thumbnail_previews(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let selected_library = context.settings.selected_library;
         self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>().unwrap()
-           .set_thumbnail_previews(context.settings.libraries[selected_library].thumbnail_previews);
+            .set_thumbnail_previews(context.settings.libraries[selected_library].thumbnail_previews);
         self.update_shelf(false, hub, rq, context);
     }
 
@@ -381,7 +409,7 @@ impl Home {
                 0.0
             } else {
                 self.current_page as f32 * (shelf.max_lines as f32 /
-                                            self.visible_books.len() as f32)
+                    self.visible_books.len() as f32)
             };
 
             let mut page_guess = page_position * self.visible_books.len() as f32 / max_lines as f32;
@@ -414,7 +442,7 @@ impl Home {
         if let Some(index) = rlocate::<BottomBar>(self) {
             let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
             let filter = self.query.is_some() ||
-                         self.current_directory != context.library.home;
+                self.current_directory != context.library.home;
             let selected_library = context.settings.selected_library;
             let library_settings = &context.settings.libraries[selected_library];
             bottom_bar.update_library_label(&library_settings.name, self.visible_books.len(), filter, rq);
@@ -429,23 +457,23 @@ impl Home {
                                           scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32);
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let (small_thickness, big_thickness) = halves(thickness);
-        let has_search_bar = self.children[self.shelf_index+2].is::<SearchBar>();
+        let has_search_bar = self.children[self.shelf_index + 2].is::<SearchBar>();
 
         if let Some(index) = rlocate::<Keyboard>(self) {
             if enable {
                 return;
             }
 
-            let y_min = self.child(self.shelf_index+1).rect().min.y;
+            let y_min = self.child(self.shelf_index + 1).rect().min.y;
             let mut rect = *self.child(index).rect();
-            rect.absorb(self.child(index-1).rect());
+            rect.absorb(self.child(index - 1).rect());
 
-            self.children.drain(index - 1 ..= index);
+            self.children.drain(index - 1..=index);
 
             let delta_y = rect.height() as i32;
 
             if has_search_bar {
-                for i in self.shelf_index+1..=self.shelf_index+2 {
+                for i in self.shelf_index + 1..=self.shelf_index + 2 {
                     let shifted_rect = *self.child(i).rect() + pt!(0, delta_y);
                     self.child_mut(i).resize(shifted_rect, hub, rq, context);
                 }
@@ -480,7 +508,7 @@ impl Home {
             let delta_y = kb_rect.height() as i32 + thickness;
 
             if has_search_bar {
-                for i in self.shelf_index+1..=self.shelf_index+2 {
+                for i in self.shelf_index + 1..=self.shelf_index + 2 {
                     let shifted_rect = *self.child(i).rect() + pt!(0, -delta_y);
                     self.child_mut(i).resize(shifted_rect, hub, rq, context);
                 }
@@ -490,17 +518,17 @@ impl Home {
         if update {
             if enable {
                 if has_search_bar {
-                    for i in self.shelf_index+1..=self.shelf_index+4 {
+                    for i in self.shelf_index + 1..=self.shelf_index + 4 {
                         let update_mode = if (i - self.shelf_index) == 1 { UpdateMode::Partial } else { UpdateMode::Gui };
                         rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), update_mode));
                     }
                 } else {
-                    for i in self.shelf_index+1..=self.shelf_index+2 {
+                    for i in self.shelf_index + 1..=self.shelf_index + 2 {
                         rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                     }
                 }
             } else if has_search_bar {
-                for i in self.shelf_index+1..=self.shelf_index+2 {
+                for i in self.shelf_index + 1..=self.shelf_index + 2 {
                     rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                 }
             }
@@ -523,19 +551,19 @@ impl Home {
             }
 
             // Remove the address bar and its separator.
-            self.children.drain(index ..= index + 1);
+            self.children.drain(index..=index + 1);
             self.shelf_index -= 2;
             context.settings.home.address_bar = false;
 
             // Move the navigation bar up.
             if context.settings.home.navigation_bar {
-                let nav_bar = self.children[self.shelf_index-2]
-                                  .downcast_mut::<NavigationBar>().unwrap();
+                let nav_bar = self.children[self.shelf_index - 2]
+                    .downcast_mut::<NavigationBar>().unwrap();
                 nav_bar.shift(pt!(0, -small_height));
             }
 
             // Move the separator above the shelf up.
-            *self.children[self.shelf_index-1].rect_mut() += pt!(0, -small_height);
+            *self.children[self.shelf_index - 1].rect_mut() += pt!(0, -small_height);
 
             // Move the shelf's top edge up.
             self.children[self.shelf_index].rect_mut().min.y -= small_height;
@@ -561,7 +589,7 @@ impl Home {
             context.settings.home.address_bar = true;
 
             // Move the separator above the shelf down.
-            *self.children[self.shelf_index-1].rect_mut() += pt!(0, small_height);
+            *self.children[self.shelf_index - 1].rect_mut() += pt!(0, small_height);
 
             // Move the shelf's top edge down.
             self.children[self.shelf_index].rect_mut().min.y += small_height;
@@ -569,8 +597,8 @@ impl Home {
             if context.settings.home.navigation_bar {
                 let rect = *self.children[self.shelf_index].rect();
                 let y_shift = rect.height() as i32 - (big_height - thickness);
-                let nav_bar = self.children[self.shelf_index-2]
-                                  .downcast_mut::<NavigationBar>().unwrap();
+                let nav_bar = self.children[self.shelf_index - 2]
+                    .downcast_mut::<NavigationBar>().unwrap();
                 // Move the navigation bar down.
                 nav_bar.shift(pt!(0, small_height));
 
@@ -578,7 +606,7 @@ impl Home {
                 if y_shift < 0 {
                     let y_shift = nav_bar.shrink(y_shift, &mut context.fonts);
                     self.children[self.shelf_index].rect_mut().min.y += y_shift;
-                    *self.children[self.shelf_index-1].rect_mut() += pt!(0, y_shift);
+                    *self.children[self.shelf_index - 1].rect_mut() += pt!(0, y_shift);
                 }
             }
         }
@@ -606,11 +634,11 @@ impl Home {
             }
 
             let mut rect = *self.child(index).rect();
-            rect.absorb(self.child(index+1).rect());
+            rect.absorb(self.child(index + 1).rect());
             let delta_y = rect.height() as i32;
 
             // Remove the navigation bar and its separator.
-            self.children.drain(index ..= index + 1);
+            self.children.drain(index..=index + 1);
             self.shelf_index -= 2;
             context.settings.home.navigation_bar = false;
 
@@ -625,7 +653,7 @@ impl Home {
             let sp_rect = *self.child(sep_index).rect() + pt!(0, small_height);
 
             let separator = Filler::new(sp_rect, BLACK);
-            self.children.insert(sep_index+1, Box::new(separator) as Box<dyn View>);
+            self.children.insert(sep_index + 1, Box::new(separator) as Box<dyn View>);
 
             let mut nav_bar = NavigationBar::new(rect![self.rect.min.x,
                                                        sp_rect.min.y - small_height + thickness,
@@ -635,7 +663,7 @@ impl Home {
                                                  context.settings.home.max_levels);
             let (_, dirs) = context.library.list(&self.current_directory, None, true);
             nav_bar.set_path(&self.current_directory, &dirs, rq, context);
-            self.children.insert(sep_index+1, Box::new(nav_bar) as Box<dyn View>);
+            self.children.insert(sep_index + 1, Box::new(nav_bar) as Box<dyn View>);
 
             self.shelf_index += 2;
             context.settings.home.navigation_bar = true;
@@ -672,14 +700,14 @@ impl Home {
             }
 
             // Remove the search bar and its separator.
-            self.children.drain(index - 1 ..= index);
+            self.children.drain(index - 1..=index);
 
             // Move the shelf's bottom edge.
             self.children[self.shelf_index].rect_mut().max.y += delta_y;
 
             if context.settings.home.navigation_bar {
-                let nav_bar = self.children[self.shelf_index-2]
-                                  .downcast_mut::<NavigationBar>().unwrap();
+                let nav_bar = self.children[self.shelf_index - 2]
+                    .downcast_mut::<NavigationBar>().unwrap();
                 nav_bar.vertical_limit += delta_y;
             }
 
@@ -690,17 +718,17 @@ impl Home {
                 return;
             }
 
-            let sp_rect = *self.child(self.shelf_index+1).rect() - pt!(0, delta_y);
+            let sp_rect = *self.child(self.shelf_index + 1).rect() - pt!(0, delta_y);
             let search_bar = SearchBar::new(rect![self.rect.min.x, sp_rect.max.y,
                                                   self.rect.max.x,
                                                   sp_rect.max.y + delta_y - thickness],
                                             ViewId::HomeSearchInput,
                                             "Title, author, series",
                                             "", context);
-            self.children.insert(self.shelf_index+1, Box::new(search_bar) as Box<dyn View>);
+            self.children.insert(self.shelf_index + 1, Box::new(search_bar) as Box<dyn View>);
 
             let separator = Filler::new(sp_rect, BLACK);
-            self.children.insert(self.shelf_index+1, Box::new(separator) as Box<dyn View>);
+            self.children.insert(self.shelf_index + 1, Box::new(separator) as Box<dyn View>);
 
             // Move the shelf's bottom edge.
             self.children[self.shelf_index].rect_mut().max.y -= delta_y;
@@ -708,15 +736,15 @@ impl Home {
             if context.settings.home.navigation_bar {
                 let rect = *self.children[self.shelf_index].rect();
                 let y_shift = rect.height() as i32 - (big_height - thickness);
-                let nav_bar = self.children[self.shelf_index-2]
-                                  .downcast_mut::<NavigationBar>().unwrap();
+                let nav_bar = self.children[self.shelf_index - 2]
+                    .downcast_mut::<NavigationBar>().unwrap();
                 nav_bar.vertical_limit -= delta_y;
 
                 // Shrink the nav bar.
                 if y_shift < 0 {
                     let y_shift = nav_bar.shrink(y_shift, &mut context.fonts);
                     self.children[self.shelf_index].rect_mut().min.y += y_shift;
-                    *self.children[self.shelf_index-1].rect_mut() += pt!(0, y_shift);
+                    *self.children[self.shelf_index - 1].rect_mut() += pt!(0, y_shift);
                 }
             }
 
@@ -740,9 +768,9 @@ impl Home {
             self.update_top_bar(search_visible, rq);
 
             if search_visible {
-                rq.add(RenderData::new(self.child(self.shelf_index-1).id(), *self.child(self.shelf_index-1).rect(), UpdateMode::Partial));
+                rq.add(RenderData::new(self.child(self.shelf_index - 1).id(), *self.child(self.shelf_index - 1).rect(), UpdateMode::Partial));
                 let mut rect = *self.child(self.shelf_index).rect();
-                rect.max.y = self.child(self.shelf_index+1).rect().min.y;
+                rect.max.y = self.child(self.shelf_index + 1).rect().min.y;
                 // Render the part of the shelf that isn't covered.
                 self.update_shelf(true, hub, &mut RenderQueue::new(), context);
                 rq.add(RenderData::new(self.child(self.shelf_index).id(), rect, UpdateMode::Partial));
@@ -752,7 +780,7 @@ impl Home {
                 rect.max.y = self.child(end_index).rect().max.y;
                 rq.add(RenderData::expose(rect, UpdateMode::Partial));
             } else {
-                for i in self.shelf_index - 1 ..= self.shelf_index + 1 {
+                for i in self.shelf_index - 1..=self.shelf_index + 1 {
                     if i == self.shelf_index {
                         self.update_shelf(true, hub, rq, context);
                         continue;
@@ -785,8 +813,8 @@ impl Home {
                                               ViewId::RenameDocumentInput,
                                               21, context);
             if let Some(text) = self.target_document.as_ref()
-                                    .and_then(|path| path.file_name())
-                                    .and_then(|file_name| file_name.to_str()) {
+                .and_then(|path| path.file_name())
+                .and_then(|file_name| file_name.to_str()) {
                 ren_doc.set_text(text, rq, context);
             }
             rq.add(RenderData::new(ren_doc.id(), *ren_doc.rect(), UpdateMode::Gui));
@@ -896,6 +924,7 @@ impl Home {
             let book_index = self.book_index(index);
             let info = &self.visible_books[book_index];
             let path = &info.file.path;
+            let full_path = context.library.home.join(path);
 
             let mut entries = Vec::new();
 
@@ -921,15 +950,29 @@ impl Home {
 
             let submenu = submenu.iter().map(|s| EntryKind::Command(s.to_string(),
                                                                     EntryId::SetStatus(path.clone(), *s)))
-                                 .collect();
+                .collect();
             entries.push(EntryKind::SubMenu("Mark As".to_string(), submenu));
-            entries.push(EntryKind::Separator);
 
+            {
+                let images = &context.settings.intermission_images;
+                let submenu = [IntermKind::Suspend,
+                    IntermKind::PowerOff,
+                    IntermKind::Share].iter().map(|k| {
+                    EntryKind::CheckBox(k.label().to_string(),
+                                        EntryId::ToggleIntermissionImage(*k, path.clone()),
+                                        images.get(k.key()) == Some(&full_path))
+                }).collect::<Vec<EntryKind>>();
+
+
+                entries.push(EntryKind::SubMenu("Set As".to_string(), submenu))
+            }
+
+            entries.push(EntryKind::Separator);
             let selected_library = context.settings.selected_library;
             let libraries = context.settings.libraries.iter().enumerate()
-                                   .filter(|(index, _)| *index != selected_library)
-                                   .map(|(index, lib)| (index, lib.name.clone()))
-                                   .collect::<Vec<(usize, String)>>();
+                .filter(|(index, _)| *index != selected_library)
+                .map(|(index, lib)| (index, lib.name.clone()))
+                .collect::<Vec<(usize, String)>>();
             if !libraries.is_empty() {
                 let copy_to = libraries.iter().map(|(index, name)| {
                     EntryKind::Command(name.clone(),
@@ -983,10 +1026,10 @@ impl Home {
             };
 
             let filesystem = if library_settings.mode == LibraryMode::Filesystem {
-               vec![EntryKind::CheckBox("Show Hidden".to_string(), EntryId::ToggleShowHidden, context.library.show_hidden),
-                    EntryKind::Separator,
-                    EntryKind::Command("Clean Up".to_string(), EntryId::CleanUp),
-                    EntryKind::Command("Flush".to_string(), EntryId::Flush)]
+                vec![EntryKind::CheckBox("Show Hidden".to_string(), EntryId::ToggleShowHidden, context.library.show_hidden),
+                     EntryKind::Separator,
+                     EntryKind::Command("Clean Up".to_string(), EntryId::CleanUp),
+                     EntryKind::Command("Flush".to_string(), EntryId::Flush)]
             } else {
                 Vec::new()
             };
@@ -1003,8 +1046,8 @@ impl Home {
 
             let hooks: Vec<EntryKind> =
                 context.settings.libraries[selected_library].hooks.iter()
-                       .map(|v| EntryKind::Command(v.path.to_string_lossy().into_owned(),
-                                                   EntryId::ToggleSelectDirectory(context.library.home.join(&v.path)))).collect();
+                    .map(|v| EntryKind::Command(v.path.to_string_lossy().into_owned(),
+                                                EntryId::ToggleSelectDirectory(context.library.home.join(&v.path)))).collect();
 
             if !hooks.is_empty() {
                 entries.push(EntryKind::SubMenu("Toggle Select".to_string(), hooks));
@@ -1014,13 +1057,13 @@ impl Home {
 
             let first_column = library_settings.first_column;
             entries.push(EntryKind::SubMenu("First Column".to_string(),
-                vec![EntryKind::RadioButton("Title and Author".to_string(), EntryId::FirstColumn(FirstColumn::TitleAndAuthor), first_column == FirstColumn::TitleAndAuthor),
-                     EntryKind::RadioButton("File Name".to_string(), EntryId::FirstColumn(FirstColumn::FileName), first_column == FirstColumn::FileName)]));
+                                            vec![EntryKind::RadioButton("Title and Author".to_string(), EntryId::FirstColumn(FirstColumn::TitleAndAuthor), first_column == FirstColumn::TitleAndAuthor),
+                                                 EntryKind::RadioButton("File Name".to_string(), EntryId::FirstColumn(FirstColumn::FileName), first_column == FirstColumn::FileName)]));
 
             let second_column = library_settings.second_column;
             entries.push(EntryKind::SubMenu("Second Column".to_string(),
-                vec![EntryKind::RadioButton("Progress".to_string(), EntryId::SecondColumn(SecondColumn::Progress), second_column == SecondColumn::Progress),
-                     EntryKind::RadioButton("Year".to_string(), EntryId::SecondColumn(SecondColumn::Year), second_column == SecondColumn::Year)]));
+                                            vec![EntryKind::RadioButton("Progress".to_string(), EntryId::SecondColumn(SecondColumn::Progress), second_column == SecondColumn::Progress),
+                                                 EntryKind::RadioButton("Year".to_string(), EntryId::SecondColumn(SecondColumn::Year), second_column == SecondColumn::Year)]));
 
             entries.push(EntryKind::CheckBox("Thumbnail Previews".to_string(),
                                              EntryId::ThumbnailPreviews,
@@ -1097,6 +1140,7 @@ impl Home {
             }
             let mut trash = Library::new(trash_path, LibraryMode::Database);
             context.library.move_to(path, &mut trash)?;
+            context.settings.intermission_images.retain(|_, path| path != &full_path);
             let (mut files, _) = trash.list(&trash.home, None, false);
             let mut size = files.iter().map(|info| info.file.size).sum::<u64>();
             if size > context.settings.home.max_trash_size {
@@ -1235,26 +1279,25 @@ impl Home {
             if fetcher.full_path == path {
                 unsafe { libc::kill(*id as libc::pid_t, libc::SIGTERM) };
                 fetcher.process.wait().ok();
+
+                let selected_library = context.settings.selected_library;
+                if let Some(sort_method) = fetcher.sort_method {
+                    context.settings.libraries[selected_library].sort_method = sort_method;
+                }
+                if let Some(first_column) = fetcher.first_column {
+                    context.settings.libraries[selected_library].first_column = first_column;
+                }
+                if let Some(second_column) = fetcher.second_column {
+                    context.settings.libraries[selected_library].second_column = second_column;
+                }
+
                 if update {
                     if let Some(sort_method) = fetcher.sort_method {
                         hub.send(Event::Select(EntryId::Sort(sort_method))).ok();
-                    }
-                    if let Some(first_column) = fetcher.first_column {
+                    } else if let Some(first_column) = fetcher.first_column {
                         hub.send(Event::Select(EntryId::FirstColumn(first_column))).ok();
-                    }
-                    if let Some(second_column) = fetcher.second_column {
+                    } else if let Some(second_column) = fetcher.second_column {
                         hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
-                    }
-                } else {
-                    let selected_library = context.settings.selected_library;
-                    if let Some(sort_method) = fetcher.sort_method {
-                        context.settings.libraries[selected_library].sort_method = sort_method;
-                    }
-                    if let Some(first_column) = fetcher.first_column {
-                        context.settings.libraries[selected_library].first_column = first_column;
-                    }
-                    if let Some(second_column) = fetcher.second_column {
-                        context.settings.libraries[selected_library].second_column = second_column;
                     }
                 }
                 false
@@ -1283,9 +1326,15 @@ impl Home {
                     hub.send(Event::Select(EntryId::SecondColumn(second_column))).ok();
                 }
                 self.background_fetchers.insert(process.id(),
-                                                Fetcher { path: hook.path.clone(), full_path: save_path, process,
-                                                          sort_method, first_column, second_column });
-            },
+                                                Fetcher {
+                                                    path: hook.path.clone(),
+                                                    full_path: save_path,
+                                                    process,
+                                                    sort_method,
+                                                    first_column,
+                                                    second_column,
+                                                });
+            }
             Err(e) => eprintln!("Can't spawn child: {:#}.", e),
         }
     }
@@ -1293,18 +1342,18 @@ impl Home {
     fn spawn_child(&mut self, library_path: &Path, save_path: &Path, program: &Path, wifi: bool, online: bool, hub: &Hub) -> Result<Child, Error> {
         let path = program.canonicalize()?;
         let parent = path.parent()
-                         .unwrap_or_else(|| Path::new(""));
+            .unwrap_or_else(|| Path::new(""));
         let mut process = Command::new(&path)
-                                 .current_dir(parent)
-                                 .arg(library_path)
-                                 .arg(save_path)
-                                 .arg(wifi.to_string())
-                                 .arg(online.to_string())
-                                 .stdin(Stdio::piped())
-                                 .stdout(Stdio::piped())
-                                 .spawn()?;
+            .current_dir(parent)
+            .arg(library_path)
+            .arg(save_path)
+            .arg(wifi.to_string())
+            .arg(online.to_string())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()?;
         let stdout = process.stdout.take()
-                            .ok_or_else(|| format_err!("can't take stdout"))?;
+            .ok_or_else(|| format_err!("can't take stdout"))?;
         let id = process.id();
         let hub2 = hub.clone();
         thread::spawn(move || {
@@ -1313,44 +1362,44 @@ impl Home {
                 if let Ok(line) = line_res {
                     if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
                         match event.get("type")
-                                   .and_then(JsonValue::as_str) {
+                            .and_then(JsonValue::as_str) {
                             Some("notify") => {
                                 if let Some(msg) = event.get("message")
-                                                        .and_then(JsonValue::as_str) {
+                                    .and_then(JsonValue::as_str) {
                                     hub2.send(Event::Notify(msg.to_string())).ok();
                                 }
-                            },
+                            }
                             Some("setWifi") => {
                                 if let Some(enable) = event.get("enable")
-                                                           .and_then(JsonValue::as_bool) {
+                                    .and_then(JsonValue::as_bool) {
                                     hub2.send(Event::SetWifi(enable)).ok();
                                 }
-                            },
+                            }
                             Some("addDocument") => {
                                 if let Some(info) = event.get("info")
-                                                         .map(ToString::to_string)
-                                                         .and_then(|v| serde_json::from_str(&v).ok()) {
+                                    .map(ToString::to_string)
+                                    .and_then(|v| serde_json::from_str(&v).ok()) {
                                     hub2.send(Event::FetcherAddDocument(id, Box::new(info))).ok();
                                 }
-                            },
+                            }
                             Some("removeDocument") => {
                                 if let Some(path) = event.get("path")
-                                                         .and_then(JsonValue::as_str) {
+                                    .and_then(JsonValue::as_str) {
                                     hub2.send(Event::FetcherRemoveDocument(id, PathBuf::from(path))).ok();
                                 }
-                            },
+                            }
                             Some("search") => {
                                 let path = event.get("path")
-                                                .and_then(JsonValue::as_str)
-                                                .map(PathBuf::from);
+                                    .and_then(JsonValue::as_str)
+                                    .map(PathBuf::from);
                                 let query = event.get("query")
-                                                 .and_then(JsonValue::as_str)
-                                                 .map(String::from);
+                                    .and_then(JsonValue::as_str)
+                                    .map(String::from);
                                 let sort_by = event.get("sortBy")
-                                                   .map(ToString::to_string)
-                                                   .and_then(|v| serde_json::from_str(&v).ok());
+                                    .map(ToString::to_string)
+                                    .and_then(|v| serde_json::from_str(&v).ok());
                                 hub2.send(Event::FetcherSearch { id, path, query, sort_by }).ok();
-                            },
+                            }
                             _ => (),
                         }
                     }
@@ -1383,46 +1432,46 @@ impl View for Home {
             Event::Gesture(GestureEvent::Swipe { dir, start, end, .. }) => {
                 match dir {
                     Dir::South if self.children[0].rect().includes(start) &&
-                                  self.children[self.shelf_index].rect().includes(end) => {
+                        self.children[self.shelf_index].rect().includes(end) => {
                         if !context.settings.home.navigation_bar {
                             self.toggle_navigation_bar(Some(true), true, hub, rq, context);
                         } else if !context.settings.home.address_bar {
                             self.toggle_address_bar(Some(true), true, hub, rq, context);
                         }
-                    },
+                    }
                     Dir::North if self.children[self.shelf_index].rect().includes(start) &&
-                                  self.children[0].rect().includes(end) => {
+                        self.children[0].rect().includes(end) => {
                         if context.settings.home.address_bar {
                             self.toggle_address_bar(Some(false), true, hub, rq, context);
                         } else if context.settings.home.navigation_bar {
                             self.toggle_navigation_bar(Some(false), true, hub, rq, context);
                         }
-                    },
+                    }
                     _ => (),
                 }
                 true
-            },
+            }
             Event::Gesture(GestureEvent::Rotate { quarter_turns, .. }) if quarter_turns != 0 => {
                 let (_, dir) = CURRENT_DEVICE.mirroring_scheme();
                 let n = (4 + (context.display.rotation - dir * quarter_turns)) % 4;
                 hub.send(Event::Select(EntryId::Rotate(n))).ok();
                 true
-            },
+            }
             Event::Gesture(GestureEvent::Arrow { dir, .. }) => {
                 match dir {
                     Dir::West => self.go_to_page(0, hub, rq, context),
                     Dir::East => {
                         let pages_count = self.pages_count;
                         self.go_to_page(pages_count.saturating_sub(1), hub, rq, context);
-                    },
+                    }
                     Dir::North => {
                         let path = context.library.home.clone();
                         self.select_directory(&path, hub, rq, context);
-                    },
+                    }
                     Dir::South => self.toggle_search_bar(None, true, hub, rq, context),
                 };
                 true
-            },
+            }
             Event::Gesture(GestureEvent::Corner { dir, .. }) => {
                 match dir {
                     DiagDir::NorthWest |
@@ -1431,7 +1480,7 @@ impl View for Home {
                     DiagDir::SouthEast => self.go_to_status_change(CycleDir::Next, hub, rq, context),
                 };
                 true
-            },
+            }
             Event::Focus(v) => {
                 if self.focus != v {
                     self.focus = v;
@@ -1440,135 +1489,135 @@ impl View for Home {
                     }
                 }
                 true
-            },
+            }
             Event::Show(ViewId::Keyboard) => {
                 self.toggle_keyboard(true, true, None, hub, rq, context);
                 true
-            },
+            }
             Event::Toggle(ViewId::GoToPage) => {
                 self.toggle_go_to_page(None, hub, rq, context);
                 true
-            },
+            }
             Event::Toggle(ViewId::SearchBar) => {
                 self.toggle_search_bar(None, true, hub, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::TitleMenu, rect) => {
                 self.toggle_sort_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleBookMenu(rect, index) => {
                 self.toggle_book_menu(index, rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::MainMenu, rect) => {
                 toggle_main_menu(self, rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::BatteryMenu, rect) => {
                 toggle_battery_menu(self, rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::ClockMenu, rect) => {
                 toggle_clock_menu(self, rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::LibraryMenu, rect) => {
                 self.toggle_library_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::Close(ViewId::AddressBar) => {
                 self.toggle_address_bar(Some(false), true, hub, rq, context);
                 true
-            },
+            }
             Event::Close(ViewId::SearchBar) => {
                 self.toggle_search_bar(Some(false), true, hub, rq, context);
                 true
-            },
+            }
             Event::Close(ViewId::SortMenu) => {
                 self.toggle_sort_menu(Rectangle::default(), Some(false), rq, context);
                 true
-            },
+            }
             Event::Close(ViewId::LibraryMenu) => {
                 self.toggle_library_menu(Rectangle::default(), Some(false), rq, context);
                 true
-            },
+            }
             Event::Close(ViewId::MainMenu) => {
                 toggle_main_menu(self, Rectangle::default(), Some(false), rq, context);
                 true
-            },
+            }
             Event::Close(ViewId::GoToPage) => {
                 self.toggle_go_to_page(Some(false), hub, rq, context);
                 true
-            },
+            }
             Event::Close(ViewId::RenameDocument) => {
                 self.toggle_rename_document(Some(false), hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::Sort(sort_method)) => {
                 let selected_library = context.settings.selected_library;
                 context.settings.libraries[selected_library].sort_method = sort_method;
                 self.set_sort_method(sort_method, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::ReverseOrder) => {
                 let next_value = !self.reverse_order;
                 self.set_reverse_order(next_value, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::LoadLibrary(index)) => {
                 self.load_library(index, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::Import) => {
                 self.import(hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::CleanUp) => {
                 self.clean_up(hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::Flush) => {
                 self.flush(context);
                 true
-            },
+            }
             Event::FetcherAddDocument(_, ref info) => {
                 self.add_document(*info.clone(), hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::SetStatus(ref path, status)) => {
                 self.set_status(path, status, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::FirstColumn(first_column)) => {
                 let selected_library = context.settings.selected_library;
                 context.settings.libraries[selected_library].first_column = first_column;
                 self.update_first_column(hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::SecondColumn(second_column)) => {
                 let selected_library = context.settings.selected_library;
                 context.settings.libraries[selected_library].second_column = second_column;
                 self.update_second_column(hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::ThumbnailPreviews) => {
                 let selected_library = context.settings.selected_library;
                 context.settings.libraries[selected_library].thumbnail_previews = !context.settings.libraries[selected_library].thumbnail_previews;
                 self.update_thumbnail_previews(hub, rq, context);
                 true
-            },
+            }
             Event::Submit(ViewId::AddressBarInput, ref addr) => {
                 self.toggle_keyboard(false, true, None, hub, rq, context);
                 self.select_directory(&Path::new(addr), hub, rq, context);
                 true
-            },
+            }
             Event::Submit(ViewId::HomeSearchInput, ref text) => {
                 self.query = BookQuery::new(text);
                 if self.query.is_some() {
                     self.toggle_keyboard(false, false, None, hub, rq, context);
                     // Render the search bar and its separator.
-                    for i in self.shelf_index + 1 ..= self.shelf_index + 2 {
+                    for i in self.shelf_index + 1..=self.shelf_index + 2 {
                         rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                     }
                     self.refresh_visibles(true, true, hub, rq, context);
@@ -1578,7 +1627,7 @@ impl View for Home {
                     self.children.push(Box::new(notif) as Box<dyn View>);
                 }
                 true
-            },
+            }
             Event::Submit(ViewId::GoToPageInput, ref text) => {
                 if text == "(" {
                     self.go_to_page(0, hub, rq, context);
@@ -1591,7 +1640,7 @@ impl View for Home {
                     self.go_to_page(index.saturating_sub(1), hub, rq, context);
                 }
                 true
-            },
+            }
             Event::Submit(ViewId::RenameDocumentInput, ref file_name) => {
                 if let Some(ref path) = self.target_document.take() {
                     self.rename(path, file_name, hub, rq, context)
@@ -1599,7 +1648,7 @@ impl View for Home {
                         .ok();
                 }
                 true
-            },
+            }
             Event::NavigationBarResized(_) => {
                 self.adjust_shelf_top_edge();
                 self.update_shelf(true, hub, rq, context);
@@ -1608,49 +1657,49 @@ impl View for Home {
                     rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                 }
                 true
-            },
+            }
             Event::Select(EntryId::EmptyTrash) => {
                 self.empty_trash(hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::Rename(ref path)) => {
                 self.target_document = Some(path.clone());
                 self.toggle_rename_document(Some(true), hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::Remove(ref path)) | Event::FetcherRemoveDocument(_, ref path) => {
                 self.remove(path, hub, rq, context)
                     .map_err(|e| eprintln!("Can't remove document: {:#}.", e))
                     .ok();
                 true
-            },
+            }
             Event::Select(EntryId::CopyTo(ref path, index)) => {
                 self.copy_to(path, index, context)
                     .map_err(|e| eprintln!("Can't copy document: {:#}.", e))
                     .ok();
                 true
-            },
+            }
             Event::Select(EntryId::MoveTo(ref path, index)) => {
                 self.move_to(path, index, hub, rq, context)
                     .map_err(|e| eprintln!("Can't move document: {:#}.", e))
                     .ok();
                 true
-            },
+            }
             Event::Select(EntryId::ToggleShowHidden) => {
                 context.library.show_hidden = !context.library.show_hidden;
                 self.refresh_visibles(true, false, hub, rq, context);
                 true
-            },
+            }
             Event::SelectDirectory(ref path) |
             Event::Select(EntryId::SelectDirectory(ref path)) => {
                 self.select_directory(path, hub, rq, context);
                 true
-            },
+            }
             Event::ToggleSelectDirectory(ref path) |
             Event::Select(EntryId::ToggleSelectDirectory(ref path)) => {
                 self.toggle_select_directory(path, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::SearchAuthor(ref author)) => {
                 let text = format!("'a {}", author);
                 let query = BookQuery::new(&text);
@@ -1658,21 +1707,21 @@ impl View for Home {
                     self.query = query;
                     self.toggle_search_bar(Some(true), false, hub, rq, context);
                     self.toggle_keyboard(false, false, None, hub, rq, context);
-                    if let Some(search_bar) = self.children[self.shelf_index+2].downcast_mut::<SearchBar>() {
+                    if let Some(search_bar) = self.children[self.shelf_index + 2].downcast_mut::<SearchBar>() {
                         search_bar.set_text(&text, rq, context);
                     }
                     // Render the search bar and its separator.
-                    for i in self.shelf_index + 1 ..= self.shelf_index + 2 {
+                    for i in self.shelf_index + 1..=self.shelf_index + 2 {
                         rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                     }
                     self.refresh_visibles(true, true, hub, rq, context);
                 }
                 true
-            },
+            }
             Event::GoTo(location) => {
                 self.go_to_page(location as usize, hub, rq, context);
                 true
-            },
+            }
             Event::Chapter(dir) => {
                 let pages_count = self.pages_count;
                 match dir {
@@ -1680,19 +1729,19 @@ impl View for Home {
                     CycleDir::Next => self.go_to_page(pages_count.saturating_sub(1), hub, rq, context),
                 }
                 true
-            },
+            }
             Event::Page(dir) => {
                 self.go_to_neighbor(dir, hub, rq, context);
                 true
-            },
+            }
             Event::Device(DeviceEvent::Button { code: ButtonCode::Backward, status: ButtonStatus::Pressed, .. }) => {
                 self.go_to_neighbor(CycleDir::Previous, hub, rq, context);
                 true
-            },
+            }
             Event::Device(DeviceEvent::Button { code: ButtonCode::Forward, status: ButtonStatus::Pressed, .. }) => {
                 self.go_to_neighbor(CycleDir::Next, hub, rq, context);
                 true
-            },
+            }
             Event::Device(DeviceEvent::NetUp) => {
                 for fetcher in self.background_fetchers.values_mut() {
                     if let Some(stdin) = fetcher.process.stdin.as_mut() {
@@ -1700,7 +1749,7 @@ impl View for Home {
                     }
                 }
                 true
-            },
+            }
             Event::FetcherSearch { id, ref path, ref query, ref sort_by } => {
                 let path = path.as_ref().unwrap_or(&context.library.home);
                 let query = query.as_ref().and_then(|text| BookQuery::new(text));
@@ -1719,7 +1768,7 @@ impl View for Home {
                     }
                 }
                 true
-            },
+            }
             Event::CheckFetcher(id) => {
                 if let Some(fetcher) = self.background_fetchers.get_mut(&id) {
                     if let Ok(exit_status) = fetcher.process.wait() {
@@ -1731,24 +1780,23 @@ impl View for Home {
                     }
                 }
                 true
-            },
+            }
             Event::ToggleFrontlight => {
                 if let Some(index) = locate::<TopBar>(self) {
                     self.child_mut(index).downcast_mut::<TopBar>().unwrap()
                         .update_frontlight_icon(rq, context);
                 }
                 true
-            },
+            }
             Event::Reseed => {
                 self.reseed(hub, rq, context);
                 true
-            },
+            }
             _ => false,
         }
     }
 
-    fn render(&self, _fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {
-    }
+    fn render(&self, _fb: &mut dyn Framebuffer, _rect: Rectangle, _fonts: &mut Fonts) {}
 
     fn resize(&mut self, rect: Rectangle, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
@@ -1788,7 +1836,7 @@ impl View for Home {
 
         // Navigation bar.
         if context.settings.home.navigation_bar {
-            let count = if self.children[self.shelf_index+2].is::<SearchBar>() { 2 } else { 1 };
+            let count = if self.children[self.shelf_index + 2].is::<SearchBar>() { 2 } else { 1 };
             let nav_bar = self.children[index].as_mut().downcast_mut::<NavigationBar>().unwrap();
             let (_, dirs) = context.library.list(&self.current_directory, None, true);
             nav_bar.clear();
@@ -1812,7 +1860,7 @@ impl View for Home {
 
         let separator_rect = rect![rect.min.x, rect.max.y - small_height - small_thickness,
                                    rect.max.x, rect.max.y - small_height + big_thickness];
-        self.children[index-1].resize(separator_rect, hub, rq, context);
+        self.children[index - 1].resize(separator_rect, hub, rq, context);
 
         let bottom_bar_rect = rect![rect.min.x, rect.max.y - small_height + big_thickness,
                                     rect.max.x, rect.max.y];
@@ -1830,20 +1878,20 @@ impl View for Home {
                                     rect.max.y - small_height - small_thickness];
                 self.children[index].resize(kb_rect, hub, rq, context);
                 let s_max_y = self.children[index].rect().min.y;
-                self.children[index-1].resize(rect![rect.min.x, s_max_y - thickness,
+                self.children[index - 1].resize(rect![rect.min.x, s_max_y - thickness,
                                                     rect.max.x, s_max_y],
-                                              hub, rq, context);
+                                                hub, rq, context);
                 index -= 2;
             }
             // Search bar.
             if self.children[index].is::<SearchBar>() {
-                let sp_rect = *self.children[index+1].rect() - pt!(0, small_height);
+                let sp_rect = *self.children[index + 1].rect() - pt!(0, small_height);
                 self.children[index].resize(rect![rect.min.x,
                                                   sp_rect.max.y,
                                                   rect.max.x,
                                                   sp_rect.max.y + small_height - thickness],
                                             hub, rq, context);
-                self.children[index-1].resize(sp_rect, hub, rq, context);
+                self.children[index - 1].resize(sp_rect, hub, rq, context);
                 shelf_max_y -= small_height;
             }
         }
@@ -1857,7 +1905,7 @@ impl View for Home {
         self.update_bottom_bar(&mut RenderQueue::new(), context);
 
         // Floating windows.
-        for i in bottom_bar_index+1..self.children.len() {
+        for i in bottom_bar_index + 1..self.children.len() {
             self.children[i].resize(rect, hub, rq, context);
         }
 
