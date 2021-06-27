@@ -59,6 +59,7 @@ if [ -e "$KOBO_TAG" ] ; then
 		377|380) PRODUCT_ID=0x4229 ;; # Forma, Forma 32GB
 		384)     PRODUCT_ID=0x4232 ;; # Libra H₂O
 		382)     PRODUCT_ID=0x4230 ;; # Nia
+		387) 	 PRODUCT_ID=0x4233 ;; # Elipsa
 		*)       PRODUCT_ID=0x6666 ;;
 	esac
 
