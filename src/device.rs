@@ -5,6 +5,7 @@ use crate::input::TouchProto;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
+    Elipsa
     Nia,
     LibraH2O,
     Forma32GB,
@@ -36,6 +37,7 @@ pub enum Orientation {
 impl fmt::Display for Model {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Model::Elipsa        => write!(f, "Elipsa"),
             Model::Nia           => write!(f, "Nia"),
             Model::LibraH2O      => write!(f, "Libra H₂O"),
             Model::Forma32GB     => write!(f, "Forma 32GB"),
@@ -162,6 +164,12 @@ impl Device {
                 dims: (758, 1024),
                 dpi: 212,
             },
+            "Europa" => Device {
+                model: Model::Elipsa,
+                proto: TouchProto::MultiB,
+                dims: (1404, 1872),
+                dpi: 227,
+            },
             _ => Device {
                 model: if model_number == "320" { Model::TouchC } else { Model::TouchAB },
                 proto: TouchProto::Single,
@@ -196,7 +204,7 @@ impl Device {
 
     pub fn has_gyroscope(&self) -> bool {
         matches!(self.model,
-                 Model::Forma | Model::Forma32GB | Model::LibraH2O)
+                 Model::Forma | Model::Forma32GB | Model::LibraH2O | Model::Elipsa)
     }
 
     pub fn has_page_turn_buttons(&self) -> bool {
@@ -231,6 +239,7 @@ impl Device {
 
     pub fn mark(&self) -> u8 {
         match self.model {
+            Model::Elipsa => 8,
             Model::Nia |
             Model::LibraH2O |
             Model::Forma32GB |
