@@ -58,8 +58,10 @@ impl HtmlDocument {
         let size = file.metadata()?.len() as usize;
         let mut text = String::new();
         file.read_to_string(&mut text)?;
-        let mut content = XmlParser::new(&text).parse();
+        let mut content = XmlParser::new(&text, true).parse();
+        println!("Parsed content is {:#?}", content);
         content.wrap_lost_inlines();
+        println!("Wrapped content is {:#?}", content);
         let parent = path.as_ref().parent().unwrap_or_else(|| Path::new(""));
 
         Ok(HtmlDocument {
@@ -77,8 +79,10 @@ impl HtmlDocument {
 
     pub fn new_from_memory(text: &str) -> HtmlDocument {
         let size = text.len();
-        let mut content = XmlParser::new(text).parse();
+        let mut content = XmlParser::new(text, true).parse();
+        println!("Parsed content is {:#?}", content);
         content.wrap_lost_inlines();
+        println!("Wrapped content is {:#?}", content);
 
         HtmlDocument {
             text: text.to_string(),
@@ -95,7 +99,7 @@ impl HtmlDocument {
 
     pub fn update(&mut self, text: &str) {
         self.size = text.len();
-        self.content = XmlParser::new(text).parse();
+        self.content = XmlParser::new(text, true).parse();
         self.content.wrap_lost_inlines();
         self.text = text.to_string();
         self.pages.clear();

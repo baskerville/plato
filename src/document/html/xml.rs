@@ -5,13 +5,15 @@ use super::dom::{Node, Attributes, text, element, whitespace};
 pub struct XmlParser<'a> {
     pub input: &'a str,
     pub offset: usize,
+    html: bool
 }
 
 impl<'a> XmlParser<'a> {
-    pub fn new(input: &str) -> XmlParser {
+    pub fn new(input: &str, html: bool) -> XmlParser {
         XmlParser {
             input,
             offset: 0,
+            html
         }
     }
 
@@ -88,9 +90,24 @@ impl<'a> XmlParser<'a> {
                 nodes.push(element(name, offset - 1, attributes, Vec::new()));
             },
             Some('>') => {
-                self.advance(1);
-                let children = self.parse_nodes();
-                nodes.push(element(name, offset - 1, attributes, children));
+                if self.html {
+                    match name {
+                        "area"|"base"|"br"|"col"|"command"|"embed"|"hr"|"img"|"input"|"keygen"|"link"|"meta"|"param"|"source"|"track"|"wbr" => {
+                            self.advance(2);
+                            nodes.push(element(name, offset - 1, attributes, Vec::new()));
+                        },
+                        _ => {
+                            self.advance(1);
+                            let children = self.parse_nodes();
+                            nodes.push(element(name, offset - 1, attributes, children));
+                        }
+
+                    }
+                } else {
+                    self.advance(1);
+                    let children = self.parse_nodes();
+                    nodes.push(element(name, offset - 1, attributes, children));
+                }
             }
             _ => (),
         }
@@ -167,7 +184,7 @@ mod tests {
     #[test]
     fn test_simple_element() {
         let text = "<a/>";
-        let xml = XmlParser::new(text).parse();
+        let xml = XmlParser::new(text, false).parse();
         assert_eq!(xml.offset(), 0);
         assert_eq!(xml.tag_name(), Some("a"));
     }
@@ -175,7 +192,7 @@ mod tests {
     #[test]
     fn test_attributes() {
         let text = r#"<a b="c" d='e"'/>"#;
-        let xml = XmlParser::new(text).parse();
+        let xml = XmlParser::new(text, false).parse();
         assert_eq!(xml.attr("b"), Some("c"));
         assert_eq!(xml.attr("d"), Some("e\""));
     }
@@ -183,7 +200,7 @@ mod tests {
     #[test]
     fn test_text() {
         let text = "<a>bcd</a>";
-        let xml = XmlParser::new(text).parse();
+        let xml = XmlParser::new(text, false).parse();
         let child = xml.child(0);
         assert_eq!(child.map(|c| c.offset()), Some(3));
         assert_eq!(child.and_then(|c| c.text()), Some("bcd"));
@@ -192,7 +209,7 @@ mod tests {
     #[test]
     fn test_inbetween_space() {
         let text = "<a><b>x</b> <c>y</c></a>";
-        let xml = XmlParser::new(text).parse();
+        let xml = XmlParser::new(text, false).parse();
         let child = xml.child(1);
         assert_eq!(child.and_then(|c| c.text()), Some(" "));
     }
@@ -200,7 +217,7 @@ mod tests {
     #[test]
     fn test_central_space() {
         let text = "<a><b> </b></a>";
-        let xml = XmlParser::new(text).parse();
+        let xml = XmlParser::new(text, false).parse();
         assert_eq!(xml.text(), Some(" "));
     }
 }
