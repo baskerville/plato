@@ -93,7 +93,7 @@ impl<'a> XmlParser<'a> {
                 if self.html {
                     match name {
                         "area"|"base"|"br"|"col"|"command"|"embed"|"hr"|"img"|"input"|"keygen"|"link"|"meta"|"param"|"source"|"track"|"wbr" => {
-                            self.advance(2);
+                            self.advance(1);
                             nodes.push(element(name, offset - 1, attributes, Vec::new()));
                         },
                         _ => {
