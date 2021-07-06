@@ -63,7 +63,7 @@ impl EpubDocument {
             let mut zf = archive.by_name("META-INF/container.xml")?;
             let mut text = String::new();
             zf.read_to_string(&mut text)?;
-            let root = XmlParser::new(&text).parse();
+            let root = XmlParser::new(&text, false).parse();
             root.find("rootfile")
                 .and_then(|e| e.attr("full-path"))
                 .map(String::from)
@@ -79,7 +79,7 @@ impl EpubDocument {
             text
         };
 
-        let info = XmlParser::new(&text).parse();
+        let info = XmlParser::new(&text, false).parse();
         let mut spine = Vec::new();
 
         {
@@ -269,7 +269,7 @@ impl EpubDocument {
                 let mut zf = self.archive.by_name(name).ok()?;
                 zf.read_to_string(&mut text).ok()?;
             }
-            let root = XmlParser::new(&text).parse();
+            let root = XmlParser::new(&text, false).parse();
             self.cache_uris(&root, name, start_offset, cache);
             cache.get(uri).cloned()
         } else {
@@ -328,7 +328,7 @@ impl EpubDocument {
             }
         }
 
-        let mut root = XmlParser::new(&text).parse();
+        let mut root = XmlParser::new(&text, false).parse();
         root.wrap_lost_inlines();
 
         let mut stylesheet = Vec::new();
@@ -636,7 +636,7 @@ impl Document for EpubDocument {
             return None;
         }
 
-        let root = XmlParser::new(&text).parse();
+        let root = XmlParser::new(&text, false).parse();
         root.find("navMap").map(|map| {
             let mut cache = FxHashMap::default();
             let mut index = 0;

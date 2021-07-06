@@ -14,8 +14,8 @@ mod tests {
 
     #[test]
     fn simple_style() {
-        let xml1 = XmlParser::new("<a class='c x y' style='c: 7'/>").parse();
-        let xml2 = XmlParser::new("<a id='e' class='x y'/>").parse();
+        let xml1 = XmlParser::new("<a class='c x y' style='c: 7'/>", false).parse();
+        let xml2 = XmlParser::new("<a id='e' class='x y'/>", false).parse();
         let (mut css1, _) = CssParser::new("a { b: 23 }").parse(RuleKind::Viewer);
         let (mut css2, _) = CssParser::new(".c.x.y { b: 6 }").parse(RuleKind::Document);
         let (mut css3, _) = CssParser::new(".y { b: 2 }").parse(RuleKind::Document);
