@@ -1,6 +1,7 @@
 #! /bin/sh
 
 export LD_LIBRARY_PATH=/usr/local/Kobo
+export QT_GSTREAMER_PLAYBIN_AUDIOSINK=alsasink
 
 (
 	if [ "${PLATFORM}" = "freescale" ] || [ "${PLATFORM}" = "mx50-ntx" ] || [ "${PLATFORM}" = "mx6sl-ntx" ]; then

@@ -13,7 +13,7 @@ while [ "$REM_TRIES" -gt 0 ] ; do
 done
 
 ifconfig "$INTERFACE" up
-[ "$WIFI_MODULE" != 8189fs ] && [ "$WIFI_MODULE" != 8192es ] && wlarm_le -i "$INTERFACE" up
+[ "$WIFI_MODULE" != 8189fs ] && [ "$WIFI_MODULE" != 8192es ] && [ "$WIFI_MODULE" != 8821cs ] && wlarm_le -i "$INTERFACE" up
 
 pidof wpa_supplicant > /dev/null || wpa_supplicant -D wext -s -i "$INTERFACE" -c /etc/wpa_supplicant/wpa_supplicant.conf -C /var/run/wpa_supplicant -B
 

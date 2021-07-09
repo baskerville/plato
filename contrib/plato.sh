@@ -21,7 +21,7 @@ else
 	# shellcheck disable=SC2046
 	export $(grep -sE '^(INTERFACE|WIFI_MODULE|DBUS_SESSION_BUS_ADDRESS|NICKEL_HOME|LANG)=' /proc/"$(pidof -s nickel)"/environ)
 	sync
-	killall -TERM nickel hindenburg sickel fickel adobehost fmon > /dev/null 2>&1
+	killall -TERM nickel hindenburg sickel fickel adobehost foxitpdf iink dhcpcd-dbus dhcpcd fmon > /dev/null 2>&1
 fi
 
 # Turn off the blinking LEDs
@@ -59,6 +59,7 @@ if [ -e "$KOBO_TAG" ] ; then
 		377|380) PRODUCT_ID=0x4229 ;; # Forma, Forma 32GB
 		384)     PRODUCT_ID=0x4232 ;; # Libra H₂O
 		382)     PRODUCT_ID=0x4230 ;; # Nia
+		387)     PRODUCT_ID=0x4233 ;; # Elipsa
 		*)       PRODUCT_ID=0x6666 ;;
 	esac
 
