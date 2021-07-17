@@ -14,6 +14,7 @@ use std::collections::BTreeSet;
 use std::rc::Rc;
 use fxhash::FxHashMap;
 use bitflags::bitflags;
+use lazy_static::lazy_static;
 use anyhow::{Error, format_err};
 use thiserror::Error;
 use globset::Glob;
@@ -21,6 +22,7 @@ use walkdir::WalkDir;
 use crate::geom::{Point, Vec2};
 use crate::helpers::IsHidden;
 use crate::framebuffer::Framebuffer;
+use crate::device::CURRENT_DEVICE;
 
 // Font sizes in 1/64th of a point
 pub const FONT_SIZES: [u32; 3] = [349, 524, 629];
@@ -59,11 +61,21 @@ pub const DISPLAY_STYLE: Style = Style {
     size: DISPLAY_FONT_SIZE,
 };
 
-pub const MD_TITLE: Style = Style {
-    family: Family::Serif,
-    variant: Variant::ITALIC,
-    size: FONT_SIZES[2],
-};
+lazy_static! {
+    pub static ref MD_TITLE: Style = {
+        // Compute the ratio between the physical width of the
+        // current device and that of the Aura ONE.
+        let ratio = (CURRENT_DEVICE.dims.0 as f32 * 300.0) /
+                    (CURRENT_DEVICE.dpi as f32 * 1404.0);
+        let size = ((FONT_SIZES[2] as f32 * ratio) as u32).clamp(FONT_SIZES[1],
+                                                                 FONT_SIZES[2]);
+        Style {
+            family: Family::Serif,
+            variant: Variant::ITALIC,
+            size,
+        }
+    };
+}
 
 pub const MD_AUTHOR: Style = Style {
     family: Family::Serif,
