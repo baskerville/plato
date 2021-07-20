@@ -134,22 +134,22 @@ fn main() -> Result<(), Error> {
 
     if !online {
         if !wifi {
-            let event = json!({
-                "type": "notify",
-                "message": "Establishing a network connection.",
-            });
-            println!("{}", event);
+            // let event = json!({
+            //     "type": "notify",
+            //     "message": "Establishing a network connection.",
+            // });
+            // println!("{}", event);
             let event = json!({
                 "type": "setWifi",
                 "enable": true,
             });
             println!("{}", event);
         } else {
-            let event = json!({
-                "type": "notify",
-                "message": "Waiting for the network to come up.",
-            });
-            println!("{}", event);
+            // let event = json!({
+            //     "type": "notify",
+            //     "message": "Waiting for the network to come up.",
+            // });
+            // println!("{}", event);
         }
         let mut line = String::new();
         io::stdin().read_line(&mut line)?;
@@ -185,16 +185,16 @@ fn main() -> Result<(), Error> {
 
         if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
             if let Some(results) = event.get("results").and_then(JsonValue::as_array) {
-                let message = if results.is_empty() {
-                    "No finished articles.".to_string()
-                } else {
-                    format!("Found {} finished article{}.", results.len(), if results.len() != 1 { "s" } else { "" })
-                };
-                let event = json!({
-                    "type": "notify",
-                    "message": &message,
-                });
-                println!("{}", event);
+                // let message = if results.is_empty() {
+                //     "No finished articles.".to_string()
+                // } else {
+                //     format!("Found {} finished article{}.", results.len(), if results.len() != 1 { "s" } else { "" })
+                // };
+                // let event = json!({
+                //     "type": "notify",
+                //     "message": &message,
+                // });
+                // println!("{}", event);
 
                 for entry in results {
                     if sigterm.load(Ordering::Relaxed) {
@@ -247,30 +247,30 @@ fn main() -> Result<(), Error> {
 
                 if !results.is_empty() {
                     if settings.sync_finished {
-                        let message = if archivals_count > 0 {
-                            format!("Marked {} finished article{} as read.", archivals_count, if archivals_count != 1 { "s" } else { "" })
-                        } else {
-                            "No finished articles marked as read.".to_string()
-                        };
-                        let event = json!({
-                            "type": "notify",
-                            "message": &message,
-                        });
-                        println!("{}", event);
+                        // let message = if archivals_count > 0 {
+                        //     format!("Marked {} finished article{} as read.", archivals_count, if archivals_count != 1 { "s" } else { "" })
+                        // } else {
+                        //     "No finished articles marked as read.".to_string()
+                        // };
+                        // let event = json!({
+                        //     "type": "notify",
+                        //     "message": &message,
+                        // });
+                        // println!("{}", event);
                     }
 
                     if settings.remove_finished {
                         let removals_count = session.removals_count.saturating_sub(last_removals_count);
-                        let message = if removals_count > 0 {
-                            format!("Removed {} finished article{}.", removals_count, if removals_count != 1 { "s" } else { "" })
-                        } else {
-                            "No finished articles removed.".to_string()
-                        };
-                        let event = json!({
-                            "type": "notify",
-                            "message": &message,
-                        });
-                        println!("{}", event);
+                        // let message = if removals_count > 0 {
+                        //     format!("Removed {} finished article{}.", removals_count, if removals_count != 1 { "s" } else { "" })
+                        // } else {
+                        //     "No finished articles removed.".to_string()
+                        // };
+                        // let event = json!({
+                        //     "type": "notify",
+                        //     "message": &message,
+                        // });
+                        // println!("{}", event);
                     }
                 }
             }
@@ -443,16 +443,16 @@ fn main() -> Result<(), Error> {
     if pages_count > 0 {
         let downloads_count = session.downloads_count
                                      .saturating_sub(last_downloads_count);
-        let message = if downloads_count > 0 {
-            format!("Downloaded {} article{}.", downloads_count, if downloads_count != 1 { "s" } else { "" })
-        } else {
-            "No articles downloaded.".to_string()
-        };
-        let event = json!({
-            "type": "notify",
-            "message": &message,
-        });
-        println!("{}", event);
+        // let message = if downloads_count > 0 {
+        //     format!("Downloaded {} article{}.", downloads_count, if downloads_count != 1 { "s" } else { "" })
+        // } else {
+        //     "No articles downloaded.".to_string()
+        // };
+        // let event = json!({
+        //     "type": "notify",
+        //     "message": &message,
+        // });
+        // println!("{}", event);
     }
 
     if !wifi {

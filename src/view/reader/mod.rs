@@ -57,8 +57,8 @@ use crate::app::Context;
 
 const HISTORY_SIZE: usize = 32;
 const RECT_DIST_JITTER: f32 = 24.0;
-const ANNOTATION_DRIFT: u8 =  0x44;
-const HIGHLIGHT_DRIFT: u8 =  0x22;
+const ANNOTATION_DRIFT: u8 = 0x44;
+const HIGHLIGHT_DRIFT: u8 = 0x22;
 const MEM_SCHEME: &str = "mem:";
 
 pub struct Reader {
@@ -66,10 +66,14 @@ pub struct Reader {
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     doc: Arc<Mutex<Box<dyn Document>>>,
-    cache: BTreeMap<usize, Resource>,                // Cached page pixmaps.
-    chunks: Vec<RenderChunk>,                        // Chunks of pages being rendered.
-    text: FxHashMap<usize, Vec<BoundedText>>,        // Text of the current chunks.
-    annotations: FxHashMap<usize, Vec<Annotation>>,  // Annotations for the current chunks.
+    cache: BTreeMap<usize, Resource>,
+    // Cached page pixmaps.
+    chunks: Vec<RenderChunk>,
+    // Chunks of pages being rendered.
+    text: FxHashMap<usize, Vec<BoundedText>>,
+    // Text of the current chunks.
+    annotations: FxHashMap<usize, Vec<Annotation>>,
+    // Annotations for the current chunks.
     focus: Option<ViewId>,
     search: Option<Search>,
     search_direction: LinearDir,
@@ -93,7 +97,8 @@ pub struct Reader {
 #[derive(Debug)]
 struct ViewPort {
     zoom_mode: ZoomMode,
-    page_offset: Point,   // Offset relative to the top left corner of a resource's frame.
+    page_offset: Point,
+    // Offset relative to the top left corner of a resource's frame.
     margin_width: i32,
 }
 
@@ -124,14 +129,16 @@ struct Selection {
 #[derive(Debug)]
 struct Resource {
     pixmap: Pixmap,
-    frame: Rectangle,  // The pixmap's rectangle minus the cropping margins.
+    frame: Rectangle,
+    // The pixmap's rectangle minus the cropping margins.
     scale: f32,
 }
 
 #[derive(Debug, Clone)]
 struct RenderChunk {
     location: usize,
-    frame: Rectangle,  // A subrectangle of the corresponding resource's frame.
+    frame: Rectangle,
+    // A subrectangle of the corresponding resource's frame.
     position: Point,
     scale: f32,
 }
@@ -187,7 +194,7 @@ fn scaling_factor(rect: &Rectangle, cropping_margin: &Margin, screen_margin_widt
             let frame_height = (1.0 - (cropping_margin.top + cropping_margin.bottom)) * page_height;
             let height_ratio = surface_height / frame_height;
             width_ratio.min(height_ratio)
-        },
+        }
         ZoomMode::FitToWidth => width_ratio,
         ZoomMode::Custom(_) => unreachable!(),
     }
@@ -206,7 +213,7 @@ fn find_cut(frame: &Rectangle, y_pos: i32, scale: f32, dir: LinearDir, lines: &[
 
     for line in lines {
         if frame_u.contains(&line.rect) && line.rect.height() <= max_line_height &&
-           y_pos_u >= line.rect.min.y && y_pos_u < line.rect.max.y {
+            y_pos_u >= line.rect.min.y && y_pos_u < line.rect.max.y {
             rect_a = Some(line.rect);
             break;
         }
@@ -230,33 +237,33 @@ impl Reader {
         open(&path).and_then(|mut doc| {
             let (width, height) = context.display.dims;
             let font_size = info.reader.as_ref().and_then(|r| r.font_size)
-                                .unwrap_or(settings.reader.font_size);
+                .unwrap_or(settings.reader.font_size);
 
             doc.layout(width, height, font_size, CURRENT_DEVICE.dpi);
 
             let margin_width = info.reader.as_ref().and_then(|r| r.margin_width)
-                                   .unwrap_or(settings.reader.margin_width);
+                .unwrap_or(settings.reader.margin_width);
 
             if margin_width != DEFAULT_MARGIN_WIDTH {
                 doc.set_margin_width(margin_width);
             }
 
             let font_family = info.reader.as_ref().and_then(|r| r.font_family.as_ref())
-                                  .unwrap_or(&settings.reader.font_family);
+                .unwrap_or(&settings.reader.font_family);
 
             if font_family != DEFAULT_FONT_FAMILY {
                 doc.set_font_family(font_family, &settings.reader.font_path);
             }
 
             let line_height = info.reader.as_ref().and_then(|r| r.line_height)
-                                  .unwrap_or(settings.reader.line_height);
+                .unwrap_or(settings.reader.line_height);
 
             if (line_height - DEFAULT_LINE_HEIGHT).abs() > f32::EPSILON {
                 doc.set_line_height(line_height);
             }
 
             let text_align = info.reader.as_ref().and_then(|r| r.text_align)
-                                 .unwrap_or(settings.reader.text_align);
+                .unwrap_or(settings.reader.text_align);
 
             if text_align != DEFAULT_TEXT_ALIGN {
                 doc.set_text_align(text_align);
@@ -292,7 +299,7 @@ impl Reader {
                 }
 
                 current_page = doc.resolve_location(Location::Exact(r.current_page))
-                                  .unwrap_or(first_location);
+                    .unwrap_or(first_location);
 
                 if let Some(zoom_mode) = r.zoom_mode {
                     view_port.zoom_mode = zoom_mode;
@@ -320,7 +327,7 @@ impl Reader {
                 info.reader = Some(ReaderInfo {
                     current_page,
                     pages_count,
-                    .. Default::default()
+                    ..Default::default()
                 });
             }
 
@@ -371,7 +378,7 @@ impl Reader {
                 kind: "html".to_string(),
                 size: html.len() as u64,
             },
-            .. Default::default()
+            ..Default::default()
         };
 
         let mut doc = HtmlDocument::new_from_memory(html);
@@ -432,9 +439,9 @@ impl Reader {
 
         let mut doc = self.doc.lock().unwrap();
         let cropping_margin = self.info.reader.as_ref()
-                                  .and_then(|r| r.cropping_margins.as_ref()
-                                                 .map(|c| c.margin(location)))
-                                  .cloned().unwrap_or_default();
+            .and_then(|r| r.cropping_margins.as_ref()
+                .map(|c| c.margin(location)))
+            .cloned().unwrap_or_default();
         let dims = doc.dims(location).unwrap();
         let screen_margin_width = self.view_port.margin_width;
         let scale = scaling_factor(&self.rect, &cropping_margin, screen_margin_width, dims, self.view_port.zoom_mode);
@@ -461,8 +468,8 @@ impl Reader {
         let mut doc = self.doc.lock().unwrap();
         let loc = Location::Exact(location);
         let words = doc.words(loc)
-                       .map(|(words, _)| words)
-                       .unwrap_or_default();
+            .map(|(words, _)| words)
+            .unwrap_or_default();
         self.text.insert(location, words);
     }
 
@@ -500,17 +507,17 @@ impl Reader {
         let loc = {
             let mut doc = self.doc.lock().unwrap();
             if let Some(toc) = self.toc()
-                                   .or_else(|| doc.toc()) {
+                .or_else(|| doc.toc()) {
                 let chap_offset = if dir == CycleDir::Previous {
-                   doc.chapter(current_page, &toc)
-                      .and_then(|chap| doc.resolve_location(chap.location.clone()))
-                      .and_then(|chap_offset| if chap_offset < current_page { Some(chap_offset) } else { None })
+                    doc.chapter(current_page, &toc)
+                        .and_then(|chap| doc.resolve_location(chap.location.clone()))
+                        .and_then(|chap_offset| if chap_offset < current_page { Some(chap_offset) } else { None })
                 } else {
                     None
                 };
                 chap_offset.or_else(||
                     doc.chapter_relative(current_page, dir, &toc)
-                       .and_then(|rel_chap| doc.resolve_location(rel_chap.location.clone())))
+                        .and_then(|rel_chap| doc.resolve_location(rel_chap.location.clone())))
             } else {
                 None
             }
@@ -551,10 +558,10 @@ impl Reader {
     fn go_to_bookmark(&mut self, dir: CycleDir, hub: &Hub, rq: &mut RenderQueue, context: &Context) {
         let loc_bkm = self.info.reader.as_ref().and_then(|r| {
             match dir {
-                CycleDir::Next => r.bookmarks.range(self.current_page+1 ..)
-                                   .next().cloned(),
-                CycleDir::Previous => r.bookmarks.range(.. self.current_page)
-                                       .next_back().cloned(),
+                CycleDir::Next => r.bookmarks.range(self.current_page + 1..)
+                    .next().cloned(),
+                CycleDir::Previous => r.bookmarks.range(..self.current_page)
+                    .next_back().cloned(),
             }
         });
 
@@ -568,15 +575,15 @@ impl Reader {
             match dir {
                 CycleDir::Next => self.text_location_range().and_then(|[_, max]| {
                     r.annotations.iter()
-                     .filter(|annot| annot.selection[0] > max)
-                     .map(|annot| annot.selection[0]).min()
-                     .map(|tl| tl.location())
+                        .filter(|annot| annot.selection[0] > max)
+                        .map(|annot| annot.selection[0]).min()
+                        .map(|tl| tl.location())
                 }),
                 CycleDir::Previous => self.text_location_range().and_then(|[min, _]| {
                     r.annotations.iter()
-                     .filter(|annot| annot.selection[1] < min)
-                     .map(|annot| annot.selection[1]).max()
-                     .map(|tl| tl.location())
+                        .filter(|annot| annot.selection[1] < min)
+                        .map(|annot| annot.selection[1]).max()
+                        .map(|tl| tl.location())
                 }),
             }
         });
@@ -730,11 +737,11 @@ impl Reader {
 
                         self.view_port.page_offset.y = next_top_offset;
                         Location::Exact(location)
-                    },
+                    }
                     ZoomMode::Custom(_) => {
                         self.view_port.page_offset = pt!(0);
                         Location::Previous(current_page)
-                    },
+                    }
                 }
             } else {
                 match self.view_port.zoom_mode {
@@ -752,11 +759,11 @@ impl Reader {
                             self.view_port.page_offset.y = next_top_offset;
                             Location::Exact(location)
                         }
-                    },
+                    }
                     ZoomMode::Custom(_) => {
                         self.view_port.page_offset = pt!(0);
                         Location::Next(current_page)
-                    },
+                    }
                 }
             };
             let mut doc = self.doc.lock().unwrap();
@@ -775,7 +782,7 @@ impl Reader {
                 if self.search.is_some() {
                     self.update_results_bar(rq);
                 }
-            },
+            }
             _ => {
                 match dir {
                     CycleDir::Next => {
@@ -790,20 +797,20 @@ impl Reader {
                                 let notif = Notification::new("No next page.".to_string(),
                                                               hub, rq, context);
                                 self.children.push(Box::new(notif) as Box<dyn View>);
-                            },
+                            }
                             FinishedAction::Close => {
                                 self.quit(context);
                                 hub.send(Event::Back).ok();
-                            },
+                            }
                         }
-                    },
+                    }
                     CycleDir::Previous => {
                         let notif = Notification::new("No previous page.".to_string(),
                                                       hub, rq, context);
                         self.children.push(Box::new(notif) as Box<dyn View>);
-                    },
+                    }
                 }
-            },
+            }
         }
     }
 
@@ -827,10 +834,10 @@ impl Reader {
     fn go_to_results_neighbor(&mut self, dir: CycleDir, hub: &Hub, rq: &mut RenderQueue, context: &Context) {
         let loc = self.search.as_ref().and_then(|s| {
             match dir {
-                CycleDir::Next => s.highlights.range(self.current_page+1..)
-                                              .next().map(|e| *e.0),
+                CycleDir::Next => s.highlights.range(self.current_page + 1..)
+                    .next().map(|e| *e.0),
                 CycleDir::Previous => s.highlights.range(..self.current_page)
-                                                  .next_back().map(|e| *e.0),
+                    .next_back().map(|e| *e.0),
             }
         });
         if let Some(location) = loc {
@@ -850,9 +857,9 @@ impl Reader {
             let current_page = self.current_page;
             let mut doc = self.doc.lock().unwrap();
             let chapter = self.toc().or_else(|| doc.toc())
-                              .as_ref().and_then(|toc| doc.chapter(current_page, toc))
-                              .map(|c| c.title.clone())
-                              .unwrap_or_default();
+                .as_ref().and_then(|toc| doc.chapter(current_page, toc))
+                .map(|c| c.title.clone())
+                .unwrap_or_default();
             let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
             let neighbors = Neighbors {
                 previous_page: doc.resolve_location(Location::Previous(current_page)),
@@ -870,20 +877,20 @@ impl Reader {
             let settings = &context.settings;
             if self.reflowable {
                 let font_family = self.info.reader.as_ref()
-                                      .and_then(|r| r.font_family.clone())
-                                      .unwrap_or_else(|| settings.reader.font_family.clone());
+                    .and_then(|r| r.font_family.clone())
+                    .unwrap_or_else(|| settings.reader.font_family.clone());
                 tool_bar.update_font_family(font_family, rq);
                 let font_size = self.info.reader.as_ref()
-                                    .and_then(|r| r.font_size)
-                                    .unwrap_or(settings.reader.font_size);
+                    .and_then(|r| r.font_size)
+                    .unwrap_or(settings.reader.font_size);
                 tool_bar.update_font_size_slider(font_size, rq);
                 let text_align = self.info.reader.as_ref()
-                                    .and_then(|r| r.text_align)
-                                    .unwrap_or(settings.reader.text_align);
+                    .and_then(|r| r.text_align)
+                    .unwrap_or(settings.reader.text_align);
                 tool_bar.update_text_align_icon(text_align, rq);
                 let line_height = self.info.reader.as_ref()
-                                      .and_then(|r| r.line_height)
-                                      .unwrap_or(settings.reader.line_height);
+                    .and_then(|r| r.line_height)
+                    .unwrap_or(settings.reader.line_height);
                 tool_bar.update_line_height(line_height, rq);
             } else {
                 tool_bar.update_contrast_exponent_slider(self.contrast.exponent, rq);
@@ -891,8 +898,8 @@ impl Reader {
             }
             let reflowable = self.reflowable;
             let margin_width = self.info.reader.as_ref()
-                                   .and_then(|r| if reflowable { r.margin_width } else { r.screen_margin_width })
-                                   .unwrap_or_else(|| if reflowable { settings.reader.margin_width } else { 0 });
+                .and_then(|r| if reflowable { r.margin_width } else { r.screen_margin_width })
+                .unwrap_or_else(|| if reflowable { settings.reader.margin_width } else { 0 });
             tool_bar.update_margin_width(margin_width, rq);
         }
     }
@@ -924,8 +931,8 @@ impl Reader {
                 }
                 for annot in annotations {
                     let [start, end] = annot.selection;
-                    if (start >= words[0].location && start <= words[words.len()-1].location) ||
-                       (end >= words[0].location && end <= words[words.len()-1].location) {
+                    if (start >= words[0].location && start <= words[words.len() - 1].location) ||
+                        (end >= words[0].location && end <= words[words.len() - 1].location) {
                         self.annotations.entry(chunk.location)
                             .or_insert_with(Vec::new)
                             .push(annot.clone());
@@ -962,7 +969,7 @@ impl Reader {
                 let dx = smw + ((self.rect.width() - frame.width()) as i32 - 2 * smw) / 2;
                 let dy = smw + ((self.rect.height() - frame.height()) as i32 - 2 * smw) / 2;
                 self.chunks.push(RenderChunk { frame, location, position: pt!(dx, dy), scale });
-            },
+            }
             ZoomMode::FitToWidth => {
                 let available_height = self.rect.height() as i32 - 2 * smw;
                 let mut height = 0;
@@ -1002,7 +1009,7 @@ impl Reader {
                         chunk.position.y += dy;
                     }
                 }
-            },
+            }
             ZoomMode::Custom(_) => {
                 self.load_pixmap(location);
                 self.load_text(location);
@@ -1014,7 +1021,7 @@ impl Reader {
                     let position = pt!(smw) + rect.min - vpr.min;
                     self.chunks.push(RenderChunk { frame: rect, location, position, scale });
                 }
-            },
+            }
         }
 
         rq.add(RenderData::new(self.id, self.rect, update_mode));
@@ -1023,7 +1030,7 @@ impl Reader {
 
         while self.cache.len() > 3 {
             let left_count = self.cache.range(..first_location).count();
-            let right_count = self.cache.range(last_location+1..).count();
+            let right_count = self.cache.range(last_location + 1..).count();
             let extremum = if left_count >= right_count {
                 self.cache.keys().next().cloned().unwrap()
             } else {
@@ -1035,7 +1042,7 @@ impl Reader {
         self.update_annotations();
 
         if self.view_port.zoom_mode == ZoomMode::FitToPage ||
-           self.view_port.zoom_mode == ZoomMode::FitToWidth {
+            self.view_port.zoom_mode == ZoomMode::FitToWidth {
             let doc2 = self.doc.clone();
             let hub2 = hub.clone();
             thread::spawn(move || {
@@ -1058,7 +1065,7 @@ impl Reader {
     fn search(&mut self, text: &str, query: Regex, hub: &Hub, rq: &mut RenderQueue) {
         let s = Search {
             query: text.to_string(),
-            .. Default::default()
+            ..Default::default()
         };
 
         let hub2 = hub.clone();
@@ -1098,9 +1105,9 @@ impl Reader {
                             text += &word.text;
                         }
                         for m in query.find_iter(&text) {
-                            if let Some((first, _)) = rects.range(..= m.start()).next_back() {
+                            if let Some((first, _)) = rects.range(..=m.start()).next_back() {
                                 let mut match_rects = Vec::new();
-                                for (_, rect) in rects.range(*first .. m.end()) {
+                                for (_, rect) in rects.range(*first..m.end()) {
                                     match_rects.push(*rect);
                                 }
                                 hub2.send(Event::SearchResult(location, match_rects)).ok();
@@ -1114,7 +1121,7 @@ impl Reader {
                 } else {
                     loc = match search_direction {
                         LinearDir::Forward => Location::Exact(0),
-                        LinearDir::Backward => Location::Exact(doc.pages_count()-1),
+                        LinearDir::Backward => Location::Exact(doc.pages_count() - 1),
                     };
                 }
 
@@ -1139,20 +1146,20 @@ impl Reader {
             }
 
             let mut rect = *self.child(index).rect();
-            rect.absorb(self.child(index-1).rect());
+            rect.absorb(self.child(index - 1).rect());
 
             if index == 1 {
-                rect.absorb(self.child(index+1).rect());
-                self.children.drain(index - 1 ..= index + 1);
+                rect.absorb(self.child(index + 1).rect());
+                self.children.drain(index - 1..=index + 1);
                 rq.add(RenderData::expose(rect, UpdateMode::Gui));
             } else {
-                self.children.drain(index - 1 ..= index);
+                self.children.drain(index - 1..=index);
 
-                let start_index = locate::<TopBar>(self).map(|index| index+2).unwrap_or(0);
+                let start_index = locate::<TopBar>(self).map(|index| index + 2).unwrap_or(0);
                 let y_min = self.child(start_index).rect().min.y;
                 let delta_y = rect.height() as i32;
 
-                for i in start_index..index-1 {
+                for i in start_index..index - 1 {
                     let shifted_rect = *self.child(i).rect() + pt!(0, delta_y);
                     self.child_mut(i).resize(shifted_rect, hub, rq, context);
                     rq.add(RenderData::new(self.child(i).id(), shifted_rect, UpdateMode::Gui));
@@ -1201,16 +1208,16 @@ impl Reader {
             self.children.insert(index, Box::new(separator) as Box<dyn View>);
 
             if index == 0 {
-                for i in index..index+3 {
+                for i in index..index + 3 {
                     rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                 }
             } else {
-                for i in index..index+2 {
+                for i in index..index + 2 {
                     rq.add(RenderData::new(self.child(i).id(), *self.child(i).rect(), UpdateMode::Gui));
                 }
 
                 let delta_y = kb_rect.height() as i32 + thickness;
-                let start_index = locate::<TopBar>(self).map(|index| index+2).unwrap_or(0);
+                let start_index = locate::<TopBar>(self).map(|index| index + 2).unwrap_or(0);
 
                 for i in start_index..index {
                     let shifted_rect = *self.child(i).rect() + pt!(0, -delta_y);
@@ -1229,7 +1236,7 @@ impl Reader {
 
             let mut rect = *self.child(index).rect();
             rect.absorb(self.child(index - 1).rect());
-            self.children.drain(index - 1 ..= index);
+            self.children.drain(index - 1..=index);
             rq.add(RenderData::expose(rect, UpdateMode::Gui));
         } else {
             if !enable {
@@ -1264,7 +1271,7 @@ impl Reader {
 
             let mut rect = *self.child(index).rect();
             rect.absorb(self.child(index - 1).rect());
-            self.children.drain(index - 1 ..= index);
+            self.children.drain(index - 1..=index);
             rq.add(RenderData::expose(rect, UpdateMode::Gui));
         } else {
             if !enable {
@@ -1274,7 +1281,7 @@ impl Reader {
             let dpi = CURRENT_DEVICE.dpi;
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
             let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
-            let index = locate::<TopBar>(self).map(|index| index+2).unwrap_or(0);
+            let index = locate::<TopBar>(self).map(|index| index + 2).unwrap_or(0);
 
             let sp_rect = *self.child(index).rect() - pt!(0, small_height);
             let y_min = sp_rect.max.y;
@@ -1308,9 +1315,9 @@ impl Reader {
                 self.toggle_bars(Some(false), hub, rq, context);
             } else {
                 let mut rect = *self.child(index).rect();
-                rect.absorb(self.child(index-1).rect());
-                rect.absorb(self.child(index+1).rect());
-                self.children.drain(index - 1 ..= index + 1);
+                rect.absorb(self.child(index - 1).rect());
+                rect.absorb(self.child(index + 1).rect());
+                self.children.drain(index - 1..=index + 1);
                 rq.add(RenderData::expose(rect, UpdateMode::Gui));
             }
         } else {
@@ -1324,7 +1331,7 @@ impl Reader {
             let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
             let (small_thickness, big_thickness) = halves(thickness);
             let small_height = scale_by_dpi(SMALL_BAR_HEIGHT, dpi) as i32;
-            let index = locate::<TopBar>(self).map(|index| index+2).unwrap_or(0);
+            let index = locate::<TopBar>(self).map(|index| index + 2).unwrap_or(0);
 
             if index == 0 {
                 let sp_rect = rect![self.rect.min.x, self.rect.max.y - small_height - small_thickness,
@@ -1345,10 +1352,10 @@ impl Reader {
             self.children.insert(index, Box::new(separator) as Box<dyn View>);
 
             rq.add(RenderData::new(self.child(index).id(), *self.child(index).rect(), UpdateMode::Gui));
-            rq.add(RenderData::new(self.child(index+1).id(), *self.child(index+1).rect(), UpdateMode::Gui));
+            rq.add(RenderData::new(self.child(index + 1).id(), *self.child(index + 1).rect(), UpdateMode::Gui));
 
             if index == 0 {
-                rq.add(RenderData::new(self.child(index+2).id(), *self.child(index+2).rect(), UpdateMode::Gui));
+                rq.add(RenderData::new(self.child(index + 2).id(), *self.child(index + 2).rect(), UpdateMode::Gui));
             }
 
             self.toggle_keyboard(true, Some(ViewId::ReaderSearchInput), hub, rq, context);
@@ -1364,9 +1371,9 @@ impl Reader {
 
             if let Some(bottom_index) = locate::<BottomBar>(self) {
                 let mut top_rect = *self.child(top_index).rect();
-                top_rect.absorb(self.child(top_index+1).rect());
+                top_rect.absorb(self.child(top_index + 1).rect());
                 let mut bottom_rect = *self.child(bottom_index).rect();
-                for i in top_index+2 .. bottom_index {
+                for i in top_index + 2..bottom_index {
                     bottom_rect.absorb(self.child(i).rect());
                 }
 
@@ -1520,9 +1527,9 @@ impl Reader {
                                     self.rect.max - pt!(padding)];
 
             let margin = self.info.reader.as_ref()
-                             .and_then(|r| r.cropping_margins.as_ref()
-                                            .map(|c| c.margin(self.current_page)))
-                             .cloned().unwrap_or_default();
+                .and_then(|r| r.cropping_margins.as_ref()
+                    .map(|c| c.margin(self.current_page)))
+                .cloned().unwrap_or_default();
 
             let mut doc = self.doc.lock().unwrap();
             let (pixmap, _) = build_pixmap(&pixmap_rect, doc.as_mut(), self.current_page);
@@ -1708,15 +1715,15 @@ impl Reader {
                 let zoom_mode = self.view_port.zoom_mode;
                 let sf = if let ZoomMode::Custom(sf) = zoom_mode { sf } else { 1.0 };
                 vec![EntryKind::SubMenu("Zoom Mode".to_string(), vec![
-                     EntryKind::RadioButton("Fit to Page".to_string(),
-                                            EntryId::SetZoomMode(ZoomMode::FitToPage),
-                                            zoom_mode == ZoomMode::FitToPage),
-                     EntryKind::RadioButton("Fit to Width".to_string(),
-                                            EntryId::SetZoomMode(ZoomMode::FitToWidth),
-                                            zoom_mode == ZoomMode::FitToWidth),
-                     EntryKind::RadioButton(format!("Custom ({:.1}%)", 100.0 * sf),
-                                            EntryId::SetZoomMode(ZoomMode::Custom(sf)),
-                                            zoom_mode == ZoomMode::Custom(sf))])]
+                    EntryKind::RadioButton("Fit to Page".to_string(),
+                                           EntryId::SetZoomMode(ZoomMode::FitToPage),
+                                           zoom_mode == ZoomMode::FitToPage),
+                    EntryKind::RadioButton("Fit to Width".to_string(),
+                                           EntryId::SetZoomMode(ZoomMode::FitToWidth),
+                                           zoom_mode == ZoomMode::FitToWidth),
+                    EntryKind::RadioButton(format!("Custom ({:.1}%)", 100.0 * sf),
+                                           EntryId::SetZoomMode(ZoomMode::Custom(sf)),
+                                           zoom_mode == ZoomMode::Custom(sf))])]
             };
 
             if self.info.reader.as_ref().map_or(false, |r| !r.annotations.is_empty()) {
@@ -1755,11 +1762,11 @@ impl Reader {
             }
 
             let mut families = family_names(&context.settings.reader.font_path)
-                                           .map_err(|e| eprintln!("Can't get family names: {:#}.", e))
-                                           .unwrap_or_default();
+                .map_err(|e| eprintln!("Can't get family names: {:#}.", e))
+                .unwrap_or_default();
             let current_family = self.info.reader.as_ref()
-                                     .and_then(|r| r.font_family.clone())
-                                     .unwrap_or_else(|| context.settings.reader.font_family.clone());
+                .and_then(|r| r.font_family.clone())
+                .unwrap_or_else(|| context.settings.reader.font_family.clone());
             families.insert(DEFAULT_FONT_FAMILY.to_string());
             let entries = families.iter().map(|f| EntryKind::RadioButton(f.clone(),
                                                                          EntryId::SetFontFamily(f.clone()),
@@ -1784,7 +1791,7 @@ impl Reader {
             }
 
             let font_size = self.info.reader.as_ref().and_then(|r| r.font_size)
-                                .unwrap_or(context.settings.reader.font_size);
+                .unwrap_or(context.settings.reader.font_size);
             let min_font_size = context.settings.reader.font_size / 2.0;
             let max_font_size = 3.0 * context.settings.reader.font_size / 2.0;
             let entries = (0..=20).filter_map(|v| {
@@ -1817,7 +1824,7 @@ impl Reader {
             }
 
             let text_align = self.info.reader.as_ref().and_then(|r| r.text_align)
-                                .unwrap_or(context.settings.reader.text_align);
+                .unwrap_or(context.settings.reader.text_align);
             let choices = [TextAlign::Justify, TextAlign::Left, TextAlign::Right, TextAlign::Center];
             let entries = choices.iter().map(|v| {
                 EntryKind::RadioButton(v.to_string(),
@@ -1844,7 +1851,7 @@ impl Reader {
             }
 
             let line_height = self.info.reader.as_ref()
-                                  .and_then(|r| r.line_height).unwrap_or(context.settings.reader.line_height);
+                .and_then(|r| r.line_height).unwrap_or(context.settings.reader.line_height);
             let entries = (0..=10).map(|x| {
                 let lh = 1.0 + x as f32 / 10.0;
                 EntryKind::RadioButton(format!("{:.1}", lh),
@@ -1922,11 +1929,11 @@ impl Reader {
 
             let reflowable = self.reflowable;
             let margin_width = self.info.reader.as_ref()
-                                   .and_then(|r| if reflowable { r.margin_width } else { r.screen_margin_width })
-                                   .unwrap_or_else(|| if reflowable { context.settings.reader.margin_width } else { 0 });
+                .and_then(|r| if reflowable { r.margin_width } else { r.screen_margin_width })
+                .unwrap_or_else(|| if reflowable { context.settings.reader.margin_width } else { 0 });
             let entries = (0..=10).map(|mw| EntryKind::RadioButton(format!("{}", mw),
-                                                                  EntryId::SetMarginWidth(mw),
-                                                                  mw == margin_width)).collect();
+                                                                   EntryId::SetMarginWidth(mw),
+                                                                   mw == margin_width)).collect();
             let margin_width_menu = Menu::new(rect, ViewId::MarginWidthMenu, MenuKind::DropDown, entries, context);
             rq.add(RenderData::new(margin_width_menu.id(), *margin_width_menu.rect(), UpdateMode::Gui));
             self.children.push(Box::new(margin_width_menu) as Box<dyn View>);
@@ -1947,17 +1954,17 @@ impl Reader {
             }
 
             let has_name = self.info.reader.as_ref()
-                               .map_or(false, |r| r.page_names.contains_key(&self.current_page));
+                .map_or(false, |r| r.page_names.contains_key(&self.current_page));
 
             let mut entries = vec![EntryKind::Command("Name".to_string(), EntryId::SetPageName)];
             if has_name {
                 entries.push(EntryKind::Command("Remove Name".to_string(), EntryId::RemovePageName));
             }
             let names = self.info.reader.as_ref()
-                            .map(|r| r.page_names.iter()
-                                      .map(|(i, s)| EntryKind::Command(s.to_string(), EntryId::GoTo(*i)))
-                                      .collect::<Vec<EntryKind>>())
-                            .unwrap_or_default();
+                .map(|r| r.page_names.iter()
+                    .map(|(i, s)| EntryKind::Command(s.to_string(), EntryId::GoTo(*i)))
+                    .collect::<Vec<EntryKind>>())
+                .unwrap_or_default();
             if !names.is_empty() {
                 entries.push(EntryKind::Separator);
                 entries.push(EntryKind::SubMenu("Go To".to_string(), names));
@@ -1984,8 +1991,8 @@ impl Reader {
 
             let current_page = self.current_page;
             let is_split = self.info.reader.as_ref()
-                               .and_then(|r| r.cropping_margins
-                                              .as_ref().map(CroppingMargins::is_split));
+                .and_then(|r| r.cropping_margins
+                    .as_ref().map(CroppingMargins::is_split));
 
             let mut entries = vec![EntryKind::RadioButton("Any".to_string(),
                                                           EntryId::ApplyCroppings(current_page, PageScheme::Any),
@@ -1995,11 +2002,11 @@ impl Reader {
                                                           is_split.is_some() && is_split.unwrap())];
 
             let is_applied = self.info.reader.as_ref()
-                                 .map(|r| r.cropping_margins.is_some())
-                                 .unwrap_or(false);
+                .map(|r| r.cropping_margins.is_some())
+                .unwrap_or(false);
             if is_applied {
                 entries.extend_from_slice(&[EntryKind::Separator,
-                                            EntryKind::Command("Remove".to_string(), EntryId::RemoveCroppings)]);
+                    EntryKind::Command("Remove".to_string(), EntryId::RemoveCroppings)]);
             }
 
             let margin_cropper_menu = Menu::new(rect, ViewId::MarginCropperMenu, MenuKind::DropDown, entries, context);
@@ -2051,7 +2058,7 @@ impl Reader {
 
             if self.synthetic {
                 let current_page = self.current_page.min(doc.pages_count() - 1);
-                if let Some(location) =  doc.resolve_location(Location::Exact(current_page)) {
+                if let Some(location) = doc.resolve_location(Location::Exact(current_page)) {
                     self.current_page = location;
                 }
             } else {
@@ -2083,7 +2090,7 @@ impl Reader {
 
             if self.synthetic {
                 let current_page = self.current_page.min(doc.pages_count() - 1);
-                if let Some(location) =  doc.resolve_location(Location::Exact(current_page)) {
+                if let Some(location) = doc.resolve_location(Location::Exact(current_page)) {
                     self.current_page = location;
                 }
             } else {
@@ -2120,7 +2127,7 @@ impl Reader {
 
             if self.synthetic {
                 let current_page = self.current_page.min(doc.pages_count() - 1);
-                if let Some(location) =  doc.resolve_location(Location::Exact(current_page)) {
+                if let Some(location) = doc.resolve_location(Location::Exact(current_page)) {
                     self.current_page = location;
                 }
             } else {
@@ -2151,7 +2158,7 @@ impl Reader {
 
             if self.synthetic {
                 let current_page = self.current_page.min(doc.pages_count() - 1);
-                if let Some(location) =  doc.resolve_location(Location::Exact(current_page)) {
+                if let Some(location) = doc.resolve_location(Location::Exact(current_page)) {
                     self.current_page = location;
                 }
             } else {
@@ -2190,7 +2197,7 @@ impl Reader {
 
             if self.synthetic {
                 let current_page = self.current_page.min(doc.pages_count() - 1);
-                if let Some(location) =  doc.resolve_location(Location::Exact(current_page)) {
+                if let Some(location) = doc.resolve_location(Location::Exact(current_page)) {
                     self.current_page = location;
                 }
             } else {
@@ -2202,7 +2209,7 @@ impl Reader {
             if self.view_port.zoom_mode == ZoomMode::FitToWidth {
                 // Apply the scale change.
                 let ratio = (self.rect.width() as i32 - 2 * next_margin_width) as f32 /
-                            (self.rect.width() as i32 - 2 * self.view_port.margin_width) as f32;
+                    (self.rect.width() as i32 - 2 * self.view_port.margin_width) as f32;
                 self.view_port.page_offset.y = (self.view_port.page_offset.y as f32 * ratio) as i32;
             } else {
                 // Keep the center still.
@@ -2315,7 +2322,7 @@ impl Reader {
                             self.find_page_by_name(&uri[1..])
                                 .map(Location::Exact)
                                 .unwrap_or_else(|| location.clone().into())
-                        },
+                        }
                         _ => location.clone().into(),
                     };
                     let current_index = *index;
@@ -2330,7 +2337,7 @@ impl Reader {
                         index: current_index,
                         children: current_children,
                     });
-                },
+                }
             }
         }
         toc
@@ -2340,24 +2347,24 @@ impl Reader {
         self.info.reader.as_ref().and_then(|r| {
             if let Ok(a) = u32::from_str_radix(name, 10) {
                 r.page_names
-                 .iter().filter_map(|(i, s)| u32::from_str_radix(s, 10).ok().map(|b| (b, i)))
-                 .filter(|(b, _)| *b <= a)
-                 .max_by(|x, y| x.0.cmp(&y.0))
-                 .map(|(b, i)| *i + (a - b) as usize)
+                    .iter().filter_map(|(i, s)| u32::from_str_radix(s, 10).ok().map(|b| (b, i)))
+                    .filter(|(b, _)| *b <= a)
+                    .max_by(|x, y| x.0.cmp(&y.0))
+                    .map(|(b, i)| *i + (a - b) as usize)
             } else if let Some(a) = name.chars().next().and_then(|c| c.to_alphabetic_digit()) {
                 r.page_names
-                 .iter().filter_map(|(i, s)| s.chars().next()
-                                              .and_then(|c| c.to_alphabetic_digit())
-                                              .map(|c| (c, i)))
-                 .filter(|(b, _)| *b <= a)
-                 .max_by(|x, y| x.0.cmp(&y.0))
-                 .map(|(b, i)| *i + (a - b) as usize)
+                    .iter().filter_map(|(i, s)| s.chars().next()
+                    .and_then(|c| c.to_alphabetic_digit())
+                    .map(|c| (c, i)))
+                    .filter(|(b, _)| *b <= a)
+                    .max_by(|x, y| x.0.cmp(&y.0))
+                    .map(|(b, i)| *i + (a - b) as usize)
             } else if let Ok(a) = Roman::from_str(name) {
                 r.page_names
-                 .iter().filter_map(|(i, s)| Roman::from_str(s).ok().map(|b| (*b, i)))
-                 .filter(|(b, _)| *b <= *a)
-                 .max_by(|x, y| x.0.cmp(&y.0))
-                 .map(|(b, i)| *i + (*a - b) as usize)
+                    .iter().filter_map(|(i, s)| Roman::from_str(s).ok().map(|b| (*b, i)))
+                    .filter(|(b, _)| *b <= *a)
+                    .max_by(|x, y| x.0.cmp(&y.0))
+                    .map(|(b, i)| *i + (*a - b) as usize)
             } else {
                 None
             }
@@ -2367,8 +2374,8 @@ impl Reader {
     fn text_excerpt(&self, sel: [TextLocation; 2]) -> Option<String> {
         let [start, end] = sel;
         let parts = self.text.values().flatten()
-                        .filter(|bnd| bnd.location >= start && bnd.location <= end)
-                        .map(|bnd| bnd.text.as_str()).collect::<Vec<&str>>();
+            .filter(|bnd| bnd.location >= start && bnd.location <= end)
+            .map(|bnd| bnd.text.as_str()).collect::<Vec<&str>>();
 
         if parts.is_empty() {
             return None;
@@ -2442,13 +2449,13 @@ impl Reader {
     fn find_annotation_ref(&mut self, sel: [TextLocation; 2]) -> Option<&Annotation> {
         self.info.reader.as_ref()
             .and_then(|r| r.annotations.iter()
-                           .find(|a| a.selection[0] == sel[0] && a.selection[1] == sel[1]))
+                .find(|a| a.selection[0] == sel[0] && a.selection[1] == sel[1]))
     }
 
     fn find_annotation_mut(&mut self, sel: [TextLocation; 2]) -> Option<&mut Annotation> {
         self.info.reader.as_mut()
             .and_then(|r| r.annotations.iter_mut()
-                           .find(|a| a.selection[0] == sel[0] && a.selection[1] == sel[1]))
+                .find(|a| a.selection[0] == sel[0] && a.selection[1] == sel[1]))
     }
 
     fn reseed(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
@@ -2522,7 +2529,7 @@ impl Reader {
             let frame = self.cache[&chunk.location].frame;
             self.current_page = chunk.location;
             self.view_port.page_offset = Point::from(factor * Vec2::from(center - chunk.position + chunk.frame.min - frame.min)) -
-                                         pt!(self.rect.width() as i32 / 2 - smw,
+                pt!(self.rect.width() as i32 / 2 - smw,
                                              self.rect.height() as i32 / 2 - smw);
 
             self.set_zoom_mode(ZoomMode::Custom(current_factor * factor), false, hub, rq, context);
@@ -2538,7 +2545,7 @@ impl View for Reader {
                 let n = (4 + (context.display.rotation - dir * quarter_turns)) % 4;
                 hub.send(Event::Select(EntryId::Rotate(n))).ok();
                 true
-            },
+            }
             Event::Gesture(GestureEvent::Swipe { dir, start, end }) if self.rect.includes(start) => {
                 match self.view_port.zoom_mode {
                     ZoomMode::FitToPage | ZoomMode::FitToWidth => {
@@ -2547,43 +2554,42 @@ impl View for Reader {
                             Dir::East => self.go_to_neighbor(CycleDir::Previous, hub, rq, context),
                             Dir::South | Dir::North => self.page_scroll(start.y - end.y, hub, rq, context),
                         };
-                    },
+                    }
                     ZoomMode::Custom(_) => {
                         match dir {
                             Dir::West | Dir::East => self.screen_scroll(pt!(start.x - end.x, 0), hub, rq, context),
                             Dir::South | Dir::North => self.screen_scroll(pt!(0,start.y - end.y), hub, rq, context),
                         };
-                    },
+                    }
                 }
                 true
-            },
+            }
             Event::Gesture(GestureEvent::SlantedSwipe { start, end, .. }) if self.rect.includes(start) => {
                 if let ZoomMode::Custom(_) = self.view_port.zoom_mode {
                     self.screen_scroll(start - end, hub, rq, context);
                 }
                 true
-            },
+            }
             Event::Gesture(GestureEvent::Spread { axis: Axis::Horizontal, center, .. }) if self.rect.includes(center) => {
                 if !self.reflowable {
                     self.set_zoom_mode(ZoomMode::FitToWidth, true, hub, rq, context);
                 }
                 true
-
-            },
+            }
             Event::Gesture(GestureEvent::Pinch { axis: Axis::Horizontal, center, .. }) if self.rect.includes(center) => {
                 if !self.reflowable {
                     self.set_zoom_mode(ZoomMode::FitToPage, true, hub, rq, context);
                 }
                 true
-            },
+            }
             Event::Gesture(GestureEvent::Spread { axis: Axis::Diagonal, center, factor }) |
             Event::Gesture(GestureEvent::Pinch { axis: Axis::Diagonal, center, factor }) if factor.is_finite() &&
-                                                                                            self.rect.includes(center) => {
+                self.rect.includes(center) => {
                 if !self.reflowable {
                     self.scale_page(center, factor, hub, rq, context);
                 }
                 true
-            },
+            }
             Event::Gesture(GestureEvent::Arrow { dir, .. }) => {
                 match dir {
                     Dir::West => {
@@ -2592,7 +2598,7 @@ impl View for Reader {
                         } else {
                             self.go_to_results_page(0, hub, rq, context);
                         }
-                    },
+                    }
                     Dir::East => {
                         if self.search.is_none() {
                             self.go_to_chapter(CycleDir::Next, hub, rq, context);
@@ -2600,25 +2606,25 @@ impl View for Reader {
                             let last_page = self.search.as_ref().unwrap().highlights.len() - 1;
                             self.go_to_results_page(last_page, hub, rq, context);
                         }
-                    },
+                    }
                     Dir::North => {
                         self.search_direction = LinearDir::Backward;
                         self.toggle_search_bar(true, hub, rq, context);
-                    },
+                    }
                     Dir::South => {
                         self.search_direction = LinearDir::Forward;
                         self.toggle_search_bar(true, hub, rq, context);
-                    },
+                    }
                 }
                 true
-            },
+            }
             Event::Gesture(GestureEvent::Corner { dir, .. }) => {
                 match dir {
                     DiagDir::NorthWest => self.go_to_bookmark(CycleDir::Previous, hub, rq, context),
                     DiagDir::NorthEast => self.go_to_bookmark(CycleDir::Next, hub, rq, context),
                     DiagDir::SouthEast => {
                         hub.send(Event::Select(EntryId::ToggleDithered)).ok();
-                    },
+                    }
                     DiagDir::SouthWest => {
                         if context.settings.frontlight_presets.len() > 1 {
                             if context.settings.frontlight {
@@ -2636,10 +2642,10 @@ impl View for Reader {
                         } else {
                             hub.send(Event::ToggleFrontlight).ok();
                         }
-                    },
+                    }
                 };
                 true
-            },
+            }
             Event::Gesture(GestureEvent::MultiCorner { dir, .. }) => {
                 match dir {
                     DiagDir::NorthWest => self.go_to_annotation(CycleDir::Previous, hub, rq, context),
@@ -2647,16 +2653,18 @@ impl View for Reader {
                     _ => (),
                 }
                 true
-            },
+            }
             Event::Gesture(GestureEvent::Cross(_)) => {
+                context.last_read = Box::new(self.info.clone());
+
                 self.quit(context);
                 hub.send(Event::Back).ok();
                 true
-            },
+            }
             Event::Gesture(GestureEvent::Diamond(_)) => {
                 self.toggle_bars(None, hub, rq, context);
                 true
-            },
+            }
             Event::Gesture(GestureEvent::HoldButtonShort(code, ..)) => {
                 match code {
                     ButtonCode::Backward => self.go_to_chapter(CycleDir::Previous, hub, rq, context),
@@ -2665,7 +2673,7 @@ impl View for Reader {
                 }
                 self.held_buttons.insert(code);
                 true
-            },
+            }
             Event::Device(DeviceEvent::Button { code, status: ButtonStatus::Released, .. }) => {
                 if !self.held_buttons.remove(&code) {
                     match code {
@@ -2675,19 +2683,19 @@ impl View for Reader {
                             } else {
                                 self.go_to_results_neighbor(CycleDir::Previous, hub, rq, context);
                             }
-                        },
+                        }
                         ButtonCode::Forward => {
                             if self.search.is_none() {
                                 self.go_to_neighbor(CycleDir::Next, hub, rq, context);
                             } else {
                                 self.go_to_results_neighbor(CycleDir::Next, hub, rq, context);
                             }
-                        },
+                        }
                         _ => (),
                     }
                 }
                 true
-            },
+            }
             Event::Device(DeviceEvent::Finger { position, status: FingerStatus::Motion, id, .. }) if self.state == State::Selection(id) => {
                 let mut nearest_word = None;
                 let mut dmin = u32::MAX;
@@ -2724,10 +2732,10 @@ impl View for Reader {
                         if let Some(mut i) = rects.iter().position(|(_, loc)| *loc == start_low) {
                             let mut rect = rects[i].0;
                             while rects[i].1 < start_high {
-                                let next_rect = rects[i+1].0;
+                                let next_rect = rects[i + 1].0;
                                 if rect.max.y.min(next_rect.max.y) - rect.min.y.max(next_rect.min.y) >
-                                   rect.height().min(next_rect.height()) as i32 / 2 {
-                                    if rects[i+1].1 == start_high {
+                                    rect.height().min(next_rect.height()) as i32 / 2 {
+                                    if rects[i + 1].1 == start_high {
                                         if rect.min.x < next_rect.min.x {
                                             rect.max.x = next_rect.min.x;
                                         } else {
@@ -2752,10 +2760,10 @@ impl View for Reader {
                         if let Some(mut i) = rects.iter().rposition(|(_, loc)| *loc == end_high) {
                             let mut rect = rects[i].0;
                             while rects[i].1 > end_low {
-                                let prev_rect = rects[i-1].0;
+                                let prev_rect = rects[i - 1].0;
                                 if rect.max.y.min(prev_rect.max.y) - rect.min.y.max(prev_rect.min.y) >
-                                   rect.height().min(prev_rect.height()) as i32 / 2 {
-                                    if rects[i-1].1 == end_low {
+                                    rect.height().min(prev_rect.height()) as i32 / 2 {
+                                    if rects[i - 1].1 == end_low {
                                         if rect.min.x > prev_rect.min.x {
                                             rect.min.x = prev_rect.max.x;
                                         } else {
@@ -2780,13 +2788,13 @@ impl View for Reader {
                     selection.end = end;
                 }
                 true
-            },
+            }
             Event::Device(DeviceEvent::Finger { status: FingerStatus::Up, position, id, .. }) if self.state == State::Selection(id) => {
                 self.state = State::Idle;
                 let radius = scale_by_dpi(24.0, CURRENT_DEVICE.dpi) as i32;
                 self.toggle_selection_menu(Rectangle::from_disk(position, radius), Some(true), rq, context);
                 true
-            },
+            }
             Event::Gesture(GestureEvent::Tap(center)) if self.state == State::AdjustSelection && self.rect.includes(center) => {
                 let mut found = None;
                 let mut dmin = u32::MAX;
@@ -2825,7 +2833,7 @@ impl View for Reader {
                                 } else {
                                     (word.location, old_end)
                                 }
-                            },
+                            }
                             (Some(..), None) => (word.location, old_end),
                             (None, Some(..)) => (old_start, word.location),
                             (None, None) => (old_start, old_end)
@@ -2843,9 +2851,9 @@ impl View for Reader {
                         if let Some(mut i) = rects.iter().position(|(_, loc)| *loc == start_low) {
                             let mut rect = rects[i].0;
                             while i < rects.len() - 1 && rects[i].1 < start_high {
-                                let next_rect = rects[i+1].0;
+                                let next_rect = rects[i + 1].0;
                                 if rect.min.y < next_rect.max.y && next_rect.min.y < rect.max.y {
-                                    if rects[i+1].1 == start_high {
+                                    if rects[i + 1].1 == start_high {
                                         if rect.min.x < next_rect.min.x {
                                             rect.max.x = next_rect.min.x;
                                         } else {
@@ -2870,9 +2878,9 @@ impl View for Reader {
                         if let Some(mut i) = rects.iter().rposition(|(_, loc)| *loc == end_high) {
                             let mut rect = rects[i].0;
                             while i > 0 && rects[i].1 > end_low {
-                                let prev_rect = rects[i-1].0;
+                                let prev_rect = rects[i - 1].0;
                                 if rect.min.y < prev_rect.max.y && prev_rect.min.y < rect.max.y {
-                                    if rects[i-1].1 == end_low {
+                                    if rects[i - 1].1 == end_low {
                                         if rect.min.x > prev_rect.min.x {
                                             rect.min.x = prev_rect.max.x;
                                         } else {
@@ -2897,7 +2905,7 @@ impl View for Reader {
                     selection.end = end;
                 }
                 true
-            },
+            }
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {
                 if self.focus.is_some() {
                     return true;
@@ -2909,8 +2917,8 @@ impl View for Reader {
 
                 for chunk in &self.chunks {
                     let (links, _) = self.doc.lock().ok()
-                                         .and_then(|mut doc| doc.links(Location::Exact(chunk.location)))
-                                         .unwrap_or((Vec::new(), 0));
+                        .and_then(|mut doc| doc.links(Location::Exact(chunk.location)))
+                        .unwrap_or((Vec::new(), 0));
                     for link in links {
                         let rect = (link.rect * chunk.scale).to_rect() - chunk.frame.min + chunk.position;
                         let d = center.rdist2(&rect);
@@ -2927,12 +2935,14 @@ impl View for Reader {
                     if let Some(caps) = toc_page.captures(&link.text) {
                         let loc_opt = if caps[1].chars().all(|c| c.is_digit(10)) {
                             caps[1].parse::<usize>()
-                                   .map(Location::Exact)
-                                   .ok()
+                                .map(Location::Exact)
+                                .ok()
                         } else {
                             Some(Location::Uri(caps[1].to_string()))
                         };
                         if let Some(location) = loc_opt {
+                            context.last_read = Box::new(self.info.clone());
+
                             self.quit(context);
                             hub.send(Event::Back).ok();
                             hub.send(Event::GoToLocation(location)).ok();
@@ -2966,7 +2976,7 @@ impl View for Reader {
                                 DiagDir::SouthWest => self.screen_scroll(pt!(-dx, dy), hub, rq, context),
                                 DiagDir::NorthWest => self.screen_scroll(pt!(-dx, -dy), hub, rq, context),
                             }
-                        },
+                        }
                         Region::Strip(dir) => {
                             match dir {
                                 Dir::North => self.screen_scroll(pt!(0, -dy), hub, rq, context),
@@ -2974,7 +2984,7 @@ impl View for Reader {
                                 Dir::South => self.screen_scroll(pt!(0, dy), hub, rq, context),
                                 Dir::West => self.screen_scroll(pt!(-dx, 0), hub, rq, context),
                             }
-                        },
+                        }
                         Region::Center => self.toggle_bars(None, hub, rq, context),
                     }
 
@@ -2986,25 +2996,41 @@ impl View for Reader {
                                          context.settings.reader.corner_width) {
                     Region::Corner(diag_dir) => {
                         match diag_dir {
-                            DiagDir::NorthWest => self.go_to_last_page(hub, rq, context),
+                            DiagDir::NorthWest => {
+                                // self.go_to_last_page(hub, rq, context);
+
+                                context.last_read = Box::new(self.info.clone());
+
+                                self.quit(context);
+                                hub.send(Event::Back).ok();
+                            }
                             DiagDir::NorthEast => self.toggle_bookmark(rq),
                             DiagDir::SouthEast => {
                                 if self.search.is_none() {
                                     match context.settings.reader.south_east_corner {
                                         SouthEastCornerAction::GoToPage => {
-                                            hub.send(Event::Toggle(ViewId::GoToPage)).ok();
-                                        },
+                                            // hub.send(Event::Toggle(ViewId::GoToPage)).ok();
+
+                                            self.quit(context);
+                                            hub.send(Event::Back).ok();
+
+                                            hub.send(Event::Open(context.last_read.clone())).ok();
+
+                                            context.last_read = Box::new(self.info.clone());
+                                        }
                                         SouthEastCornerAction::NextPage => {
                                             self.go_to_neighbor(CycleDir::Next, hub, rq, context);
-                                        },
+                                        }
                                     }
                                 } else {
                                     self.go_to_neighbor(CycleDir::Next, hub, rq, context);
                                 }
-                            },
+                            }
                             DiagDir::SouthWest => {
                                 if self.search.is_none() {
                                     if self.ephemeral && self.info.file.path == PathBuf::from(MEM_SCHEME) {
+                                        context.last_read = Box::new(self.info.clone());
+
                                         self.quit(context);
                                         hub.send(Event::Back).ok();
                                     } else {
@@ -3013,9 +3039,9 @@ impl View for Reader {
                                 } else {
                                     self.go_to_neighbor(CycleDir::Previous, hub, rq, context);
                                 }
-                            },
+                            }
                         }
-                    },
+                    }
                     Region::Strip(dir) => {
                         match dir {
                             Dir::West => {
@@ -3024,22 +3050,22 @@ impl View for Reader {
                                 } else {
                                     self.go_to_results_neighbor(CycleDir::Previous, hub, rq, context);
                                 }
-                            },
+                            }
                             Dir::East => {
                                 if self.search.is_none() {
                                     self.go_to_neighbor(CycleDir::Next, hub, rq, context);
                                 } else {
                                     self.go_to_results_neighbor(CycleDir::Next, hub, rq, context);
                                 }
-                            },
+                            }
                             Dir::South | Dir::North => self.toggle_bars(None, hub, rq, context),
                         }
-                    },
+                    }
                     Region::Center => self.toggle_bars(None, hub, rq, context),
                 }
 
                 true
-            },
+            }
             Event::Gesture(GestureEvent::HoldFingerShort(center, id)) if self.rect.includes(center) => {
                 if self.focus.is_some() {
                     return true;
@@ -3073,7 +3099,7 @@ impl View for Reader {
                 if let Some((nearest_word, rect)) = found {
                     let anchor = nearest_word.location;
                     if let Some(annot) = self.annotations.values().flatten()
-                                             .find(|annot| anchor >= annot.selection[0] && anchor <= annot.selection[1]).cloned() {
+                        .find(|annot| anchor >= annot.selection[0] && anchor <= annot.selection[1]).cloned() {
                         let radius = scale_by_dpi(24.0, CURRENT_DEVICE.dpi) as i32;
                         self.toggle_annotation_menu(&annot, Rectangle::from_disk(center, radius), Some(true), rq, context);
                     } else {
@@ -3088,7 +3114,7 @@ impl View for Reader {
                 }
 
                 true
-            },
+            }
             Event::Gesture(GestureEvent::HoldFingerLong(center, _)) if self.rect.includes(center) => {
                 if let Some(text) = self.selected_text() {
                     let query = text.trim_matches(|c: char| !c.is_alphanumeric()).to_string();
@@ -3098,15 +3124,15 @@ impl View for Reader {
                 self.selection = None;
                 self.state = State::Idle;
                 true
-            },
+            }
             Event::Update(mode) => {
                 self.update(Some(mode), hub, rq, context);
                 true
-            },
+            }
             Event::LoadPixmap(location) => {
                 self.load_pixmap(location);
                 true
-            },
+            }
             Event::Submit(ViewId::GoToPageInput, ref text) => {
                 let re = Regex::new(r#"^([-+'])?(.+)$"#).unwrap();
                 if let Some(caps) = re.captures(text) {
@@ -3140,13 +3166,13 @@ impl View for Reader {
                     }
                 }
                 true
-            },
+            }
             Event::Submit(ViewId::GoToResultsPageInput, ref text) => {
                 if let Ok(index) = text.parse::<usize>() {
                     self.go_to_results_page(index.saturating_sub(1), hub, rq, context);
                 }
                 true
-            },
+            }
             Event::Submit(ViewId::NamePageInput, ref text) => {
                 if !text.is_empty() {
                     if let Some(ref mut r) = self.info.reader {
@@ -3155,7 +3181,7 @@ impl View for Reader {
                 }
                 self.toggle_keyboard(false, None, hub, rq, context);
                 true
-            },
+            }
             Event::Submit(ViewId::EditNoteInput, ref note) => {
                 let selection = self.selection.take().map(|sel| [sel.start, sel.end]);
 
@@ -3187,30 +3213,30 @@ impl View for Reader {
                 self.update_annotations();
                 self.toggle_keyboard(false, None, hub, rq, context);
                 true
-            },
+            }
             Event::Submit(ViewId::ReaderSearchInput, ref text) => {
                 match make_query(text) {
                     Some(query) => {
                         self.search(text, query, hub, rq);
                         self.toggle_keyboard(false, None, hub, rq, context);
                         self.toggle_results_bar(true, rq, context);
-                    },
+                    }
                     None => {
                         let notif = Notification::new("Invalid search query.".to_string(),
                                                       hub, rq, context);
                         self.children.push(Box::new(notif) as Box<dyn View>);
-                    },
+                    }
                 }
                 true
-            },
+            }
             Event::Page(dir) => {
                 self.go_to_neighbor(dir, hub, rq, context);
                 true
-            },
+            }
             Event::GoTo(location) | Event::Select(EntryId::GoTo(location)) => {
                 self.go_to_page(location, true, hub, rq, context);
                 true
-            },
+            }
             Event::GoToLocation(ref location) => {
                 let offset_opt = {
                     let mut doc = self.doc.lock().unwrap();
@@ -3220,104 +3246,104 @@ impl View for Reader {
                     self.go_to_page(offset, true, hub, rq, context);
                 }
                 true
-            },
+            }
             Event::Chapter(dir) => {
                 self.go_to_chapter(dir, hub, rq, context);
                 true
-            },
+            }
             Event::ResultsPage(dir) => {
                 self.go_to_results_neighbor(dir, hub, rq, context);
                 true
-            },
+            }
             Event::CropMargins(ref margin) => {
                 let current_page = self.current_page;
                 self.crop_margins(current_page, margin.as_ref(), hub, rq, context);
                 true
-            },
+            }
             Event::Toggle(ViewId::TopBottomBars) => {
                 self.toggle_bars(None, hub, rq, context);
                 true
-            },
+            }
             Event::Toggle(ViewId::GoToPage) => {
                 self.toggle_go_to_page(None, ViewId::GoToPage, hub, rq, context);
                 true
-            },
+            }
             Event::Toggle(ViewId::GoToResultsPage) => {
                 self.toggle_go_to_page(None, ViewId::GoToResultsPage, hub, rq, context);
                 true
-            },
+            }
             Event::Slider(SliderId::FontSize, font_size, FingerStatus::Up) => {
                 self.set_font_size(font_size, hub, rq, context);
                 true
-            },
+            }
             Event::Slider(SliderId::ContrastExponent, exponent, FingerStatus::Up) => {
                 self.set_contrast_exponent(exponent, hub, rq, context);
                 true
-            },
+            }
             Event::Slider(SliderId::ContrastGray, gray, FingerStatus::Up) => {
                 self.set_contrast_gray(gray, hub, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::TitleMenu, rect) => {
                 self.toggle_title_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::MainMenu, rect) => {
                 toggle_main_menu(self, rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::BatteryMenu, rect) => {
                 toggle_battery_menu(self, rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::ClockMenu, rect) => {
                 toggle_clock_menu(self, rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::MarginCropperMenu, rect) => {
                 self.toggle_margin_cropper_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::SearchMenu, rect) => {
                 self.toggle_search_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::FontFamilyMenu, rect) => {
                 self.toggle_font_family_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::FontSizeMenu, rect) => {
                 self.toggle_font_size_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::TextAlignMenu, rect) => {
                 self.toggle_text_align_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::MarginWidthMenu, rect) => {
                 self.toggle_margin_width_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::LineHeightMenu, rect) => {
                 self.toggle_line_height_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::ContrastExponentMenu, rect) => {
                 self.toggle_contrast_exponent_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::ContrastGrayMenu, rect) => {
                 self.toggle_contrast_gray_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::ToggleNear(ViewId::PageMenu, rect) => {
                 self.toggle_page_menu(rect, None, rq, context);
                 true
-            },
+            }
             Event::Close(ViewId::MainMenu) => {
                 toggle_main_menu(self, Rectangle::default(), Some(false), rq, context);
                 true
-            },
+            }
             Event::Close(ViewId::SearchBar) => {
                 self.toggle_results_bar(false, rq, context);
                 self.toggle_search_bar(false, hub, rq, context);
@@ -3327,15 +3353,15 @@ impl View for Reader {
                     self.search = None;
                 }
                 true
-            },
+            }
             Event::Close(ViewId::GoToPage) => {
                 self.toggle_go_to_page(Some(false), ViewId::GoToPage, hub, rq, context);
                 true
-            },
+            }
             Event::Close(ViewId::GoToResultsPage) => {
                 self.toggle_go_to_page(Some(false), ViewId::GoToResultsPage, hub, rq, context);
                 true
-            },
+            }
             Event::Close(ViewId::SelectionMenu) => {
                 if self.state == State::Idle && self.target_annotation.is_none() {
                     if let Some(rect) = self.selection_rect() {
@@ -3344,7 +3370,7 @@ impl View for Reader {
                     }
                 }
                 false
-            },
+            }
             Event::Close(ViewId::EditNote) => {
                 self.toggle_edit_note(None, Some(false), hub, rq, context);
                 if let Some(rect) = self.selection_rect() {
@@ -3353,19 +3379,30 @@ impl View for Reader {
                 }
                 self.target_annotation = None;
                 false
-            },
+            }
             Event::Close(ViewId::NamePage) => {
                 self.toggle_keyboard(false, None, hub, rq, context);
                 false
-            },
+            }
+            Event::Show(ViewId::Rotate) => {
+                let is_landscape = context.display.rotation == 0 || context.display.rotation == 2;
+
+                let new_n = if is_landscape { 3 } else { 0 };
+                hub.send(Event::Select(EntryId::Rotate(new_n))).ok();
+
+                let new_zoom_mode = if is_landscape { ZoomMode::FitToPage } else { ZoomMode::FitToWidth };
+                hub.send(Event::Select(EntryId::SetZoomMode(new_zoom_mode))).ok();
+
+                true
+            }
             Event::Show(ViewId::TableOfContents) => {
                 {
                     self.toggle_bars(Some(false), hub, rq, context);
                 }
                 let mut doc = self.doc.lock().unwrap();
                 if let Some(toc) = self.toc()
-                                       .or_else(|| doc.toc())
-                                       .filter(|toc| !toc.is_empty()) {
+                    .or_else(|| doc.toc())
+                    .filter(|toc| !toc.is_empty()) {
                     let chap = doc.chapter(self.current_page, &toc);
                     let chap_index = chap.map_or(usize::MAX, |chap| chap.index);
                     let html = toc_as_html(&toc, chap_index);
@@ -3379,46 +3416,46 @@ impl View for Reader {
                     hub.send(Event::OpenHtml(html, link_uri)).ok();
                 }
                 true
-            },
+            }
             Event::Select(EntryId::Annotations) => {
                 self.toggle_bars(Some(false), hub, rq, context);
                 let mut starts = self.annotations.values().flatten()
-                                     .map(|annot| annot.selection[0]).collect::<Vec<TextLocation>>();
+                    .map(|annot| annot.selection[0]).collect::<Vec<TextLocation>>();
                 starts.sort();
                 let active_range = starts.first().cloned().zip(starts.last().cloned());
                 if let Some(mut annotations) = self.info.reader.as_ref().map(|r| &r.annotations).cloned() {
                     annotations.sort_by(|a, b| a.selection[0].cmp(&b.selection[0]));
                     let html = annotations_as_html(&annotations, active_range);
                     let link_uri = annotations.iter()
-                                              .filter(|annot| annot.selection[0].location() <= self.current_page)
-                                              .max_by_key(|annot| annot.selection[0])
-                                              .map(|annot| format!("@{}", annot.selection[0].location()));
+                        .filter(|annot| annot.selection[0].location() <= self.current_page)
+                        .max_by_key(|annot| annot.selection[0])
+                        .map(|annot| format!("@{}", annot.selection[0].location()));
                     hub.send(Event::OpenHtml(html, link_uri)).ok();
                 }
                 true
-            },
+            }
             Event::Select(EntryId::Bookmarks) => {
                 self.toggle_bars(Some(false), hub, rq, context);
                 if let Some(bookmarks) = self.info.reader.as_ref().map(|r| &r.bookmarks) {
                     let html = bookmarks_as_html(&bookmarks, self.current_page, self.synthetic);
-                    let link_uri = bookmarks.range(..= self.current_page).next_back()
-                                            .map(|index| format!("@{}", index));
+                    let link_uri = bookmarks.range(..=self.current_page).next_back()
+                        .map(|index| format!("@{}", index));
                     hub.send(Event::OpenHtml(html, link_uri)).ok();
                 }
                 true
-            },
+            }
             Event::Show(ViewId::SearchBar) => {
                 self.toggle_search_bar(true, hub, rq, context);
                 true
-            },
+            }
             Event::Show(ViewId::MarginCropper) => {
                 self.toggle_margin_cropper(true, hub, rq, context);
                 true
-            },
+            }
             Event::Close(ViewId::MarginCropper) => {
                 self.toggle_margin_cropper(false, hub, rq, context);
                 true
-            },
+            }
             Event::SearchResult(location, ref rects) => {
                 if self.search.is_none() {
                     return true;
@@ -3447,10 +3484,10 @@ impl View for Reader {
                 }
 
                 true
-            },
+            }
             Event::EndOfSearch => {
                 let results_count = self.search.as_ref().map(|s| s.results_count)
-                                        .unwrap_or(usize::MAX);
+                    .unwrap_or(usize::MAX);
                 if results_count == 0 {
                     let notif = Notification::new("No search results.".to_string(),
                                                   hub, rq, context);
@@ -3459,11 +3496,11 @@ impl View for Reader {
                     hub.send(Event::Focus(Some(ViewId::ReaderSearchInput))).ok();
                 }
                 true
-            },
+            }
             Event::Select(EntryId::AnnotateSelection) => {
                 self.toggle_edit_note(None, Some(true), hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::HighlightSelection) => {
                 if let Some(sel) = self.selection.take() {
                     let text = self.text_excerpt([sel.start, sel.end]).unwrap();
@@ -3482,7 +3519,7 @@ impl View for Reader {
                 }
 
                 true
-            },
+            }
             Event::Select(EntryId::DefineSelection) => {
                 if let Some(text) = self.selected_text() {
                     let query = text.trim_matches(|c: char| !c.is_alphanumeric()).to_string();
@@ -3491,19 +3528,19 @@ impl View for Reader {
                 }
                 self.selection = None;
                 true
-            },
+            }
             Event::Select(EntryId::SearchForSelection) => {
                 if let Some(text) = self.selected_text() {
                     let text = text.trim_matches(|c: char| !c.is_alphanumeric());
                     match make_query(text) {
                         Some(query) => {
                             self.search(text, query, hub, rq);
-                        },
+                        }
                         None => {
                             let notif = Notification::new("Invalid search query.".to_string(),
                                                           hub, rq, context);
                             self.children.push(Box::new(notif) as Box<dyn View>);
-                        },
+                        }
                     }
                 }
                 if let Some(rect) = self.selection_rect() {
@@ -3511,13 +3548,13 @@ impl View for Reader {
                 }
                 self.selection = None;
                 true
-            },
+            }
             Event::Select(EntryId::GoToSelectedPageName) => {
                 if let Some(loc) = self.selected_text().and_then(|text| {
                     let end = text.find(|c: char| !c.is_ascii_digit() &&
-                                                  Digit::from_char(c).is_err() &&
-                                                  !c.is_ascii_uppercase())
-                                  .unwrap_or_else(|| text.len());
+                        Digit::from_char(c).is_err() &&
+                        !c.is_ascii_uppercase())
+                        .unwrap_or_else(|| text.len());
                     self.find_page_by_name(&text[..end])
                 }) {
                     self.go_to_page(loc, true, hub, rq, context);
@@ -3527,17 +3564,17 @@ impl View for Reader {
                 }
                 self.selection = None;
                 true
-            },
+            }
             Event::Select(EntryId::AdjustSelection) => {
                 self.state = State::AdjustSelection;
                 true
-            },
+            }
             Event::Select(EntryId::EditAnnotationNote(sel)) => {
                 let text = self.find_annotation_ref(sel).map(|annot| annot.note.clone());
                 self.toggle_edit_note(text, Some(true), hub, rq, context);
                 self.target_annotation = Some(sel);
                 true
-            },
+            }
             Event::Select(EntryId::RemoveAnnotationNote(sel)) => {
                 if let Some(annot) = self.find_annotation_mut(sel) {
                     annot.note.clear();
@@ -3548,21 +3585,21 @@ impl View for Reader {
                     rq.add(RenderData::new(self.id, rect, UpdateMode::Gui));
                 }
                 true
-            },
+            }
             Event::Select(EntryId::RemoveAnnotation(sel)) => {
                 if let Some(annotations) = self.info.reader.as_mut().map(|r| &mut r.annotations) {
-                    annotations.retain(|annot| annot.selection[0] != sel[0] || annot.selection[1] != sel[1]); 
+                    annotations.retain(|annot| annot.selection[0] != sel[0] || annot.selection[1] != sel[1]);
                     self.update_annotations();
                 }
                 if let Some(rect) = self.text_rect(sel) {
                     rq.add(RenderData::new(self.id, rect, UpdateMode::Gui));
                 }
                 true
-            },
+            }
             Event::Select(EntryId::SetZoomMode(zoom_mode)) => {
                 self.set_zoom_mode(zoom_mode, true, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::Save) => {
                 let name = format!("{}-{}.{}", self.info.title.to_lowercase().replace(' ', "_"),
                                    Local::now().format("%Y%m%d_%H%M%S"),
@@ -3575,7 +3612,7 @@ impl View for Reader {
                 let notif = Notification::new(msg, hub, rq, context);
                 self.children.push(Box::new(notif) as Box<dyn View>);
                 true
-            },
+            }
             Event::Select(EntryId::ApplyCroppings(index, scheme)) => {
                 self.info.reader.as_mut().map(|r| {
                     if r.cropping_margins.is_none() {
@@ -3584,7 +3621,7 @@ impl View for Reader {
                     r.cropping_margins.as_mut().map(|c| c.apply(index, scheme))
                 });
                 true
-            },
+            }
             Event::Select(EntryId::RemoveCroppings) => {
                 if let Some(r) = self.info.reader.as_mut() {
                     r.cropping_margins = None;
@@ -3592,80 +3629,83 @@ impl View for Reader {
                 self.cache.clear();
                 self.update(None, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::SearchDirection(dir)) => {
                 self.search_direction = dir;
                 true
-            },
+            }
             Event::Select(EntryId::SetFontFamily(ref font_family)) => {
                 self.set_font_family(font_family, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::SetTextAlign(text_align)) => {
                 self.set_text_align(text_align, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::SetFontSize(v)) => {
                 let font_size = self.info.reader.as_ref()
-                                    .and_then(|r| r.font_size)
-                                    .unwrap_or(context.settings.reader.font_size);
+                    .and_then(|r| r.font_size)
+                    .unwrap_or(context.settings.reader.font_size);
                 let font_size = font_size - 1.0 + v as f32 / 10.0;
                 self.set_font_size(font_size, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::SetMarginWidth(width)) => {
                 self.set_margin_width(width, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::SetLineHeight(v)) => {
                 let line_height = 1.0 + v as f32 / 10.0;
                 self.set_line_height(line_height, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::SetContrastExponent(v)) => {
                 let exponent = 1.0 + v as f32 / 2.0;
                 self.set_contrast_exponent(exponent, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::SetContrastGray(v)) => {
                 let gray = ((1 << 8) - (1 << (8 - v))) as f32;
                 self.set_contrast_gray(gray, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::SetPageName) => {
                 self.toggle_name_page(None, hub, rq, context);
                 true
-            },
+            }
             Event::Select(EntryId::RemovePageName) => {
                 if let Some(ref mut r) = self.info.reader {
                     r.page_names.remove(&self.current_page);
                 }
                 true
-            },
+            }
             Event::Reseed => {
                 self.reseed(hub, rq, context);
                 true
-            },
+            }
             Event::ToggleFrontlight => {
                 if let Some(index) = locate::<TopBar>(self) {
                     self.child_mut(index).downcast_mut::<TopBar>().unwrap()
                         .update_frontlight_icon(rq, context);
                 }
                 true
-            },
+            }
             Event::Device(DeviceEvent::Button { code: ButtonCode::Home, status: ButtonStatus::Pressed, .. }) => {
+                context.last_read = Box::new(self.info.clone());
+
                 self.quit(context);
                 hub.send(Event::Back).ok();
                 true
-            },
+            }
             Event::Select(EntryId::Quit) |
             Event::Select(EntryId::Reboot) |
             Event::Select(EntryId::RebootInNickel) |
-            Event::Back |
-            Event::Suspend => {
+            Event::Back => {
+                context.last_read = Box::new(self.info.clone());
+
                 self.quit(context);
                 false
-            },
+            }
             Event::Focus(v) => {
                 if self.focus != v {
                     if let Some(ViewId::ReaderSearchInput) = v {
@@ -3682,7 +3722,7 @@ impl View for Reader {
                     }
                 }
                 true
-            },
+            }
             _ => false,
         }
     }
@@ -3709,7 +3749,7 @@ impl View for Reader {
                             }
                             if let Some(last) = last_rect {
                                 if rect.max.y.min(last.max.y) - rect.min.y.max(last.min.y) > rect.height().min(last.height()) as i32 / 2 &&
-                                   (last.max.x < rect.min.x || rect.max.x < last.min.x) {
+                                    (last.max.x < rect.min.x || rect.max.x < last.min.x) {
                                     let space = if last.max.x < rect.min.x {
                                         rect![last.max.x, (last.min.y + rect.min.y) / 2,
                                               rect.min.x, (last.max.y + rect.max.y) / 2]
@@ -3741,7 +3781,7 @@ impl View for Reader {
                                 if let Some(last) = last_rect {
                                     // Are `rect` and `last` on the same line?
                                     if rect.max.y.min(last.max.y) - rect.min.y.max(last.min.y) > rect.height().min(last.height()) as i32 / 2 &&
-                                       (last.max.x < rect.min.x || rect.max.x < last.min.x) {
+                                        (last.max.x < rect.min.x || rect.max.x < last.min.x) {
                                         let space = if last.max.x < rect.min.x {
                                             rect![last.max.x, (last.min.y + rect.min.y) / 2,
                                                   rect.min.x, (last.max.y + rect.max.y) / 2]
@@ -3770,7 +3810,7 @@ impl View for Reader {
                             }
                             if let Some(last) = last_rect {
                                 if rect.max.y.min(last.max.y) - rect.min.y.max(last.min.y) > rect.height().min(last.height()) as i32 / 2 &&
-                                   (last.max.x < rect.min.x || rect.max.x < last.min.x) {
+                                    (last.max.x < rect.min.x || rect.max.x < last.min.x) {
                                     let space = if last.max.x < rect.min.x {
                                         rect![last.max.x, (last.min.y + rect.min.y) / 2,
                                               rect.min.x, (last.max.y + rect.max.y) / 2]
@@ -3836,9 +3876,9 @@ impl View for Reader {
                                         rect.max.x,
                                         rect.max.y - (3 * big_height + small_height) as i32 - small_thickness];
                     self.children[index].resize(sb_rect, hub, rq, context);
-                    self.children[index-1].resize(rect![rect.min.x, sb_rect.min.y - thickness,
+                    self.children[index - 1].resize(rect![rect.min.x, sb_rect.min.y - thickness,
                                                         rect.max.x, sb_rect.min.y],
-                                                  hub, rq, context);
+                                                    hub, rq, context);
                     index += 2;
                 }
                 if self.children[index].is::<Keyboard>() {
@@ -3847,13 +3887,13 @@ impl View for Reader {
                                         rect.max.x,
                                         rect.max.y - small_height - small_thickness];
                     self.children[index].resize(kb_rect, hub, rq, context);
-                    self.children[index+1].resize(rect![rect.min.x, kb_rect.max.y,
+                    self.children[index + 1].resize(rect![rect.min.x, kb_rect.max.y,
                                                         rect.max.x, kb_rect.max.y + thickness],
-                                                  hub, rq, context);
+                                                    hub, rq, context);
                     let kb_rect = *self.children[index].rect();
-                    self.children[index-1].resize(rect![rect.min.x, kb_rect.min.y - thickness,
+                    self.children[index - 1].resize(rect![rect.min.x, kb_rect.min.y - thickness,
                                                         rect.max.x, kb_rect.min.y],
-                                                  hub, rq, context);
+                                                    hub, rq, context);
                     index += 2;
                 }
                 floating_layer_start = index;
@@ -3865,7 +3905,7 @@ impl View for Reader {
                                            rect.max.y - small_height - small_thickness,
                                            rect.max.x,
                                            rect.max.y - small_height + big_thickness];
-                self.children[index-1].resize(separator_rect, hub, rq, context);
+                self.children[index - 1].resize(separator_rect, hub, rq, context);
                 let bottom_bar_rect = rect![rect.min.x,
                                             rect.max.y - small_height + big_thickness,
                                             rect.max.x,
@@ -3883,7 +3923,7 @@ impl View for Reader {
                         small_height
                     } as i32;
 
-                    let y_max = self.children[index+1].rect().min.y;
+                    let y_max = self.children[index + 1].rect().min.y;
                     let bar_rect = rect![rect.min.x,
                                          y_max - bar_height + thickness,
                                          rect.max.x,
@@ -3894,7 +3934,7 @@ impl View for Reader {
                                         y_max - thickness,
                                         rect.max.x,
                                         y_max];
-                    self.children[index-1].resize(sp_rect, hub, rq, context);
+                    self.children[index - 1].resize(sp_rect, hub, rq, context);
 
                     index -= 2;
                 }
@@ -3909,14 +3949,14 @@ impl View for Reader {
             ZoomMode::FitToWidth => {
                 // Apply the scale change.
                 let ratio = (rect.width() as i32 - 2 * self.view_port.margin_width) as f32 /
-                            (self.rect.width() as i32 - 2 * self.view_port.margin_width) as f32;
+                    (self.rect.width() as i32 - 2 * self.view_port.margin_width) as f32;
                 self.view_port.page_offset.y = (self.view_port.page_offset.y as f32 * ratio) as i32;
-            },
+            }
             ZoomMode::Custom(_) => {
                 // Keep the center still.
                 self.view_port.page_offset += pt!(self.rect.width() as i32 - rect.width() as i32,
                                                   self.rect.height() as i32 - rect.height() as i32) / 2;
-            },
+            }
             _ => (),
         }
 
@@ -3924,8 +3964,8 @@ impl View for Reader {
 
         if self.reflowable {
             let font_size = self.info.reader.as_ref()
-                                .and_then(|r| r.font_size)
-                                .unwrap_or(context.settings.reader.font_size);
+                .and_then(|r| r.font_size)
+                .unwrap_or(context.settings.reader.font_size);
             let mut doc = self.doc.lock().unwrap();
             doc.layout(rect.width(), rect.height(), font_size, CURRENT_DEVICE.dpi);
             let current_page = self.current_page.min(doc.pages_count() - 1);

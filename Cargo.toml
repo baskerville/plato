@@ -23,6 +23,11 @@ name = "article_fetcher"
 path = "src/fetcher.rs"
 required-features = ["fetcher"]
 
+[[bin]]
+name = "xkcd"
+path = "src/xkcd.rs"
+required-features = ["xkcd"]
+
 [dependencies]
 bitflags = "1.2.1"
 downcast-rs = "1.2.0"
@@ -55,6 +60,7 @@ fxhash = "0.2.1"
 rand_core = "0.6.2"
 rand_xoshiro = "0.6.0"
 percent-encoding = "2.1.0"
+rand = "0.8.3"
 
 [dependencies.getopts]
 version = "0.2.21"
@@ -82,3 +88,4 @@ optional = true
 importer = ["getopts"]
 emulator = ["sdl2"]
 fetcher = ["reqwest", "signal-hook"]
+xkcd = ["reqwest", "signal-hook"]
