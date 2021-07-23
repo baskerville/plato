@@ -13,7 +13,7 @@ use crate::document::{Document, Location, TextLocation, TocEntry, BoundedText, c
 use crate::unit::pt_to_px;
 use crate::geom::{Rectangle, Edge, CycleDir};
 use super::pdf::PdfOpener;
-use super::html::dom::Node;
+use super::html::dom::{ElementData, Node};
 use super::html::engine::{Page, Engine, ResourceFetcher};
 use super::html::layout::{StyleData, LoopContext};
 use super::html::layout::{RootData, DrawState, DrawCommand, TextCommand, ImageCommand};
@@ -232,6 +232,92 @@ impl EpubDocument {
         }
 
         entries
+    }
+
+    fn walk_nav_doc(&self, node: &Node, nav_doc_dir: &Path, index: &mut usize) -> Vec<TocEntry> {
+        let mut entries = Vec::new();
+
+        if let Some(children) = node.children() {
+            for child in children {
+                if child.tag_name() == Some("li") {
+                    let link = child.find("a");
+                    if link.is_none() {
+                        continue;
+                    }
+                    let link = link.unwrap();
+                    let title = link.text_content().unwrap_or_default();
+
+                    let rel_uri = link.attr("href").map(|href| {
+                        percent_decode_str(&decode_entities(href)).decode_utf8_lossy()
+                                                                  .into_owned()
+                    }).unwrap_or_default();
+
+                    let loc = nav_doc_dir.join(&rel_uri).normalize().to_str()
+                                         .map(|uri| Location::Uri(uri.to_string()));
+
+                    let current_index = *index;
+                    *index += 1;
+
+                    let sub_entries = if let Some(sublist) = child.find("ol") {
+                        self.walk_nav_doc(sublist, nav_doc_dir, index)
+                    } else {
+                        Vec::new()
+                    };
+
+                    if let Some(location) = loc {
+                        entries.push(TocEntry {
+                            title,
+                            location,
+                            index: current_index,
+                            children: sub_entries,
+                        });
+                    }
+                }
+            }
+        }
+
+        entries
+    }
+
+    fn parse_nav_doc(&mut self) -> Option<Vec<TocEntry>> {
+        let manifest = self.info.find("manifest")?;
+        let nav_doc_path = manifest.children().unwrap().iter().find(|item| {
+            if let Some(props) = item.attr("properties") {
+                return props.split_ascii_whitespace().any(|prop| prop == "nav");
+            }
+            false
+        }).and_then(|entry| entry.attr("href"))
+        .map(|href| {
+            self.parent.join(href).normalize()
+                .to_string_lossy().into_owned()
+        })?;
+
+        let nav_doc_dir = Path::new(&nav_doc_path).parent()
+                               .unwrap_or_else(|| Path::new(""));
+        let mut nav_doc = String::new();
+        if let Some(mut zf) = self.archive.by_name(&nav_doc_path).ok() {
+            zf.read_to_string(&mut nav_doc).ok()?;
+        } else {
+            return None;
+        }
+
+        let root = XmlParser::new(&nav_doc).parse();
+        let nav = root.find_with_predicate(&|node| match node {
+            Node::Element(ElementData { name, attributes,.. }) => {
+                if name != "nav" {
+                    return false;
+                }
+                if let Some(epub_type) = attributes.get("epub:type") {
+                    epub_type == "toc"
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        })?;
+        let ol = nav.find("ol")?;
+
+        Some(self.walk_nav_doc(ol, nav_doc_dir, &mut 0))
     }
 
     #[inline]
@@ -615,6 +701,11 @@ impl Document for EpubDocument {
     }
 
     fn toc(&mut self) -> Option<Vec<TocEntry>> {
+        let entries_from_nav_doc = self.parse_nav_doc();
+        if entries_from_nav_doc.is_some() {
+            return entries_from_nav_doc;
+        }
+
         let name = self.info.find("spine").and_then(|spine| {
             spine.attr("toc")
         }).and_then(|toc_id| {

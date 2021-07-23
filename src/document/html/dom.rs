@@ -1,5 +1,7 @@
 use fxhash::{FxHashMap, FxHashSet};
 
+use crate::helpers::decode_entities;
+
 pub type Attributes = FxHashMap<String, String>;
 
 #[derive(Debug, Clone)]
@@ -93,6 +95,27 @@ impl Node {
         }
     }
 
+    pub fn text_content(&self) -> Option<String> {
+        match *self {
+            Node::Text(TextData { ref text, .. }) |
+            Node::Whitespace(TextData { ref text, .. }) => Some(text.to_owned()),
+            Node::Element(ElementData { ref children, .. }) => {
+                let mut result = String::new();
+                for child in children {
+                    if let Some(text) = Self::text_content(child) {
+                        result += &text;
+                    }
+                }
+                if result.is_empty() {
+                    None
+                } else {
+                    let decoded = decode_entities(&result).into_owned();
+                    Some(decoded)
+                }
+            },
+        }
+    }
+
     pub fn is_block(&self) -> bool {
         match *self {
             Node::Element(ElementData { ref name, .. }) => {
@@ -150,6 +173,24 @@ impl Node {
                     }
                     None
                 }
+            },
+            _ => None,
+        }
+    }
+
+    pub fn find_with_predicate(&self, predicate: &impl Fn(&Node) -> bool) -> Option<&Node> {
+        if predicate(self) {
+            return Some(self);
+        }
+        match *self {
+            Node::Element(ElementData { ref children, .. }) => {
+                for child in children {
+                    let result = child.find_with_predicate(predicate);
+                    if result.is_some() {
+                        return result;
+                    }
+                }
+                None
             },
             _ => None,
         }
