@@ -74,7 +74,7 @@ export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"
 
 if [ "$PLATO_SET_FRAMEBUFFER_DEPTH" ] ; then
 	case "${PRODUCT}:${MODEL_NUMBER}" in
-		storm:*|frost:*|nova:*|snow:378|star:379)
+		europa:*|storm:*|frost:*|nova:*|snow:378|star:379)
 			unset ORIG_BPP
 			;;
 		*)
