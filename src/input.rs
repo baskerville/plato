@@ -55,7 +55,9 @@ pub const KEY_HOME: u16 = 102;
 pub const KEY_LIGHT: u16 = 90;
 pub const KEY_BACKWARD: u16 = 193;
 pub const KEY_FORWARD: u16 = 194;
-pub const SLEEP_COVER: u16 = 59;
+pub const PEN_ERASE: u16 = 331;
+pub const PEN_HIGHLIGHT: u16 = 332;
+pub const SLEEP_COVER: [u16; 2] = [59, 35];
 // Synthetic touch button
 pub const BTN_TOUCH: u16 = 330;
 // The following key codes are fake, and are used to support
@@ -135,6 +137,8 @@ pub enum ButtonCode {
     Light,
     Backward,
     Forward,
+    Erase,
+    Highlight,
     Raw(u16),
 }
 
@@ -146,6 +150,8 @@ impl ButtonCode {
             KEY_LIGHT => ButtonCode::Light,
             KEY_BACKWARD => resolve_button_direction(LinearDir::Backward, rotation, button_scheme),
             KEY_FORWARD => resolve_button_direction(LinearDir::Forward, rotation, button_scheme),
+            PEN_ERASE => ButtonCode::Erase,
+            PEN_HIGHLIGHT => ButtonCode::Highlight,
             _ => ButtonCode::Raw(code)
         }
     }
@@ -422,7 +428,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 packet_ids.clear();
             }
         } else if evt.kind == EV_KEY {
-            if evt.code == SLEEP_COVER {
+            if SLEEP_COVER.contains(&evt.code) {
                 if evt.value == VAL_PRESS {
                     ty.send(DeviceEvent::CoverOn).ok();
                 } else if evt.value == VAL_RELEASE {
