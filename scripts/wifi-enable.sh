@@ -6,12 +6,17 @@ SCRIPTS_DIR=$(dirname "$0")
 PRE_UP_SCRIPT=$SCRIPTS_DIR/wifi-pre-up.sh
 [ -e "$PRE_UP_SCRIPT" ] && $PRE_UP_SCRIPT
 
-insmod /drivers/"${PLATFORM}"/wifi/sdio_wifi_pwr.ko
-insmod /drivers/"${PLATFORM}"/wifi/"${WIFI_MODULE}".ko
+insmod /drivers/"$PLATFORM"/wifi/sdio_wifi_pwr.ko
+
+if [ -e /drivers/"${PLATFORM}/${WIFI_MODULE}".ko ]; then
+	insmod /drivers/"${PLATFORM}/${WIFI_MODULE}".ko
+else
+	insmod /drivers/"$PLATFORM"/wifi/"$WIFI_MODULE".ko
+fi
 
 REM_TRIES=20
 while [ "$REM_TRIES" -gt 0 ] ; do
-	[ -e /sys/class/net/"${INTERFACE}" ] && break
+	[ -e /sys/class/net/"$INTERFACE" ] && break
 	REM_TRIES=$((REM_TRIES-1))
 	sleep 0.2
 done
