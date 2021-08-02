@@ -1,57 +1,100 @@
-use std::cmp::Reverse;
 use fxhash::FxHashSet;
+use super::style::StyleSheet;
 
 #[derive(Debug, Clone)]
-pub enum Selector {
-    Simple(SimpleSelector),
-    ParentChild(SimpleSelector, SimpleSelector),
-    Siblings(SimpleSelector, SimpleSelector),
+pub struct Selector {
+    pub simple_selectors: Vec<SimpleSelector>,
+    pub combinators: Vec<Combinator>,
 }
 
 #[derive(Debug, Clone)]
 pub struct SimpleSelector {
     pub tag_name: Option<String>,
     pub classes: FxHashSet<String>,
+    pub pseudo_classes: Vec<PseudoClass>,
+    pub attributes: Vec<Attribute>,
     pub id: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct Attribute {
+    pub name: String,
+    pub operator: AttributeOperator,
+}
+
+#[derive(Debug, Clone)]
+pub enum PseudoClass {
+    FirstChild,
+    LastChild,
+}
+
+#[derive(Debug, Clone)]
+pub enum AttributeOperator {
+    // `[attr]`
+    Exists,
+    // `[attr=value]`
+    Matches(String),
+    // `[attr~=value]`
+    Contains(String),
+    // `[attr|=value]`
+    StartsWith(String),
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum Combinator {
+    None,
+    // a > b
+    Child,
+    // a   b
+    Descendant,
+    // a + b
+    NextSibling,
+    // a ~ b
+    SubsequentSibling,
+}
+
+impl Default for Selector {
+    fn default() -> Self {
+        Selector {
+            simple_selectors: Vec::new(),
+            combinators: Vec::new(),
+        }
+    }
+}
 
 impl Default for SimpleSelector {
-    fn default() -> SimpleSelector {
-        SimpleSelector { tag_name: None, id: None, classes: FxHashSet::default() }
+    fn default() -> Self {
+        SimpleSelector {
+            tag_name: None,
+            classes: FxHashSet::default(),
+            pseudo_classes: Vec::new(),
+            attributes: Vec::new(),
+            id: None,
+        }
     }
 }
 
 pub type Specificity = [usize; 3];
 
-impl SimpleSelector {
-    // http://www.w3.org/TR/selectors/#specificity
-    pub fn specificity(&self) -> Specificity {
-        let a = self.id.iter().count();
-        let b = self.classes.len();
-        let c = self.tag_name.iter().count();
-        [a, b, c]
-    }
-}
-
 impl Selector {
     pub fn specificity(&self) -> Specificity {
-        match self {
-            Selector::Simple(sel) => sel.specificity(),
-            Selector::ParentChild(sel1, sel2) |
-            Selector::Siblings(sel1, sel2) => {
-                let s1 = sel1.specificity();
-                let s2 = sel2.specificity();
-                [s1[0] + s2[0], s1[1] + s2[1], s1[2] + s2[2]]
-            },
+        let mut spec = [0usize; 3];
+        for sel in &self.simple_selectors {
+            spec[0] = spec[0].saturating_add(sel.id.iter().count());
+            spec[1] = spec[1].saturating_add(sel.classes.len());
+            spec[1] = spec[1].saturating_add(sel.pseudo_classes.len());
+            spec[1] = spec[1].saturating_add(sel.attributes.len());
+            spec[2] = spec[2].saturating_add(sel.tag_name.iter().count());
         }
+        spec
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Declaration {
     pub name: String,
     pub value: String,
+    pub important: bool,
 }
 
 impl Default for Declaration {
@@ -59,22 +102,15 @@ impl Default for Declaration {
         Declaration {
             name: String::default(),
             value: String::default(),
+            important: false,
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Rule {
-    pub kind: RuleKind,
-    pub selectors: Vec<Selector>,
+    pub selector: Selector,
     pub declarations: Vec<Declaration>,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum RuleKind {
-    Viewer = 0,
-    User = 1,
-    Document = 2,
 }
 
 #[derive(Debug)]
@@ -116,81 +152,246 @@ impl<'a> CssParser<'a> {
     }
 
     fn advance_until(&mut self, target: &str) {
-        if let Some(first) = target.chars().next() {
-            while !self.eof() {
-                self.advance(1);
-                self.advance_while(|&c| c != first);
-                if self.starts_with(target) {
-                    break;
-                }
+        while !self.eof() && !self.starts_with(target) {
+            self.advance(1);
+        }
+        self.advance(target.chars().count());
+    }
+
+    fn skip_spaces_and_comments(&mut self) {
+        loop {
+            let offset = self.offset;
+            self.advance_while(|&c| c.is_whitespace());
+            if self.starts_with("/*") {
+                self.advance(2);
+                self.advance_until("*/");
             }
-            self.advance(target.chars().count());
+            if offset == self.offset {
+                break;
+            }
+        }
+    }
+
+    fn skip_ident(&mut self) {
+        self.advance_while(|&c| c.is_ascii_alphanumeric() ||
+                                c == '-' ||
+                                c == '_');
+    }
+
+    fn skip_block(&mut self) {
+        let mut balance = 0u8;
+
+        while !self.eof() {
+            match self.next() {
+                Some('{') => {
+                    self.advance(1);
+                    balance = balance.saturating_add(1);
+                },
+                Some('}') => {
+                    self.advance(1);
+                    balance = balance.saturating_sub(1);
+                },
+                _ => break,
+            }
+            if balance == 0 {
+                break;
+            }
+            self.advance_while(|&c| c != '{' && c != '}')
+        }
+    }
+
+    fn skip_at_rule(&mut self) {
+        self.advance_while(|&c| c != ';' && c != '{');
+
+        match self.next() {
+            Some(';') => self.advance(1),
+            Some('{') => self.skip_block(),
+            _ => (),
+        }
+    }
+
+    fn attribute_value(&mut self) -> String {
+        match self.next() {
+            Some('"') => {
+                self.advance(1);
+                let start_offset = self.offset;
+                self.advance_while(|&c| c != '"');
+                let end_offset = self.offset;
+                self.advance(1);
+                self.input[start_offset..end_offset].to_string()
+            },
+            _ => {
+                let offset = self.offset;
+                self.skip_ident();
+                self.input[offset..self.offset].to_string()
+            },
         }
     }
 
     fn parse_selectors(&mut self) -> Vec<Selector> {
+        let mut supported = true;
         let mut selectors = Vec::new();
-        let mut simple_selectors = Vec::new();
-        let mut sel = SimpleSelector::default();
-        let mut combinator = None;
-
-        self.advance_while(|&c| c.is_whitespace());
+        let mut s = Selector::default();
+        let mut selec = SimpleSelector::default();
+        let mut comb = Combinator::None;
 
         while !self.eof() {
             match self.next() {
                 Some('#') => {
                     self.advance(1);
                     let offset = self.offset;
-                    self.advance_while(|&c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
-                    sel.id = Some(self.input[offset..self.offset].to_string());
-
+                    self.skip_ident();
+                    selec.id = Some(self.input[offset..self.offset].to_string());
                 },
                 Some('.') => {
                     self.advance(1);
                     let offset = self.offset;
-                    self.advance_while(|&c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
-                    sel.classes.insert(self.input[offset..self.offset].to_string());
+                    self.skip_ident();
+                    selec.classes.insert(self.input[offset..self.offset].to_string());
+                },
+                Some('[') => {
+                    self.advance(1);
+                    self.skip_spaces_and_comments();
+                    let offset = self.offset;
+                    self.skip_ident();
+                    let name = self.input[offset..self.offset].to_string();
+                    self.skip_spaces_and_comments();
+                    match self.next() {
+                        Some(']') => {
+                            self.advance(1);
+                            selec.attributes.push(Attribute {
+                                name,
+                                operator: AttributeOperator::Exists,
+                            });
+                        },
+                        Some('=') => {
+                            self.advance(1);
+                            self.skip_spaces_and_comments();
+                            let value = self.attribute_value();
+                            selec.attributes.push(Attribute {
+                                name,
+                                operator: AttributeOperator::Matches(value),
+                            });
+                            self.skip_spaces_and_comments();
+                            self.advance(1);
+                        },
+                        Some('~') => {
+                            self.advance(2);
+                            self.skip_spaces_and_comments();
+                            let value = self.attribute_value();
+                            selec.attributes.push(Attribute {
+                                name,
+                                operator: AttributeOperator::Contains(value),
+                            });
+                            self.skip_spaces_and_comments();
+                            self.advance(1);
+                        },
+                        Some('|') => {
+                            self.advance(2);
+                            self.skip_spaces_and_comments();
+                            let value = self.attribute_value();
+                            selec.attributes.push(Attribute {
+                                name,
+                                operator: AttributeOperator::StartsWith(value),
+                            });
+                            self.skip_spaces_and_comments();
+                            self.advance(1);
+                        },
+                        _ => {
+                            self.advance(2);
+                            self.skip_spaces_and_comments();
+                            self.advance(1);
+                            supported = false;
+                        },
+                    }
+
+                },
+                Some(':') => {
+                    self.advance(1);
+                    if self.next() == Some(':') {
+                        supported = false;
+                        self.advance(1);
+                    }
+                    let offset = self.offset;
+                    self.skip_ident();
+                    match &self.input[offset..self.offset] {
+                        "first-child" => {
+                            selec.pseudo_classes.push(PseudoClass::FirstChild);
+                        },
+                        "last-child" => {
+                            selec.pseudo_classes.push(PseudoClass::LastChild);
+                        },
+                        _ => {
+                            supported = false;
+                        },
+                    }
+                    if self.next() == Some('(') {
+                        self.advance_while(|&c| c != ')');
+                        self.advance(1);
+                    }
+                },
+                Some('*') => {
+                    self.advance(1);
                 },
                 _ => {
                     let offset = self.offset;
-                    self.advance_while(|&c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '@');
+                    self.skip_ident();
                     if self.offset > offset {
-                        sel.tag_name = Some(self.input[offset..self.offset].to_string());
+                        selec.tag_name = Some(self.input[offset..self.offset].to_string());
                     } else {
-                        self.advance_while(|&c| c.is_whitespace());
-                        simple_selectors.push(sel);
-                        sel = SimpleSelector::default();
-                        let next = self.next();
-                        self.advance(1);
-                        if next == Some('>') || next == Some('+') {
-                            combinator = next;
-                        } else if next == Some('{') || next == Some(',') {
-                            match combinator {
-                                Some('>') if simple_selectors.len() == 2 => {
-                                    selectors.push(Selector::ParentChild(simple_selectors[0].clone(),
-                                                                         simple_selectors[1].clone()));
-                                },
-                                Some('+') if simple_selectors.len() == 2 => {
-                                    selectors.push(Selector::Siblings(simple_selectors[0].clone(),
-                                                                      simple_selectors[1].clone()));
-                                },
-                                None if simple_selectors.len() == 1 => {
-                                    selectors.push(Selector::Simple(simple_selectors[0].clone()));
-                                },
-                                _ => (),
-                            }
-                            simple_selectors.clear();
-                            if next == Some('{') {
+                        let offset = self.offset;
+                        self.skip_spaces_and_comments();
+
+                        s.simple_selectors.push(selec);
+                        s.combinators.push(comb);
+                        selec = SimpleSelector::default();
+
+                        match self.next() {
+                            Some(',') => {
+                                self.advance(1);
+                                self.skip_spaces_and_comments();
+                                if supported {
+                                    selectors.push(s);
+                                }
+                                s = Selector::default();
+                                comb = Combinator::None;
+                                supported = true;
+                            },
+                            Some('{') => {
+                                self.advance(1);
                                 break;
-                            }
+                            },
+                            Some('>') => {
+                                self.advance(1);
+                                self.skip_spaces_and_comments();
+                                comb = Combinator::Child;
+                            },
+                            Some('+') => {
+                                self.advance(1);
+                                self.skip_spaces_and_comments();
+                                comb = Combinator::NextSibling;
+                            },
+                            Some('~') => {
+                                self.advance(1);
+                                self.skip_spaces_and_comments();
+                                comb = Combinator::SubsequentSibling;
+                            },
+                            _ => {
+                                if self.offset > offset {
+                                    comb = Combinator::Descendant;
+                                } else {
+                                    self.advance(1);
+                                }
+                            },
                         }
                     }
-                    self.advance_while(|&c| c.is_whitespace());
                 }
             }
         }
 
-        selectors.sort_by_key(|a| Reverse(a.specificity()));
+        if supported {
+            selectors.push(s);
+        }
 
         selectors
     }
@@ -200,24 +401,38 @@ impl<'a> CssParser<'a> {
         let mut d = Declaration::default();
 
         while !self.eof() {
-            self.advance_while(|&c| c.is_whitespace());
+            self.skip_spaces_and_comments();
 
             match self.next() {
                 Some(':') => {
                     self.advance(1);
+                    self.skip_spaces_and_comments();
                     let offset = self.offset;
+
                     while !self.eof() {
-                        // TODO: Skip !important.
-                        self.advance_while(|&c| c != '"' && c != ';' && c != '}');
-                        if let Some('"') = self.next() {
-                            self.advance(1);
-                            self.advance_while(|&c| c != '"');
-                            self.advance(1);
-                        } else {
-                            break;
+                        self.advance_while(|&c| c != '"' &&
+                                                c != ';' &&
+                                                c != '}' &&
+                                                c != '!');
+                        match self.next() {
+                            Some('"') => {
+                                self.advance(1);
+                                self.advance_while(|&c| c != '"');
+                                self.advance(1);
+                            },
+                            Some('!') => {
+                                d.important = true;
+                                break;
+                            },
+                            _ => break,
                         }
                     }
+
                     d.value = self.input[offset..self.offset].trim().to_string();
+                    if d.important {
+                        self.advance_while(|&c| c != ';' &&
+                                                c != '}');
+                    }
                 },
                 Some(';') => {
                     self.advance(1);
@@ -228,18 +443,14 @@ impl<'a> CssParser<'a> {
                     self.advance(1);
                     break;
                 }
-                Some('/') => {
-                    if self.starts_with("/*") {
-                        self.advance(2);
-                        self.advance_until("*/");
+                _ => {
+                    let offset = self.offset;
+                    self.skip_ident();
+                    if self.offset > offset {
+                        d.name = self.input[offset..self.offset].trim().to_string();
                     } else {
                         self.advance(1);
                     }
-                },
-                _ => {
-                    let offset = self.offset;
-                    self.advance_while(|&c| c != ':');
-                    d.name = self.input[offset..self.offset].trim().to_string();
                 }
             }
         }
@@ -251,56 +462,31 @@ impl<'a> CssParser<'a> {
         declarations
     }
 
-    fn parse_rule(&mut self, kind: RuleKind) -> Rule {
+    fn parse_rules(&mut self, rules: &mut Vec<Rule>) {
         let selectors = self.parse_selectors();
         let declarations = self.parse_declarations();
-        Rule { kind, selectors, declarations }
-    }
-
-    fn skip_nested_rules(&mut self) {
-        self.advance_while(|&c| c != '{');
-        self.advance(1);
-        while !self.eof() {
-            self.parse_rule(RuleKind::Viewer);
-            self.advance_while(|&c| c.is_whitespace());
-            if let Some('}') = self.next() {
-                self.advance(1);
-                break;
-            }
+        for selector in selectors.into_iter() {
+            rules.push(Rule {
+                selector,
+                declarations: declarations.clone(),
+            });
         }
     }
 
-    pub fn parse(&mut self, kind: RuleKind) -> (Vec<Rule>, Vec<Rule>) {
+    pub fn parse(&mut self) -> StyleSheet {
         let mut rules = Vec::new();
-        let mut at_rules = Vec::new();
+
         while !self.eof() {
-            self.advance_while(|&c| c.is_whitespace());
+            self.skip_spaces_and_comments();
+
             match self.next() {
                 None => break,
-                Some('/') => {
-                    if self.starts_with("/*") {
-                        self.advance(2);
-                        self.advance_until("*/");
-                    } else {
-                        self.advance(1);
-                    }
-                },
-                Some('@') => {
-                    if self.starts_with("@namespace") || self.starts_with("@charset") {
-                        self.advance_while(|&c| c != ';');
-                        self.advance(1);
-                        continue;
-                    } else if self.starts_with("@media") {
-                        self.skip_nested_rules();
-                        continue;
-                    } else {
-                        at_rules.push(self.parse_rule(kind));
-                    }
-                },
-                _ => rules.push(self.parse_rule(kind)),
+                Some('@') => self.skip_at_rule(),
+                _ => self.parse_rules(&mut rules),
             }
         }
-        (rules, at_rules)
+
+        StyleSheet { rules }
     }
 }
 
@@ -311,14 +497,14 @@ mod tests {
     #[test]
     fn simple_css() {
         let text = "a, .b { b: c; d: e }";
-        let (css, _) = CssParser::new(text).parse(RuleKind::User);
+        let css = CssParser::new(text).parse();
         println!("{:?}", css);
     }
 
     #[test]
     fn combinators_css() {
         let text = "a#i.j.k > b { b: c } a + .l { u: v } a { x: y }";
-        let (css, _) = CssParser::new(text).parse(RuleKind::User);
+        let css = CssParser::new(text).parse();
         println!("{:?}", css);
     }
 }

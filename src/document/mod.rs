@@ -257,11 +257,7 @@ pub fn toc_as_html(toc: &[TocEntry], chap_index: usize) -> String {
 
 pub fn toc_as_html_aux(toc: &[TocEntry], chap_index: usize, depth: usize, buf: &mut String) {
     buf.push_str(&"\t".repeat(depth + 2));
-    if depth == 0 {
-        buf.push_str("<ul class=\"top\">\n");
-    } else {
-        buf.push_str("<ul>\n");
-    }
+    buf.push_str("<ul>\n");
     for entry in toc {
         buf.push_str(&"\t".repeat(depth + 3));
         match entry.location {

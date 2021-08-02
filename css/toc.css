@@ -12,7 +12,7 @@ ul > li {
 	padding-top: 0.5em;
 }
 
-ul.top > li {
+body > ul > li {
 	padding-top: 1em;
 }
 

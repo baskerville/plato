@@ -7,7 +7,6 @@ use kl_hyphenate::{Standard, Language, Load};
 use crate::geom::{Point, Rectangle, Edge};
 use crate::font::{FontFamily, Font, RenderPlan};
 pub use crate::metadata::TextAlign;
-use super::dom::Node;
 use crate::color::BLACK;
 
 pub const DEFAULT_HYPH_LANG: &str = "en";
@@ -149,21 +148,17 @@ impl Default for SiblingStyle {
 }
 
 #[derive(Debug, Clone)]
-pub struct LoopContext<'a> {
+pub struct LoopContext {
     pub index: usize,
-    pub parent: Option<&'a Node>,
-    pub sibling: Option<&'a Node>,
     pub sibling_style: SiblingStyle,
     pub is_first: bool,
     pub is_last: bool,
 }
 
-impl<'a> Default for LoopContext<'a> {
+impl Default for LoopContext {
     fn default() -> Self {
         LoopContext {
             index: 0,
-            parent: None,
-            sibling: None,
             sibling_style: SiblingStyle::default(),
             is_first: false,
             is_last: false,

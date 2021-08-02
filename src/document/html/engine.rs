@@ -20,7 +20,7 @@ use super::parse::{parse_width, parse_height, parse_inline_material, parse_font_
 use super::parse::{parse_font_weight, parse_font_size, parse_font_features, parse_font_variant};
 use super::parse::{parse_letter_spacing, parse_word_spacing};
 use super::parse::{parse_line_height, parse_vertical_align, parse_color, parse_list_style_type};
-use super::dom::{Node, ElementData, TextData};
+use super::dom::{NodeRef, NodeData, ElementData, TextData, WRAPPER_TAG_NAME};
 use super::layout::{StyleData, InlineMaterial, TextMaterial, ImageMaterial};
 use super::layout::{GlueMaterial, PenaltyMaterial, ChildArtifact, SiblingStyle, LoopContext};
 use super::layout::{RootData, DrawState, DrawCommand, TextCommand, ImageCommand, FontKind, Fonts};
@@ -28,7 +28,7 @@ use super::layout::{TextAlign, ParagraphElement, TextElement, ImageElement, Disp
 use super::layout::{WordSpacing, ListStyleType, LineStats};
 use super::layout::{hyph_lang, collapse_margins, DEFAULT_HYPH_LANG, HYPHENATION_PATTERNS};
 use super::layout::{EM_SPACE_RATIOS, WORD_SPACE_RATIOS, FONT_SPACES};
-use super::style::{Stylesheet, specified_values};
+use super::style::{StyleSheet, specified_values};
 
 const DEFAULT_DPI: u16 = 300;
 const DEFAULT_WIDTH: u32 = 1404;
@@ -139,13 +139,13 @@ impl Engine {
         rect![0, 0, width as i32, height as i32]
     }
 
-    pub fn build_display_list(&mut self, node: &Node, parent_style: &StyleData, loop_context: &LoopContext, stylesheet: &Stylesheet, root_data: &RootData, resource_fetcher: &mut dyn ResourceFetcher, draw_state: &mut DrawState, display_list: &mut Vec<Page>) -> ChildArtifact {
+    pub fn build_display_list(&mut self, node: NodeRef, parent_style: &StyleData, loop_context: &LoopContext, stylesheet: &StyleSheet, root_data: &RootData, resource_fetcher: &mut dyn ResourceFetcher, draw_state: &mut DrawState, display_list: &mut Vec<Page>) -> ChildArtifact {
         // TODO: border, background, text-transform, tab-size, text-decoration.
         let mut style = StyleData::default();
         let mut rects: Vec<Option<Rectangle>> = Vec::new();
         rects.push(None);
 
-        let props = specified_values(node, loop_context.parent, loop_context.sibling, stylesheet);
+        let props = specified_values(node, stylesheet);
 
         style.display = props.get("display").and_then(|value| parse_display(value))
                              .unwrap_or(Display::Block);
@@ -166,7 +166,7 @@ impl Engine {
 
         match node.tag_name() {
             Some("pre") => style.retain_whitespace = true,
-            Some("li") | Some("anonymous") => style.list_style_type = parent_style.list_style_type,
+            Some("li") | Some(WRAPPER_TAG_NAME) => style.list_style_type = parent_style.list_style_type,
             Some("table") => {
                 let position = draw_state.position;
                 draw_state.column_widths.clear();
@@ -226,7 +226,7 @@ impl Engine {
 
         style.text_align = props.get("text-align")
                                 .map(String::as_str)
-                                .or_else(|| node.attr("align"))
+                                .or_else(|| node.attribute("align"))
                                 .and_then(|value| parse_text_align(value))
                                 .unwrap_or(parent_style.text_align);
 
@@ -246,7 +246,7 @@ impl Engine {
             }
         }
 
-        if loop_context.parent.is_some() {
+        if node.parent().is_some() {
             style.margin = parse_edge(props.get("margin-top").map(String::as_str),
                                       props.get("margin-right").map(String::as_str),
                                       props.get("margin-bottom").map(String::as_str),
@@ -315,20 +315,15 @@ impl Engine {
 
         draw_state.position.y += style.padding.top;
 
-        let has_blocks = node.children().and_then(|children| {
-            children.iter().find(|child| !child.is_whitespace())
-                    .map(Node::is_block)
-        });
+        let has_blocks = node.children().any(|n| n.is_block());
 
-        if has_blocks == Some(true) {
+        if has_blocks {
             if node.id().is_some() {
                 display_list.last_mut().unwrap()
                             .push(DrawCommand::Marker(root_data.start_offset + node.offset()));
             }
-            if let Some(children) = node.children() {
-                let mut inner_loop_context = LoopContext {
-                    parent: Some(node), .. Default::default()
-                };
+            if node.has_children() {
+                let mut inner_loop_context = LoopContext::default();
 
                 if node.tag_name() == Some("tr") {
                     inner_loop_context.is_first = loop_context.is_first;
@@ -377,12 +372,12 @@ impl Engine {
                     let mut index = 0;
 
                     // TODO: rowspan, vertical-align
-                    for child in children.iter().filter(|child| child.is_element()) {
+                    for child in node.children().filter(|child| child.is_element()) {
                         if index >= draw_state.column_widths.len() {
                             break;
                         }
 
-                        let colspan = child.attr("colspan")
+                        let colspan = child.attribute("colspan")
                                            .and_then(|v| v.parse().ok())
                                            .unwrap_or(1)
                                            .min(draw_state.column_widths.len()-index);
@@ -422,7 +417,6 @@ impl Engine {
                             }
                         }
 
-                        inner_loop_context.sibling = Some(&child);
                         inner_loop_context.sibling_style = artifact.sibling_style;
 
                         if inner_loop_context.is_last {
@@ -437,7 +431,7 @@ impl Engine {
                     style.end_x = end_x;
                     draw_state.position = final_page.1;
                 } else {
-                    let mut iter = children.iter().filter(|child| child.is_element()).peekable();
+                    let mut iter = node.children().filter(|child| child.is_element()).peekable();
                     inner_loop_context.is_first = true;
                     let mut index = 0;
 
@@ -446,16 +440,13 @@ impl Engine {
                             inner_loop_context.is_last = true;
                         }
 
-                        inner_loop_context.parent = Some(node);
                         inner_loop_context.index = index;
 
-                        if child.tag_name() == Some("anonymous") {
-                            inner_loop_context.parent = loop_context.parent;
+                        if child.is_wrapper() {
                             inner_loop_context.index = loop_context.index;
                         }
 
                         let artifact = self.build_display_list(child, &style, &inner_loop_context, stylesheet, root_data, resource_fetcher, draw_state, display_list);
-                        inner_loop_context.sibling = Some(&child);
                         inner_loop_context.sibling_style = artifact.sibling_style;
                         inner_loop_context.is_first = false;
 
@@ -484,36 +475,37 @@ impl Engine {
                 }
             }
         } else {
-            if let Some(children) = node.children() {
-                if children.is_empty() {
-                    if node.id().is_some() {
-                        display_list.last_mut().unwrap()
-                                    .push(DrawCommand::Marker(root_data.start_offset + node.offset()));
-                    }
-                } else {
-                    let mut inlines = Vec::new();
-                    let mut markers = Vec::new();
-                    if node.id().is_some() {
-                        markers.push(node.offset());
-                    }
-                    let mut sibling = None;
-                    for child in children {
-                        self.gather_inline_material(child, Some(node), sibling, stylesheet, &style, &root_data.spine_dir, &mut markers, &mut inlines);
-                        sibling = Some(child);
-                    }
-                    if !inlines.is_empty() {
-                        draw_state.prefix = match style.list_style_type {
-                            None => {
-                                match loop_context.parent.and_then(|parent| parent.tag_name()) {
-                                    Some("ul") => format_list_prefix(ListStyleType::Disc, loop_context.index),
-                                    Some("ol") => format_list_prefix(ListStyleType::Decimal, loop_context.index),
-                                    _ => None,
-                                }
+            if node.has_children() {
+                let mut inlines = Vec::new();
+                let mut markers = Vec::new();
+                if node.id().is_some() {
+                    markers.push(node.offset());
+                }
+                for child in node.children() {
+                    self.gather_inline_material(child, stylesheet, &style, &root_data.spine_dir, &mut markers, &mut inlines);
+                }
+                if !inlines.is_empty() {
+                    draw_state.prefix = match style.list_style_type {
+                        None => {
+                            let parent = if node.is_wrapper() {
+                                node.ancestor_elements().nth(1)
+                            } else {
+                                node.parent_element()
+                            };
+                            match parent.and_then(|parent| parent.tag_name()) {
+                                Some("ul") => format_list_prefix(ListStyleType::Disc, loop_context.index),
+                                Some("ol") => format_list_prefix(ListStyleType::Decimal, loop_context.index),
+                                _ => None,
                             }
-                            Some(kind) => format_list_prefix(kind, loop_context.index),
-                        };
-                        self.place_paragraphs(&inlines, &style, root_data, &markers, resource_fetcher, draw_state, &mut rects, display_list);
-                    }
+                        },
+                        Some(kind) => format_list_prefix(kind, loop_context.index),
+                    };
+                    self.place_paragraphs(&inlines, &style, root_data, &markers, resource_fetcher, draw_state, &mut rects, display_list);
+                }
+            } else {
+                if node.id().is_some() {
+                    display_list.last_mut().unwrap()
+                                .push(DrawCommand::Marker(root_data.start_offset + node.offset()));
                 }
             }
         }
@@ -547,60 +539,58 @@ impl Engine {
         }
     }
 
-    fn compute_column_widths(&mut self, node: &Node, parent_style: &StyleData, loop_context: &LoopContext, stylesheet: &Stylesheet, root_data: &RootData, resource_fetcher: &mut dyn ResourceFetcher, draw_state: &mut DrawState) {
+    fn compute_column_widths(&mut self, node: NodeRef, parent_style: &StyleData, loop_context: &LoopContext, stylesheet: &StyleSheet, root_data: &RootData, resource_fetcher: &mut dyn ResourceFetcher, draw_state: &mut DrawState) {
         if node.tag_name() == Some("tr") {
-            if let Some(children) = node.children() {
-                let mut index = 0;
-                for child in children.iter().filter(|c| c.is_element()) {
-                    let colspan = child.attr("colspan")
-                                       .and_then(|v| v.parse().ok())
-                                       .unwrap_or(1);
-                    let mut display_list = Vec::new();
-                    display_list.push(Vec::new());
-                    let artifact = self.build_display_list(child, parent_style, loop_context, stylesheet, root_data, resource_fetcher, draw_state, &mut display_list);
-                    let horiz_padding = artifact.sibling_style.padding.left +
-                                        artifact.sibling_style.padding.right;
-                    let min_width = display_list.into_iter()
-                                                .flatten()
-                                                .filter_map(|dc| {
-                                                    match dc {
-                                                        DrawCommand::Text(TextCommand { rect, .. }) => Some(rect.width() as i32 + horiz_padding),
-                                                        DrawCommand::Image(ImageCommand { rect, .. }) => Some((rect.width() as i32).min(pt_to_px(parent_style.font_size, self.dpi).round().max(1.0) as i32) + horiz_padding),
-                                                        _ => None,
-                                                    }
-                                                })
-                                                .max().unwrap_or(0);
-                    let max_width = artifact.rects.into_iter()
-                                            .filter_map(|v| v.map(|r| r.width() as i32 + horiz_padding))
+            let mut index = 0;
+            for child in node.children().filter(|c| c.is_element()) {
+                let colspan = child.attribute("colspan")
+                                   .and_then(|v| v.parse().ok())
+                                   .unwrap_or(1);
+                let mut display_list = Vec::new();
+                display_list.push(Vec::new());
+                let artifact = self.build_display_list(child, parent_style, loop_context, stylesheet, root_data, resource_fetcher, draw_state, &mut display_list);
+                let horiz_padding = artifact.sibling_style.padding.left +
+                                    artifact.sibling_style.padding.right;
+                let min_width = display_list.into_iter()
+                                            .flatten()
+                                            .filter_map(|dc| {
+                                                match dc {
+                                                    DrawCommand::Text(TextCommand { rect, .. }) => Some(rect.width() as i32 + horiz_padding),
+                                                    DrawCommand::Image(ImageCommand { rect, .. }) => Some((rect.width() as i32).min(pt_to_px(parent_style.font_size, self.dpi).round().max(1.0) as i32) + horiz_padding),
+                                                    _ => None,
+                                                }
+                                            })
                                             .max().unwrap_or(0);
-                    if colspan == 1 {
-                        if let Some(cw) = draw_state.min_column_widths.get_mut(index) {
-                            *cw = (*cw).max(min_width);
-                        } else {
-                            draw_state.min_column_widths.push(min_width);
-                        }
-                        if let Some(cw) = draw_state.max_column_widths.get_mut(index) {
-                            *cw = (*cw).max(max_width);
-                        } else {
-                            draw_state.max_column_widths.push(max_width);
-                        }
+                let max_width = artifact.rects.into_iter()
+                                        .filter_map(|v| v.map(|r| r.width() as i32 + horiz_padding))
+                                        .max().unwrap_or(0);
+                if colspan == 1 {
+                    if let Some(cw) = draw_state.min_column_widths.get_mut(index) {
+                        *cw = (*cw).max(min_width);
+                    } else {
+                        draw_state.min_column_widths.push(min_width);
                     }
-
-                    index += colspan;
+                    if let Some(cw) = draw_state.max_column_widths.get_mut(index) {
+                        *cw = (*cw).max(max_width);
+                    } else {
+                        draw_state.max_column_widths.push(max_width);
+                    }
                 }
+
+                index += colspan;
             }
-        } else if let Some(children) = node.children() {
-            for child in children.iter().filter(|c| c.is_element()) {
+        } else {
+            for child in node.children().filter(|c| c.is_element()) {
                 self.compute_column_widths(child, parent_style, loop_context, stylesheet, root_data, resource_fetcher, draw_state);
             }
         }
     }
 
-    fn gather_inline_material(&self, node: &Node, parent: Option<&Node>, sibling: Option<&Node>, stylesheet: &Stylesheet, parent_style: &StyleData, spine_dir: &PathBuf, markers: &mut Vec<usize>, inlines: &mut Vec<InlineMaterial>) {
-        match node {
-            Node::Element(ElementData { offset, name, attributes, children, .. }) => {
+    fn gather_inline_material(&self, node: NodeRef, stylesheet: &StyleSheet, parent_style: &StyleData, spine_dir: &PathBuf, markers: &mut Vec<usize>, inlines: &mut Vec<InlineMaterial>) {
+        match node.data() {
+            NodeData::Element(ElementData { offset, name, attributes, .. }) => {
                 let mut style = StyleData::default();
-                let props = specified_values(node, parent, sibling, stylesheet);
+                let props = specified_values(node, stylesheet);
 
                 style.font_style = parent_style.font_style;
                 style.line_height = parent_style.line_height;
@@ -718,10 +708,8 @@ impl Engine {
                     inlines.append(&mut v);
                 }
 
-                let mut sibling = None;
-                for child in children {
-                    self.gather_inline_material(child, Some(node), sibling, stylesheet, &style, spine_dir, markers, inlines);
-                    sibling = Some(child);
+                for child in node.children() {
+                    self.gather_inline_material(child, stylesheet, &style, spine_dir, markers, inlines);
                 }
 
                 if let Some(mut v) = props.get("-plato-insert-after")
@@ -729,20 +717,21 @@ impl Engine {
                     inlines.append(&mut v);
                 }
             },
-            Node::Text(TextData { offset, text }) => {
+            NodeData::Text(TextData { offset, text }) => {
                 inlines.push(InlineMaterial::Text(TextMaterial {
                     offset: *offset,
                     text: decode_entities(&text).into_owned(),
                     style: parent_style.clone(),
                 }));
             },
-            Node::Whitespace(TextData { offset, text }) => {
+            NodeData::Whitespace(TextData { offset, text }) => {
                 inlines.push(InlineMaterial::Text(TextMaterial {
                     offset: *offset,
                     text: text.to_string(),
                     style: parent_style.clone(),
                 }));
             },
+            _ => (),
         }
     }
 
