@@ -14,7 +14,7 @@ use walkdir::WalkDir;
 use rand_core::SeedableRng;
 use rand_xoshiro::Xoroshiro128Plus;
 use crate::dictionary::{Dictionary, load_dictionary_from_file};
-use crate::framebuffer::{Framebuffer, KoboFramebuffer, Display, UpdateMode};
+use crate::framebuffer::{Framebuffer, KoboFramebuffer1, KoboFramebuffer2, Display, UpdateMode};
 use crate::view::{View, Event, EntryId, EntryKind, ViewId, AppCmd, RenderData, RenderQueue};
 use crate::view::{handle_event, process_render_queue};
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
@@ -50,8 +50,11 @@ use crate::rtc::Rtc;
 pub const APP_NAME: &str = "Plato";
 const FB_DEVICE: &str = "/dev/fb0";
 const RTC_DEVICE: &str = "/dev/rtc0";
-const EVENT_BUTTONS: &str = "/dev/input/event0";
-const EVENT_TOUCH_SCREEN: &str = "/dev/input/event1";
+const INPUT_EVENTS_A: [&str; 2] = ["/dev/input/event0",
+                                   "/dev/input/event1"];
+const INPUT_EVENTS_B: [&str; 3] = ["/dev/input/by-path/platform-ntx_event0-event",
+                                   "/dev/input/by-path/platform-0-0010-event",
+                                   "/dev/input/by-path/platform-1-001e-event"];
 const KOBO_UPDATE_BUNDLE: &str = "/mnt/onboard/.kobo/KoboRoot.tgz";
 const KEYBOARD_LAYOUTS_DIRNAME: &str = "keyboard-layouts";
 const DICTIONARIES_DIRNAME: &str = "dictionaries";
@@ -336,21 +339,31 @@ enum ExitStatus {
 pub fn run() -> Result<(), Error> {
     let mut inactive_since = Instant::now();
     let mut exit_status = ExitStatus::Quit;
-    let mut fb = KoboFramebuffer::new(FB_DEVICE).context("can't create framebuffer")?;
+
+    let mut fb: Box<dyn Framebuffer> = if CURRENT_DEVICE.mark() < 8 {
+        Box::new(KoboFramebuffer1::new(FB_DEVICE).context("can't create framebuffer")?)
+    } else {
+        Box::new(KoboFramebuffer2::new(FB_DEVICE).context("can't create framebuffer")?)
+    };
+
     let initial_rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
     let startup_rotation = CURRENT_DEVICE.startup_rotation();
     if !CURRENT_DEVICE.has_gyroscope() && initial_rotation != startup_rotation {
         fb.set_rotation(startup_rotation).ok();
     }
 
-    let mut context = build_context(Box::new(fb)).context("can't build context")?;
+    let mut context = build_context(fb).context("can't build context")?;
     if context.settings.import.startup_trigger {
         context.batch_import();
     }
     context.load_dictionaries();
     context.load_keyboard_layouts();
 
-    let paths = vec![EVENT_BUTTONS.to_string(), EVENT_TOUCH_SCREEN.to_string()];
+    let paths = if CURRENT_DEVICE.mark() < 8 {
+        INPUT_EVENTS_A.iter().cloned().map(String::from).collect()
+    } else {
+        INPUT_EVENTS_B.iter().cloned().map(String::from).collect()
+    };
     let (raw_sender, raw_receiver) = raw_events(paths);
     let touch_screen = gesture_events(device_events(raw_receiver, context.display, context.settings.button_scheme));
     let usb_port = usb_events();
@@ -977,7 +990,7 @@ pub fn run() -> Result<(), Error> {
             },
             Event::Select(EntryId::ToggleInverted) => {
                 context.fb.toggle_inverted();
-                rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Gui));
+                rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Full));
             },
             Event::Select(EntryId::ToggleDithered) => {
                 context.fb.toggle_dithered();

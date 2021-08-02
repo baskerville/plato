@@ -10,6 +10,7 @@ Any 4.*X*.*Y* firmware, with *X* ≥ 6, will do.
 
 ## Supported devices
 
+- *Elipsa*.
 - *Libra H₂O*.
 - *Forma*.
 - *Clara HD*.

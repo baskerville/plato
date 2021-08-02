@@ -166,7 +166,7 @@ impl Device {
             },
             "europa" => Device {
                 model: Model::Elipsa,
-                proto: TouchProto::MultiB,
+                proto: TouchProto::MultiC,
                 dims: (1404, 1872),
                 dpi: 227,
             },
@@ -188,9 +188,7 @@ impl Device {
             Model::ClaraHD |
             Model::Forma |
             Model::Forma32GB |
-            Model::LibraH2O |
-            Model::Nia |
-            Model::Elipsa => FrontlightKind::Premixed,
+            Model::LibraH2O => FrontlightKind::Premixed,
             _ => FrontlightKind::Standard,
         }
     }
@@ -278,10 +276,9 @@ impl Device {
     // Returns the center and direction of the mirroring pattern.
     pub fn mirroring_scheme(&self) -> (i8, i8) {
         match self.model {
-            Model::AuraH2OEd2V1 => (3, 1),
+            Model::AuraH2OEd2V1 | Model::LibraH2O => (3, 1),
             Model::AuraH2OEd2V2 => (0, -1),
             Model::Forma | Model::Forma32GB => (2, -1),
-            Model::LibraH2O => (3, 1),
             _ => (2, 1),
         }
     }
@@ -336,6 +333,7 @@ impl Device {
     pub fn transformed_gyroscope_rotation(&self, n: i8) -> i8 {
         match self.model {
             Model::LibraH2O => n ^ 1,
+            Model::Elipsa => (4 - n) % 4,
             _ => n,
         }
     }

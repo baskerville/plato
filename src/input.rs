@@ -103,6 +103,7 @@ pub enum TouchProto {
     Single,
     MultiA,
     MultiB,
+    MultiC,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -347,6 +348,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
         TouchProto::Single => SINGLE_TOUCH_CODES,
         TouchProto::MultiA => MULTI_TOUCH_CODES_A,
         TouchProto::MultiB => MULTI_TOUCH_CODES_B,
+        TouchProto::MultiC => MULTI_TOUCH_CODES_B,
     };
 
     let (mut mirror_x, mut mirror_y) = CURRENT_DEVICE.should_mirror_axes(rotation);
@@ -359,9 +361,11 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
     while let Ok(evt) = rx.recv() {
         if evt.kind == EV_ABS {
             if evt.code == ABS_MT_TRACKING_ID {
-                id = evt.value;
-                if proto == TouchProto::MultiB {
-                    packet_ids.insert(id);
+                if evt.value >= 0 {
+                    id = evt.value;
+                    if proto == TouchProto::MultiB {
+                        packet_ids.insert(id);
+                    }
                 }
             } else if evt.code == tc.x {
                 position.x = if mirror_x {
@@ -385,7 +389,9 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 last_activity = evt.time.tv_sec;
                 ty.send(DeviceEvent::UserActivity).ok();
             }
-            if evt.code == SYN_MT_REPORT || (proto == TouchProto::Single && evt.code == SYN_REPORT) {
+            if evt.code == SYN_MT_REPORT || (evt.code == SYN_REPORT &&
+                                             (proto == TouchProto::Single ||
+                                              proto == TouchProto::MultiC)) {
                 if let Some(&p) = fingers.get(&id) {
                     if pressure > 0 {
                         if p != position {
@@ -406,7 +412,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                         }).unwrap();
                         fingers.remove(&id);
                     }
-                } else {
+                } else if pressure > 0 {
                     ty.send(DeviceEvent::Finger {
                         id,
                         time: seconds(evt.time),

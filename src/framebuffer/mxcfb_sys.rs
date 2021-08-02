@@ -2,100 +2,14 @@
 
 use std::mem;
 use std::ptr;
-use nix::{ioctl_write_ptr, ioctl_readwrite, ioctl_read_bad, ioctl_write_ptr_bad};
+use nix::{ioctl_write_ptr, ioctl_readwrite};
 
-ioctl_read_bad!(read_variable_screen_info, FBIOGET_VSCREENINFO, VarScreenInfo);
-ioctl_write_ptr_bad!(write_variable_screen_info, FBIOPUT_VSCREENINFO, VarScreenInfo);
-ioctl_read_bad!(read_fixed_screen_info, FBIOGET_FSCREENINFO, FixScreenInfo);
+const MAGIC: u8 = b'F';
 
-pub const FBIOGET_VSCREENINFO: libc::c_ulong = 0x4600;
-pub const FBIOPUT_VSCREENINFO: libc::c_ulong = 0x4601;
-pub const FBIOGET_FSCREENINFO: libc::c_ulong = 0x4602;
-
-ioctl_write_ptr!(send_update_v1, b'F', 0x2E, MxcfbUpdateDataV1);
-ioctl_write_ptr!(send_update_v2, b'F', 0x2E, MxcfbUpdateDataV2);
-ioctl_write_ptr!(wait_for_update_v1, b'F', 0x2F, u32);
-ioctl_readwrite!(wait_for_update_v2, b'F', 0x2F, MxcfbUpdateMarkerData);
-
-#[repr(C)]
-#[derive(Clone, Debug)]
-pub struct FixScreenInfo {
-    pub id: [u8; 16],
-    pub smem_start: usize,
-    pub smem_len: u32,
-    pub kind: u32,
-    pub type_aux: u32,
-    pub visual: u32,
-    pub xpanstep: u16,
-    pub ypanstep: u16,
-    pub ywrapstep: u16,
-    pub line_length: u32,
-    pub mmio_start: usize,
-    pub mmio_len: u32,
-    pub accel: u32,
-    pub capabilities: u16,
-    pub reserved: [u16; 2],
-}
-
-#[repr(C)]
-#[derive(Clone, Debug)]
-pub struct VarScreenInfo {
-    pub xres: u32,
-    pub yres: u32,
-    pub xres_virtual: u32,
-    pub yres_virtual: u32,
-    pub xoffset: u32,
-    pub yoffset: u32,
-    pub bits_per_pixel: u32,
-    pub grayscale: u32,
-    pub red: Bitfield,
-    pub green: Bitfield,
-    pub blue: Bitfield,
-    pub transp: Bitfield,
-    pub nonstd: u32,
-    pub activate: u32,
-    pub height: u32,
-    pub width: u32,
-    pub accel_flags: u32,
-    pub pixclock: u32,
-    pub left_margin: u32,
-    pub right_margin: u32,
-    pub upper_margin: u32,
-    pub lower_margin: u32,
-    pub hsync_len: u32,
-    pub vsync_len: u32,
-    pub sync: u32,
-    pub vmode: u32,
-    pub rotate: u32,
-    pub colorspace: u32,
-    pub reserved: [u32; 4],
-}
-
-#[repr(C)]
-#[derive(Clone, Debug)]
-pub struct Bitfield {
-    pub offset: u32,
-    pub length: u32,
-    pub msb_right: u32,
-}
-
-impl Default for Bitfield {
-    fn default() -> Self {
-        unsafe { mem::zeroed() }
-    }
-}
-
-impl Default for VarScreenInfo {
-    fn default() -> Self {
-        unsafe { mem::zeroed() }
-    }
-}
-
-impl Default for FixScreenInfo {
-    fn default() -> Self {
-        unsafe { mem::zeroed() }
-    }
-}
+ioctl_write_ptr!(send_update_v1, MAGIC, 0x2E, MxcfbUpdateDataV1);
+ioctl_write_ptr!(send_update_v2, MAGIC, 0x2E, MxcfbUpdateDataV2);
+ioctl_write_ptr!(wait_for_update_v1, MAGIC, 0x2F, u32);
+ioctl_readwrite!(wait_for_update_v2, MAGIC, 0x2F, MxcfbUpdateMarkerData);
 
 #[repr(C)]
 #[derive(Clone, Debug)]
