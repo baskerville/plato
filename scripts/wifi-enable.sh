@@ -1,6 +1,6 @@
 #! /bin/sh
 
-lsmod | grep -q sdio_wifi_pwr && exit 1
+grep -q '\bsdio_wifi_pwr\b' /proc/modules && exit 1
 
 SCRIPTS_DIR=$(dirname "$0")
 PRE_UP_SCRIPT=$SCRIPTS_DIR/wifi-pre-up.sh

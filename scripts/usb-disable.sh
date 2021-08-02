@@ -1,6 +1,6 @@
 #! /bin/sh
 
-LOADED_MODULE=$(lsmod | grep -oE '\bg_(file|mass)_storage\b')
+LOADED_MODULE=$(grep -oE '\bg_(file|mass)_storage\b' /proc/modules)
 
 case "$LOADED_MODULE" in
 	g_file_storage)
