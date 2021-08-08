@@ -1,12 +1,9 @@
-use std::env;
-use std::fs::File;
-use std::path::Path;
+use std::fs::{File, read_dir, read_to_string};
 use std::io::{Read, Seek, SeekFrom};
 use super::{Battery, Status};
 use anyhow::{Error, format_err};
 
-const BATTERY_INTERFACE_A: &str = "/sys/class/power_supply/mc13892_bat";
-const BATTERY_INTERFACE_B: &str = "/sys/class/power_supply/battery";
+const BATTERY_INTERFACE: &str = "/sys/class/power_supply";
 
 const BATTERY_CAPACITY: &str = "capacity";
 const BATTERY_STATUS: &str = "status";
@@ -19,17 +16,13 @@ pub struct KoboBattery {
 
 impl KoboBattery {
     pub fn new() -> Result<KoboBattery, Error> {
-        let mut firmware_version = [0u16; 3];
-        env::var("FIRMWARE_VERSION").ok()
-            .map(|s| s.split('.')
-                      .filter_map(|v| v.parse::<u16>().ok())
-                      .zip(firmware_version.iter_mut())
-                      .for_each(|(a, b)| *b = a));
-        let base = if firmware_version < [4, 28, 17623] {
-            Path::new(BATTERY_INTERFACE_A)
-        } else {
-            Path::new(BATTERY_INTERFACE_B)
-        };
+        let base = read_dir(BATTERY_INTERFACE)?
+            .filter_map(Result::ok)
+            .map(|dir| dir.path())
+            .find(|path| {
+                let kind = read_to_string(path.join("type")).unwrap_or_default();
+                kind.trim_end() == "Battery"
+            }).expect("Could not find battery");
         let capacity = File::open(base.join(BATTERY_CAPACITY))?;
         let status = File::open(base.join(BATTERY_STATUS))?;
         Ok(KoboBattery { capacity, status })
