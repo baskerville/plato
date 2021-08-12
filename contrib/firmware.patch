@@ -1,7 +1,7 @@
 diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
---- a/etc/init.d/rcS	2021-03-12 11:12:44.000000000 +0100
-+++ b/etc/init.d/rcS	2021-03-12 11:12:59.000000000 +0100
-@@ -78,7 +78,12 @@
+--- a/etc/init.d/rcS	2021-08-12 11:51:15.000000000 +0200
++++ b/etc/init.d/rcS	2021-08-12 11:51:20.000000000 +0200
+@@ -84,7 +84,12 @@
  FS_CORRUPT=0
  dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || FS_CORRUPT=1
  [ ! -s /usr/local/Kobo/pickel ] && FORCE_FACTORY_RESET=1
@@ -15,7 +15,7 @@ diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
  if [ $? != 0 ] || [ $FS_CORRUPT == 1 ] || [ $FORCE_FACTORY_RESET == 1 ]; then
  	case $PRODUCT in
  		kraken|phoenix)
-@@ -198,7 +203,12 @@
+@@ -219,7 +224,12 @@
  /bin/dbus-daemon --system &
  export DBUS_SESSION_BUS_ADDRESS=`/bin/dbus-daemon --session --print-address --fork`
  
