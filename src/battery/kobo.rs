@@ -1,9 +1,9 @@
-use std::env;
 use std::fs::File;
 use std::path::Path;
 use std::io::{Read, Seek, SeekFrom};
-use super::{Battery, Status};
 use anyhow::{Error, format_err};
+use crate::device::CURRENT_DEVICE;
+use super::{Battery, Status};
 
 const BATTERY_INTERFACE_A: &str = "/sys/class/power_supply/mc13892_bat";
 const BATTERY_INTERFACE_B: &str = "/sys/class/power_supply/battery";
@@ -19,13 +19,7 @@ pub struct KoboBattery {
 
 impl KoboBattery {
     pub fn new() -> Result<KoboBattery, Error> {
-        let mut firmware_version = [0u16; 3];
-        env::var("FIRMWARE_VERSION").ok()
-            .map(|s| s.split('.')
-                      .filter_map(|v| v.parse::<u16>().ok())
-                      .zip(firmware_version.iter_mut())
-                      .for_each(|(a, b)| *b = a));
-        let base = if firmware_version < [4, 28, 17623] {
+        let base = if CURRENT_DEVICE.mark() < 8 {
             Path::new(BATTERY_INTERFACE_A)
         } else {
             Path::new(BATTERY_INTERFACE_B)
