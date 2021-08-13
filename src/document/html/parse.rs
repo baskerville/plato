@@ -355,10 +355,21 @@ pub fn parse_color(value: &str) -> Option<u8> {
         match value {
             "black" => Some(0),
             "white" => Some(255),
-            "gray" => parse_color("#888"),
+            "gray" | "grey" => parse_color("#888"),
+            "silver" => parse_color("#c0c0c0"),
             "red" => parse_color("#f00"),
-            "green" => parse_color("#0f0"),
+            "maroon" => parse_color("#800000"),
+            "orange" => parse_color("#ffA500"),
+            "yellow" => parse_color("#ff0"),
+            "olive" => parse_color("#808000"),
+            "lime" => parse_color("#0f0"),
+            "green" => parse_color("#008000"),
+            "aqua" | "cyan" => parse_color("#0ff"),
+            "teal" => parse_color("#008080"),
             "blue" => parse_color("#00f"),
+            "navy" => parse_color("#000080"),
+            "fuchsia" | "magenta" => parse_color("#f0f"),
+            "purple" => parse_color("#800080"),
             _ => None,
         }
     }
