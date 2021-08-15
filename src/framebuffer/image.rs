@@ -33,7 +33,8 @@ impl Pixmap {
     pub fn from_png<P: AsRef<Path>>(path: P) -> Result<Pixmap, Error> {
         let file = File::open(path.as_ref())?;
         let decoder = png::Decoder::new(file);
-        let (info, mut reader) = decoder.read_info()?;
+        let mut reader = decoder.read_info()?;
+        let info = reader.info();
         let mut pixmap = Pixmap::new(info.width, info.height);
         reader.next_frame(pixmap.data_mut())?;
         Ok(pixmap)

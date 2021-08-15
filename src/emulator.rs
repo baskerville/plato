@@ -184,7 +184,7 @@ impl Framebuffer for WindowCanvas {
         let file = File::create(path).with_context(|| format!("can't create output file {}", path))?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set_depth(png::BitDepth::Eight);
-        encoder.set_color(png::ColorType::RGB);
+        encoder.set_color(png::ColorType::Rgb);
         let mut writer = encoder.write_header().with_context(|| format!("can't write PNG header for {}", path))?;
         let data = self.read_pixels(self.viewport(), PixelFormatEnum::RGB24).unwrap_or_default();
         writer.write_image_data(&data).with_context(|| format!("can't write PNG data to {}", path))?;

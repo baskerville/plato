@@ -170,7 +170,7 @@ impl Sketch {
     fn load(&mut self, filename: &PathBuf) -> Result<(), Error> {
         let path = self.save_path.join(filename);
         let decoder = png::Decoder::new(File::open(path)?);
-        let (_, mut reader) = decoder.read_info()?;
+        let mut reader = decoder.read_info()?;
         reader.next_frame(self.pixmap.data_mut())?;
         self.filename = filename.to_string_lossy().into_owned();
         Ok(())
