@@ -476,6 +476,7 @@ impl FontFamily {
         };
         let italic_path = styles.get("Italic")
                                 .or_else(|| styles.get("Book Italic"))
+                                .or_else(|| styles.get("Regular Italic"))
                                 .unwrap_or(regular_path);
         let bold_path = styles.get("Bold")
                               .or_else(|| styles.get("Semibold"))
