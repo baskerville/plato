@@ -365,6 +365,18 @@ impl DjvuDocument {
             vec
         }
     }
+
+    pub fn year(&self) -> Option<String> {
+        self.metadata("year")
+    }
+
+    pub fn publisher(&self) -> Option<String> {
+        self.metadata("publisher")
+    }
+
+    pub fn series(&self) -> Option<String> {
+        self.metadata("series")
+    }
 }
 
 impl<'a> DjvuPage<'a> {

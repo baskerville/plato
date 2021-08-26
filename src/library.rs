@@ -11,7 +11,7 @@ use chrono::{Local, TimeZone};
 use filetime::{FileTime, set_file_mtime, set_file_handle_times};
 use anyhow::{Error, format_err};
 use crate::metadata::{Info, ReaderInfo, FileInfo, BookQuery, SimpleStatus, SortMethod};
-use crate::metadata::{sort, sorter, extract_metadata_from_epub};
+use crate::metadata::{sort, sorter, extract_metadata_from_document};
 use crate::settings::{LibraryMode, ImportSettings};
 use crate::document::file_kind;
 use crate::helpers::{Fingerprint, Fp, save_json, load_json, IsHidden};
@@ -308,8 +308,8 @@ impl Library {
                         file,
                         .. Default::default()
                     };
-                    if settings.extract_epub_metadata {
-                        extract_metadata_from_epub(&self.home, &mut info);
+                    if settings.metadata_kinds.contains(&info.file.kind) {
+                        extract_metadata_from_document(&self.home, &mut info);
                     }
                     self.db.insert(fp, info);
                     self.paths.insert(relat.to_path_buf(), fp);

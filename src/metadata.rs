@@ -14,6 +14,9 @@ use crate::geom::Point;
 use crate::document::{Document, SimpleTocEntry, TextLocation};
 use crate::document::asciify;
 use crate::document::epub::EpubDocument;
+use crate::document::html::HtmlDocument;
+use crate::document::pdf::PdfOpener;
+use crate::document::djvu::DjvuOpener;
 use crate::helpers::datetime_format;
 
 pub const DEFAULT_CONTRAST_EXPONENT: f32 = 1.0;
@@ -737,27 +740,65 @@ lazy_static! {
 }
 
 #[inline]
-pub fn extract_metadata_from_epub(prefix: &Path, info: &mut Info) {
-    if !info.title.is_empty() || info.file.kind != "epub" {
+pub fn extract_metadata_from_document(prefix: &Path, info: &mut Info) {
+    if !info.title.is_empty() {
         return;
     }
 
     let path = prefix.join(&info.file.path);
 
-    match EpubDocument::new(&path) {
-        Ok(doc) => {
-            info.title = doc.title().unwrap_or_default();
-            info.author = doc.author().unwrap_or_default();
-            info.year = doc.year().unwrap_or_default();
-            info.publisher = doc.publisher().unwrap_or_default();
-            if let Some((title, index)) = doc.series() {
-                info.series = title;
-                info.number = index;
+    match info.file.kind.as_ref() {
+        "epub" => {
+            match EpubDocument::new(&path) {
+                Ok(doc) => {
+                    info.title = doc.title().unwrap_or_default();
+                    info.author = doc.author().unwrap_or_default();
+                    info.year = doc.year().unwrap_or_default();
+                    info.publisher = doc.publisher().unwrap_or_default();
+                    if let Some((title, index)) = doc.series() {
+                        info.series = title;
+                        info.number = index;
+                    }
+                    info.language = doc.language().unwrap_or_default();
+                    info.categories.append(&mut doc.categories());
+                },
+                Err(e) => eprintln!("Can't open {}: {:#}.", info.file.path.display(), e),
             }
-            info.language = doc.language().unwrap_or_default();
-            info.categories.append(&mut doc.categories());
         },
-        Err(e) => eprintln!("Can't open {}: {:#}.", info.file.path.display(), e),
+        "html" | "htm" => {
+            match HtmlDocument::new(&path) {
+                Ok(doc) => {
+                    info.title = doc.title().unwrap_or_default();
+                    info.author = doc.author().unwrap_or_default();
+                    info.language = doc.language().unwrap_or_default();
+                },
+                Err(e) => eprintln!("Can't open {}: {:#}.", info.file.path.display(), e),
+            }
+        },
+        "pdf" => {
+            match PdfOpener::new().and_then(|o| o.open(path)) {
+                Some(doc) => {
+                    info.title = doc.title().unwrap_or_default();
+                    info.author = doc.author().unwrap_or_default();
+                },
+                None => eprintln!("Can't open {}.", info.file.path.display()),
+            }
+        },
+        "djvu" | "djv" => {
+            match DjvuOpener::new().and_then(|o| o.open(path)) {
+                Some(doc) => {
+                    info.title = doc.title().unwrap_or_default();
+                    info.author = doc.author().unwrap_or_default();
+                    info.year = doc.year().unwrap_or_default();
+                    info.series = doc.series().unwrap_or_default();
+                    info.publisher = doc.publisher().unwrap_or_default();
+                },
+                None => eprintln!("Can't open {}.", info.file.path.display()),
+            }
+        },
+        _ => {
+                eprintln!("Don't know how to extract metadata from {}.", &info.file.kind);
+        },
     }
 }
 

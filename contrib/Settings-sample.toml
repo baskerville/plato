@@ -125,9 +125,10 @@ inverted = 2
 unshare-trigger = true
 # Start the import process when *Plato* starts.
 startup-trigger = true
-# Extract the metadata of EPUB documents.
-extract-epub-metadata = true
-# The file extensions of the file that will be considered during the
+# The file extensions of the documents for which the metadata extraction
+# process will occur.
+metadata-kinds = ["epub", "pdf", "djvu"]
+# The file extensions of the documents that will be considered during the
 # import process.
 allowed-kinds = ["djvu", "xps", "fb2", "pdf", "oxps", "cbz", "epub"]
 
