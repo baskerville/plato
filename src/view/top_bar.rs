@@ -90,6 +90,24 @@ impl TopBar {
         icon.name = name.to_string();
         rq.add(RenderData::new(icon.id(), *icon.rect(), UpdateMode::Gui));
     }
+
+    pub fn update_clock_label(&mut self, rq: &mut RenderQueue) {
+        if let Some(clock_label) = self.children[2].downcast_mut::<Clock>() {
+            clock_label.update(rq);
+        }
+    }
+
+    pub fn update_battery_widget(&mut self, rq: &mut RenderQueue, context: &mut Context) {
+        if let Some(battery_widget) = self.children[3].downcast_mut::<Battery>() {
+            battery_widget.update(rq, context);
+        }
+    }
+
+    pub fn reseed(&mut self, rq: &mut RenderQueue, context: &mut Context) {
+        self.update_frontlight_icon(rq, context);
+        self.update_clock_label(rq);
+        self.update_battery_widget(rq, context);
+    }
 }
 
 impl View for TopBar {

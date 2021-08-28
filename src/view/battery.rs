@@ -34,15 +34,19 @@ impl Battery {
             status,
         }
     }
+
+    pub fn update(&mut self, rq: &mut RenderQueue, context: &mut Context) {
+        self.capacity = context.battery.capacity().unwrap_or(self.capacity);
+        self.status = context.battery.status().unwrap_or(self.status);
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+    }
 }
 
 impl View for Battery {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
             Event::BatteryTick => {
-                self.capacity = context.battery.capacity().unwrap_or(self.capacity);
-                self.status = context.battery.status().unwrap_or(self.status);
-                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+                self.update(rq, context);
                 true
             },
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {

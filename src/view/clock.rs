@@ -31,14 +31,18 @@ impl Clock {
             time,
         }
     }
+
+    pub fn update(&mut self, rq: &mut RenderQueue) {
+        self.time = Local::now();
+        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+    }
 }
 
 impl View for Clock {
     fn handle_event(&mut self, evt: &Event, _hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, _context: &mut Context) -> bool {
         match *evt {
             Event::ClockTick => {
-                self.time = Local::now();
-                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+                self.update(rq);
                 true
             },
             Event::Gesture(GestureEvent::Tap(center)) if self.rect.includes(center) => {

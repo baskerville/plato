@@ -1368,9 +1368,7 @@ impl Home {
         self.refresh_visibles(true, false, hub, &mut RenderQueue::new(), context);
 
         if let Some(top_bar) = self.child_mut(0).downcast_mut::<TopBar>() {
-            top_bar.update_frontlight_icon(&mut RenderQueue::new(), context);
-            hub.send(Event::ClockTick).ok();
-            hub.send(Event::BatteryTick).ok();
+            top_bar.reseed(&mut RenderQueue::new(), context);
         }
 
         rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));

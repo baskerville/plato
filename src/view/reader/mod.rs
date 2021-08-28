@@ -2453,10 +2453,9 @@ impl Reader {
 
     fn reseed(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(index) = locate::<TopBar>(self) {
-            self.child_mut(index).downcast_mut::<TopBar>().unwrap()
-                .update_frontlight_icon(&mut RenderQueue::new(), context);
-            hub.send(Event::ClockTick).ok();
-            hub.send(Event::BatteryTick).ok();
+            if let Some(top_bar) = self.child_mut(index).downcast_mut::<TopBar>() {
+                top_bar.reseed(rq, context);
+            }
         }
 
         rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));

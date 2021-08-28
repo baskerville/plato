@@ -324,9 +324,7 @@ impl Dictionary {
 
     fn reseed(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(top_bar) = self.child_mut(0).downcast_mut::<TopBar>() {
-            top_bar.update_frontlight_icon(&mut RenderQueue::new(), context);
-            hub.send(Event::ClockTick).ok();
-            hub.send(Event::BatteryTick).ok();
+            top_bar.reseed(rq, context);
         }
 
         rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
