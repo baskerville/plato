@@ -1,6 +1,6 @@
 #! /bin/sh
 
-grep -qE '\bg_(file|mass)_storage\b' /proc/modules && exit 1
+grep -qE '^g_(file|mass)_storage\b' /proc/modules && exit 1
 
 DISK=/dev/mmcblk
 PARTITIONS="${DISK}0p3"

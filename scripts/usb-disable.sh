@@ -1,6 +1,6 @@
 #! /bin/sh
 
-LOADED_MODULE=$(grep -oE '\bg_(file|mass)_storage\b' /proc/modules)
+LOADED_MODULE=$(grep -oE '^g_(file|mass)_storage\b' /proc/modules)
 
 case "$LOADED_MODULE" in
 	g_file_storage)
@@ -13,7 +13,7 @@ case "$LOADED_MODULE" in
 				rmmod configfs
 				;;
 			*)
-				lsmod | grep -q arcotg_udc && rmmod arcotg_udc
+				grep -q '^arcotg_udc\b' /proc/modules && rmmod arcotg_udc
 				;;
 		esac
 		;;
