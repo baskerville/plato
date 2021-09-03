@@ -16,7 +16,6 @@ const MESSAGE_1: &str = "Hold you device in portrait mode\n\
                          starting from the top left.";
 const MESSAGE_2: &str = "Tap the black corner.";
 const CORNERS_COUNT: i8 = 4;
-const PHASES_COUNT: i8 = 5;
 
 pub struct RotationValues {
     id: Id,
@@ -113,21 +112,23 @@ impl View for RotationValues {
 
         fb.draw_rectangle(&self.rect, WHITE);
 
-        let phase = if self.taps_count < CORNERS_COUNT { 1 } else { 2 + self.taps_count - CORNERS_COUNT };
-        let msg = format!("{} / {}", phase, PHASES_COUNT);
+        let step = 1 + (self.taps_count % CORNERS_COUNT);
+        let msg = format!("{} / {}", step, CORNERS_COUNT);
         let font = font_from_style(fonts, &DISPLAY_STYLE, dpi);
         let plan = font.plan(msg, None, Some(&["lnum".to_string()]));
         let dx = (width - plan.width as i32) / 2;
         let mut dy = (height - font.x_heights.1 as i32) / 3;
+
         font.render(fb, BLACK, &plan, self.rect.min + pt!(dx, dy));
 
         dy += 4 * (font.x_heights.1 as i32) / 3;
-        let msg = if phase < 2 {
+        let msg = if self.taps_count < CORNERS_COUNT {
             MESSAGE_1
         } else {
             MESSAGE_2
         };
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
+
         for line in msg.lines() {
             let plan = font.plan(line, None, None);
             let dx = (width - plan.width as i32) / 2;
