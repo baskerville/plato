@@ -157,11 +157,11 @@ impl Default for FzMatrix {
 
 #[repr(C)]
 pub struct FzLink {
-	refs: libc::c_int,
-	pub next: *mut FzLink,
-	pub rect: FzRect,
-	doc: *mut libc::c_void,
-	pub uri: *mut libc::c_char,
+    refs: libc::c_int,
+    pub next: *mut FzLink,
+    pub rect: FzRect,
+    doc: *mut libc::c_void,
+    pub uri: *mut libc::c_char,
 }
 
 #[repr(C)]
