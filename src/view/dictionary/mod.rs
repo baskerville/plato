@@ -322,7 +322,7 @@ impl Dictionary {
         }
     }
 
-    fn reseed(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
+    fn reseed(&mut self, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(top_bar) = self.child_mut(0).downcast_mut::<TopBar>() {
             top_bar.reseed(rq, context);
         }
@@ -538,7 +538,7 @@ impl View for Dictionary {
                 true
             },
             Event::Reseed => {
-                self.reseed(hub, rq, context);
+                self.reseed(rq, context);
                 true
             },
             Event::Gesture(GestureEvent::Cross(_)) => {

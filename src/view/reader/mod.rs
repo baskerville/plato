@@ -2451,7 +2451,7 @@ impl Reader {
                            .find(|a| a.selection[0] == sel[0] && a.selection[1] == sel[1]))
     }
 
-    fn reseed(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
+    fn reseed(&mut self, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(index) = locate::<TopBar>(self) {
             if let Some(top_bar) = self.child_mut(index).downcast_mut::<TopBar>() {
                 top_bar.reseed(rq, context);
@@ -3657,7 +3657,7 @@ impl View for Reader {
                 true
             },
             Event::Reseed => {
-                self.reseed(hub, rq, context);
+                self.reseed(rq, context);
                 true
             },
             Event::ToggleFrontlight => {
