@@ -5,11 +5,14 @@ export QT_GSTREAMER_PLAYBIN_AUDIOSINK=alsasink
 export QT_GSTREAMER_PLAYBIN_AUDIOSINK_DEVICE_PARAMETER=bluealsa:DEV=00:00:00:00:00:00
 
 (
-	if [ "${PLATFORM}" = "freescale" ] || [ "${PLATFORM}" = "mx50-ntx" ] || [ "${PLATFORM}" = "mx6sl-ntx" ]; then
+	if [ "$PLATFORM" = "freescale" ] || [ "$PLATFORM" = "mx50-ntx" ] || [ "$PLATFORM" = "mx6sl-ntx" ]; then
 		usleep 400000
 	fi
 	/etc/init.d/on-animator.sh
 ) &
+
+# Let Nickel remounts the SD card read only.
+[ -e /dev/mmcblk1p1 ] && umount /mnt/sd
 
 # Nickel wants the WiFi to be down when it starts
 ./scripts/wifi-disable.sh
@@ -20,10 +23,5 @@ cd /
 unset OLDPWD SERIAL_NUMBER FIRMWARE_VERSION MODEL_NUMBER PRODUCT_ID
 
 /usr/local/Kobo/hindenburg &
-/usr/local/Kobo/nickel -platform kobo -skipFontLoad &
-udevadm trigger &
-
-# Notify Nickel of the existence of a mounted SD card
-if [ -e /dev/mmcblk1p1 ]; then
-	echo "sd add /dev/mmcblk1p1" > /tmp/nickel-hardware-status &
-fi
+LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &
+[ "$PLATFORM" != "freescale" ] && udevadm trigger &
