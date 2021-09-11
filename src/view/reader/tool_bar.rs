@@ -100,8 +100,8 @@ impl ToolBar {
                                            rect.max.x - 2 * side, rect.max.y],
                                      SliderId::FontSize,
                                      font_size,
-                                     reader_settings.font_size / 2.0,
-                                     3.0 * reader_settings.font_size / 2.0);
+                                     reader_settings.min_font_size,
+                                     reader_settings.max_font_size);
             children.push(Box::new(slider) as Box<dyn View>);
         } else {
             let remaining_width = rect.width() as i32 - 2 * side;

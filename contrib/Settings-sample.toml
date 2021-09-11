@@ -95,13 +95,17 @@ corner-width = 0.4
 font-path = "/mnt/onboard/fonts"
 # The default serif font.
 font-family = "Libertinus Serif"
-# The default font size, in points.
+# The default, minimum and maximum font sizes, in points.
 font-size = 11.0
+min-font-size = 5.5
+max-font-size = 16.5
 # The default text alignment.
 # Possible values: "left", "right", "center", "justify".
 text-align = "left"
-# The default margin width, in millimeters.
+# The default, minimum and maximum margin widths, in millimeters.
 margin-width = 8
+min-margin-width = 0
+max-margin-width = 10
 # The default line height, in ems.
 line-height = 1.2
 # The file extensions of the files that will automatically be dithered

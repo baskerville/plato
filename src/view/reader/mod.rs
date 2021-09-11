@@ -1924,9 +1924,13 @@ impl Reader {
             let margin_width = self.info.reader.as_ref()
                                    .and_then(|r| if reflowable { r.margin_width } else { r.screen_margin_width })
                                    .unwrap_or_else(|| if reflowable { context.settings.reader.margin_width } else { 0 });
-            let entries = (0..=10).map(|mw| EntryKind::RadioButton(format!("{}", mw),
-                                                                  EntryId::SetMarginWidth(mw),
-                                                                  mw == margin_width)).collect();
+            let min_margin_width = context.settings.reader.min_margin_width;
+            let max_margin_width = context.settings.reader.max_margin_width;
+            let entries = (min_margin_width..=max_margin_width).map(|mw|
+                EntryKind::RadioButton(format!("{}", mw),
+                                       EntryId::SetMarginWidth(mw),
+                                       mw == margin_width)
+            ).collect();
             let margin_width_menu = Menu::new(rect, ViewId::MarginWidthMenu, MenuKind::DropDown, entries, context);
             rq.add(RenderData::new(margin_width_menu.id(), *margin_width_menu.rect(), UpdateMode::Gui));
             self.children.push(Box::new(margin_width_menu) as Box<dyn View>);
