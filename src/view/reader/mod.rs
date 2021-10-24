@@ -1698,15 +1698,22 @@ impl Reader {
                 return;
             }
 
+            let zoom_mode = self.view_port.zoom_mode;
+            let sf = if let ZoomMode::Custom(sf) = zoom_mode { sf } else { 1.0 };
+
             let mut entries = if self.reflowable {
                 if self.ephemeral {
                     vec![EntryKind::Command("Save".to_string(), EntryId::Save)]
                 } else {
-                    Vec::new()
+                    vec![EntryKind::SubMenu("Zoom Mode".to_string(), vec![
+                         EntryKind::RadioButton("Fit to Page".to_string(),
+                                                EntryId::SetZoomMode(ZoomMode::FitToPage),
+                                                zoom_mode == ZoomMode::FitToPage),
+                         EntryKind::RadioButton(format!("Custom ({:.1}%)", 100.0 * sf),
+                                                EntryId::SetZoomMode(ZoomMode::Custom(sf)),
+                                                zoom_mode == ZoomMode::Custom(sf))])]
                 }
             } else {
-                let zoom_mode = self.view_port.zoom_mode;
-                let sf = if let ZoomMode::Custom(sf) = zoom_mode { sf } else { 1.0 };
                 vec![EntryKind::SubMenu("Zoom Mode".to_string(), vec![
                      EntryKind::RadioButton("Fit to Page".to_string(),
                                             EntryId::SetZoomMode(ZoomMode::FitToPage),
@@ -2574,17 +2581,13 @@ impl View for Reader {
 
             },
             Event::Gesture(GestureEvent::Pinch { axis: Axis::Horizontal, center, .. }) if self.rect.includes(center) => {
-                if !self.reflowable {
-                    self.set_zoom_mode(ZoomMode::FitToPage, true, hub, rq, context);
-                }
+                self.set_zoom_mode(ZoomMode::FitToPage, true, hub, rq, context);
                 true
             },
             Event::Gesture(GestureEvent::Spread { axis: Axis::Diagonal, center, factor }) |
             Event::Gesture(GestureEvent::Pinch { axis: Axis::Diagonal, center, factor }) if factor.is_finite() &&
                                                                                             self.rect.includes(center) => {
-                if !self.reflowable {
-                    self.scale_page(center, factor, hub, rq, context);
-                }
+                self.scale_page(center, factor, hub, rq, context);
                 true
             },
             Event::Gesture(GestureEvent::Arrow { dir, .. }) => {
