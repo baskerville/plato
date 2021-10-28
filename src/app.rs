@@ -340,7 +340,7 @@ pub fn run() -> Result<(), Error> {
     let mut inactive_since = Instant::now();
     let mut exit_status = ExitStatus::Quit;
 
-    let mut fb: Box<dyn Framebuffer> = if CURRENT_DEVICE.mark() < 8 {
+    let mut fb: Box<dyn Framebuffer> = if CURRENT_DEVICE.mark() != 8 {
         Box::new(KoboFramebuffer1::new(FB_DEVICE).context("can't create framebuffer")?)
     } else {
         Box::new(KoboFramebuffer2::new(FB_DEVICE).context("can't create framebuffer")?)
@@ -359,7 +359,7 @@ pub fn run() -> Result<(), Error> {
     context.load_dictionaries();
     context.load_keyboard_layouts();
 
-    let paths = if CURRENT_DEVICE.mark() < 8 {
+    let paths = if CURRENT_DEVICE.mark() != 8 {
         INPUT_EVENTS_A.iter().cloned().map(String::from).collect()
     } else {
         INPUT_EVENTS_B.iter().cloned().map(String::from).collect()

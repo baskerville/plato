@@ -5,6 +5,8 @@ use crate::input::TouchProto;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
+    Libra2,
+    Sage,
     Elipsa,
     Nia,
     LibraH2O,
@@ -37,6 +39,8 @@ pub enum Orientation {
 impl fmt::Display for Model {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Model::Libra2        => write!(f, "Libra 2"),
+            Model::Sage          => write!(f, "Sage"),
             Model::Elipsa        => write!(f, "Elipsa"),
             Model::Nia           => write!(f, "Nia"),
             Model::LibraH2O      => write!(f, "Libra H₂O"),
@@ -170,6 +174,18 @@ impl Device {
                 dims: (1404, 1872),
                 dpi: 227,
             },
+            "cadmus" => Device {
+                model: Model::Sage,
+                proto: TouchProto::MultiC,
+                dims: (1440, 1920),
+                dpi: 300,
+            },
+            "io" => Device {
+                model: Model::Libra2,
+                proto: TouchProto::MultiC,
+                dims: (1264, 1680),
+                dpi: 300,
+            },
             _ => Device {
                 model: if model_number == "320" { Model::TouchC } else { Model::TouchAB },
                 proto: TouchProto::Single,
@@ -188,7 +204,9 @@ impl Device {
             Model::ClaraHD |
             Model::Forma |
             Model::Forma32GB |
-            Model::LibraH2O => FrontlightKind::Premixed,
+            Model::LibraH2O |
+            Model::Sage |
+            Model::Libra2 => FrontlightKind::Premixed,
             _ => FrontlightKind::Standard,
         }
     }
@@ -205,12 +223,13 @@ impl Device {
     pub fn has_gyroscope(&self) -> bool {
         matches!(self.model,
                  Model::Forma | Model::Forma32GB | Model::LibraH2O |
-                 Model::Elipsa)
+                 Model::Elipsa | Model::Sage | Model::Libra2)
     }
 
     pub fn has_page_turn_buttons(&self) -> bool {
         matches!(self.model,
-                 Model::Forma | Model::Forma32GB | Model::LibraH2O)
+                 Model::Forma | Model::Forma32GB | Model::LibraH2O |
+                 Model::Sage | Model::Libra2)
     }
 
     pub fn has_removable_storage(&self) -> bool {
@@ -227,11 +246,7 @@ impl Device {
     }
 
     pub fn orientation(&self, rotation: i8) -> Orientation {
-        let discriminant = match self.model {
-            Model::LibraH2O => 0,
-            _ => 1,
-        };
-        if rotation % 2 == discriminant {
+        if self.should_swap_axes(rotation) {
             Orientation::Portrait
         } else {
             Orientation::Landscape
@@ -240,6 +255,8 @@ impl Device {
 
     pub fn mark(&self) -> u8 {
         match self.model {
+            Model::Libra2 => 9,
+            Model::Sage |
             Model::Elipsa => 8,
             Model::Nia |
             Model::LibraH2O |
@@ -276,7 +293,9 @@ impl Device {
     // Returns the center and direction of the mirroring pattern.
     pub fn mirroring_scheme(&self) -> (i8, i8) {
         match self.model {
-            Model::AuraH2OEd2V1 | Model::LibraH2O => (3, 1),
+            Model::AuraH2OEd2V1 |
+            Model::LibraH2O |
+            Model::Libra2 => (3, 1),
             Model::AuraH2OEd2V2 => (0, -1),
             Model::Forma | Model::Forma32GB => (2, -1),
             _ => (2, 1),
@@ -299,8 +318,9 @@ impl Device {
     pub fn startup_rotation(&self) -> i8 {
         match self.model {
             Model::LibraH2O => 0,
-            Model::AuraH2OEd2V1 => 1,
-            Model::Forma | Model::Forma32GB => 1,
+            Model::AuraH2OEd2V1 |
+            Model::Forma | Model::Forma32GB |
+            Model::Libra2 => 1,
             _ => 3,
         }
     }
@@ -333,6 +353,8 @@ impl Device {
     pub fn transformed_gyroscope_rotation(&self, n: i8) -> i8 {
         match self.model {
             Model::LibraH2O => n ^ 1,
+            Model::Libra2 |
+            Model::Sage |
             Model::Elipsa => (4 - n) % 4,
             _ => n,
         }

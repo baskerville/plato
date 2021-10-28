@@ -103,14 +103,18 @@ pub struct MxcfbUpdateDataV2 {
 
 pub const WAVEFORM_MODE_AUTO: u32 = 0x101;
 
-pub const NTX_WFM_MODE_INIT: u32  = 0;
-pub const NTX_WFM_MODE_DU: u32    = 1;
-pub const NTX_WFM_MODE_GC16: u32  = 2;
-pub const NTX_WFM_MODE_GC4: u32   = 3;
-pub const NTX_WFM_MODE_A2: u32    = 4;
-pub const NTX_WFM_MODE_GL16: u32  = 5;
-pub const NTX_WFM_MODE_GLR16: u32 = 6;
-pub const NTX_WFM_MODE_GLD16: u32 = 7;
+pub const NTX_WFM_MODE_INIT: u32   =  0;
+pub const NTX_WFM_MODE_DU: u32     =  1;
+pub const NTX_WFM_MODE_GC16: u32   =  2;
+pub const NTX_WFM_MODE_GC4: u32    =  3;
+pub const NTX_WFM_MODE_A2: u32     =  4;
+pub const NTX_WFM_MODE_GL16: u32   =  5;
+pub const NTX_WFM_MODE_GLR16: u32  =  6;
+pub const NTX_WFM_MODE_GLD16: u32  =  7;
+/* Mark 9 */
+pub const NTX_WFM_MODE_DU4: u32    =  8;
+pub const NTX_WFM_MODE_GCK16: u32  =  9;
+pub const NTX_WFM_MODE_GLKW16: u32 = 10;
 
 pub const UPDATE_MODE_PARTIAL: u32 = 0x0;
 pub const UPDATE_MODE_FULL: u32    = 0x1;

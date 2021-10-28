@@ -302,11 +302,15 @@ impl Framebuffer for KoboFramebuffer2 {
         }
 
         if mode != UpdateMode::Full && waveform_mode != EINK_AUTO_MODE {
-            flags |= EINK_RECT_MODE;
+            flags |= EINK_PARTIAL_MODE;
         }
 
         if waveform_mode == EINK_A2_MODE {
             flags |= EINK_MONOCHROME;
+        }
+
+        if mode == UpdateMode::Full {
+            flags |= EINK_NO_MERGE;
         }
 
         if waveform_mode == EINK_GLR16_MODE || waveform_mode == EINK_GLD16_MODE {
