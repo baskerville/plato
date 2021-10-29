@@ -9,8 +9,10 @@ mod mupdf_sys;
 use std::env;
 use std::process::Command;
 use std::path::Path;
+use std::fs::File;
 use std::ffi::OsStr;
 use std::collections::BTreeSet;
+use std::os::unix::fs::FileExt;
 use anyhow::{Error, format_err};
 use regex::Regex;
 use nix::sys::statvfs;
@@ -165,6 +167,29 @@ pub fn file_kind<P: AsRef<Path>>(path: P) -> Option<String> {
     path.as_ref().extension()
         .and_then(OsStr::to_str)
         .map(str::to_lowercase)
+        .or_else(|| guess_kind(path.as_ref())
+                              .ok()
+                              .map(String::from))
+}
+
+pub fn guess_kind<P: AsRef<Path>>(path: P) -> Result<&'static str, Error> {
+    let file = File::open(path.as_ref())?;
+    let mut magic = [0; 4];
+    file.read_exact_at(&mut magic, 0)?;
+
+    if &magic == b"PK\x03\x04" {
+        let mut mime_type = [0; 28];
+        file.read_exact_at(&mut mime_type, 30)?;
+        if &mime_type == b"mimetypeapplication/epub+zip" {
+            return Ok("epub");
+        }
+    } else if &magic == b"%PDF" {
+        return Ok("pdf");
+    } else if &magic == b"AT&T" {
+        return Ok("djvu");
+    }
+
+    Err(format_err!("Unknown file type"))
 }
 
 pub trait HumanSize {
