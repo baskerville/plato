@@ -1,6 +1,6 @@
 use std::mem;
 use crate::device::CURRENT_DEVICE;
-use crate::geom::Rectangle;
+use crate::geom::{Point, Rectangle};
 use crate::view::{View, Event, Hub, Bus, RenderQueue, RenderData};
 use crate::view::{Id, ID_FEEDER};
 use crate::gesture::GestureEvent;
@@ -15,7 +15,7 @@ const MESSAGE_1: &str = "Hold you device in portrait mode\n\
                          in clockwise order\n\
                          starting from the top left.";
 const MESSAGE_2: &str = "Tap the black corner.";
-const CORNERS_COUNT: i8 = 4;
+const CORNERS_COUNT: usize = 4;
 
 pub struct RotationValues {
     id: Id,
@@ -28,7 +28,8 @@ pub struct RotationValues {
     height: i32,
     read_rotation: i8,
     written_rotation: i8,
-    taps_count: i8,
+    finished: bool,
+    taps: Vec<Point>,
 }
 
 impl RotationValues {
@@ -50,7 +51,8 @@ impl RotationValues {
             height: height as i32,
             read_rotation: context.fb.rotation(),
             written_rotation: rotation,
-            taps_count: 0,
+            finished: false,
+            taps: Vec::new(),
         }
     }
 }
@@ -58,7 +60,7 @@ impl RotationValues {
 impl View for RotationValues {
     fn handle_event(&mut self, evt: &Event, hub: &Hub, _bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool {
         match *evt {
-            Event::Gesture(GestureEvent::Tap(mut pt)) => {
+            Event::Gesture(GestureEvent::Tap(mut pt)) if !self.finished => {
                 if self.mirror_x {
                     pt.x = self.width - 1 - pt.x;
                 }
@@ -73,14 +75,14 @@ impl View for RotationValues {
 
                 println!("Tap {} {:?}", pt, context.fb.dims());
 
-                self.taps_count += 1;
-                let finished = self.taps_count >= 2 * CORNERS_COUNT;
+                self.taps.push(pt);
+                self.finished = self.taps.len() >= 2 * CORNERS_COUNT;
 
-                if self.taps_count >= CORNERS_COUNT {
-                    let rotation = if finished {
+                if self.taps.len() >= CORNERS_COUNT {
+                    let rotation = if self.finished {
                         self.written_rotation
                     } else {
-                        self.taps_count - CORNERS_COUNT
+                        (self.taps.len() - CORNERS_COUNT) as i8
                     };
                     context.fb.set_rotation(rotation)
                            .map_err(|e| eprintln!("Can't set rotation: {:#}.", e))
@@ -92,7 +94,23 @@ impl View for RotationValues {
                     self.rect = context.fb.rect();
                 }
 
-                if finished {
+                if self.finished {
+                    // Infer the startup rotation and the mirroring scheme.
+                    let first = self.taps[0];
+                    let startup_rotation = self.taps[CORNERS_COUNT..2*CORNERS_COUNT].iter()
+                                               .enumerate()
+                                               .min_by_key(|(_, &pt)| first.dist2(pt))
+                                               .map(|(i, _)| i)
+                                               .unwrap();
+                    let center = self.taps[CORNERS_COUNT..2*CORNERS_COUNT].iter()
+                                     .enumerate()
+                                     .max_by_key(|(_, pt)| pt.x + pt.y)
+                                     .map(|(i, _)| i)
+                                     .unwrap();
+                    let next = self.taps[CORNERS_COUNT + (center + 1) % 4];
+                    let dir = if next.x < next.y { 1 } else { -1 };
+                    println!("Startup rotation: {}.", startup_rotation);
+                    println!("Mirroring scheme: ({}, {}).", center, dir);
                     hub.send(Event::Back).ok();
                 } else {
                     rq.add(RenderData::new(self.id, self.rect, UpdateMode::Full));
@@ -112,7 +130,7 @@ impl View for RotationValues {
 
         fb.draw_rectangle(&self.rect, WHITE);
 
-        let step = 1 + (self.taps_count % CORNERS_COUNT);
+        let step = 1 + (self.taps.len() % CORNERS_COUNT);
         let msg = format!("{} / {}", step, CORNERS_COUNT);
         let font = font_from_style(fonts, &DISPLAY_STYLE, dpi);
         let plan = font.plan(msg, None, Some(&["lnum".to_string()]));
@@ -122,7 +140,7 @@ impl View for RotationValues {
         font.render(fb, BLACK, &plan, self.rect.min + pt!(dx, dy));
 
         dy += 4 * (font.x_heights.1 as i32) / 3;
-        let msg = if self.taps_count < CORNERS_COUNT {
+        let msg = if self.taps.len() < CORNERS_COUNT {
             MESSAGE_1
         } else {
             MESSAGE_2
@@ -136,7 +154,7 @@ impl View for RotationValues {
             dy += 3 * font.x_heights.0 as i32;
         }
 
-        if self.taps_count < CORNERS_COUNT {
+        if self.taps.len() < CORNERS_COUNT {
             fb.draw_triangle(&[pt!(0, 0), pt!(side, 0), pt!(0, side)], GRAY07);
             fb.draw_triangle(&[pt!(width - 1, 0), pt!(width - 1, side),
                                pt!(width - 1 - side, 0)], GRAY07);
