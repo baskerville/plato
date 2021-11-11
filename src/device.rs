@@ -344,8 +344,9 @@ impl Device {
     // the device dependent read rotation value *n*.
     pub fn transformed_rotation(&self, n: i8) -> i8 {
         match self.model {
-            Model::AuraHD | Model::AuraH2O => n ^ 2,
-            Model::AuraH2OEd2V2 => (4 - n) % 4,
+            Model::AuraHD | Model::AuraH2O |
+            Model::Sage => n ^ 2,
+            Model::AuraH2OEd2V2 |
             Model::Forma | Model::Forma32GB => (4 - n) % 4,
             _ => n,
         }
