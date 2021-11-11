@@ -296,6 +296,7 @@ impl Device {
             Model::AuraH2OEd2V1 |
             Model::LibraH2O |
             Model::Libra2 => (3, 1),
+            Model::Sage => (0, 1),
             Model::AuraH2OEd2V2 => (0, -1),
             Model::Forma | Model::Forma32GB => (2, -1),
             _ => (2, 1),
@@ -320,7 +321,7 @@ impl Device {
             Model::LibraH2O => 0,
             Model::AuraH2OEd2V1 |
             Model::Forma | Model::Forma32GB |
-            Model::Libra2 => 1,
+            Model::Sage | Model::Libra2 => 1,
             _ => 3,
         }
     }
