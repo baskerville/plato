@@ -102,13 +102,15 @@ impl View for RotationValues {
                                                .min_by_key(|(_, &pt)| first.dist2(pt))
                                                .map(|(i, _)| i)
                                                .unwrap();
-                    let center = self.taps[CORNERS_COUNT..2*CORNERS_COUNT].iter()
+                    let origin = self.taps[CORNERS_COUNT..2*CORNERS_COUNT].iter()
                                      .enumerate()
-                                     .max_by_key(|(_, pt)| pt.x + pt.y)
+                                     .min_by_key(|(_, pt)| pt.x + pt.y)
                                      .map(|(i, _)| i)
                                      .unwrap();
+                    let center = (origin + 2) % 4;
                     let next = self.taps[CORNERS_COUNT + (center + 1) % 4];
-                    let dir = if next.x < next.y { 1 } else { -1 };
+                    let polarity = if origin % 2 == startup_rotation % 2 { -1 } else { 1 };
+                    let dir = if next.x < next.y { polarity } else { -polarity };
                     println!("Startup rotation: {}.", startup_rotation);
                     println!("Mirroring scheme: ({}, {}).", center, dir);
                     hub.send(Event::Back).ok();
