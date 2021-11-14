@@ -354,6 +354,7 @@ impl Device {
     pub fn transformed_gyroscope_rotation(&self, n: i8) -> i8 {
         match self.model {
             Model::LibraH2O => n ^ 1,
+            Model::Libra2 |
             Model::Sage |
             Model::Elipsa => (6 - n) % 4,
             _ => n,
