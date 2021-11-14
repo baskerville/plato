@@ -1,4 +1,4 @@
-use std::fs;
+use std::fs::{self, File};
 use std::env;
 use std::thread;
 use std::process::Command;
@@ -1114,12 +1114,10 @@ pub fn run() -> Result<(), Error> {
 
     match exit_status {
         ExitStatus::Reboot => {
-            Command::new("sync").status().ok();
-            Command::new("reboot").status().ok();
+            File::create("/tmp/reboot").ok();
         },
         ExitStatus::PowerOff => {
-            Command::new("sync").status().ok();
-            Command::new("poweroff").arg("-f").status().ok();
+            File::create("/tmp/power_off").ok();
         },
         _ => (),
     }

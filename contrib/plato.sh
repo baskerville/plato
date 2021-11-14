@@ -93,8 +93,11 @@ LIBC_FATAL_STDERR_=1 ./plato >> info.log 2>&1 || rm bootlock
 
 [ "$ORIG_BPP" ] && ./bin/utils/fbdepth -q -d "$ORIG_BPP"
 
-if [ "$PLATO_STANDALONE" ] ; then
-	sync
+if [ -e /tmp/reboot ] ; then
+	reboot
+elif [ -e /tmp/power_off ] ; then
+	poweroff -f
+elif [ "$PLATO_STANDALONE" ] ; then
 	reboot
 else
 	./nickel.sh &
