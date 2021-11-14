@@ -344,8 +344,7 @@ impl Device {
     // the device dependent read rotation value *n*.
     pub fn transformed_rotation(&self, n: i8) -> i8 {
         match self.model {
-            Model::AuraHD | Model::AuraH2O |
-            Model::Sage => n ^ 2,
+            Model::AuraHD | Model::AuraH2O => n ^ 2,
             Model::AuraH2OEd2V2 |
             Model::Forma | Model::Forma32GB => (4 - n) % 4,
             _ => n,
@@ -355,9 +354,8 @@ impl Device {
     pub fn transformed_gyroscope_rotation(&self, n: i8) -> i8 {
         match self.model {
             Model::LibraH2O => n ^ 1,
-            Model::Libra2 |
             Model::Sage |
-            Model::Elipsa => (4 - n) % 4,
+            Model::Elipsa => (6 - n) % 4,
             _ => n,
         }
     }
