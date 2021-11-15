@@ -638,6 +638,10 @@ pub fn run() -> Result<(), Error> {
                             continue;
                         }
 
+                        if view.is::<RotationValues>() {
+                            println!("Gyro rotation: {}", n);
+                        }
+
                         if let Some(rotation_lock) = context.settings.rotation_lock {
                             let orientation = CURRENT_DEVICE.orientation(n);
                             if rotation_lock == RotationLock::Current ||
