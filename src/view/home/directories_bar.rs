@@ -212,7 +212,7 @@ impl DirectoriesBar {
             line.labels_count += 1;
             line.width += dir_width;
             end_index += 1;
-            let label = Item::Label { path: &dir.as_path(),
+            let label = Item::Label { path: dir.as_path(),
                                       width: dir_width,
                                       max_width: max_dir_width };
             line.items.push(label);

@@ -165,7 +165,7 @@ impl NavigationBar {
 
         // Move and populate the children.
         current = if path_dirs.is_empty() && path.as_ref() != context.library.home {
-            path.as_ref().parent().unwrap_or_else(|| &Path::new(""))
+            path.as_ref().parent().unwrap_or_else(|| Path::new(""))
         } else {
             path.as_ref()
         };

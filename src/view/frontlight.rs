@@ -167,7 +167,7 @@ impl FrontlightWindow {
                                      rect.max.x - thickness - 4 * padding,
                                      rect.max.y - thickness - 2 * padding];
             let mut presets_list = PresetsList::new(presets_rect);
-            presets_list.update(&presets, &mut RenderQueue::new(), fonts);
+            presets_list.update(presets, &mut RenderQueue::new(), fonts);
             children.push(Box::new(presets_list) as Box<dyn View>);
         }
 

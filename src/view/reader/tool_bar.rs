@@ -329,7 +329,6 @@ impl View for ToolBar {
             self.children[index].resize(rect![rect.min.x + 2 * side, rect.max.y - side,
                                               rect.max.x - 2 * side, rect.max.y],
                                         hub, rq, context);
-            index += 1;
         } else {
             let remaining_width = rect.width() as i32 - 2 * side;
             let slider_width = remaining_width / 2;
@@ -399,8 +398,9 @@ impl View for ToolBar {
                                               rect.max.x - 2 * side,
                                               rect.max.y],
                                         hub, rq, context);
-            index += 1;
         }
+
+        index += 1;
 
         // End of second row.
 

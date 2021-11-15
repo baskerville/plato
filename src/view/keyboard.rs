@@ -288,7 +288,7 @@ impl View for Keyboard {
     fn resize(&mut self, mut rect: Rectangle, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let dpi = CURRENT_DEVICE.dpi;
         let max_width = self.layout.widths.iter().map(|row| (row.len() + 1) as f32 * PADDING_RATIO + row.iter().sum::<f32>())
-                            .max_by(|a, b| a.partial_cmp(&b).expect("Found NaNs"))
+                            .max_by(|a, b| a.partial_cmp(b).expect("Found NaNs"))
                             .expect("Missing row widths");
 
         let kh_1 = (rect.width() as f32) / max_width;

@@ -2349,9 +2349,9 @@ impl Reader {
 
     fn find_page_by_name(&self, name: &str) -> Option<usize> {
         self.info.reader.as_ref().and_then(|r| {
-            if let Ok(a) = u32::from_str_radix(name, 10) {
+            if let Ok(a) = name.parse::<u32>() {
                 r.page_names
-                 .iter().filter_map(|(i, s)| u32::from_str_radix(s, 10).ok().map(|b| (b, i)))
+                 .iter().filter_map(|(i, s)| s.parse::<u32>().ok().map(|b| (b, i)))
                  .filter(|(b, _)| *b <= a)
                  .max_by(|x, y| x.0.cmp(&y.0))
                  .map(|(b, i)| *i + (a - b) as usize)
@@ -3421,7 +3421,7 @@ impl View for Reader {
             Event::Select(EntryId::Bookmarks) => {
                 self.toggle_bars(Some(false), hub, rq, context);
                 if let Some(bookmarks) = self.info.reader.as_ref().map(|r| &r.bookmarks) {
-                    let html = bookmarks_as_html(&bookmarks, self.current_page, self.synthetic);
+                    let html = bookmarks_as_html(bookmarks, self.current_page, self.synthetic);
                     let link_uri = bookmarks.range(..= self.current_page).next_back()
                                             .map(|index| format!("@{}", index));
                     hub.send(Event::OpenHtml(html, link_uri)).ok();

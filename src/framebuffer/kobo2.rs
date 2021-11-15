@@ -366,7 +366,7 @@ impl Framebuffer for KoboFramebuffer2 {
         encoder.set_depth(png::BitDepth::Eight);
         encoder.set_color(png::ColorType::Grayscale);
         let mut writer = encoder.write_header().with_context(|| format!("can't write PNG header for {}", path))?;
-        writer.write_image_data(&self.as_bytes()).with_context(|| format!("can't write PNG data to {}", path))?;
+        writer.write_image_data(self.as_bytes()).with_context(|| format!("can't write PNG data to {}", path))?;
         Ok(())
     }
 

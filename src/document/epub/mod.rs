@@ -633,7 +633,7 @@ impl Document for EpubDocument {
         root.root().find("navMap").map(|map| {
             let mut cache = FxHashMap::default();
             let mut index = 0;
-            self.walk_toc(map, &toc_dir, &mut index, &mut cache)
+            self.walk_toc(map, toc_dir, &mut index, &mut cache)
         })
     }
 

@@ -1558,7 +1558,7 @@ impl View for Home {
             },
             Event::Submit(ViewId::AddressBarInput, ref addr) => {
                 self.toggle_keyboard(false, true, None, hub, rq, context);
-                self.select_directory(&Path::new(addr), hub, rq, context);
+                self.select_directory(Path::new(addr), hub, rq, context);
                 true
             },
             Event::Submit(ViewId::HomeSearchInput, ref text) => {

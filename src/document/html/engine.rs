@@ -142,8 +142,7 @@ impl Engine {
     pub fn build_display_list(&mut self, node: NodeRef, parent_style: &StyleData, loop_context: &LoopContext, stylesheet: &StyleSheet, root_data: &RootData, resource_fetcher: &mut dyn ResourceFetcher, draw_state: &mut DrawState, display_list: &mut Vec<Page>) -> ChildArtifact {
         // TODO: border, background, text-transform, tab-size, text-decoration.
         let mut style = StyleData::default();
-        let mut rects: Vec<Option<Rectangle>> = Vec::new();
-        rects.push(None);
+        let mut rects: Vec<Option<Rectangle>> = vec![None];
 
         let props = specified_values(node, stylesheet);
 
@@ -383,8 +382,7 @@ impl Engine {
                                            .min(draw_state.column_widths.len()-index);
                         let column_width = draw_state.column_widths[index..index+colspan]
                                                      .iter().sum::<i32>();
-                        let mut child_display_list = Vec::new();
-                        child_display_list.push(Vec::new());
+                        let mut child_display_list = vec![Vec::new()];
                         style.start_x = cur_x;
                         style.end_x = cur_x + column_width;
                         draw_state.position = position;
@@ -546,8 +544,7 @@ impl Engine {
                 let colspan = child.attribute("colspan")
                                    .and_then(|v| v.parse().ok())
                                    .unwrap_or(1);
-                let mut display_list = Vec::new();
-                display_list.push(Vec::new());
+                let mut display_list = vec![Vec::new()];
                 let artifact = self.build_display_list(child, parent_style, loop_context, stylesheet, root_data, resource_fetcher, draw_state, &mut display_list);
                 let horiz_padding = artifact.sibling_style.padding.left +
                                     artifact.sibling_style.padding.right;
@@ -720,7 +717,7 @@ impl Engine {
             NodeData::Text(TextData { offset, text }) => {
                 inlines.push(InlineMaterial::Text(TextMaterial {
                     offset: *offset,
-                    text: decode_entities(&text).into_owned(),
+                    text: decode_entities(text).into_owned(),
                     style: parent_style.clone(),
                 }));
             },
@@ -810,7 +807,7 @@ impl Engine {
                         font.plan(" 0.", None, None)
                     };
                     let mut start_index = 0;
-                    for (end_index, _is_hardbreak) in LineBreakIterator::new(&text) {
+                    for (end_index, _is_hardbreak) in LineBreakIterator::new(text) {
                         for chunk in text[start_index..end_index].split_inclusive(char::is_whitespace) {
                             if let Some((i, c)) = chunk.char_indices().next_back() {
                                 let j = i + if c.is_whitespace() { 0 } else { c.len_utf8() };
@@ -1479,7 +1476,7 @@ impl Engine {
                         if index_before > 0 {
                             let subelem = self.box_from_chunk(&text[0..index_before],
                                                               0,
-                                                              &element);
+                                                              element);
                             hyph_items.push(subelem);
                         }
 
@@ -1493,7 +1490,7 @@ impl Engine {
                             for segment in dict.hyphenate(chunk).iter().segments() {
                                 let subelem = self.box_from_chunk(segment,
                                                                   index_before + index,
-                                                                  &element);
+                                                                  element);
                                 hyph_items.push(subelem);
                                 index += segment.len();
                                 if index < chunk.len() {
@@ -1519,7 +1516,7 @@ impl Engine {
                                                                .unwrap_or_else(|| text.len());
                         }
                     } else {
-                        let subelem = self.box_from_chunk(text, 0, &element);
+                        let subelem = self.box_from_chunk(text, 0, element);
                         hyph_items.push(subelem);
                     }
                 },

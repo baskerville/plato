@@ -565,8 +565,8 @@ impl BookQuery {
         self.finished.as_ref().map(|eq| info.simple_status().eq(&SimpleStatus::Finished) == *eq) != Some(false) &&
         self.annotations.as_ref().map(|eq| info.reader.as_ref().map_or(false, |r| !r.annotations.is_empty()) == *eq) != Some(false) &&
         self.bookmarks.as_ref().map(|eq| info.reader.as_ref().map_or(false, |r| !r.bookmarks.is_empty()) == *eq) != Some(false) &&
-        self.opened_after.as_ref().map(|(eq, opened)| info.reader.as_ref().map_or(false, |r| r.opened.gt(&opened)) == *eq) != Some(false) &&
-        self.added_after.as_ref().map(|(eq, added)| info.added.gt(&added) == *eq) != Some(false)
+        self.opened_after.as_ref().map(|(eq, opened)| info.reader.as_ref().map_or(false, |r| r.opened.gt(opened)) == *eq) != Some(false) &&
+        self.added_after.as_ref().map(|(eq, added)| info.added.gt(added) == *eq) != Some(false)
     }
 
 
