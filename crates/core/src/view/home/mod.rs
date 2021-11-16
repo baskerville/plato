@@ -1051,6 +1051,13 @@ impl Home {
         self.refresh_visibles(true, false, hub, rq, context);
     }
 
+    fn update_document(&mut self, path: &Path, info: Info, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) -> Result<(), Error> {
+        let full_path = context.library.home.join(path);
+        context.library.update(full_path, info)?;
+        self.refresh_visibles(true, false, hub, rq, context);
+        Ok(())
+    }
+
     fn set_status(&mut self, path: &Path, status: SimpleStatus, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         context.library.set_status(path, status);
 
@@ -1355,6 +1362,16 @@ impl Home {
                                     hub2.send(Event::FetcherRemoveDocument(id, PathBuf::from(path))).ok();
                                 }
                             },
+                            Some("updateDocument") => {
+                                if let Some(info) = event.get("info")
+                                                         .map(ToString::to_string)
+                                                         .and_then(|v| serde_json::from_str(&v).ok()) {
+                                    if let Some(path) = event.get("path")
+                                                             .and_then(JsonValue::as_str) {
+                                        hub2.send(Event::FetcherUpdateDocument(id, PathBuf::from(path), Box::new(info))).ok();
+                                    }
+                                }
+                            },
                             Some("search") => {
                                 let path = event.get("path")
                                                 .and_then(JsonValue::as_str)
@@ -1634,6 +1651,12 @@ impl View for Home {
             },
             Event::Select(EntryId::Remove(ref path)) | Event::FetcherRemoveDocument(_, ref path) => {
                 self.remove(path, hub, rq, context)
+                    .map_err(|e| eprintln!("Can't remove document: {:#}.", e))
+                    .ok();
+                true
+            },
+            Event::FetcherUpdateDocument(_, ref path, ref info) => {
+                self.update_document(path, *info.clone(), hub, rq, context)
                     .map_err(|e| eprintln!("Can't remove document: {:#}.", e))
                     .ok();
                 true

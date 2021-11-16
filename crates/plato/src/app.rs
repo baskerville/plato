@@ -948,6 +948,7 @@ pub fn run() -> Result<(), Error> {
             Event::CheckFetcher(..) |
             Event::FetcherAddDocument(..) |
             Event::FetcherRemoveDocument(..) |
+            Event::FetcherUpdateDocument(..) |
             Event::FetcherSearch { .. } if !view.is::<Home>() => {
                 if let Some(entry) = history.get_mut(0).filter(|entry| entry.view.is::<Home>()) {
                     let (tx, _rx) = mpsc::channel();
