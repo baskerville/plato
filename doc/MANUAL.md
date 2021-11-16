@@ -52,6 +52,7 @@ The text that will be searched for is given after the selector.
 - *e*: edition.
 - *v*: volume.
 - *n*: number.
+- *i*: identifier.
 
 ### State selectors
 
