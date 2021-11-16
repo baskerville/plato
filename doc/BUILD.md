@@ -17,7 +17,7 @@ There are two ways to build *Plato*:
 
 #### Preliminary
 
-Install the appropriate [compiler toolchain](https://github.com/kobolabs/Kobo-Reader/tree/master/toolchain) (the binaries of the `bin` directory need to be in your path).
+Install the [compiler toolchain (gcc-linaro-4.9.4-2017.01)](https://releases.linaro.org/components/toolchain/binaries/4.9-2017.01/arm-linux-gnueabihf/) (the binaries of the `bin` directory need to be in your path).
 
 Install the required dependencies: `wget`, `curl`, `git`, `pkg-config`, `unzip`, `jq`, `patchelf`.
 
