@@ -53,3 +53,5 @@ For the page names to be resolved, you'll need to name the first page of each ca
 Instead of the page number, you can specify one of the following characters:
 - `(` and `)` to jump to the first and last page.
 - `_` to jump to a random page.
+
+If a number ending with `%` is given it will be interpreted as a percentage of the book's pages count.

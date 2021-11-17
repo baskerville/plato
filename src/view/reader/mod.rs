@@ -3144,6 +3144,11 @@ impl View for Reader {
                             self.go_to_page(0, true, hub, rq, context);
                         } else if text == ")" {
                             self.go_to_page(self.pages_count.saturating_sub(1), true, hub, rq, context);
+                        } else if let Some(percent) = text.strip_suffix('%') {
+                            if let Ok(number) = percent.parse::<f64>() {
+                                let location = (number.max(0.0).min(100.0) / 100.0 * self.pages_count as f64).round() as usize;
+                                self.go_to_page(location, true, hub, rq, context);
+                            }
                         } else if let Ok(number) = caps[2].parse::<f64>() {
                             let location = if !self.synthetic {
                                 let mut index = number.max(0.0) as usize;
