@@ -7,7 +7,7 @@ use std::fs::File;
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::os::unix::io::AsRawFd;
 use std::ffi::CString;
-use fxhash::{FxHashMap, FxHashSet};
+use fxhash::FxHashMap;
 use crate::framebuffer::Display;
 use crate::settings::ButtonScheme;
 use crate::device::CURRENT_DEVICE;
@@ -334,14 +334,26 @@ pub fn device_events(rx: Receiver<InputEvent>, display: Display, button_scheme: 
     ry
 }
 
+struct TouchState {
+    position: Point,
+    pressure: i32,
+}
+
+impl Default for TouchState {
+    fn default() -> Self {
+        TouchState {
+            position: Point::default(),
+            pressure: 0,
+        }
+    }
+}
+
 pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, display: Display, button_scheme: ButtonScheme) {
     let mut id = 0;
-    let mut position = Point::default();
-    let mut pressure = 0;
     let mut last_activity = -60;
     let Display { mut dims, mut rotation } = display;
     let mut fingers: FxHashMap<i32, Point> = FxHashMap::default();
-    let mut packet_ids: FxHashSet<i32> = FxHashSet::default();
+    let mut packets: FxHashMap<i32, TouchState> = FxHashMap::default();
     let proto = CURRENT_DEVICE.proto;
 
     let mut tc = match proto {
@@ -363,67 +375,40 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
             if evt.code == ABS_MT_TRACKING_ID {
                 if evt.value >= 0 {
                     id = evt.value;
-                    if proto == TouchProto::MultiB {
-                        packet_ids.insert(id);
-                    }
+                    packets.insert(id, TouchState::default());
                 }
             } else if evt.code == tc.x {
-                position.x = if mirror_x {
-                    dims.0 as i32 - 1 - evt.value
-                } else {
-                    evt.value
-                };
+                if let Some(state) = packets.get_mut(&id) {
+                    state.position.x = if mirror_x {
+                        dims.0 as i32 - 1 - evt.value
+                    } else {
+                        evt.value
+                    };
+                }
             } else if evt.code == tc.y {
-                position.y = if mirror_y {
-                    dims.1 as i32 - 1 - evt.value
-                } else {
-                    evt.value
-                };
+                if let Some(state) = packets.get_mut(&id) {
+                    state.position.y = if mirror_y {
+                        dims.1 as i32 - 1 - evt.value
+                    } else {
+                        evt.value
+                    };
+                }
             } else if evt.code == tc.pressure {
-                pressure = evt.value;
+                if let Some(state) = packets.get_mut(&id) {
+                    state.pressure = evt.value;
+                }
             }
-        } else if evt.kind == EV_SYN {
+        } else if evt.kind == EV_SYN && evt.code == SYN_REPORT {
             // The absolute value accounts for the wrapping around that might occur,
             // since `tv_sec` can't grow forever.
             if (evt.time.tv_sec - last_activity).abs() >= 60 {
                 last_activity = evt.time.tv_sec;
                 ty.send(DeviceEvent::UserActivity).ok();
             }
-            if evt.code == SYN_MT_REPORT || (evt.code == SYN_REPORT &&
-                                             (proto == TouchProto::Single ||
-                                              proto == TouchProto::MultiC)) {
-                if let Some(&p) = fingers.get(&id) {
-                    if pressure > 0 {
-                        if p != position {
-                            ty.send(DeviceEvent::Finger {
-                                id,
-                                time: seconds(evt.time),
-                                status: FingerStatus::Motion,
-                                position,
-                            }).unwrap();
-                            fingers.insert(id, position);
-                        }
-                    } else {
-                        ty.send(DeviceEvent::Finger {
-                            id,
-                            time: seconds(evt.time),
-                            status: FingerStatus::Up,
-                            position,
-                        }).unwrap();
-                        fingers.remove(&id);
-                    }
-                } else if pressure > 0 {
-                    ty.send(DeviceEvent::Finger {
-                        id,
-                        time: seconds(evt.time),
-                        status: FingerStatus::Down,
-                        position,
-                    }).unwrap();
-                    fingers.insert(id, position);
-                }
-            } else if proto == TouchProto::MultiB && evt.code == SYN_REPORT {
+
+            if proto == TouchProto::MultiB {
                 fingers.retain(|other_id, other_position| {
-                    packet_ids.contains(other_id) ||
+                    packets.contains_key(&other_id) ||
                     ty.send(DeviceEvent::Finger {
                         id: *other_id,
                         time: seconds(evt.time),
@@ -431,7 +416,38 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                         position: *other_position,
                     }).is_err()
                 });
-                packet_ids.clear();
+            }
+
+            for (id, state) in packets.drain() {
+                if let Some(&pos) = fingers.get(&id) {
+                    if state.pressure > 0 {
+                        if state.position != pos {
+                            ty.send(DeviceEvent::Finger {
+                                id,
+                                time: seconds(evt.time),
+                                status: FingerStatus::Motion,
+                                position: state.position,
+                            }).unwrap();
+                            fingers.insert(id, state.position);
+                        }
+                    } else {
+                        ty.send(DeviceEvent::Finger {
+                            id,
+                            time: seconds(evt.time),
+                            status: FingerStatus::Up,
+                            position: state.position,
+                        }).unwrap();
+                        fingers.remove(&id);
+                    }
+                } else if state.pressure > 0 {
+                    ty.send(DeviceEvent::Finger {
+                        id,
+                        time: seconds(evt.time),
+                        status: FingerStatus::Down,
+                        position: state.position,
+                    }).unwrap();
+                    fingers.insert(id, state.position);
+                }
             }
         } else if evt.kind == EV_KEY {
             if SLEEP_COVER.contains(&evt.code) {
