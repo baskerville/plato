@@ -212,10 +212,10 @@ impl<'a> CssParser<'a> {
 
     fn attribute_value(&mut self) -> String {
         match self.next() {
-            Some('"') => {
+            Some(delim @ '"' | delim @ '\'') => {
                 self.advance(1);
                 let start_offset = self.offset;
-                self.advance_while(|&c| c != '"');
+                self.advance_while(|&c| c != delim);
                 let end_offset = self.offset;
                 self.advance(1);
                 self.input[start_offset..end_offset].to_string()
@@ -254,7 +254,14 @@ impl<'a> CssParser<'a> {
                     self.skip_spaces_and_comments();
                     let offset = self.offset;
                     self.skip_ident();
-                    let name = self.input[offset..self.offset].to_string();
+                    let mut name = self.input[offset..self.offset].to_string();
+                    if self.next() == Some('|') && !self.starts_with("|=") {
+                        self.advance(1);
+                        name += ":";
+                        let offset = self.offset;
+                        self.skip_ident();
+                        name += &self.input[offset..self.offset];
+                    }
                     self.skip_spaces_and_comments();
                     match self.next() {
                         Some(']') => {
