@@ -186,7 +186,7 @@ impl EpubDocument {
         rect![0, 0, width as i32, height as i32]
     }
 
-    fn walk_toc(&mut self, node: NodeRef, toc_dir: &Path, index: &mut usize, cache: &mut UriCache) -> Vec<TocEntry> {
+    fn walk_toc_ncx(&mut self, node: NodeRef, toc_dir: &Path, index: &mut usize, cache: &mut UriCache) -> Vec<TocEntry> {
         let mut entries = Vec::new();
         // TODO: Take `playOrder` into account?
 
@@ -212,7 +212,50 @@ impl EpubDocument {
                 *index += 1;
 
                 let sub_entries = if child.children().count() > 2 {
-                    self.walk_toc(child, toc_dir, index, cache)
+                    self.walk_toc_ncx(child, toc_dir, index, cache)
+                } else {
+                    Vec::new()
+                };
+
+                if let Some(location) = loc {
+                    entries.push(TocEntry {
+                        title,
+                        location,
+                        index: current_index,
+                        children: sub_entries,
+                    });
+                }
+            }
+        }
+
+        entries
+    }
+
+    fn walk_toc_nav(&mut self, node: NodeRef, toc_dir: &Path, index: &mut usize, cache: &mut UriCache) -> Vec<TocEntry> {
+        let mut entries = Vec::new();
+
+        for child in node.children() {
+            if child.tag_name() == Some("li") {
+                let link = child.children()
+                                .find(|child| child.tag_name() == Some("a"));
+                let title = link.map(|link| {
+                    decode_entities(&link.text()).into_owned()
+                }).unwrap_or_default();
+                let rel_uri = link.and_then(|link| {
+                    link.attribute("href")
+                        .map(|href| percent_decode_str(&decode_entities(href))
+                                                      .decode_utf8_lossy()
+                                                      .into_owned())
+                }).unwrap_or_default();
+
+                let loc = toc_dir.join(&rel_uri).normalize().to_str()
+                                 .map(|uri| Location::Uri(uri.to_string()));
+
+                let current_index = *index;
+                *index += 1;
+
+                let sub_entries = if let Some(sub_list) = child.find("ol") {
+                    self.walk_toc_nav(sub_list, toc_dir, index, cache)
                 } else {
                     Vec::new()
                 };
@@ -614,6 +657,13 @@ impl Document for EpubDocument {
             self.info.root().find("manifest")
                 .and_then(|manifest| manifest.find_by_id(toc_id))
                 .and_then(|entry| entry.attribute("href"))
+        }).or_else(|| {
+            self.info.root().find("manifest")
+                .and_then(|manifest| manifest.children().find(|child| {
+                    child.attribute("properties").iter()
+                         .any(|props| props.split_whitespace().any(|prop| prop == "nav"))
+                }))
+                .and_then(|entry| entry.attribute("href"))
         }).map(|href| {
             self.parent.join(href).normalize()
                 .to_string_lossy().into_owned()
@@ -630,11 +680,19 @@ impl Document for EpubDocument {
         }
 
         let root = XmlParser::new(&text).parse();
-        root.root().find("navMap").map(|map| {
-            let mut cache = FxHashMap::default();
-            let mut index = 0;
-            self.walk_toc(map, toc_dir, &mut index, &mut cache)
-        })
+
+        if name.ends_with(".ncx") {
+            root.root().find("navMap").map(|map| {
+                self.walk_toc_ncx(map, toc_dir, &mut 0, &mut FxHashMap::default())
+            })
+        } else {
+            root.root().descendants()
+                .find(|desc| desc.tag_name() == Some("nav") &&
+                             desc.attribute("epub:type") == Some("toc"))
+                .and_then(|map| map.find("ol")).map(|map| {
+                self.walk_toc_nav(map, toc_dir, &mut 0, &mut FxHashMap::default())
+            })
+        }
     }
 
     fn chapter<'a>(&mut self, offset: usize, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
