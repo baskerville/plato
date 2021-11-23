@@ -44,7 +44,7 @@ pub mod touch_events;
 pub mod rotation_values;
 
 use std::ops::{Deref, DerefMut};
-use std::time::Duration;
+use std::time::{Instant, Duration};
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -179,7 +179,7 @@ pub fn handle_event(view: &mut dyn View, evt: &Event, hub: &Hub, parent_bus: &mu
 // one of the rectangles in `bgs`. When we're about to render a view, if `wait` is true, we'll wait
 // for all the updates in `updating` that intersect with the view.
 pub fn render(view: &dyn View, wait: bool, ids: &FxHashMap<Id, Vec<Rectangle>>, rects: &mut Vec<Rectangle>,
-              bgs: &mut Vec<Rectangle>, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut FxHashMap<u32, Rectangle>) {
+              bgs: &mut Vec<Rectangle>, fb: &mut dyn Framebuffer, fonts: &mut Fonts, updating: &mut Vec<UpdateData>) {
     let mut render_rects = Vec::new();
 
     if view.len() == 0 || view.is_background() {
@@ -189,9 +189,15 @@ pub fn render(view: &dyn View, wait: bool, ids: &FxHashMap<Id, Vec<Rectangle>>, 
             let render_rect = view.render_rect(&rect);
 
             if wait {
-                updating.retain(|tok, urect| {
-                    !render_rect.overlaps(urect) ||
-                     fb.wait(*tok).map_err(|err| eprintln!("Can't wait: {:#}.", err)).is_err()
+                updating.retain(|update| {
+                    let overlaps = render_rect.overlaps(&update.rect);
+                    if overlaps && !update.has_completed() {
+                        fb.wait(update.token)
+                          .map_err(|e| eprintln!("Can't wait for {}, {}: {:#}",
+                                                 update.token, update.rect, e))
+                          .ok();
+                    }
+                    !overlaps
                 });
             }
 
@@ -243,7 +249,7 @@ pub fn render(view: &dyn View, wait: bool, ids: &FxHashMap<Id, Vec<Rectangle>>, 
 }
 
 #[inline]
-pub fn process_render_queue(view: &dyn View, rq: &mut RenderQueue, context: &mut Context, updating: &mut FxHashMap<u32, Rectangle>) {
+pub fn process_render_queue(view: &dyn View, rq: &mut RenderQueue, context: &mut Context, updating: &mut Vec<UpdateData>) {
     for ((mode, wait), pairs) in rq.drain() {
         let mut ids = FxHashMap::default();
         let mut rects = Vec::new();
@@ -262,10 +268,23 @@ pub fn process_render_queue(view: &dyn View, rq: &mut RenderQueue, context: &mut
 
         for rect in rects {
             match context.fb.update(&rect, mode) {
-                Ok(tok) => { updating.insert(tok, rect); },
+                Ok(token) => { updating.push(UpdateData { token, rect, time: Instant::now()}); },
                 Err(err) => { eprintln!("Can't update {}: {:#}.", rect, err); },
             }
         }
+    }
+}
+
+#[inline]
+pub fn wait_for_all(updating: &mut Vec<UpdateData>, context: &mut Context) {
+    for update in updating.drain(..) {
+        if update.has_completed() {
+            continue;
+        }
+        context.fb.wait(update.token)
+               .map_err(|e| eprintln!("Can't wait for {}, {}: {:#}",
+                                      update.token, update.rect, e))
+               .ok();
     }
 }
 
@@ -626,6 +645,20 @@ impl RenderData {
             mode,
             wait: true,
         }
+    }
+}
+
+pub struct UpdateData {
+    pub token: u32,
+    pub time: Instant,
+    pub rect: Rectangle,
+}
+
+pub const MAX_UPDATE_DELAY: Duration = Duration::from_millis(600);
+
+impl UpdateData {
+    pub fn has_completed(&self) -> bool {
+        self.time.elapsed() >= MAX_UPDATE_DELAY
     }
 }
 

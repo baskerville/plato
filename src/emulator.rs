@@ -41,7 +41,7 @@ use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::document::sys_info_as_html;
 use crate::view::{View, Event, ViewId, EntryId, AppCmd, EntryKind};
-use crate::view::{process_render_queue, handle_event, RenderQueue, RenderData};
+use crate::view::{process_render_queue, wait_for_all, handle_event, RenderQueue, RenderData};
 use crate::view::home::Home;
 use crate::view::reader::Reader;
 use crate::view::notification::Notification;
@@ -276,7 +276,7 @@ fn main() -> Result<(), Error> {
     let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &tx,
                                                      &mut rq, &mut context)?);
 
-    let mut updating = FxHashMap::default();
+    let mut updating = Vec::new();
 
     if context.settings.frontlight {
         let levels = context.settings.frontlight_levels;
@@ -506,7 +506,7 @@ fn main() -> Result<(), Error> {
                     view = next_view;
                 },
                 Event::Select(EntryId::Rotate(n)) if n != context.display.rotation && view.might_rotate() => {
-                    updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                    wait_for_all(&mut updating, &mut context);
                     if let Ok(dims) = context.fb.set_rotation(n) {
                         context.display.rotation = n;
                         let fb_rect = Rectangle::from(dims);

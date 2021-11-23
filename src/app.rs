@@ -15,8 +15,8 @@ use rand_core::SeedableRng;
 use rand_xoshiro::Xoroshiro128Plus;
 use crate::dictionary::{Dictionary, load_dictionary_from_file};
 use crate::framebuffer::{Framebuffer, KoboFramebuffer1, KoboFramebuffer2, Display, UpdateMode};
-use crate::view::{View, Event, EntryId, EntryKind, ViewId, AppCmd, RenderData, RenderQueue};
-use crate::view::{handle_event, process_render_queue};
+use crate::view::{View, Event, EntryId, EntryKind, ViewId, AppCmd, RenderData, RenderQueue, UpdateData};
+use crate::view::{handle_event, process_render_queue, wait_for_all};
 use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
 use crate::view::common::{toggle_input_history_menu, toggle_keyboard_layout_menu};
 use crate::view::frontlight::FrontlightWindow;
@@ -301,14 +301,14 @@ fn resume(id: TaskId, tasks: &mut Vec<Task>, view: &mut dyn View, hub: &Sender<E
     }
 }
 
-fn power_off(view: &mut dyn View, history: &mut Vec<HistoryItem>, updating: &mut FxHashMap<u32, Rectangle>, context: &mut Context) {
+fn power_off(view: &mut dyn View, history: &mut Vec<HistoryItem>, updating: &mut Vec<UpdateData>, context: &mut Context) {
     let (tx, _rx) = mpsc::channel();
     view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), context);
     while let Some(mut item) = history.pop() {
         item.view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), context);
     }
     let interm = Intermission::new(context.fb.rect(), IntermKind::PowerOff, context);
-    updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+    wait_for_all(updating, context);
     interm.render(context.fb.as_mut(), *interm.rect(), &mut context.fonts);
     context.fb.update(interm.rect(), UpdateMode::Full).ok();
 }
@@ -431,7 +431,7 @@ pub fn run() -> Result<(), Error> {
     let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &tx,
                                                      &mut rq, &mut context)?);
 
-    let mut updating = FxHashMap::default();
+    let mut updating = Vec::new();
     let current_dir = env::current_dir()?;
 
     println!("{} is running on a Kobo {}.", APP_NAME,
@@ -682,7 +682,7 @@ pub fn run() -> Result<(), Error> {
             },
             Event::PrepareSuspend => {
                 tasks.retain(|task| task.id != TaskId::PrepareSuspend);
-                updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                wait_for_all(&mut updating, &mut context);
                 let path = Path::new(SETTINGS_PATH);
                 save_toml(&context.settings, path).map_err(|e| eprintln!("Can't save settings: {:#}.", e)).ok();
                 context.library.flush();
@@ -748,7 +748,7 @@ pub fn run() -> Result<(), Error> {
                 while let Some(mut item) = history.pop() {
                     item.view.handle_event(&Event::Back, &tx, &mut bus, &mut rq, &mut context);
                     if item.rotation != context.display.rotation {
-                        updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                        wait_for_all(&mut updating, &mut context);
                         if let Ok(dims) = context.fb.set_rotation(item.rotation) {
                             raw_sender.send(display_rotate_event(item.rotation)).ok();
                             context.display.rotation = item.rotation;
@@ -830,7 +830,7 @@ pub fn run() -> Result<(), Error> {
                 if let Some(reader_info) = info.reader.as_ref() {
                     if let Some(n) = reader_info.rotation.map(|n| CURRENT_DEVICE.from_canonical(n)) {
                         if CURRENT_DEVICE.orientation(n) != CURRENT_DEVICE.orientation(rotation) {
-                            updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                            wait_for_all(&mut updating, &mut context);
                             if let Ok(dims) = context.fb.set_rotation(n) {
                                 raw_sender.send(display_rotate_event(n)).ok();
                                 context.display.rotation = n;
@@ -937,7 +937,7 @@ pub fn run() -> Result<(), Error> {
                         context.fb.set_dithered(item.dithered);
                     }
                     if CURRENT_DEVICE.orientation(item.rotation) != CURRENT_DEVICE.orientation(context.display.rotation) {
-                        updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                        wait_for_all(&mut updating, &mut context);
                         if let Ok(dims) = context.fb.set_rotation(item.rotation) {
                             raw_sender.send(display_rotate_event(item.rotation)).ok();
                             context.display.rotation = item.rotation;
@@ -1001,7 +1001,7 @@ pub fn run() -> Result<(), Error> {
                 rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Full));
             },
             Event::Select(EntryId::Rotate(n)) if n != context.display.rotation && view.might_rotate() => {
-                updating.retain(|tok, _| context.fb.wait(*tok).is_err());
+                wait_for_all(&mut updating, &mut context);
                 if let Ok(dims) = context.fb.set_rotation(n) {
                     raw_sender.send(display_rotate_event(n)).ok();
                     context.display.rotation = n;
