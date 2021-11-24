@@ -28,7 +28,6 @@ use std::collections::VecDeque;
 use std::path::Path;
 use std::time::Duration;
 use anyhow::{Error, Context as ResultExt};
-use fxhash::FxHashMap;
 use chrono::Local;
 use sdl2::event::Event as SdlEvent;
 use sdl2::keyboard::{Scancode, Keycode, Mod};
