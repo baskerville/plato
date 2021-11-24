@@ -100,6 +100,7 @@ pub struct Settings {
     pub keyboard_layout: String,
     pub frontlight: bool,
     pub wifi: bool,
+    pub inverted: bool,
     pub sleep_cover: bool,
     pub auto_share: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -477,6 +478,7 @@ impl Default for Settings {
             keyboard_layout: "English".to_string(),
             frontlight: true,
             wifi: false,
+            inverted: false,
             sleep_cover: true,
             auto_share: false,
             rotation_lock: None,

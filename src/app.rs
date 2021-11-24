@@ -410,6 +410,8 @@ pub fn run() -> Result<(), Error> {
         });
     }
 
+    context.fb.set_inverted(context.settings.inverted);
+
     if context.settings.wifi {
         Command::new("scripts/wifi-enable.sh").status().ok();
     } else {
@@ -994,6 +996,7 @@ pub fn run() -> Result<(), Error> {
             },
             Event::Select(EntryId::ToggleInverted) => {
                 context.fb.toggle_inverted();
+                context.settings.inverted = context.fb.inverted();
                 rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Full));
             },
             Event::Select(EntryId::ToggleDithered) => {
