@@ -181,6 +181,14 @@ impl Framebuffer for KoboFramebuffer1 {
             }
         }
 
+        if mark >= 9 && flags & EPDC_FLAG_ENABLE_INVERSION != 0 {
+            if waveform_mode == NTX_WFM_MODE_GLR16 {
+                waveform_mode = NTX_WFM_MODE_GLKW16;
+            } else if waveform_mode == NTX_WFM_MODE_GC16 {
+                waveform_mode = NTX_WFM_MODE_GCK16;
+            }
+        }
+
         let result = if mark >= 7 {
             let mut quant_bit = 0;
             let mut dither_mode = EPDC_FLAG_USE_DITHERING_PASSTHROUGH;
@@ -193,6 +201,7 @@ impl Framebuffer for KoboFramebuffer1 {
                     quant_bit = 7;
                 }
             }
+
 
             let update_data = MxcfbUpdateDataV2 {
                 update_region: (*rect).into(),
