@@ -3,6 +3,8 @@
 keyboard-layout = "English"
 frontlight = true
 wifi = false
+# Invert the display's colors.
+inverted = false
 # Handle the Sleep Cover event.
 sleep-cover = true
 # Automatically enters shared mode when connected to a computer.
