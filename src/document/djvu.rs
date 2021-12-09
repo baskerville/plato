@@ -9,7 +9,7 @@ use super::{Document, Location, TextLocation, BoundedText, TocEntry};
 use super::{chapter, chapter_relative};
 use crate::metadata::TextAlign;
 use crate::framebuffer::Pixmap;
-use crate::geom::{Rectangle, CycleDir};
+use crate::geom::{Rectangle, Boundary, CycleDir};
 
 impl Into<DjvuRect> for Rectangle {
     fn into(self) -> DjvuRect {
@@ -198,6 +198,10 @@ impl Document for DjvuDocument {
                 Some((result, index))
             }
         }
+    }
+
+    fn images(&mut self, _loc: Location) -> Option<(Vec<Boundary>, usize)> {
+        None
     }
 
     fn metadata(&self, key: &str) -> Option<String> {

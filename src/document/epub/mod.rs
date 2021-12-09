@@ -10,7 +10,7 @@ use crate::framebuffer::Pixmap;
 use crate::helpers::{Normalize, decode_entities};
 use crate::document::{Document, Location, TextLocation, TocEntry, BoundedText, chapter_from_uri};
 use crate::unit::pt_to_px;
-use crate::geom::{Rectangle, Edge, CycleDir};
+use crate::geom::{Rectangle, Boundary, Edge, CycleDir};
 use super::pdf::PdfOpener;
 use super::html::dom::{XmlTree, NodeRef};
 use super::html::engine::{Page, Engine, ResourceFetcher};
@@ -330,25 +330,6 @@ impl EpubDocument {
         for child in node.children() {
             self.cache_uris(child, name, start_offset, cache);
         }
-    }
-
-    fn images(&mut self, loc: Location) -> Option<(Vec<Rectangle>, usize)> {
-        if self.spine.is_empty() {
-            return None;
-        }
-
-        let offset = self.resolve_location(loc)?;
-        let (index, start_offset) = self.vertebra_coordinates(offset)?;
-        let page_index = self.page_index(offset, index, start_offset)?;
-
-        self.cache.get(&index).map(|display_list| {
-            (display_list[page_index].iter().filter_map(|dc| {
-                match dc {
-                    DrawCommand::Image(ImageCommand { rect, .. }) => Some(*rect),
-                    _ => None,
-                }
-            }).collect(), offset)
-        })
     }
 
     fn build_display_list(&mut self, index: usize, start_offset: usize) -> Vec<Page> {
@@ -851,6 +832,25 @@ impl Document for EpubDocument {
                             location: TextLocation::Dynamic(*offset),
                         })
                     },
+                    _ => None,
+                }
+            }).collect(), offset)
+        })
+    }
+
+    fn images(&mut self, loc: Location) -> Option<(Vec<Boundary>, usize)> {
+        if self.spine.is_empty() {
+            return None;
+        }
+
+        let offset = self.resolve_location(loc)?;
+        let (index, start_offset) = self.vertebra_coordinates(offset)?;
+        let page_index = self.page_index(offset, index, start_offset)?;
+
+        self.cache.get(&index).map(|display_list| {
+            (display_list[page_index].iter().filter_map(|dc| {
+                match dc {
+                    DrawCommand::Image(ImageCommand { rect, .. }) => Some((*rect).into()),
                     _ => None,
                 }
             }).collect(), offset)

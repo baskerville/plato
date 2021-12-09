@@ -227,6 +227,11 @@ impl Document for PdfDocument {
         self.page(index).and_then(|page| page.lines()).map(|lines| (lines, index))
     }
 
+    fn images(&mut self, loc: Location) -> Option<(Vec<Boundary>, usize)> {
+        let index = self.resolve_location(loc)?;
+        self.page(index).and_then(|page| page.images()).map(|images| (images, index))
+    }
+
     fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {
         let index = self.resolve_location(loc)?;
         self.page(index).and_then(|page| page.links()).map(|links| (links, index))
@@ -274,6 +279,32 @@ impl Document for PdfDocument {
 }
 
 impl<'a> PdfPage<'a> {
+    pub fn images(&self) -> Option<Vec<Boundary>> {
+        unsafe {
+            let mut images: Vec<Boundary> = Vec::new();
+            let opts = FzTextOptions { flags: FZ_TEXT_PRESERVE_IMAGES };
+            let tp = mp_new_stext_page_from_page(self.ctx.0, self.page, &opts);
+            if tp.is_null() {
+                return None;
+            }
+
+            let mut block = (*tp).first_block;
+
+            while !block.is_null() {
+                if (*block).kind == FZ_PAGE_BLOCK_IMAGE {
+                    let bnd: Boundary = (*block).bbox.into();
+                    images.retain(|img| !img.overlaps(&bnd));
+                    images.push(bnd);
+                }
+
+                block = (*block).next;
+            }
+
+            fz_drop_stext_page(self.ctx.0, tp);
+            Some(images)
+        }
+    }
+
     pub fn lines(&self) -> Option<Vec<BoundedText>> {
         unsafe {
             let mut lines = Vec::new();

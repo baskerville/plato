@@ -100,6 +100,7 @@ pub trait Document: Send+Sync {
     fn words(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)>;
     fn lines(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)>;
     fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)>;
+    fn images(&mut self, loc: Location) -> Option<(Vec<Boundary>, usize)>;
 
     fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, usize)>;
     fn layout(&mut self, width: u32, height: u32, font_size: f32, dpi: u16);

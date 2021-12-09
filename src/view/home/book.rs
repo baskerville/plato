@@ -137,6 +137,10 @@ impl View for Book {
                     let pt = pt!(self.rect.min.x + padding + dx,
                                  self.rect.min.y + x_height / 2 + dy);
                     fb.draw_pixmap(&pixmap, pt);
+                    if fb.inverted() {
+                        let rect = pixmap.rect() + pt;
+                        fb.invert_region(&rect);
+                    }
                 }
             }
 

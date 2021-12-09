@@ -126,7 +126,7 @@ pub struct FzStorable {
 
 #[repr(C)]
 pub struct FzTextOptions {
-    flags: libc::c_int,
+    pub flags: libc::c_int,
 }
 
 #[repr(C)]

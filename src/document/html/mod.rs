@@ -15,7 +15,7 @@ use crate::framebuffer::Pixmap;
 use crate::helpers::{Normalize, decode_entities};
 use crate::document::{Document, Location, TextLocation, TocEntry, BoundedText};
 use crate::unit::pt_to_px;
-use crate::geom::{Rectangle, Edge, CycleDir};
+use crate::geom::{Boundary, Edge, CycleDir};
 use self::dom::{XmlTree, NodeRef};
 use self::layout::{RootData, StyleData, DrawState, LoopContext};
 use self::layout::{DrawCommand, TextCommand, ImageCommand, TextAlign};
@@ -157,18 +157,6 @@ impl HtmlDocument {
         for child in node.children() {
             self.cache_uris(child, name, cache);
         }
-    }
-
-    fn images(&mut self, loc: Location) -> Option<(Vec<Rectangle>, usize)> {
-        let offset = self.resolve_location(loc)?;
-        let page_index = self.page_index(offset)?;
-
-        Some((self.pages[page_index].iter().filter_map(|dc| {
-            match dc {
-                DrawCommand::Image(ImageCommand { rect, .. }) => Some(*rect),
-                _ => None,
-            }
-        }).collect(), offset))
     }
 
     fn build_pages(&mut self) -> Vec<Page> {
@@ -351,6 +339,18 @@ impl Document for HtmlDocument {
 
     fn lines(&mut self, _loc: Location) -> Option<(Vec<BoundedText>, usize)> {
         None
+    }
+
+    fn images(&mut self, loc: Location) -> Option<(Vec<Boundary>, usize)> {
+        let offset = self.resolve_location(loc)?;
+        let page_index = self.page_index(offset)?;
+
+        Some((self.pages[page_index].iter().filter_map(|dc| {
+            match dc {
+                DrawCommand::Image(ImageCommand { rect, .. }) => Some((*rect).into()),
+                _ => None,
+            }
+        }).collect(), offset))
     }
 
     fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)> {

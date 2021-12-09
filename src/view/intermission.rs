@@ -123,6 +123,10 @@ impl View for Intermission {
                         let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
                         let pt = self.rect.min + pt!(dx, dy);
                         fb.draw_pixmap(&pixmap, pt);
+                        if fb.inverted() {
+                            let rect = pixmap.rect() + pt;
+                            fb.invert_region(&rect);
+                        }
                     }
                 }
             },

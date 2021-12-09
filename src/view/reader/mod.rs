@@ -70,6 +70,7 @@ pub struct Reader {
     chunks: Vec<RenderChunk>,                        // Chunks of pages being rendered.
     text: FxHashMap<usize, Vec<BoundedText>>,        // Text of the current chunks.
     annotations: FxHashMap<usize, Vec<Annotation>>,  // Annotations for the current chunks.
+    noninverted_regions: FxHashMap<usize, Vec<Boundary>>,
     focus: Option<ViewId>,
     search: Option<Search>,
     search_direction: LinearDir,
@@ -337,9 +338,10 @@ impl Reader {
                 children: Vec::new(),
                 doc: Arc::new(Mutex::new(doc)),
                 cache: BTreeMap::new(),
+                chunks: Vec::new(),
                 text: FxHashMap::default(),
                 annotations: FxHashMap::default(),
-                chunks: Vec::new(),
+                noninverted_regions: FxHashMap::default(),
                 focus: None,
                 search: None,
                 search_direction: LinearDir::Forward,
@@ -401,9 +403,10 @@ impl Reader {
             children: Vec::new(),
             doc: Arc::new(Mutex::new(Box::new(doc))),
             cache: BTreeMap::new(),
+            chunks: Vec::new(),
             text: FxHashMap::default(),
             annotations: FxHashMap::default(),
-            chunks: Vec::new(),
+            noninverted_regions: FxHashMap::default(),
             focus: None,
             search: None,
             search_direction: LinearDir::Forward,
@@ -914,6 +917,18 @@ impl Reader {
     }
 
     #[inline]
+    fn update_noninverted_regions(&mut self, inverted: bool) {
+        self.noninverted_regions.clear();
+        if inverted {
+            for chunk in &self.chunks {
+                if let Some((images, _)) = self.doc.lock().unwrap().images(Location::Exact(chunk.location)) {
+                    self.noninverted_regions.insert(chunk.location, images);
+                }
+            }
+        }
+    }
+
+    #[inline]
     fn update_annotations(&mut self) {
         self.annotations.clear();
         if let Some(annotations) = self.info.reader.as_ref().map(|r| &r.annotations).filter(|a| !a.is_empty()) {
@@ -1033,6 +1048,7 @@ impl Reader {
         }
 
         self.update_annotations();
+        self.update_noninverted_regions(context.fb.inverted());
 
         if self.view_port.zoom_mode == ZoomMode::FitToPage ||
            self.view_port.zoom_mode == ZoomMode::FitToWidth {
@@ -3668,6 +3684,10 @@ impl View for Reader {
                 }
                 true
             },
+            Event::Select(EntryId::ToggleInverted) => {
+                self.update_noninverted_regions(!context.fb.inverted());
+                false
+            },
             Event::Reseed => {
                 self.reseed(rq, context);
                 true
@@ -3724,6 +3744,15 @@ impl View for Reader {
                 let chunk_frame = region_rect - chunk.position + chunk.frame.min;
                 let chunk_position = region_rect.min;
                 fb.draw_framed_pixmap_contrast(pixmap, &chunk_frame, chunk_position, self.contrast.exponent, self.contrast.gray);
+
+                if let Some(rects) = self.noninverted_regions.get(&chunk.location) {
+                    for r in rects {
+                        let rect = (*r * scale).to_rect() - chunk.frame.min + chunk.position;
+                        if let Some(ref image_rect) = rect.intersection(&region_rect) {
+                            fb.invert_region(image_rect);
+                        }
+                    }
+                }
 
                 if let Some(groups) = self.search.as_ref().and_then(|s| s.highlights.get(&chunk.location)) {
                     for rects in groups {
