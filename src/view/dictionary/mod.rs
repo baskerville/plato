@@ -444,7 +444,8 @@ impl View for Dictionary {
             },
             Event::Gesture(GestureEvent::HoldFingerLong(pt, _)) => {
                 if let Some(text) = self.underlying_word(pt) {
-                    self.define(Some(&text), rq, context);
+                    let query = text.trim_matches(|c: char| !c.is_alphanumeric()).to_string();
+                    self.define(Some(&query), rq, context);
                 }
                 true
             },
