@@ -586,6 +586,7 @@ pub enum SortMethod {
     Title,
     Year,
     Author,
+    Series,
     Pages,
     Size,
     Kind,
@@ -597,8 +598,8 @@ impl SortMethod {
     pub fn reverse_order(self) -> bool {
         !matches!(self,
                   SortMethod::Author | SortMethod::Title |
-                  SortMethod::Kind | SortMethod::FileName |
-                  SortMethod::FilePath)
+                  SortMethod::Series | SortMethod::Kind |
+                  SortMethod::FileName | SortMethod::FilePath)
     }
 
     pub fn is_status_related(self) -> bool {
@@ -616,6 +617,7 @@ impl SortMethod {
             SortMethod::Author => "Author",
             SortMethod::Title => "Title",
             SortMethod::Year => "Year",
+            SortMethod::Series => "Series",
             SortMethod::Size => "File Size",
             SortMethod::Kind => "File Type",
             SortMethod::Pages => "Pages Count",
@@ -649,6 +651,7 @@ pub fn sorter(sort_method: SortMethod) -> fn(&Info, &Info) -> Ordering {
         SortMethod::Author => sort_author,
         SortMethod::Title => sort_title,
         SortMethod::Year => sort_year,
+        SortMethod::Series => sort_series,
         SortMethod::Size => sort_size,
         SortMethod::Kind => sort_kind,
         SortMethod::Pages => sort_pages,
@@ -720,6 +723,14 @@ pub fn sort_kind(i1: &Info, i2: &Info) -> Ordering {
 
 pub fn sort_year(i1: &Info, i2: &Info) -> Ordering {
     i1.year.cmp(&i2.year)
+}
+
+pub fn sort_series(i1: &Info, i2: &Info) -> Ordering {
+    i1.series.cmp(&i2.series).then_with(|| {
+        usize::from_str_radix(&i1.number, 10).ok()
+              .zip(usize::from_str_radix(&i2.number, 10).ok())
+              .map_or_else(|| i1.number.cmp(&i2.number), |(a, b)| a.cmp(&b))
+    })
 }
 
 pub fn sort_filename(i1: &Info, i2: &Info) -> Ordering {
