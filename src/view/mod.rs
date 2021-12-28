@@ -219,10 +219,10 @@ pub fn render(view: &dyn View, wait: bool, ids: &FxHashMap<Id, Vec<Rectangle>>, 
             rects.push(rect);
         } else {
             if let Some(last) = rects.last_mut() {
-                if rect.touches(last) {
+                if rect.extends(last) {
                     last.absorb(&rect);
                     let mut i = rects.len();
-                    while i > 1 && rects[i-1].touches(&rects[i-2]) {
+                    while i > 1 && rects[i-1].extends(&rects[i-2]) {
                         if let Some(rect) = rects.pop() {
                             if let Some(last) = rects.last_mut() {
                                 last.absorb(&rect);

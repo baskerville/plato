@@ -597,6 +597,27 @@ impl Rectangle {
         self.min.y < rect.max.y && rect.min.y < self.max.y
     }
 
+    pub fn extends(&self, rect: &Rectangle) -> bool {
+        let dmin = [self.width(), self.height(),
+                    rect.width(), rect.height()].into_iter().min().unwrap() as i32 / 3;
+
+        // rect is on top of self.
+        if self.min.y >= rect.max.y && self.min.x < rect.max.x && rect.min.x < self.max.x {
+            (self.min.y - rect.max.y) <= dmin
+        // rect is at the right of self.
+        } else if rect.min.x >= self.max.x && self.min.y < rect.max.y && rect.min.y < self.max.y {
+            (rect.min.x - self.max.x) <= dmin
+        // rect is on bottom of self.
+        } else if rect.min.y >= self.max.y && self.min.x < rect.max.x && rect.min.x < self.max.x {
+            (rect.min.y - self.max.y) <= dmin
+        // rect is at the left of self.
+        } else if self.min.x >= rect.max.x && self.min.y < rect.max.y && rect.min.y < self.max.y {
+            (self.min.x - rect.max.x) <= dmin
+        } else {
+            false
+        }
+    }
+
     pub fn touches(&self, rect: &Rectangle) -> bool {
         ((self.min.x == rect.max.x || self.max.x == rect.min.x ||
           self.min.x == rect.min.x || self.max.x == rect.max.x) &&
@@ -1335,6 +1356,22 @@ mod tests {
         assert!(!b.contains(&a));
         assert!(!a.contains(&c));
         assert!(c.contains(&b));
+    }
+
+    #[test]
+    fn extended_rectangles() {
+        let a = rect![30, 30, 60, 60];
+        let b = rect![23, 0, 67, 28];
+        let c = rect![60, 40, 110, 80];
+        let d = rect![26, 62, 55, 96];
+        let e = rect![0, 25, 29, 60];
+        assert!(b.extends(&a));
+        assert!(c.extends(&a));
+        assert!(d.extends(&a));
+        assert!(e.extends(&a));
+        assert!(!b.extends(&d));
+        assert!(!c.extends(&e));
+        assert!(!e.extends(&b));
     }
 
     #[test]
