@@ -315,6 +315,7 @@ pub struct ReaderSettings {
     pub south_east_corner: SouthEastCornerAction,
     pub south_strip: SouthStripAction,
     pub west_strip: WestStripAction,
+    pub east_strip: EastStripAction,
     pub strip_width: f32,
     pub corner_width: f32,
     pub font_path: String,
@@ -369,6 +370,13 @@ pub enum SouthStripAction {
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
+pub enum EastStripAction {
+    PreviousPage,
+    NextPage,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum WestStripAction {
     PreviousPage,
     NextPage,
@@ -410,6 +418,7 @@ impl Default for ReaderSettings {
             south_east_corner: SouthEastCornerAction::GoToPage,
             south_strip: SouthStripAction::ToggleBars,
             west_strip: WestStripAction::PreviousPage,
+            east_strip: EastStripAction::NextPage,
             strip_width: 0.6,
             corner_width: 0.4,
             font_path: DEFAULT_FONT_PATH.to_string(),

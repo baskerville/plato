@@ -39,7 +39,7 @@ use crate::view::search_bar::SearchBar;
 use crate::view::keyboard::Keyboard;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::notification::Notification;
-use crate::settings::{guess_frontlight, FinishedAction, SouthEastCornerAction, SouthStripAction, WestStripAction};
+use crate::settings::{guess_frontlight, FinishedAction, SouthEastCornerAction, SouthStripAction, WestStripAction, EastStripAction};
 use crate::settings::{DEFAULT_FONT_FAMILY, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT, DEFAULT_MARGIN_WIDTH};
 use crate::settings::{HYPHEN_PENALTY, STRETCH_TOLERANCE};
 use crate::frontlight::LightLevels;
@@ -3056,7 +3056,14 @@ impl View for Reader {
                             },
                             Dir::East => {
                                 if self.search.is_none() {
-                                    self.go_to_neighbor(CycleDir::Next, hub, rq, context);
+                                    match context.settings.reader.east_strip {
+                                        EastStripAction::PreviousPage => {
+                                            self.go_to_neighbor(CycleDir::Previous, hub, rq, context);
+                                        }
+                                        EastStripAction::NextPage => {
+                                            self.go_to_neighbor(CycleDir::Next, hub, rq, context);
+                                        }
+                                    }
                                 } else {
                                     self.go_to_results_neighbor(CycleDir::Next, hub, rq, context);
                                 }
