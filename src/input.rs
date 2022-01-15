@@ -363,6 +363,10 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
         TouchProto::MultiC => MULTI_TOUCH_CODES_B,
     };
 
+    if proto == TouchProto::Single {
+        packets.insert(id, TouchState::default());
+    }
+
     let (mut mirror_x, mut mirror_y) = CURRENT_DEVICE.should_mirror_axes(rotation);
     if CURRENT_DEVICE.should_swap_axes(rotation) {
         mem::swap(&mut tc.x, &mut tc.y);
@@ -418,7 +422,7 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                 });
             }
 
-            for (id, state) in packets.drain() {
+            for (&id, state) in &packets {
                 if let Some(&pos) = fingers.get(&id) {
                     if state.pressure > 0 {
                         if state.position != pos {
@@ -448,6 +452,10 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                     }).unwrap();
                     fingers.insert(id, state.position);
                 }
+            }
+
+            if proto != TouchProto::Single {
+                packets.clear();
             }
         } else if evt.kind == EV_KEY {
             if SLEEP_COVER.contains(&evt.code) {
