@@ -50,7 +50,7 @@ impl<'a> XmlParser<'a> {
     fn parse_attributes(&mut self) -> Attributes {
         let mut attrs = FxHashMap::default();
         while !self.eof() {
-            self.advance_while(|&c| c.is_whitespace());
+            self.advance_while(|&c| c.is_xml_whitespace());
             match self.next() {
                 Some('>') | Some('/') | None => break,
                 _ => {
@@ -73,7 +73,7 @@ impl<'a> XmlParser<'a> {
 
     fn parse_element(&mut self, tree: &mut XmlTree, parent_id: NodeId) {
         let offset = self.offset;
-        self.advance_while(|&c| c != '>' && c != '/' && !c.is_whitespace());
+        self.advance_while(|&c| c != '>' && c != '/' && !c.is_xml_whitespace());
         let name = &self.input[offset..self.offset];
         let attributes = self.parse_attributes();
 
@@ -96,7 +96,7 @@ impl<'a> XmlParser<'a> {
     fn parse_nodes(&mut self, tree: &mut XmlTree, parent_id: NodeId) {
         while !self.eof() {
             let offset = self.offset;
-            self.advance_while(|&c| c.is_whitespace());
+            self.advance_while(|&c| c.is_xml_whitespace());
 
             match self.next() {
                 Some('<') => {
@@ -150,6 +150,16 @@ impl<'a> XmlParser<'a> {
         let mut tree = XmlTree::new();
         self.parse_nodes(&mut tree, NodeId::from_index(0));
         tree
+    }
+}
+
+trait XmlExt {
+    fn is_xml_whitespace(&self) -> bool;
+}
+
+impl XmlExt for char {
+    fn is_xml_whitespace(&self) -> bool {
+        matches!(self, ' ' | '\t' | '\n' | '\r')
     }
 }
 
