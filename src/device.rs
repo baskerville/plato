@@ -355,8 +355,8 @@ impl Device {
         match self.model {
             Model::LibraH2O => n ^ 1,
             Model::Libra2 |
-            Model::Sage |
-            Model::Elipsa => (6 - n) % 4,
+            Model::Sage => (6 - n) % 4,
+            Model::Elipsa => (4 - n) % 4,
             _ => n,
         }
     }
