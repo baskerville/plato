@@ -224,8 +224,12 @@ impl Framebuffer for WindowCanvas {
         false
     }
 
-    fn dims(&self) -> (u32, u32) {
-        self.window().size()
+    fn width(&self) -> u32 {
+        self.window().size().0
+    }
+
+    fn height(&self) -> u32 {
+        self.window().size().1
     }
 }
 
