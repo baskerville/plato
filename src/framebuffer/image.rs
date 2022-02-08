@@ -127,7 +127,11 @@ impl Framebuffer for Pixmap {
         false
     }
 
-    fn dims(&self) -> (u32, u32) {
-        (self.width, self.height)
+    fn width(&self) -> u32 {
+        self.width
+    }
+    
+    fn height(&self) -> u32 {
+        self.height
     }
 }

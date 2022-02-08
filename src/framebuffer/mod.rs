@@ -46,6 +46,8 @@ pub trait Framebuffer {
     fn monochrome(&self) -> bool;
     fn dithered(&self) -> bool;
     fn inverted(&self) -> bool;
+    fn width(&self) -> u32;
+    fn height(&self) -> u32;
 
     fn toggle_inverted(&mut self) {
         self.set_inverted(!self.inverted());
@@ -61,16 +63,6 @@ pub trait Framebuffer {
 
     fn rotation(&self) -> i8 {
         0
-    }
-
-    fn width(&self) -> u32 {
-        let (width, _) = self.dims();
-        width
-    }
-
-    fn height(&self) -> u32 {
-        let (_, height) = self.dims();
-        height
     }
 
     fn dims(&self) -> (u32, u32) {
