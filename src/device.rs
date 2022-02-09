@@ -164,7 +164,7 @@ impl Device {
             },
             "luna" => Device {
                 model: Model::Nia,
-                proto: TouchProto::MultiB,
+                proto: TouchProto::MultiA,
                 dims: (758, 1024),
                 dpi: 212,
             },
