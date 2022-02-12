@@ -3049,6 +3049,7 @@ impl View for Reader {
                                         WestStripAction::NextPage => {
                                             self.go_to_neighbor(CycleDir::Next, hub, rq, context);
                                         }
+                                        WestStripAction::None => (),
                                     }
                                 } else {
                                     self.go_to_results_neighbor(CycleDir::Previous, hub, rq, context);
@@ -3063,6 +3064,7 @@ impl View for Reader {
                                         EastStripAction::NextPage => {
                                             self.go_to_neighbor(CycleDir::Next, hub, rq, context);
                                         }
+                                        EastStripAction::None => (),
                                     }
                                 } else {
                                     self.go_to_results_neighbor(CycleDir::Next, hub, rq, context);

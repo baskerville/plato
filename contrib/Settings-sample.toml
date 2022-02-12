@@ -87,10 +87,10 @@ south-east-corner = "go-to-page"
 # Possible values: "toggle-bars", "next-page".
 south-strip = "toggle-bars"
 # The action triggered when tapping the west strip.
-# Possible values: "previous-page", "next-page".
+# Possible values: "previous-page", "next-page", "none".
 west-strip = "previous-page"
 # The action triggered when tapping the east strip.
-# Possible values: "previous-page", "next-page".
+# Possible values: "previous-page", "next-page", "none".
 east-strip = "next-page"
 # The width ratio, relative to `min(W, H) / 2`, of the strip and corner touch regions.
 # Launch the *Touch Events* application to display the current touch regions.

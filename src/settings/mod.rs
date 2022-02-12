@@ -373,6 +373,7 @@ pub enum SouthStripAction {
 pub enum EastStripAction {
     PreviousPage,
     NextPage,
+    None,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
@@ -380,6 +381,7 @@ pub enum EastStripAction {
 pub enum WestStripAction {
     PreviousPage,
     NextPage,
+    None,
 }
 
 impl Default for RefreshRateSettings {
