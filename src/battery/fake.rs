@@ -13,11 +13,11 @@ impl FakeBattery {
 }
 
 impl Battery for FakeBattery {
-    fn capacity(&mut self) -> Result<f32, Error> {
-        Ok(self.capacity)
+    fn capacity(&mut self) -> Result<Vec<f32>, Error> {
+        Ok(vec![self.capacity])
     }
 
-    fn status(&mut self) -> Result<Status, Error> {
-        Ok(self.status)
+    fn status(&mut self) -> Result<Vec<Status>, Error> {
+        Ok(vec![self.status])
     }
 }

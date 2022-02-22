@@ -671,7 +671,7 @@ pub fn run() -> Result<(), Error> {
                                            task.id == TaskId::Suspend) {
                     continue;
                 }
-                if let Ok(v) = context.battery.capacity() {
+                if let Ok(v) = context.battery.capacity().map(|v| v[0]) {
                     if v < context.settings.battery.power_off {
                         power_off(view.as_mut(), &mut history, &mut updating, &mut context);
                         exit_status = ExitStatus::PowerOff;

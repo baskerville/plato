@@ -156,13 +156,21 @@ pub fn toggle_battery_menu(view: &mut dyn View, rect: Rectangle, enable: Option<
         if let Some(false) = enable {
             return;
         }
-        let text = match (context.battery.status(), context.battery.capacity()) {
-            (Ok(status), Ok(capacity)) => format!("{:?} {}%", status, capacity),
-            (Ok(status), Err(..)) => format!("{:?}", status),
-            (Err(..), Ok(capacity)) => format!("{} %", capacity),
-            _ => "Unknown".to_string(),
-        };
-        let entries = vec![EntryKind::Message(text)];
+
+        let mut entries = Vec::new();
+
+        match context.battery.status().ok().zip(context.battery.capacity().ok()) {
+            Some((status, capacity)) => {
+                for (i, (s, c)) in status.iter().zip(capacity.iter()).enumerate() {
+                    entries.push(EntryKind::Message(format!("{:?} {}%", s, c),
+                                                    if i > 0 { Some("cover".to_string()) } else { None }));
+                }
+            },
+            _ => {
+                entries.push(EntryKind::Message("Information Unavailable".to_string(), None));
+            },
+        }
+
         let battery_menu = Menu::new(rect, ViewId::BatteryMenu, MenuKind::DropDown, entries, context);
         rq.add(RenderData::new(battery_menu.id(), *battery_menu.rect(), UpdateMode::Gui));
         view.children_mut().push(Box::new(battery_menu) as Box<dyn View>);
@@ -181,7 +189,7 @@ pub fn toggle_clock_menu(view: &mut dyn View, rect: Rectangle, enable: Option<bo
             return;
         }
         let text = Local::now().format(&context.settings.date_format).to_string();
-        let entries = vec![EntryKind::Message(text)];
+        let entries = vec![EntryKind::Message(text, None)];
         let clock_menu = Menu::new(rect, ViewId::ClockMenu, MenuKind::DropDown, entries, context);
         rq.add(RenderData::new(clock_menu.id(), *clock_menu.rect(), UpdateMode::Gui));
         view.children_mut().push(Box::new(clock_menu) as Box<dyn View>);

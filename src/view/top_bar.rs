@@ -43,8 +43,8 @@ impl TopBar {
         children.push(Box::new(title_label) as Box<dyn View>);
         children.push(Box::new(clock_label) as Box<dyn View>);
 
-        let capacity = context.battery.capacity().unwrap_or(0.0);
-        let status = context.battery.status().unwrap_or(crate::battery::Status::Discharging);
+        let capacity = context.battery.capacity().map_or(0.0, |v| v[0]);
+        let status = context.battery.status().map_or(crate::battery::Status::Discharging, |v| v[0]);
         let battery_widget = Battery::new(rect![rect.max - pt!(3*side, side),
                                                 rect.max - pt!(2*side, 0)],
                                           capacity,

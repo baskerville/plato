@@ -36,8 +36,8 @@ impl Battery {
     }
 
     pub fn update(&mut self, rq: &mut RenderQueue, context: &mut Context) {
-        self.capacity = context.battery.capacity().unwrap_or(self.capacity);
-        self.status = context.battery.status().unwrap_or(self.status);
+        self.capacity = context.battery.capacity().map_or(self.capacity, |v| v[0]);
+        self.status = context.battery.status().map_or(self.status, |v| v[0]);
         rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
     }
 }

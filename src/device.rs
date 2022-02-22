@@ -232,6 +232,10 @@ impl Device {
                  Model::Sage | Model::Libra2)
     }
 
+    pub fn has_power_cover(&self) -> bool {
+        matches!(self.model, Model::Sage)
+    }
+
     pub fn has_removable_storage(&self) -> bool {
         matches!(self.model,
                  Model::AuraH2O | Model::Aura | Model::AuraHD |

@@ -86,7 +86,7 @@ impl View for MenuEntry {
                     EntryKind::SubMenu(_, ref entries) | EntryKind::More(ref entries) => {
                         bus.push_back(Event::SubMenu(self.anchor, entries.clone()));
                     },
-                    EntryKind::Message(_) => {
+                    EntryKind::Message(..) => {
                         bus.push_back(Event::Validate);
                     },
                     _ => (),
@@ -145,6 +145,7 @@ impl View for MenuEntry {
         let (icon_name, x_offset) = match self.kind {
             EntryKind::CheckBox(_, _, value) if value => ("check_mark", 0),
             EntryKind::RadioButton(_, _, value) if value => ("bullet", 0),
+            EntryKind::Message(_, Some(ref name)) => (name.as_str(), 0),
             EntryKind::SubMenu(..) |
             EntryKind::More(..) => ("angle-right-small",
                                     self.rect.width() as i32 - padding / 2),

@@ -11,11 +11,11 @@ pub enum Status {
     Discharging,
     Charging,
     Charged,
+    Unknown
     // Full,
-    // Unknown
 }
 
 pub trait Battery {
-    fn capacity(&mut self) -> Result<f32, Error>;
-    fn status(&mut self) -> Result<Status, Error>;
+    fn capacity(&mut self) -> Result<Vec<f32>, Error>;
+    fn status(&mut self) -> Result<Vec<Status>, Error>;
 }
