@@ -222,8 +222,8 @@ impl Default for Pen {
             size: 2,
             color: BLACK,
             dynamic: true,
-            min_speed: mm_to_px(3.0, CURRENT_DEVICE.dpi),
-            max_speed: mm_to_px(152.4, CURRENT_DEVICE.dpi),
+            min_speed: 0.0,
+            max_speed: mm_to_px(254.0, CURRENT_DEVICE.dpi),
         }
     }
 }
