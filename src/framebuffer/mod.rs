@@ -386,8 +386,8 @@ pub trait Framebuffer {
 
     fn draw_segment(&mut self, start: Point, end: Point, start_radius: f32, end_radius: f32, color: u8) {
         let rect = Rectangle::from_segment(start, end, start_radius.ceil() as i32, end_radius.ceil() as i32);
-        let a = vec2!(start.x as f32, start.y as f32);
-        let b = vec2!(end.x as f32, end.y as f32);
+        let a = vec2!(start.x as f32, start.y as f32) + 0.5;
+        let b = vec2!(end.x as f32, end.y as f32) + 0.5;
 
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
