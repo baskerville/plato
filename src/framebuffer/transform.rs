@@ -19,6 +19,18 @@ lazy_static! {
             }
         }).collect()
     };
+
+    // Tileable blue noise matrix.
+    pub static ref DITHER_G2_DRIFTS: Vec<i8> = {
+        let pixmap = Pixmap::from_png("resources/blue_noise-128.png").unwrap();
+        // Map {0 .. 255} to {-128 .. 127}.
+        pixmap.data().iter().map(|&v| {
+            match v {
+                  0..=127 => -128 + (v as i8),
+                128..=255 => (v - 128) as i8,
+            }
+        }).collect()
+    };
 }
 
 // Ordered dithering.
@@ -37,6 +49,22 @@ pub fn transform_dither_g16(x: u32, y: u32, color: u8) -> u8 {
         (c - d) as u8
     } else {
         (c + (17 - d)) as u8
+    }
+}
+
+// Ordered dithering.
+// The input color is in {0 .. 255}.
+// The output color is in {0, 255}.
+pub fn transform_dither_g2(x: u32, y: u32, color: u8) -> u8 {
+    // Get the address of the drift value.
+    let addr = (x % DITHER_PITCH) + (y % DITHER_PITCH) * DITHER_PITCH;
+    // Apply the drift to the input color.
+    let c = (color as i16 + DITHER_G2_DRIFTS[addr as usize] as i16).clamp(0, 255);
+    // Return the nearest color in G2.
+    if c < 128 {
+        0
+    } else {
+        255
     }
 }
 

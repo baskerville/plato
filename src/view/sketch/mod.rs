@@ -1,6 +1,5 @@
 use std::fs::{self, File};
 use std::path::PathBuf;
-use rand_core::RngCore;
 use fxhash::FxHashMap;
 use chrono::Local;
 use walkdir::WalkDir;
@@ -46,7 +45,6 @@ pub struct Sketch {
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     pixmap: Pixmap,
-    random: Pixmap,
     fingers: FxHashMap<i32, TouchState>,
     pen: Pen,
     save_path: PathBuf,
@@ -73,8 +71,6 @@ impl Sketch {
                              Event::ToggleNear(ViewId::TitleMenu, icon_rect))
                         .corners(Some(CornerSpec::Uniform(border_radius)));
         children.push(Box::new(icon) as Box<dyn View>);
-        let mut random = Pixmap::new(rect.width(), rect.height());
-        context.rng.fill_bytes(random.data_mut());
         let save_path = context.library.home.join(&context.settings.sketch.save_path);
         rq.add(RenderData::new(id, rect, UpdateMode::Full));
         Sketch {
@@ -82,7 +78,6 @@ impl Sketch {
             rect,
             children,
             pixmap: Pixmap::new(rect.width(), rect.height()),
-            random,
             fingers: FxHashMap::default(),
             pen: context.settings.sketch.pen.clone(),
             save_path,
@@ -311,7 +306,7 @@ impl View for Sketch {
     }
 
     fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, _fonts: &mut Fonts) {
-        fb.draw_framed_pixmap_halftone(&self.pixmap, &self.random, &rect, rect.min);
+        fb.draw_framed_pixmap_halftone(&self.pixmap, &rect, rect.min);
     }
 
     fn render_rect(&self, rect: &Rectangle) -> Rectangle {

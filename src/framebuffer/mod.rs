@@ -164,7 +164,7 @@ pub trait Framebuffer {
         }
     }
 
-    fn draw_framed_pixmap_halftone(&mut self, pixmap: &Pixmap, random: &Pixmap, rect: &Rectangle, pt: Point) {
+    fn draw_framed_pixmap_halftone(&mut self, pixmap: &Pixmap, rect: &Rectangle, pt: Point) {
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
                 let px = x - rect.min.x + pt.x;
@@ -176,10 +176,8 @@ pub trait Framebuffer {
                 } else if source_color == WHITE {
                     WHITE
                 } else {
-                    let rnd_color = random.data[addr];
-                    255 * (rnd_color < source_color) as u8
+                    transform::transform_dither_g2(x as u32, y as u32, source_color)
                 };
-                // let color = 255 * (pixmap.data[addr] / 255);
                 self.set_pixel(px as u32, py as u32, color);
             }
         }
