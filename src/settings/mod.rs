@@ -210,8 +210,9 @@ pub struct CalculatorSettings {
 #[serde(default, rename_all = "kebab-case")]
 pub struct Pen {
     pub size: i32,
-    pub dynamic: bool,
     pub color: u8,
+    pub dynamic: bool,
+    pub amplitude: f32,
     pub min_speed: f32,
     pub max_speed: f32,
 }
@@ -222,6 +223,7 @@ impl Default for Pen {
             size: 2,
             color: BLACK,
             dynamic: true,
+            amplitude: 4.0,
             min_speed: 0.0,
             max_speed: mm_to_px(254.0, CURRENT_DEVICE.dpi),
         }
