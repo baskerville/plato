@@ -13,6 +13,7 @@ Any 4.*X*.*Y* firmware, with *X* ≥ 6, will do.
 - *Libra 2*.
 - *Sage*.
 - *Elipsa*.
+- *Nia*.
 - *Libra H₂O*.
 - *Forma*.
 - *Clara HD*.
