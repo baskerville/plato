@@ -157,14 +157,16 @@ notify-success = true
 [sketch.pen]
 # The diameter of the pen tip, in pixels.
 size = 2
-# Vary the diameter according to the pen's velocity.
-dynamic = true
 # The current pen color.
 # Possible values: 0 … 255.
 color = 0
+# Vary the diameter according to the pen's velocity.
+dynamic = true
+# The amplitude of the diameter variation when `dynamic` is set.
+amplitude = 4.0
 # The pen speeds, in pixels per seconds, that clamps the pen's speed.
-# min-speed = 36
-# max-speed = 1800
+# min-speed = 0.0
+# max-speed = 3000.0
 
 [calculator]
 # The default font size and margin width, for the Calculator application.
