@@ -196,8 +196,8 @@ impl Document for PdfDocument {
         }
     }
 
-    fn chapter<'a>(&mut self, offset: usize, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
-        chapter(offset, toc)
+    fn chapter<'a>(&mut self, offset: usize, toc: &'a [TocEntry]) -> Option<(&'a TocEntry, f32)> {
+        chapter(offset, self.pages_count(), toc)
     }
 
     fn chapter_relative<'a>(&mut self, offset: usize, dir: CycleDir, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {

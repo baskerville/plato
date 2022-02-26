@@ -460,7 +460,8 @@ impl EpubDocument {
         result
     }
 
-    fn chapter_aux<'a>(&mut self, toc: &'a [TocEntry], offset: usize, next_offset: usize, path: &str, chap_before: &mut Option<&'a TocEntry>, offset_before: &mut usize, chap_after: &mut Option<&'a TocEntry>, offset_after: &mut usize) {
+    fn chapter_aux<'a>(&mut self, toc: &'a [TocEntry], offset: usize, next_offset: usize, path: &str, end_offset: &mut usize,
+                       chap_before: &mut Option<&'a TocEntry>, offset_before: &mut usize, chap_after: &mut Option<&'a TocEntry>, offset_after: &mut usize) {
         for entry in toc {
             if let Location::Uri(ref uri) = entry.location {
                 if uri.starts_with(path) {
@@ -473,10 +474,13 @@ impl EpubDocument {
                             *chap_after = Some(entry);
                             *offset_after = entry_offset;
                         }
+                        if entry_offset >= next_offset && entry_offset < *end_offset {
+                            *end_offset = entry_offset;
+                        }
                     }
                 }
             }
-            self.chapter_aux(&entry.children, offset, next_offset, path,
+            self.chapter_aux(&entry.children, offset, next_offset, path, end_offset,
                              chap_before, offset_before, chap_after, offset_after);
         }
     }
@@ -676,35 +680,49 @@ impl Document for EpubDocument {
         }
     }
 
-    fn chapter<'a>(&mut self, offset: usize, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
+    fn chapter<'a>(&mut self, offset: usize, toc: &'a [TocEntry]) -> Option<(&'a TocEntry, f32)> {
         let next_offset = self.resolve_location(Location::Next(offset))
                               .unwrap_or(usize::MAX);
-        let (index, _) = self.vertebra_coordinates(offset)?;
+        let (index, start_offset) = self.vertebra_coordinates(offset)?;
         let path = self.spine[index].path.clone();
+        let mut end_offset = start_offset + self.spine[index].size;
         let mut chap_before = None;
         let mut chap_after = None;
         let mut offset_before = 0;
         let mut offset_after = usize::MAX;
-        self.chapter_aux(toc, offset, next_offset, &path,
+
+        self.chapter_aux(toc, offset, next_offset, &path, &mut end_offset,
                          &mut chap_before, &mut offset_before,
                          &mut chap_after, &mut offset_after);
+
         if chap_after.is_none() && chap_before.is_none() {
             for i in (0..index).rev() {
                 let chap = chapter_from_uri(&self.spine[i].path, toc);
                 if chap.is_some() {
-                    return chap;
+                    end_offset = if let Some(j) = (index+1..self.spine.len()).find(|&j| chapter_from_uri(&self.spine[j].path, toc).is_some()) {
+                        self.offset(j)
+                    } else {
+                        self.size()
+                    };
+                    let chap_offset = self.offset(i);
+                    let progress = (offset - chap_offset) as f32 / (end_offset - chap_offset) as f32;
+                    return chap.zip(Some(progress));
                 }
             }
             None
         } else {
-            chap_after.or(chap_before)
+            match (chap_after, chap_before) {
+                (Some(..), _) => chap_after.zip(Some(0.0)),
+                (None, Some(..)) => chap_before.zip(Some((offset - offset_before) as f32 / (end_offset - offset_before) as f32)),
+                _ => None,
+            }
         }
     }
 
     fn chapter_relative<'a>(&mut self, offset: usize, dir: CycleDir, toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
         let next_offset = self.resolve_location(Location::Next(offset))
                               .unwrap_or(usize::MAX);
-        let chap = self.chapter(offset, toc);
+        let chap = self.chapter(offset, toc).map(|(c, _)| c);
 
         match dir {
             CycleDir::Previous => self.previous_chapter(chap, offset, next_offset, toc),

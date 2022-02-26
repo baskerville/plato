@@ -1,9 +1,9 @@
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, Align, ViewId};
+use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use crate::view::icon::Icon;
 use crate::view::filler::Filler;
-use crate::view::label::Label;
 use crate::view::page_label::PageLabel;
+use super::chapter_label::ChapterLabel;
 use crate::gesture::GestureEvent;
 use crate::input::DeviceEvent;
 use crate::geom::{Rectangle, CycleDir, halves};
@@ -47,14 +47,16 @@ impl BottomBar {
         let chapter_rect = rect![pt!(rect.min.x + side, rect.min.y),
                                  pt!(rect.min.x + side + small_half_width, rect.max.y)];
 
-        let chapter = toc.or_else(|| doc.toc()).as_ref()
-                         .and_then(|toc| doc.chapter(current_page, toc))
-                         .map(|c| c.title.clone())
-                         .unwrap_or_default();
-        let chapter_label = Label::new(chapter_rect,
-                                       chapter,
-                                       Align::Center)
-                                  .event(Some(Event::Show(ViewId::TableOfContents)));
+        let rtoc = toc.or_else(|| doc.toc());
+        let chapter = rtoc.as_ref()
+                          .and_then(|toc| doc.chapter(current_page, toc));
+        let title = chapter.map(|(c, _)| c.title.clone())
+                           .unwrap_or_default();
+        let progress = chapter.map(|(_, p)| p)
+                              .unwrap_or_default();
+        let chapter_label = ChapterLabel::new(chapter_rect,
+                                              title,
+                                              progress);
         children.push(Box::new(chapter_label) as Box<dyn View>);
 
         let page_label = PageLabel::new(rect![pt!(rect.max.x - side - big_half_width, rect.min.y),
@@ -83,6 +85,11 @@ impl BottomBar {
             is_prev_disabled,
             is_next_disabled,
         }
+    }
+
+    pub fn update_chapter_label(&mut self, title: String, progress: f32, rq: &mut RenderQueue) {
+        let chapter_label = self.child_mut(1).downcast_mut::<ChapterLabel>().unwrap();
+        chapter_label.update(title, progress, rq);
     }
 
     pub fn update_page_label(&mut self, current_page: usize, pages_count: usize, rq: &mut RenderQueue) {
@@ -126,11 +133,6 @@ impl BottomBar {
             self.is_next_disabled = is_next_disabled;
             rq.add(RenderData::new(self.id, next_rect, UpdateMode::Gui));
         }
-    }
-
-    pub fn update_chapter(&mut self, text: &str, rq: &mut RenderQueue) {
-        let chapter_label = self.child_mut(1).downcast_mut::<Label>().unwrap();
-        chapter_label.update(text, rq);
     }
 }
 

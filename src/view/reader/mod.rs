@@ -2,6 +2,7 @@ mod tool_bar;
 mod bottom_bar;
 mod results_bar;
 mod margin_cropper;
+mod chapter_label;
 mod results_label;
 
 use std::thread;
@@ -506,7 +507,7 @@ impl Reader {
                                    .or_else(|| doc.toc()) {
                 let chap_offset = if dir == CycleDir::Previous {
                    doc.chapter(current_page, &toc)
-                      .and_then(|chap| doc.resolve_location(chap.location.clone()))
+                      .and_then(|(chap, _)| doc.resolve_location(chap.location.clone()))
                       .and_then(|chap_offset| if chap_offset < current_page { Some(chap_offset) } else { None })
                 } else {
                     None
@@ -852,18 +853,20 @@ impl Reader {
         if let Some(index) = locate::<BottomBar>(self) {
             let current_page = self.current_page;
             let mut doc = self.doc.lock().unwrap();
-            let chapter = self.toc().or_else(|| doc.toc())
-                              .as_ref().and_then(|toc| doc.chapter(current_page, toc))
-                              .map(|c| c.title.clone())
-                              .unwrap_or_default();
+            let rtoc = self.toc().or_else(|| doc.toc());
+            let chapter = rtoc.as_ref().and_then(|toc| doc.chapter(current_page, toc));
+            let title = chapter.map(|(c, _)| c.title.clone())
+                               .unwrap_or_default();
+            let progress = chapter.map(|(_, p)| p)
+                                  .unwrap_or_default();
             let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
             let neighbors = Neighbors {
                 previous_page: doc.resolve_location(Location::Previous(current_page)),
                 next_page: doc.resolve_location(Location::Next(current_page)),
             };
+            bottom_bar.update_chapter_label(title, progress, rq);
             bottom_bar.update_page_label(self.current_page, self.pages_count, rq);
             bottom_bar.update_icons(&neighbors, rq);
-            bottom_bar.update_chapter(&chapter, rq);
         }
     }
 
@@ -3417,7 +3420,8 @@ impl View for Reader {
                 if let Some(toc) = self.toc()
                                        .or_else(|| doc.toc())
                                        .filter(|toc| !toc.is_empty()) {
-                    let chap = doc.chapter(self.current_page, &toc);
+                    let chap = doc.chapter(self.current_page, &toc)
+                                  .map(|(c, _)| c);
                     let chap_index = chap.map_or(usize::MAX, |chap| chap.index);
                     let html = toc_as_html(&toc, chap_index);
                     let link_uri = chap.and_then(|chap| {

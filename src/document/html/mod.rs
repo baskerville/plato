@@ -279,7 +279,7 @@ impl Document for HtmlDocument {
         None
     }
 
-    fn chapter<'a>(&mut self, _offset: usize, _toc: &'a [TocEntry]) -> Option<&'a TocEntry> {
+    fn chapter<'a>(&mut self, _offset: usize, _toc: &'a [TocEntry]) -> Option<(&'a TocEntry, f32)> {
         None
     }
 
