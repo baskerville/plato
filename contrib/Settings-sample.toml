@@ -113,6 +113,8 @@ min-margin-width = 0
 max-margin-width = 10
 # The default line height, in ems.
 line-height = 1.2
+# Whether to ignore the document's style sheets.
+ignore-document-css = false
 # The file extensions of the files that will automatically be dithered
 # when opened for the first time.
 dithered-kinds = ["cbz", "jpg", "png", "jpeg"]

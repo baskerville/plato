@@ -175,11 +175,6 @@ impl EpubDocument {
         self.cache.clear();
     }
 
-    pub fn set_ignore_document_css(&mut self, value: bool) {
-        self.ignore_document_css = value;
-        self.cache.clear();
-    }
-
     #[inline]
     fn rect(&self) -> Rectangle {
         let (width, height) = self.engine.dims;
@@ -923,6 +918,11 @@ impl Document for EpubDocument {
 
     fn set_stretch_tolerance(&mut self, stretch_tolerance: f32) {
         self.engine.set_stretch_tolerance(stretch_tolerance);
+        self.cache.clear();
+    }
+
+    fn set_ignore_document_css(&mut self, ignore: bool) {
+        self.ignore_document_css = ignore;
         self.cache.clear();
     }
 

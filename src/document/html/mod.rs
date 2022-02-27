@@ -416,6 +416,11 @@ impl Document for HtmlDocument {
         self.pages.clear();
     }
 
+    fn set_ignore_document_css(&mut self, ignore: bool) {
+        self.ignore_document_css = ignore;
+        self.pages.clear();
+    }
+
     fn title(&self) -> Option<String> {
         self.content.root()
             .find("head")

@@ -276,6 +276,10 @@ impl Reader {
                 doc.set_stretch_tolerance(stretch_tolerance);
             }
 
+            if settings.reader.ignore_document_css {
+                doc.set_ignore_document_css(true);
+            }
+
             let first_location = doc.resolve_location(Location::Exact(0))?;
 
             let mut view_port = ViewPort::default();

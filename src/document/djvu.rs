@@ -259,6 +259,10 @@ impl Document for DjvuDocument {
 
     fn set_stretch_tolerance(&mut self, _stretch_tolerance: f32) {
     }
+
+    fn set_ignore_document_css(&mut self, _ignore: bool) {
+    }
+
 }
 
 impl DjvuDocument {

@@ -92,12 +92,6 @@ impl PdfOpener {
         }
     }
 
-    pub fn set_use_document_css(&mut self, should_use: bool) {
-        unsafe {
-            fz_set_use_document_css((self.0).0, should_use as libc::c_int);
-        }
-    }
-
     pub fn set_user_css<P: AsRef<Path>>(&mut self, path: P) -> Result<(), Error> {
         let mut file = File::open(path)?;
         let mut buf = Vec::new();
@@ -275,6 +269,12 @@ impl Document for PdfDocument {
     }
 
     fn set_stretch_tolerance(&mut self, _stretch_tolerance: f32) {
+    }
+
+    fn set_ignore_document_css(&mut self, ignore: bool) {
+        unsafe {
+            fz_set_use_document_css(self.ctx.0, !ignore as libc::c_int);
+        }
     }
 }
 
