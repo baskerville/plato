@@ -906,7 +906,7 @@ impl Engine {
                                             items.push(ParagraphItem::Glue { width, stretch: width/2, shrink: width/3 });
                                         },
                                         TextAlign::Center => {
-                                            if style.font_kind == FontKind::Monospace {
+                                            if style.font_kind == FontKind::Monospace || is_unbreakable {
                                                 items.push(ParagraphItem::Glue { width, stretch: 0, shrink: 0 });
                                             } else {
                                                 let stretch = 3 * width;
@@ -919,7 +919,7 @@ impl Engine {
                                             }
                                         },
                                         TextAlign::Left | TextAlign::Right => {
-                                            if style.font_kind == FontKind::Monospace {
+                                            if style.font_kind == FontKind::Monospace || is_unbreakable {
                                                 items.push(ParagraphItem::Glue { width, stretch: 0, shrink: 0 });
                                             } else {
                                                 let stretch = 3 * width;
