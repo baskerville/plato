@@ -430,6 +430,25 @@ impl View for Dictionary {
                 self.go_to_neighbor(dir, rq);
                 true
             },
+            Event::Device(DeviceEvent::Button { code, status: ButtonStatus::Released, .. }) => {
+                match code {
+                    ButtonCode::Backward =>
+                        if self.doc.resolve_location(Location::Previous(self.location)).is_some() {
+                            self.go_to_neighbor(CycleDir::Previous, rq);
+                        } else {
+                            hub.send(Event::Back).ok();
+                        },
+                    ButtonCode::Forward =>
+                        if self.doc.resolve_location(Location::Next(self.location)).is_some() {
+                            self.go_to_neighbor(CycleDir::Next, rq);
+                        } else {
+                            // auto close view if at end
+                            hub.send(Event::Back).ok();
+                        },
+                    _ => (),
+                }
+                true
+            },
             Event::Gesture(GestureEvent::Swipe { dir, start, .. }) if self.rect.includes(start) => {
                 match dir {
                     Dir::West => self.go_to_neighbor(CycleDir::Next, rq),
