@@ -83,6 +83,9 @@ finished = "close"
 # The action triggered when tapping the south-east corner.
 # Possible values: "go-to-page", "next-page".
 south-east-corner = "go-to-page"
+# The action triggered when making bottom right corner gesture
+# Possible values: "toggle-dithered", "toggle-inverted".
+bottom-right-gesture = "toggle-dithered"
 # The action triggered when tapping the south strip.
 # Possible values: "toggle-bars", "next-page".
 south-strip = "toggle-bars"

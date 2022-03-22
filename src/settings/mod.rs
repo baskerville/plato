@@ -315,6 +315,7 @@ pub struct RefreshRateSettings {
 pub struct ReaderSettings {
     pub finished: FinishedAction,
     pub south_east_corner: SouthEastCornerAction,
+    pub bottom_right_gesture: BottomRightGestureAction,
     pub south_strip: SouthStripAction,
     pub west_strip: WestStripAction,
     pub east_strip: EastStripAction,
@@ -362,6 +363,13 @@ pub enum FinishedAction {
 pub enum SouthEastCornerAction {
     NextPage,
     GoToPage,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum BottomRightGestureAction {
+    ToggleDithered,
+    ToggleInverted,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
@@ -421,6 +429,7 @@ impl Default for ReaderSettings {
         ReaderSettings {
             finished: FinishedAction::Close,
             south_east_corner: SouthEastCornerAction::GoToPage,
+            bottom_right_gesture: BottomRightGestureAction::ToggleDithered,
             south_strip: SouthStripAction::ToggleBars,
             west_strip: WestStripAction::PreviousPage,
             east_strip: EastStripAction::NextPage,

@@ -40,7 +40,7 @@ use crate::view::search_bar::SearchBar;
 use crate::view::keyboard::Keyboard;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::notification::Notification;
-use crate::settings::{guess_frontlight, FinishedAction, SouthEastCornerAction, SouthStripAction, WestStripAction, EastStripAction};
+use crate::settings::{guess_frontlight, FinishedAction, SouthEastCornerAction, BottomRightGestureAction, SouthStripAction, WestStripAction, EastStripAction};
 use crate::settings::{DEFAULT_FONT_FAMILY, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT, DEFAULT_MARGIN_WIDTH};
 use crate::settings::{HYPHEN_PENALTY, STRETCH_TOLERANCE};
 use crate::frontlight::LightLevels;
@@ -2645,8 +2645,13 @@ impl View for Reader {
                 match dir {
                     DiagDir::NorthWest => self.go_to_bookmark(CycleDir::Previous, hub, rq, context),
                     DiagDir::NorthEast => self.go_to_bookmark(CycleDir::Next, hub, rq, context),
-                    DiagDir::SouthEast => {
-                        hub.send(Event::Select(EntryId::ToggleDithered)).ok();
+                    DiagDir::SouthEast => match context.settings.reader.bottom_right_gesture {
+                        BottomRightGestureAction::ToggleDithered => {
+                            hub.send(Event::Select(EntryId::ToggleDithered)).ok();
+                        },
+                        BottomRightGestureAction::ToggleInverted => {
+                            hub.send(Event::Select(EntryId::ToggleInverted)).ok();
+                        },
                     },
                     DiagDir::SouthWest => {
                         if context.settings.frontlight_presets.len() > 1 {
