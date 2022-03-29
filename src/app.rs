@@ -128,7 +128,8 @@ impl Context {
             if !glob.is_match(path) {
                 continue;
             }
-            if let Ok(layout) = load_json::<Layout, _>(path) {
+            if let Ok(layout) = load_json::<Layout, _>(path)
+                                          .map_err(|e| eprintln!("Can't load {}: {:#?}.", path.display(), e)) {
                 self.keyboard_layouts.insert(layout.name.clone(), layout);
             }
         }
