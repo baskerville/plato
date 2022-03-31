@@ -14,7 +14,7 @@ The following style sheets : `css/{epub,html,dictionary}.css` can be overridden 
 
 The hyphenation bounds for a particular language can be overridden by creating a file name `LANGUAGE_CODE.bounds` in the `hyphenation-patterns` directory. The content of this file must the minimum number of letters before the hyphenation point relative to the beginning and end of the word, separated by a space. You can disable hyphenation all together by uncommenting the corresponding line in `config.sh`.
 
-Dictionaries in the *StarDict* and *dictd* formats can be placed in the `dictionaries` directory. *Plato* doesn't support *StarDict* natively and will therefore convert all the *StarDict* dictionaries it might find in the `dictionaries` directory during startup. You can disable this behavior by uncommenting the corresponding line in `config.sh`.
+Dictionaries in the *StarDict* and *dictd* formats can be placed in the `dictionaries` directory. *StarDict* dictionaries should be placed as uncompressed folders containing an `.ifo` file. *Plato* doesn't support *StarDict* natively and will therefore convert all the *StarDict* dictionaries it might find in the `dictionaries` directory during startup. You can disable this behavior by uncommenting the corresponding line in `config.sh`.
 
 The four scripts `scripts/wifi-{pre,post}-{up,down}.sh` can be created with commands to run before or after the WiFi is enabled or disabled, respectively.
 
