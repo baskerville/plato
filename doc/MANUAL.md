@@ -201,6 +201,8 @@ Here is an example of `ivy` code showing its conciseness. The code below appears
 op a lab b = char 9584 + ? a b rho 2
 ```
 
+You can add custom operators in a file called `lib.ivy` (alongside the `ivy` binary), if it exists, it will be loaded when the application starts.
+
 # Input Fields
 
 Tapping an input field will:
