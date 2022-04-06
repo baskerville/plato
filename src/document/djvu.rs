@@ -408,7 +408,12 @@ impl<'a> DjvuPage<'a> {
             ddjvu_format_set_y_direction(fmt, 1);
 
             let len = (rect.w * rect.h) as usize;
-            let mut data = vec![0xff; len];
+            let mut data = Vec::new();
+            if data.try_reserve_exact(len).is_err() {
+                ddjvu_format_release(fmt);
+                return None;
+            }
+            data.resize(len, 0xff);
 
             ddjvu_page_render(self.page, DDJVU_RENDER_COLOR,
                               &rect, &rect, fmt,

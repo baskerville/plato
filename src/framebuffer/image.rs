@@ -22,6 +22,26 @@ impl Pixmap {
         }
     }
 
+    pub fn try_new(width: u32, height: u32) -> Option<Pixmap> {
+        let mut data = Vec::new();
+        let len = (width * height) as usize;
+        data.try_reserve_exact(len).ok()?;
+        data.resize(len, WHITE);
+        Some(Pixmap {
+            width,
+            height,
+            data,
+        })
+    }
+
+    pub fn empty(width: u32, height: u32) -> Pixmap {
+        Pixmap {
+            width,
+            height,
+            data: Vec::new(),
+        }
+    }
+
     pub fn data(&self) -> &[u8] {
         &self.data
     }
@@ -39,11 +59,23 @@ impl Pixmap {
         reader.next_frame(pixmap.data_mut())?;
         Ok(pixmap)
     }
+
+    #[inline]
+    pub fn get_pixel(&self, x: u32, y: u32) -> u8 {
+        if self.data.is_empty() {
+            return WHITE;
+        }
+        let addr = (y * self.width + x) as usize;
+        self.data[addr]
+    }
 }
 
 impl Framebuffer for Pixmap {
     fn set_pixel(&mut self, x: u32, y: u32, color: u8) {
         if x >= self.width || y >= self.height {
+            return;
+        }
+        if self.data.is_empty() {
             return;
         }
         let addr = (y * self.width + x) as usize;
@@ -58,12 +90,18 @@ impl Framebuffer for Pixmap {
         if x >= self.width || y >= self.height {
             return;
         }
+        if self.data.is_empty() {
+            return;
+        }
         let addr = (y * self.width + x) as usize;
         let blended_color = lerp(self.data[addr] as f32, color as f32, alpha) as u8;
         self.data[addr] = blended_color;
     }
 
     fn invert_region(&mut self, rect: &Rectangle) {
+        if self.data.is_empty() {
+            return;
+        }
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
                 let addr = (y * self.width as i32 + x) as usize;
@@ -74,6 +112,9 @@ impl Framebuffer for Pixmap {
     }
 
     fn shift_region(&mut self, rect: &Rectangle, drift: u8) {
+        if self.data.is_empty() {
+            return;
+        }
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
                 let addr = (y * self.width as i32 + x) as usize;
@@ -92,6 +133,9 @@ impl Framebuffer for Pixmap {
     }
 
     fn save(&self, path: &str) -> Result<(), Error> {
+        if self.data.is_empty() {
+            return Err(format_err!("nothing to save"));
+        }
         let (width, height) = self.dims();
         let file = File::create(path).with_context(|| format!("can't create output file {}", path))?;
         let mut encoder = png::Encoder::new(file, width, height);

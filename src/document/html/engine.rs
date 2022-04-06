@@ -1628,10 +1628,10 @@ impl Engine {
         merged_items
     }
 
-    pub fn render_page(&mut self, page: &[DrawCommand], scale_factor: f32, resource_fetcher: &mut dyn ResourceFetcher) -> Pixmap {
+    pub fn render_page(&mut self, page: &[DrawCommand], scale_factor: f32, resource_fetcher: &mut dyn ResourceFetcher) -> Option<Pixmap> {
         let width = (self.dims.0 as f32 * scale_factor) as u32;
         let height = (self.dims.1 as f32 * scale_factor) as u32;
-        let mut fb = Pixmap::new(width, height);
+        let mut fb = Pixmap::try_new(width, height)?;
 
         for dc in page {
             match dc {
@@ -1663,7 +1663,7 @@ impl Engine {
             }
         }
 
-        fb
+        Some(fb)
     }
 }
 

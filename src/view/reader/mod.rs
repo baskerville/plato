@@ -455,7 +455,7 @@ impl Reader {
         } else {
             let width = (dims.0 as f32 * scale).max(1.0) as u32;
             let height = (dims.1 as f32 * scale).max(1.0) as u32;
-            let pixmap = Pixmap::new(width, height);
+            let pixmap = Pixmap::empty(width, height);
             let frame = pixmap.rect();
             self.cache.insert(location, Resource { pixmap, frame, scale });
         }

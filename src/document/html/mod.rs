@@ -376,7 +376,7 @@ impl Document for HtmlDocument {
         let offset = self.resolve_location(loc)?;
         let page_index = self.page_index(offset)?;
         let page = self.pages[page_index].clone();
-        let pixmap = self.engine.render_page(&page, scale, &mut self.parent);
+        let pixmap = self.engine.render_page(&page, scale, &mut self.parent)?;
 
         Some((pixmap, offset))
     }

@@ -881,7 +881,7 @@ impl Document for EpubDocument {
         let page_index = self.page_index(offset, index, start_offset)?;
         let page = self.cache.get(&index)?.get(page_index)?.clone();
 
-        let pixmap = self.engine.render_page(&page, scale, &mut self.archive);
+        let pixmap = self.engine.render_page(&page, scale, &mut self.archive)?;
 
         Some((pixmap, offset))
     }

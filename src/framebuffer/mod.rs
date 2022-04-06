@@ -120,8 +120,7 @@ pub trait Framebuffer {
             for x in 0..pixmap.width {
                 let px = x + pt.x as u32;
                 let py = y + pt.y as u32;
-                let addr = (y * pixmap.width + x) as usize;
-                let color = pixmap.data[addr];
+                let color = pixmap.get_pixel(x, y);
                 self.set_pixel(px, py, color);
             }
         }
@@ -132,8 +131,7 @@ pub trait Framebuffer {
             for x in rect.min.x..rect.max.x {
                 let px = x - rect.min.x + pt.x;
                 let py = y - rect.min.y + pt.y;
-                let addr = (y * pixmap.width as i32 + x) as usize;
-                let color = pixmap.data[addr];
+                let color = pixmap.get_pixel(x as u32, y as u32);
                 self.set_pixel(px as u32, py as u32, color);
             }
         }
@@ -150,8 +148,7 @@ pub trait Framebuffer {
             for x in rect.min.x..rect.max.x {
                 let px = x - rect.min.x + pt.x;
                 let py = y - rect.min.y + pt.y;
-                let addr = (y * pixmap.width as i32 + x) as usize;
-                let raw_color = pixmap.data[addr] as f32;
+                let raw_color = pixmap.get_pixel(x as u32, y as u32) as f32;
                 let color = if raw_color < gray {
                     (gray * (raw_color / gray).powf(exponent)) as u8
                 } else if raw_color > gray {
@@ -169,8 +166,7 @@ pub trait Framebuffer {
             for x in rect.min.x..rect.max.x {
                 let px = x - rect.min.x + pt.x;
                 let py = y - rect.min.y + pt.y;
-                let addr = (y * pixmap.width as i32 + x) as usize;
-                let source_color = pixmap.data[addr];
+                let source_color = pixmap.get_pixel(x as u32, y as u32);
                 let color = if source_color == BLACK {
                     BLACK
                 } else if source_color == WHITE {
@@ -188,8 +184,7 @@ pub trait Framebuffer {
             for x in 0..pixmap.width {
                 let px = x + pt.x as u32;
                 let py = y + pt.y as u32;
-                let addr = (y * pixmap.width + x) as usize;
-                let alpha = (255.0 - pixmap.data[addr] as f32) / 255.0;
+                let alpha = (255.0 - pixmap.get_pixel(x, y) as f32) / 255.0;
                 self.set_blended_pixel(px as u32, py as u32, color, alpha);
             }
         }
