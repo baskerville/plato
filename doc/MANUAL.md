@@ -189,7 +189,7 @@ You can toggle the fuzzy search mode by tapping the related entry in the search 
 
 *Calculator* is a thin wrapper around [ivy](https://github.com/robpike/ivy), an APL-like calculator. A keyboard on the bottom accepts input. Pressing return sends the input to `ivy` and the response is displayed on the screen.
 
-To learn more about how to use `ivy`, type `)help`. For an introduction, type `)help intro`. An important point to keep in mind is that all binary operations are right-associative (like in APL or J), so `3*5+7` is parsed as `3*(5+7)` not `(3*5)+7`.
+To learn more about how to use `ivy`, type `)help`. For an introduction, type `)help intro`. To run the interactive demo, type `)demo`. An important point to keep in mind is that all binary operations are right-associative (like in APL or J), so `3*5+7` is parsed as `3*(5+7)` not `(3*5)+7`.
 
 You can back and forth in history by tapping on the buttons to the left and right of the input field respectively. `ivy`'s output can also be scrolled up or down.
 
