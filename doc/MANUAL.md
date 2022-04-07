@@ -90,7 +90,7 @@ Tap gestures by region:
 - *CR* (Center Rectangle), *SS* (South Strip) and *NS* (North Strip): toggle the top and bottom bars.
 - *NWC* (North-West Corner): previous location.
 - *NEC* (North-East Corner): toggle bookmark.
-- *SWC* (South-West Corner): table of contents in normal mode, previous page in search mode.
+- *SWC* (South-West Corner): toggle the table of contents in normal mode, previous page in search mode.
 - *SEC* (South-East Corner): go to page in normal mode, next page in search mode.
 
 Swipe west/east to go to the next/previous page.
