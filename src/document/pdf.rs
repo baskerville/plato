@@ -444,7 +444,13 @@ impl<'a> PdfPage<'a> {
             let width = (*pixmap).w as u32;
             let height = (*pixmap).h as u32;
             let len = (width * height) as usize;
-            let data = slice::from_raw_parts((*pixmap).samples, len).to_vec();
+            let samples = slice::from_raw_parts((*pixmap).samples, len);
+            let mut data = Vec::new();
+            if data.try_reserve(len).is_err() {
+                fz_drop_pixmap(self.ctx.0, pixmap);
+                return None;
+            }
+            data.extend(samples);
 
             fz_drop_pixmap(self.ctx.0, pixmap);
 
