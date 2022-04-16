@@ -26,7 +26,6 @@ pub const ABS_MT_POSITION_X: u16 = 0x35;
 pub const ABS_MT_POSITION_Y: u16 = 0x36;
 pub const ABS_MT_PRESSURE: u16 = 0x3a;
 pub const ABS_MT_TOUCH_MAJOR: u16 = 0x30;
-pub const SYN_MT_REPORT: u16 = 0x02;
 pub const ABS_X: u16 = 0x00;
 pub const ABS_Y: u16 = 0x01;
 pub const ABS_PRESSURE: u16 = 0x18;
