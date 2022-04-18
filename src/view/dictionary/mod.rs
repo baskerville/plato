@@ -6,6 +6,7 @@ use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
 use crate::geom::{Rectangle, Point, Dir, CycleDir, halves};
 use crate::unit::scale_by_dpi;
 use crate::font::Fonts;
+use crate::input::{DeviceEvent, ButtonCode, ButtonStatus};
 use crate::view::{View, Event, Hub, Bus, RenderQueue, RenderData};
 use crate::view::{ViewId, Id, ID_FEEDER, EntryId, EntryKind};
 use crate::view::{SMALL_BAR_HEIGHT, BIG_BAR_HEIGHT, THICKNESS_MEDIUM};
@@ -435,6 +436,21 @@ impl View for Dictionary {
                     Dir::West => self.go_to_neighbor(CycleDir::Next, rq),
                     Dir::East => self.go_to_neighbor(CycleDir::Previous, rq),
                     _ => (),
+                }
+                true
+            },
+            Event::Device(DeviceEvent::Button { code, status: ButtonStatus::Pressed, .. }) => {
+                let cd = match code {
+                    ButtonCode::Backward => Some(CycleDir::Previous),
+                    ButtonCode::Forward => Some(CycleDir::Next),
+                    _ => None,
+                };
+                if let Some(cd) = cd {
+                    let loc = self.location;
+                    self.go_to_neighbor(cd, rq);
+                    if self.location == loc {
+                        hub.send(Event::Back).ok();
+                    }
                 }
                 true
             },

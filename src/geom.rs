@@ -21,6 +21,7 @@ impl Dir {
             Dir::West => Dir::East,
         }
     }
+
     pub fn axis(self) -> Axis {
         match self {
             Dir::North | Dir::South => Axis::Vertical,

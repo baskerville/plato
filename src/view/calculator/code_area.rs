@@ -1,5 +1,6 @@
 use crate::device::CURRENT_DEVICE;
 use crate::font::Fonts;
+use crate::input::{DeviceEvent, ButtonCode, ButtonStatus};
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue};
 use super::{Line, LineOrigin};
 use crate::gesture::GestureEvent;
@@ -67,6 +68,14 @@ impl View for CodeArea {
                     Dir::South | Dir::North => bus.push_back(Event::Scroll(start.y - end.y)),
                     Dir::West => bus.push_back(Event::Page(CycleDir::Next)),
                     Dir::East => bus.push_back(Event::Page(CycleDir::Previous)),
+                }
+                true
+            },
+            Event::Device(DeviceEvent::Button { code, status: ButtonStatus::Pressed, .. }) => {
+                match code {
+                    ButtonCode::Backward => bus.push_back(Event::Page(CycleDir::Previous)),
+                    ButtonCode::Forward => bus.push_back(Event::Page(CycleDir::Next)),
+                    _ => (),
                 }
                 true
             },
