@@ -5,6 +5,7 @@ use kl_hyphenate::{Standard, Hyphenator, Iter};
 use paragraph_breaker::{Item as ParagraphItem, Breakpoint, INFINITE_PENALTY};
 use paragraph_breaker::{total_fit, standard_fit};
 use xi_unicode::LineBreakIterator;
+use percent_encoding::percent_decode_str;
 use septem::Roman;
 use crate::helpers::{Normalize, decode_entities};
 use crate::framebuffer::{Framebuffer, Pixmap};
@@ -664,7 +665,10 @@ impl Engine {
                         let attr = if name == "img" { "src" } else { "xlink:href" };
 
                         let path = attributes.get(attr).and_then(|src| {
-                            spine_dir.join(src).normalize().to_str().map(String::from)
+                            spine_dir.join(src).normalize().to_str()
+                                     .map(|uri| percent_decode_str(&decode_entities(uri))
+                                                                  .decode_utf8_lossy()
+                                                                  .into_owned())
                         }).unwrap_or_default();
 
                         style.float = props.get("float").and_then(|value| parse_float(value));
@@ -691,7 +695,9 @@ impl Engine {
                         return;
                     },
                     "a" => {
-                        style.uri = attributes.get("href").cloned();
+                        style.uri = attributes.get("href")
+                                              .map(|uri| percent_decode_str(&decode_entities(uri))
+                                                                           .decode_utf8_lossy().into_owned());
                     },
                     "br" => {
                         inlines.push(InlineMaterial::LineBreak);
