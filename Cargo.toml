@@ -82,3 +82,11 @@ optional = true
 importer = ["getopts"]
 emulator = ["sdl2"]
 fetcher = ["reqwest", "signal-hook"]
+
+[profile.release-minsized]
+inherits = "release"
+panic = "abort"
+codegen-units = 1
+opt-level = "z"
+lto = true
+strip = true
