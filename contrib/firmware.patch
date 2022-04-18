@@ -1,6 +1,6 @@
 diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
---- a/etc/init.d/rcS	2021-11-04 10:40:34.000000000 +0100
-+++ b/etc/init.d/rcS	2021-11-04 10:41:57.000000000 +0100
+--- a/etc/init.d/rcS	2022-04-06 11:54:51.000000000 +0200
++++ b/etc/init.d/rcS	2022-04-06 11:55:19.000000000 +0200
 @@ -84,7 +84,12 @@
  FS_CORRUPT=0
  dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || dosfsck -a -w /dev/mmcblk0p3 || FS_CORRUPT=1
@@ -15,7 +15,7 @@ diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
  if [ $? != 0 ] || [ $FS_CORRUPT == 1 ] || [ $FORCE_FACTORY_RESET == 1 ]; then
  	case $PRODUCT in
  		kraken|phoenix)
-@@ -239,7 +244,12 @@
+@@ -226,7 +231,12 @@
  /bin/dbus-daemon --system &
  export DBUS_SESSION_BUS_ADDRESS=`/bin/dbus-daemon --session --print-address --fork`
  
