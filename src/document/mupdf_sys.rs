@@ -3,7 +3,7 @@
 use std::mem;
 
 pub const FZ_MAX_COLORS: usize = 32;
-pub const FZ_VERSION: &str = "1.18.0";
+pub const FZ_VERSION: &str = "1.19.0";
 
 pub const FZ_META_INFO_AUTHOR: &str = "info:Author";
 pub const FZ_META_INFO_TITLE: &str = "info:Title";
@@ -11,6 +11,10 @@ pub const FZ_META_INFO_TITLE: &str = "info:Title";
 pub const FZ_TEXT_PRESERVE_LIGATURES: libc::c_int = 1;
 pub const FZ_TEXT_PRESERVE_WHITESPACE: libc::c_int = 2;
 pub const FZ_TEXT_PRESERVE_IMAGES: libc::c_int = 4;
+pub const FZ_TEXT_INHIBIT_SPACES: libc::c_int = 8;
+pub const FZ_TEXT_DEHYPHENATE: libc::c_int = 16;
+pub const FZ_TEXT_PRESERVE_SPANS: libc::c_int = 32;
+pub const FZ_TEXT_MEDIABOX_CLIP: libc::c_int = 64;
 
 pub const FZ_PAGE_BLOCK_TEXT: libc::c_int = 0;
 pub const FZ_PAGE_BLOCK_IMAGE: libc::c_int = 1;
@@ -87,7 +91,13 @@ pub struct FzRect {
 
 impl Default for FzRect {
     fn default() -> FzRect {
-        unsafe { mem::zeroed() }
+        // Returns an empty rectangle.
+        FzRect {
+            x0: 1.0,
+            y0: 1.0,
+            x1: -1.0,
+            y1: -1.0,
+        }
     }
 }
 
@@ -160,7 +170,6 @@ pub struct FzLink {
     refs: libc::c_int,
     pub next: *mut FzLink,
     pub rect: FzRect,
-    doc: *mut libc::c_void,
     pub uri: *mut libc::c_char,
 }
 

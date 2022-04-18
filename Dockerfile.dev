@@ -1,4 +1,4 @@
-FROM rust:1.57.0-buster
+FROM rust:1.60.0-buster
 
 RUN apt-get update && apt-get install -y libtool \
         pkg-config \
@@ -9,17 +9,12 @@ RUN apt-get update && apt-get install -y libtool \
         libsdl2-dev \
         patch
 
-# TODO: Remove when MuPDF 1.18.0 is available
-# in https://packages.debian.org/source/testing/mupdf.
-RUN cd /tmp \
-	&& wget -q "https://mupdf.com/downloads/archive/mupdf-1.18.0-source.tar.xz" -O - | tar -xJ \
-	&& cd /tmp/mupdf-1.18.0-source \
-	&& make build=release libs \
-	&& make build=release prefix=usr install \
-	&& find usr/include usr/share usr/lib -type f -exec chmod 0644 {} + \
-	&& cp -r usr/* /usr/
+RUN echo "deb http://deb.debian.org/debian testing main" > /etc/apt/sources.list \
+       && apt-get update \
+       && apt-get install -y mupdf libmupdf-dev
 
 # Referenced in build.rs for mupdf_wrapper.
+
 ENV CARGO_TARGET_OS=linux
 
 # Build Plato.

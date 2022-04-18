@@ -11,4 +11,5 @@ export LIBPNG_CFLAGS="-I../libpng"
 export LIBPNG_LIBS="-L../libpng/.libs -lpng16"
 
 ./configure --host=${TRIPLE} --with-zlib=yes --with-png=yes \
-            --with-bzip2=yes --with-harfbuzz=no --disable-static && make
+            --with-bzip2=yes --with-harfbuzz=no --with-brotli=no \
+            --disable-static && make

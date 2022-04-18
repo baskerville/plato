@@ -1,16 +1,16 @@
 diff -ru a/Makefile b/Makefile
---- a/Makefile	2020-10-14 20:42:42.000000000 +0200
-+++ b/Makefile	2020-10-14 20:44:31.000000000 +0200
-@@ -230,7 +230,7 @@
- $(THREAD_LIB) : $(THREAD_OBJ)
- $(PKCS7_LIB) : $(PKCS7_OBJ)
+--- a/Makefile	2022-04-06 15:28:02.000000000 +0200
++++ b/Makefile	2022-04-15 19:07:11.000000000 +0200
+@@ -145,7 +145,7 @@
  
--INSTALL_LIBS := $(MUPDF_LIB) $(THIRD_LIB)
-+INSTALL_LIBS := $(MUPDF_LIB)
+ THIRD_GLUT_OBJ := $(THIRD_GLUT_SRC:%.c=$(OUT)/%.o)
  
- # --- Main tools and viewers ---
- 
-@@ -408,7 +408,7 @@
+-MUPDF_SRC := $(sort $(wildcard source/fitz/*.c))
++MUPDF_SRC := $(sort $(filter-out source/fitz/output-docx.c, $(wildcard source/fitz/*.c)))
+ MUPDF_SRC += $(sort $(wildcard source/fitz/*.cpp))
+ MUPDF_SRC += $(sort $(wildcard source/pdf/*.c))
+ MUPDF_SRC += $(sort $(wildcard source/xps/*.c))
+@@ -455,7 +455,7 @@
  cscope.out: cscope.files
  	cscope -b
  
@@ -20,9 +20,17 @@ diff -ru a/Makefile b/Makefile
  clean:
  	rm -rf $(OUT)
 diff -ru a/Makerules b/Makerules
---- a/Makerules	2020-10-14 20:42:42.000000000 +0200
-+++ b/Makerules	2020-10-14 20:48:40.000000000 +0200
-@@ -231,6 +231,35 @@
+--- a/Makerules	2022-04-06 15:28:02.000000000 +0200
++++ b/Makerules	2022-04-15 19:07:11.000000000 +0200
+@@ -260,7 +260,6 @@
+   WINDRES = i686-w64-mingw32-windres
+   HAVE_WIN32=yes
+ endif
+-
+ ifeq "$(OS)" "mingw64-cross"
+   build_prefix += $(OS)/
+   CC = x86_64-w64-mingw32-gcc
+@@ -271,6 +270,35 @@
    HAVE_WIN32=yes
  endif
  
@@ -32,7 +40,7 @@ diff -ru a/Makerules b/Makerules
 +  LD = arm-linux-gnueabihf-ld
 +  AR = arm-linux-gnueabihf-ar
 +  AS = arm-linux-gnueabihf-as
-+  CFLAGS += -O2 -fPIC -mcpu=cortex-a9 -mfpu=neon -DTOFU_CJK_LANG -DTOFU_CJK_EXT -DFZ_ENABLE_ICC=0 -DFZ_ENABLE_JS=0
++  CFLAGS += -O2 -fPIC -mcpu=cortex-a9 -mfpu=neon -DTOFU_CJK_LANG -DTOFU_CJK_EXT -DFZ_ENABLE_ICC=0 -DFZ_ENABLE_JS=0 -DFZ_ENABLE_SPOT_RENDERING=0 -DFZ_ENABLE_ODT_OUTPUT=0 -DFZ_ENABLE_DOCX_OUTPUT=0 -DFZ_ENABLE_OCR_OUTPUT=0
 +  HAVE_PTHREAD := yes
 +  HAVE_LIBCRYPTO := no
 +  HAVE_X11 := no
@@ -58,3 +66,118 @@ diff -ru a/Makerules b/Makerules
  # Most variables when building for iOS are set up in ios/build_libs.sh,
  # which is called from the Xcode project as a "Run Script" build step.
  # The following section works for both device and simulator builds.
+diff -ru a/Makethird b/Makethird
+--- a/Makethird	2022-04-06 15:28:02.000000000 +0200
++++ b/Makethird	2022-04-15 19:07:11.000000000 +0200
+@@ -45,7 +45,7 @@
+ 
+ # --- Include source file lists ---
+ 
+-include Makelists
++# include Makelists
+ 
+ # --- FREETYPE 2 ---
+ 
+@@ -238,33 +238,33 @@
+ 
+ # --- EXTRACT ---
+ 
+-THIRD_CFLAGS += $(EXTRACT_CFLAGS)
+-THIRD_LIBS += $(EXTRACT_LIBS)
+-THIRD_SRC += $(EXTRACT_SRC)
+-$(OUT)/thirdparty/extract/%.o: thirdparty/extract/%.c
+-	$(CC_CMD) $(WARNING_CFLAGS) $(LIB_CFLAGS) $(EXTRACT_CFLAGS) $(ZLIB_CFLAGS) $(EXTRACT_BUILD_CFLAGS)
+-
+-# The first python3 command in the next two rules returns 0 (success) iff
+-# python3 exists and is version 3.6 or later.
+-
+-thirdparty/extract/src/docx_template.c: thirdparty/extract/src/template.docx thirdparty/extract/src/docx_template_build.py
+-	$(QUIET_GEN) if python3 -c 'import sys; sys.exit(sys.version_info < (3,6))'; \
+-		then python3 thirdparty/extract/src/docx_template_build.py \
+-			-i thirdparty/extract/src/template.docx \
+-			-n docx \
+-			-o thirdparty/extract/src/docx_template ; \
+-		else echo python3 is older than 3.6 so not running docx_template_build.py; \
+-		fi
+-	@touch $@
+-
+-thirdparty/extract/src/odt_template.c: thirdparty/extract/src/template.odt thirdparty/extract/src/docx_template_build.py
+-	$(QUIET_GEN) if python3 -c 'import sys; sys.exit(sys.version_info < (3,6))'; \
+-		then python3 thirdparty/extract/src/docx_template_build.py \
+-			-i thirdparty/extract/src/template.odt \
+-			-n odt \
+-			-o thirdparty/extract/src/odt_template ; \
+-		else echo python3 is older than 3.6 so not running docx_template_build.py; \
+-		fi
+-	@touch $@
++# THIRD_CFLAGS += $(EXTRACT_CFLAGS)
++# THIRD_LIBS += $(EXTRACT_LIBS)
++# THIRD_SRC += $(EXTRACT_SRC)
++# $(OUT)/thirdparty/extract/%.o: thirdparty/extract/%.c
++# 	$(CC_CMD) $(WARNING_CFLAGS) $(LIB_CFLAGS) $(EXTRACT_CFLAGS) $(ZLIB_CFLAGS) $(EXTRACT_BUILD_CFLAGS)
++
++# # The first python3 command in the next two rules returns 0 (success) iff
++# # python3 exists and is version 3.6 or later.
++
++# thirdparty/extract/src/docx_template.c: thirdparty/extract/src/template.docx thirdparty/extract/src/docx_template_build.py
++# 	$(QUIET_GEN) if python3 -c 'import sys; sys.exit(sys.version_info < (3,6))'; \
++# 		then python3 thirdparty/extract/src/docx_template_build.py \
++# 			-i thirdparty/extract/src/template.docx \
++# 			-n docx \
++# 			-o thirdparty/extract/src/docx_template ; \
++# 		else echo python3 is older than 3.6 so not running docx_template_build.py; \
++# 		fi
++# 	@touch $@
++
++# thirdparty/extract/src/odt_template.c: thirdparty/extract/src/template.odt thirdparty/extract/src/docx_template_build.py
++# 	$(QUIET_GEN) if python3 -c 'import sys; sys.exit(sys.version_info < (3,6))'; \
++# 		then python3 thirdparty/extract/src/docx_template_build.py \
++# 			-i thirdparty/extract/src/template.odt \
++# 			-n odt \
++# 			-o thirdparty/extract/src/odt_template ; \
++# 		else echo python3 is older than 3.6 so not running docx_template_build.py; \
++# 		fi
++# 	@touch $@
+ 
+-generate: thirdparty/extract/src/docx_template.c
++# generate: thirdparty/extract/src/docx_template.c
+diff -ru a/source/fitz/writer.c b/source/fitz/writer.c
+--- a/source/fitz/writer.c	2022-04-06 15:28:02.000000000 +0200
++++ b/source/fitz/writer.c	2022-04-15 19:07:11.000000000 +0200
+@@ -169,7 +169,7 @@
+ 		format = strrchr(path, '.');
+ 	while (format)
+ 	{
+-#ifdef FZ_ENABLE_OCR_OUTPUT
++#if FZ_ENABLE_OCR_OUTPUT
+ 		if (is_extension(format, "ocr"))
+ 			return fz_new_pdfocr_writer(ctx, path, options);
+ #endif
+@@ -219,11 +219,11 @@
+ 		if (is_extension(format, "stext.json"))
+ 			return fz_new_text_writer(ctx, "stext.json", path, options);
+ 
+-#ifdef FZ_ENABLE_ODT_OUTPUT
++#if FZ_ENABLE_ODT_OUTPUT
+ 		if (is_extension(format, "odt"))
+ 			return fz_new_odt_writer(ctx, path, options);
+ #endif
+-#ifdef FZ_ENABLE_DOCX_OUTPUT
++#if FZ_ENABLE_DOCX_OUTPUT
+ 		if (is_extension(format, "docx"))
+ 			return fz_new_docx_writer(ctx, path, options);
+ #endif
+@@ -267,11 +267,11 @@
+ 	if (is_extension(format, "stext.json"))
+ 		return fz_new_text_writer_with_output(ctx, "stext.json", out, options);
+ 
+-#ifdef FZ_ENABLE_ODT_OUTPUT
++#if FZ_ENABLE_ODT_OUTPUT
+ 	if (is_extension(format, "odt"))
+ 		return fz_new_odt_writer_with_output(ctx, out, options);
+ #endif
+-#ifdef FZ_ENABLE_DOCX_OUTPUT
++#if FZ_ENABLE_DOCX_OUTPUT
+ 	if (is_extension(format, "docx"))
+ 		return fz_new_docx_writer_with_output(ctx, out, options);
+ #endif
