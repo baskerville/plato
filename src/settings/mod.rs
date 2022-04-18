@@ -498,6 +498,16 @@ impl Default for Settings {
                     path: PathBuf::from(EXTERNAL_CARD_ROOT),
                     .. Default::default()
                 },
+                LibrarySettings {
+                    name: "Dropbox".to_string(),
+                    path: PathBuf::from("/mnt/onboard/.kobo/dropbox"),
+                    .. Default::default()
+                },
+                LibrarySettings {
+                    name: "KePub".to_string(),
+                    path: PathBuf::from("/mnt/onboard/.kobo/kepub"),
+                    .. Default::default()
+                },
             ],
             keyboard_layout: "English".to_string(),
             frontlight: true,
