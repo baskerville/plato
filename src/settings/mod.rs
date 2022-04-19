@@ -110,6 +110,8 @@ pub struct Settings {
     pub auto_power_off: u8,
     pub time_format: String,
     pub date_format: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_urls_queue: Option<PathBuf>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<LibrarySettings>,
     pub intermissions: Intermissions,
@@ -509,6 +511,7 @@ impl Default for Settings {
                     .. Default::default()
                 },
             ],
+            external_urls_queue: Some(PathBuf::from("bin/article_fetcher/urls.txt")),
             keyboard_layout: "English".to_string(),
             frontlight: true,
             wifi: false,

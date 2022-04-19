@@ -10,6 +10,8 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering as AtomicOrdering;
 use std::path::PathBuf;
+use std::io::prelude::*;
+use std::fs::OpenOptions;
 use std::collections::{VecDeque, BTreeMap};
 use fxhash::{FxHashMap, FxHashSet};
 use chrono::Local;
@@ -2981,7 +2983,23 @@ impl View for Reader {
                         if let Some(location) = doc.resolve_location(loc) {
                             hub.send(Event::GoTo(location)).ok();
                         } else {
-                            eprintln!("Can't resolve URI: {}.", link.text);
+                            if link.text.starts_with("https:") || link.text.starts_with("http:") {
+                                if let Some(path) = context.settings.external_urls_queue.as_ref() {
+                                    if let Ok(mut file) = OpenOptions::new().create(true)
+                                                                            .append(true)
+                                                                            .open(path) {
+                                        if let Err(e) = writeln!(file, "{}", link.text) {
+                                            eprintln!("Couldn't write to {}: {:#}.", path.display(), e);
+                                        } else {
+                                            let message = format!("Queued {}.", link.text);
+                                            let notif = Notification::new(message, hub, rq, context);
+                                            self.children.push(Box::new(notif) as Box<dyn View>);
+                                        }
+                                    }
+                                }
+                            } else {
+                                eprintln!("Can't resolve URI: {}.", link.text);
+                            }
                         }
                     }
                     return true;

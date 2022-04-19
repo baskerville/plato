@@ -15,6 +15,7 @@ use self::helpers::{load_toml, load_json, save_json, decode_entities};
 
 const SETTINGS_PATH: &str = "Settings.toml";
 const SESSION_PATH: &str = ".session.json";
+const URLS_PATH: &str = "urls.txt";
 // Nearly RFC 3339
 const DATE_FORMAT: &str = "%FT%T%z";
 
@@ -167,6 +168,30 @@ fn main() -> Result<(), Error> {
 
     let sigterm = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&sigterm))?;
+
+    if let Ok(contents) = fs::read_to_string(URLS_PATH) {
+        for line in contents.lines() {
+            let query = json!({"url": line});
+            let url = format!("{}/api/entries", &settings.base_url);
+            let response = client.post(&url)
+                                 .header(reqwest::header::AUTHORIZATION,
+                                         format!("Bearer {}", &session.access_token.data))
+                                 .json(&query)
+                                 .send();
+            let response = response.unwrap();
+            if !response.status().is_success() {
+                let status = response.status();
+                let body: JsonValue = response.json()?;
+                let err_desc = body.get("error_description")
+                                   .and_then(JsonValue::as_str)
+                                   .or_else(|| status.canonical_reason())
+                                   .unwrap_or_else(|| status.as_str());
+                eprintln!("Can't add {}: {}.", line, err_desc);
+            }
+        }
+    }
+
+    fs::remove_file(URLS_PATH).ok();
 
     if settings.sync_finished || settings.remove_finished {
         let event = json!({
