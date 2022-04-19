@@ -24,6 +24,8 @@ auto-power-off = 3
 # https://docs.rs/chrono/latest/chrono/format/strftime/index.html
 time-format = "%H:%M"
 date-format = "%A, %B %-d, %Y"
+# Appends the tapped external URLs to this file.
+external-urls-queue = "bin/article_fetcher/urls.txt"
 
 # You can create libraries by adding further [[libraries]] entries.
 [[libraries]]
