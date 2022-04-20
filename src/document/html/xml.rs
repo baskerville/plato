@@ -153,7 +153,7 @@ impl<'a> XmlParser<'a> {
     }
 }
 
-trait XmlExt {
+pub trait XmlExt {
     fn is_xml_whitespace(&self) -> bool;
 }
 

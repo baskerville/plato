@@ -30,6 +30,7 @@ use super::layout::{WordSpacing, ListStyleType, LineStats};
 use super::layout::{hyph_lang, collapse_margins, DEFAULT_HYPH_LANG, HYPHENATION_PATTERNS};
 use super::layout::{EM_SPACE_RATIOS, WORD_SPACE_RATIOS, FONT_SPACES};
 use super::style::{StyleSheet, specified_values};
+use super::xml::XmlExt;
 
 const DEFAULT_DPI: u16 = 300;
 const DEFAULT_WIDTH: u32 = 1404;
@@ -875,8 +876,8 @@ impl Engine {
                                         }
                                     });
 
-                                    if !parent_style.retain_whitespace && (c == ' ' || c.is_control()) &&
-                                        (last_c.map(|c| c == ' ' || c.is_control()) == Some(true)) {
+                                    if !parent_style.retain_whitespace && c.is_xml_whitespace() &&
+                                        (last_c.map(|c| c.is_xml_whitespace()) == Some(true)) {
                                             start_index += chunk.len();
                                             continue;
                                     }
@@ -897,11 +898,12 @@ impl Engine {
                                         WordSpacing::Ratio(r) => (r * width as f32) as i32,
                                     } + style.letter_spacing;
 
-                                    if parent_style.retain_whitespace && last_c == Some('\n') {
+                                    let is_unbreakable = c == '\u{00A0}' || c == '\u{202F}' || c == '\u{2007}';
+
+                                    if (is_unbreakable || (parent_style.retain_whitespace && c.is_xml_whitespace())) &&
+                                       (last_c == Some('\n') || last_c.is_none()) {
                                         items.push(ParagraphItem::Box { width: 0, data: ParagraphElement::Nothing });
                                     }
-
-                                    let is_unbreakable = c == '\u{00A0}' || c == '\u{202F}' || c == '\u{2007}';
 
                                     if is_unbreakable {
                                         items.push(ParagraphItem::Penalty { width: 0, penalty: INFINITE_PENALTY, flagged: false });
