@@ -10,6 +10,7 @@ mod device;
 mod font;
 mod helpers;
 mod dictionary;
+mod translate;
 mod document;
 mod library;
 mod metadata;
@@ -49,6 +50,7 @@ use crate::view::frontlight::FrontlightWindow;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::intermission::Intermission;
 use crate::view::dictionary::Dictionary;
+use crate::view::translate::Translate;
 use crate::view::calculator::Calculator;
 use crate::view::sketch::Sketch;
 use crate::view::touch_events::TouchEvents;
@@ -418,6 +420,9 @@ fn main() -> Result<(), Error> {
                         },
                         AppCmd::Dictionary { ref query, ref language } => {
                             Box::new(Dictionary::new(context.fb.rect(), query, language, &tx, &mut rq, &mut context))
+                        },
+                        AppCmd::Translate { ref query, ref source, ref target } => {
+                            Box::new(Translate::new(context.fb.rect(), query, source, target, &tx, &mut rq, &mut context))
                         },
                         AppCmd::TouchEvents => {
                             Box::new(TouchEvents::new(context.fb.rect(), &mut rq, &mut context))

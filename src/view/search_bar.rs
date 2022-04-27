@@ -17,31 +17,36 @@ pub struct SearchBar {
     id: Id,
     pub rect: Rectangle,
     children: Vec<Box<dyn View>>,
+    has_menu: bool,
 }
 
 impl SearchBar {
-    pub fn new(rect: Rectangle, input_id: ViewId, placeholder: &str, text: &str, context: &mut Context) -> SearchBar {
+    pub fn new(rect: Rectangle, input_id: ViewId, placeholder: &str, text: &str, has_menu: bool, context: &mut Context) -> SearchBar {
         let id = ID_FEEDER.next();
         let mut children = Vec::new();
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let side = rect.height() as i32;
 
-        let search_rect = rect![rect.min, rect.min + side];
-        let search_icon = Icon::new("search",
-                                    search_rect,
-                                    Event::ToggleNear(ViewId::SearchMenu, search_rect))
-                               .background(TEXT_BUMP_SMALL[0]);
-
-        children.push(Box::new(search_icon) as Box<dyn View>);
+        let x_offset = if has_menu {
+            let search_rect = rect![rect.min, rect.min + side];
+            let search_icon = Icon::new("search",
+                                        search_rect,
+                                        Event::ToggleNear(ViewId::SearchMenu, search_rect))
+                                   .background(TEXT_BUMP_SMALL[0]);
+            children.push(Box::new(search_icon) as Box<dyn View>);
+            side
+        } else {
+            0
+        };
         
-        let separator = Filler::new(rect![pt!(rect.min.x + side, rect.min.y),
-                                          pt!(rect.min.x + side + thickness, rect.max.y)],
+        let separator = Filler::new(rect![pt!(x_offset, rect.min.y),
+                                          pt!(x_offset + thickness, rect.max.y)],
                                     SEPARATOR_NORMAL);
 
         children.push(Box::new(separator) as Box<dyn View>);
 
-        let input_field = InputField::new(rect![pt!(rect.min.x + side + thickness, rect.min.y),
+        let input_field = InputField::new(rect![pt!(x_offset + thickness, rect.min.y),
                                                 pt!(rect.max.x - side - thickness, rect.max.y)],
                                           input_id)
                                      .border(false)
@@ -68,6 +73,7 @@ impl SearchBar {
             id,
             rect,
             children,
+            has_menu,
         }
     }
 
@@ -96,15 +102,20 @@ impl View for SearchBar {
         let dpi = CURRENT_DEVICE.dpi;
         let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let side = rect.height() as i32;
-        self.children[0].resize(rect![rect.min, rect.min + side], hub, rq, context);
-        self.children[1].resize(rect![pt!(rect.min.x + side, rect.min.y),
-                                      pt!(rect.min.x + side + thickness, rect.max.y)], hub, rq, context);
-        self.children[2].resize(rect![pt!(rect.min.x + side + thickness, rect.min.y),
-                                      pt!(rect.max.x - side - thickness, rect.max.y)], hub, rq, context);
-        self.children[3].resize(rect![pt!(rect.max.x - side - thickness, rect.min.y),
-                                      pt!(rect.max.x - side, rect.max.y)], hub, rq, context);
-        self.children[4].resize(rect![pt!(rect.max.x - side, rect.min.y),
-                                      pt!(rect.max.x, rect.max.y)], hub, rq, context);
+        let (x_offset, input) = if self.has_menu {
+            self.children[0].resize(rect![rect.min, rect.min + side], hub, rq, context);
+            (side, 1)
+        } else {
+            (0, 0)
+        };
+        self.children[input].resize(rect![pt!(x_offset, rect.min.y),
+                                          pt!(x_offset + thickness, rect.max.y)], hub, rq, context);
+        self.children[input+1].resize(rect![pt!(x_offset + thickness, rect.min.y),
+                                            pt!(rect.max.x - side - thickness, rect.max.y)], hub, rq, context);
+        self.children[input+2].resize(rect![pt!(rect.max.x - side - thickness, rect.min.y),
+                                            pt!(rect.max.x - side, rect.max.y)], hub, rq, context);
+        self.children[input+3].resize(rect![pt!(rect.max.x - side, rect.min.y),
+                                            pt!(rect.max.x, rect.max.y)], hub, rq, context);
         self.rect = rect;
     }
 

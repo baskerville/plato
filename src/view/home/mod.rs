@@ -696,7 +696,7 @@ impl Home {
                                                   sp_rect.max.y + delta_y - thickness],
                                             ViewId::HomeSearchInput,
                                             "Title, author, series",
-                                            "", context);
+                                            "", true, context);
             self.children.insert(self.shelf_index+1, Box::new(search_bar) as Box<dyn View>);
 
             let separator = Filler::new(sp_rect, BLACK);

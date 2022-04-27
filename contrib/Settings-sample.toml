@@ -26,6 +26,12 @@ time-format = "%H:%M"
 date-format = "%A, %B %-d, %Y"
 # Appends the tapped external URLs to this file.
 external-urls-queue = "bin/article_fetcher/urls.txt"
+# The google translate server to use, e.g., "https://translate.google.fr"
+google-translate-server = "https://translate.googleapis.com"
+# List of languages to appear in Translate to: menu
+# If not specified, default to system language
+# (below is an example; it is not the default)
+languages = ["en_US", "fr", "vi"]
 
 # You can create libraries by adding further [[libraries]] entries.
 [[libraries]]

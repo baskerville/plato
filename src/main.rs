@@ -10,6 +10,7 @@ mod input;
 mod gesture;
 mod helpers;
 mod dictionary;
+mod translate;
 mod document;
 mod library;
 mod metadata;

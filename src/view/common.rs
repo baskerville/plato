@@ -82,6 +82,12 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
 
         let apps = vec![EntryKind::Command("Dictionary".to_string(),
                                            EntryId::Launch(AppCmd::Dictionary { query: "".to_string(), language: "".to_string() })),
+                        EntryKind::Command("Translate".to_string(),
+                                           EntryId::Launch(AppCmd::Translate {
+                                                                query: "".to_string(),
+                                                                source: "auto".to_string(),
+                                                                target:  context.settings.languages[0].clone(),
+                                                           })),
                         EntryKind::Command("Calculator".to_string(),
                                            EntryId::Launch(AppCmd::Calculator)),
                         EntryKind::Command("Sketch".to_string(),

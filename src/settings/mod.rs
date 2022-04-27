@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::collections::BTreeMap;
 use fxhash::FxHashSet;
 use serde::{Serialize, Deserialize};
+use sys_locale::get_locale;
 use crate::metadata::{SortMethod, TextAlign};
 use crate::frontlight::LightLevels;
 use crate::color::BLACK;
@@ -112,6 +113,8 @@ pub struct Settings {
     pub date_format: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub external_urls_queue: Option<PathBuf>,
+    pub google_translate_server: String,
+    pub languages: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<LibrarySettings>,
     pub intermissions: Intermissions,
@@ -538,6 +541,8 @@ impl Default for Settings {
             battery: BatterySettings::default(),
             frontlight_levels: LightLevels::default(),
             frontlight_presets: Vec::new(),
+            google_translate_server: "https://translate.googleapis.com".to_string(),
+            languages: vec![get_locale().unwrap_or_else(|| String::from("en"))],
         }
     }
 }

@@ -55,6 +55,7 @@ fxhash = "0.2.1"
 rand_core = "0.6.3"
 rand_xoshiro = "0.6.0"
 percent-encoding = "2.1.0"
+sys-locale = "0.2.0"
 
 [dependencies.getopts]
 version = "0.2.21"
@@ -64,7 +65,7 @@ optional = true
 version = "0.11.10"
 features = ["rustls-tls", "json", "blocking"]
 default-features = false
-optional = true
+optional = false
 
 [dependencies.chrono]
 features = ["serde"]
@@ -81,7 +82,7 @@ optional = true
 [features]
 importer = ["getopts"]
 emulator = ["sdl2"]
-fetcher = ["reqwest", "signal-hook"]
+fetcher = ["signal-hook"]
 
 [profile.release-minsized]
 inherits = "release"

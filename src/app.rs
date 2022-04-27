@@ -23,6 +23,7 @@ use crate::view::frontlight::FrontlightWindow;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::keyboard::{Layout};
 use crate::view::dictionary::Dictionary as DictionaryApp;
+use crate::view::translate::Translate;
 use crate::view::calculator::Calculator;
 use crate::view::sketch::Sketch;
 use crate::view::touch_events::TouchEvents;
@@ -526,9 +527,9 @@ pub fn run() -> Result<(), Error> {
                                                       &tx, &mut rq, &mut context);
                         context.online = true;
                         view.children_mut().push(Box::new(notif) as Box<dyn View>);
-                        if view.is::<Home>() {
+                        if view.is::<Home>() || view.is::<Translate>() {
                             view.handle_event(&evt, &tx, &mut bus, &mut rq, &mut context);
-                        } else if let Some(entry) = history.get_mut(0).filter(|entry| entry.view.is::<Home>()) {
+                        } else if let Some(entry) = history.get_mut(0).filter(|entry| entry.view.is::<Home>() || view.is::<Translate>()) {
                             let (tx, _rx) = mpsc::channel();
                             entry.view.handle_event(&evt, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
                         }
@@ -914,6 +915,9 @@ pub fn run() -> Result<(), Error> {
                     AppCmd::Calculator => Box::new(Calculator::new(context.fb.rect(), &tx, &mut rq, &mut context)?),
                     AppCmd::Dictionary { ref query, ref language } => Box::new(DictionaryApp::new(context.fb.rect(), query,
                                                                                                   language, &tx, &mut rq, &mut context)),
+                    AppCmd::Translate { ref query, ref source, ref target } => {
+                        Box::new(Translate::new(context.fb.rect(), query, source, target, &tx, &mut rq, &mut context))
+                    },
                     AppCmd::TouchEvents => {
                         Box::new(TouchEvents::new(context.fb.rect(), &mut rq, &mut context))
                     },

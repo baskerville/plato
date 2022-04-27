@@ -98,6 +98,18 @@ pub fn save_toml<T, P: AsRef<Path>>(data: &T, path: P) -> Result<(), Error> wher
        .map_err(Into::into)
 }
 
+pub fn trim_non_alphanumeric(text: &str) -> String {
+    text.trim_matches(|c: char| !c.is_alphanumeric()).to_string()
+}
+
+pub fn first_n_words(text: &str, n: usize) -> String {
+    text.split_whitespace().take(n).collect::<Vec<&str>>().join(" ")
+}
+
+pub fn encode_entities(text: &str) -> String {
+    text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+}
+
 pub trait Fingerprint {
     fn fingerprint(&self, epoch: SystemTime) -> io::Result<Fp>;
 }

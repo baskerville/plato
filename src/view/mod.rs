@@ -38,6 +38,7 @@ pub mod key;
 pub mod home;
 pub mod reader;
 pub mod dictionary;
+pub mod translate;
 pub mod calculator;
 pub mod sketch;
 pub mod touch_events;
@@ -316,6 +317,7 @@ pub enum Event {
     PropagateSelect(EntryId),
     EditLanguages,
     Define(String),
+    Proceed,
     Submit(ViewId, String),
     Slider(SliderId, f32, FingerStatus),
     ToggleNear(ViewId, Rectangle),
@@ -373,6 +375,11 @@ pub enum AppCmd {
         query: String,
         language: String,
     },
+    Translate {
+        query: String,
+        source: String,
+        target: String,
+    },
     TouchEvents,
     RotationValues,
 }
@@ -389,6 +396,8 @@ pub enum ViewId {
     BatteryMenu,
     ClockMenu,
     SearchTargetMenu,
+    SourceLangMenu,
+    TargetLangMenu,
     InputHistoryMenu,
     KeyboardLayoutMenu,
     Frontlight,
@@ -423,6 +432,7 @@ pub enum ViewId {
     HomeSearchInput,
     ReaderSearchInput,
     DictionarySearchInput,
+    TranslateSearchInput,
     CalculatorInput,
     SearchBar,
     AddressBar,
@@ -537,6 +547,7 @@ pub enum EntryId {
     HighlightSelection,
     AnnotateSelection,
     DefineSelection,
+    TranslateSelection,
     SearchForSelection,
     AdjustSelection,
     Annotations,
@@ -557,6 +568,8 @@ pub enum EntryId {
     SetContrastGray(i32),
     SetRotationLock(Option<RotationLock>),
     SetSearchTarget(Option<String>),
+    SetSourceLang(String),
+    SetTargetLang(String),
     SetInputText(ViewId, String),
     SetKeyboardLayout(String),
     ToggleShowHidden,

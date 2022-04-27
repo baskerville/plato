@@ -211,6 +211,12 @@ impl View for InputField {
                 }
                 true
             },
+            Event::Gesture(GestureEvent::Swipe { start, end, .. }) if self.rect.includes(start) =>  {
+                if start.x > end.x {
+                    self.set_text("", true, rq, context);
+                }
+                true
+            },
             Event::Gesture(GestureEvent::HoldFingerShort(center, _)) if self.rect.includes(center) => {
                 hub.send(Event::ToggleInputHistoryMenu(self.view_id, self.rect)).ok();
                 true
