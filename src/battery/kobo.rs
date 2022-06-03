@@ -31,7 +31,7 @@ pub struct KoboBattery {
 
 impl KoboBattery {
     pub fn new() -> Result<KoboBattery, Error> {
-        let base = if CURRENT_DEVICE.mark() != 8 {
+        let base = if CURRENT_DEVICE.mark() < 8 {
             Path::new(BATTERY_INTERFACE_A)
         } else {
             Path::new(BATTERY_INTERFACE_B)
