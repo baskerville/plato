@@ -31,10 +31,10 @@ pub struct KoboBattery {
 
 impl KoboBattery {
     pub fn new() -> Result<KoboBattery, Error> {
-        let base = if CURRENT_DEVICE.mark() < 8 {
-            Path::new(BATTERY_INTERFACE_A)
-        } else {
+        let base = if Path::new(BATTERY_INTERFACE_B).exists() {
             Path::new(BATTERY_INTERFACE_B)
+        } else {
+            Path::new(BATTERY_INTERFACE_A)
         };
         let capacity = File::open(base.join(BATTERY_CAPACITY))?;
         let status = File::open(base.join(BATTERY_STATUS))?;
