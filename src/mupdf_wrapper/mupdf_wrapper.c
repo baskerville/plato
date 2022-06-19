@@ -14,5 +14,6 @@ WRAP(load_page, fz_page*, NULL, fz_load_page(ctx, doc, pageno), fz_document *doc
 WRAP(load_outline, fz_outline*, NULL, fz_load_outline(ctx, doc), fz_document *doc)
 WRAP(load_links, fz_link*, NULL, fz_load_links(ctx, page), fz_page *page)
 WRAP(count_pages, int, -1, fz_count_pages(ctx, doc), fz_document *doc)
+WRAP(page_number_from_location, int, -1, fz_page_number_from_location(ctx, doc, loc), fz_document *doc, fz_location loc)
 WRAP(new_pixmap_from_page, fz_pixmap*, NULL, fz_new_pixmap_from_page(ctx, page, mat, cs, alpha), fz_page *page, fz_matrix mat, fz_colorspace *cs, int alpha)
 WRAP(new_stext_page_from_page, fz_stext_page*, NULL, fz_new_stext_page_from_page(ctx, page, options), fz_page *page, fz_stext_options *options)

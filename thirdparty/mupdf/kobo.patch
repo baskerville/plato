@@ -1,7 +1,7 @@
 diff -ru a/Makefile b/Makefile
---- a/Makefile	2022-04-06 15:28:02.000000000 +0200
-+++ b/Makefile	2022-04-15 19:07:11.000000000 +0200
-@@ -145,7 +145,7 @@
+--- a/Makefile	2022-06-19 18:14:29.000000000 +0200
++++ b/Makefile	2022-06-19 18:14:40.000000000 +0200
+@@ -150,7 +150,7 @@
  
  THIRD_GLUT_OBJ := $(THIRD_GLUT_SRC:%.c=$(OUT)/%.o)
  
@@ -10,27 +10,18 @@ diff -ru a/Makefile b/Makefile
  MUPDF_SRC += $(sort $(wildcard source/fitz/*.cpp))
  MUPDF_SRC += $(sort $(wildcard source/pdf/*.c))
  MUPDF_SRC += $(sort $(wildcard source/xps/*.c))
-@@ -455,7 +455,7 @@
- cscope.out: cscope.files
- 	cscope -b
- 
--all: libs apps
-+all: libs
- 
- clean:
- 	rm -rf $(OUT)
 diff -ru a/Makerules b/Makerules
---- a/Makerules	2022-04-06 15:28:02.000000000 +0200
-+++ b/Makerules	2022-04-15 19:07:11.000000000 +0200
-@@ -260,7 +260,6 @@
+--- a/Makerules	2022-06-19 18:14:29.000000000 +0200
++++ b/Makerules	2022-06-19 18:14:40.000000000 +0200
+@@ -263,7 +263,6 @@
    WINDRES = i686-w64-mingw32-windres
    HAVE_WIN32=yes
  endif
 -
  ifeq "$(OS)" "mingw64-cross"
    build_prefix += $(OS)/
-   CC = x86_64-w64-mingw32-gcc
-@@ -271,6 +270,35 @@
+   SO := dll
+@@ -276,6 +275,35 @@
    HAVE_WIN32=yes
  endif
  
@@ -67,8 +58,8 @@ diff -ru a/Makerules b/Makerules
  # which is called from the Xcode project as a "Run Script" build step.
  # The following section works for both device and simulator builds.
 diff -ru a/Makethird b/Makethird
---- a/Makethird	2022-04-06 15:28:02.000000000 +0200
-+++ b/Makethird	2022-04-15 19:07:11.000000000 +0200
+--- a/Makethird	2022-06-19 18:14:29.000000000 +0200
++++ b/Makethird	2022-06-19 18:14:40.000000000 +0200
 @@ -45,7 +45,7 @@
  
  # --- Include source file lists ---
@@ -141,43 +132,18 @@ diff -ru a/Makethird b/Makethird
  
 -generate: thirdparty/extract/src/docx_template.c
 +# generate: thirdparty/extract/src/docx_template.c
-diff -ru a/source/fitz/writer.c b/source/fitz/writer.c
---- a/source/fitz/writer.c	2022-04-06 15:28:02.000000000 +0200
-+++ b/source/fitz/writer.c	2022-04-15 19:07:11.000000000 +0200
-@@ -169,7 +169,7 @@
- 		format = strrchr(path, '.');
- 	while (format)
+diff -ru a/source/svg/svg-run.c b/source/svg/svg-run.c
+--- a/source/svg/svg-run.c	2022-06-19 18:14:29.000000000 +0200
++++ b/source/svg/svg-run.c	2022-06-19 18:16:03.000000000 +0200
+@@ -1022,9 +1022,9 @@
+ 	if (fill_rule_att)
  	{
--#ifdef FZ_ENABLE_OCR_OUTPUT
-+#if FZ_ENABLE_OCR_OUTPUT
- 		if (is_extension(format, "ocr"))
- 			return fz_new_pdfocr_writer(ctx, path, options);
- #endif
-@@ -219,11 +219,11 @@
- 		if (is_extension(format, "stext.json"))
- 			return fz_new_text_writer(ctx, "stext.json", path, options);
+ 		if (!strcmp(fill_rule_att, "nonzero"))
+-			state->fill_rule = 1;
+-		if (!strcmp(fill_rule_att, "evenodd"))
+ 			state->fill_rule = 0;
++		if (!strcmp(fill_rule_att, "evenodd"))
++			state->fill_rule = 1;
+ 	}
  
--#ifdef FZ_ENABLE_ODT_OUTPUT
-+#if FZ_ENABLE_ODT_OUTPUT
- 		if (is_extension(format, "odt"))
- 			return fz_new_odt_writer(ctx, path, options);
- #endif
--#ifdef FZ_ENABLE_DOCX_OUTPUT
-+#if FZ_ENABLE_DOCX_OUTPUT
- 		if (is_extension(format, "docx"))
- 			return fz_new_docx_writer(ctx, path, options);
- #endif
-@@ -267,11 +267,11 @@
- 	if (is_extension(format, "stext.json"))
- 		return fz_new_text_writer_with_output(ctx, "stext.json", out, options);
- 
--#ifdef FZ_ENABLE_ODT_OUTPUT
-+#if FZ_ENABLE_ODT_OUTPUT
- 	if (is_extension(format, "odt"))
- 		return fz_new_odt_writer_with_output(ctx, out, options);
- #endif
--#ifdef FZ_ENABLE_DOCX_OUTPUT
-+#if FZ_ENABLE_DOCX_OUTPUT
- 	if (is_extension(format, "docx"))
- 		return fz_new_docx_writer_with_output(ctx, out, options);
- #endif
+ 	if (stroke_att)

@@ -125,13 +125,14 @@ impl PdfDocument {
         }
     }
 
-    fn walk_toc(outline: *mut FzOutline, index: &mut usize) -> Vec<TocEntry> {
+    fn walk_toc(&self, outline: *mut FzOutline, index: &mut usize) -> Vec<TocEntry> {
         unsafe {
             let mut vec = Vec::new();
             let mut cur = outline;
             while !cur.is_null() {
-                let location = if (*cur).page > -1 {
-                    Location::Exact((*cur).page as usize)
+                let num = mp_page_number_from_location(self.ctx.0, self.doc, (*cur).page);
+                let location = if num > -1 {
+                    Location::Exact(num as usize)
                 } else if !(*cur).uri.is_null() {
                     let uri = CStr::from_ptr((*cur).uri).to_string_lossy().into_owned();
                     Location::Uri(uri)
@@ -146,7 +147,7 @@ impl PdfDocument {
                 let current_index = *index;
                 *index += 1;
                 let children = if !(*cur).down.is_null() {
-                    Self::walk_toc((*cur).down, index)
+                    self.walk_toc((*cur).down, index)
                 } else {
                     Vec::new()
                 };
@@ -183,7 +184,7 @@ impl Document for PdfDocument {
                 None
             } else {
                 let mut index = 0;
-                let toc = Self::walk_toc(outline, &mut index);
+                let toc = self.walk_toc(outline, &mut index);
                 fz_drop_outline(self.ctx.0, outline);
                 Some(toc)
             }
@@ -282,7 +283,7 @@ impl<'a> PdfPage<'a> {
     pub fn images(&self) -> Option<Vec<Boundary>> {
         unsafe {
             let mut images: Vec<Boundary> = Vec::new();
-            let opts = FzTextOptions { flags: FZ_TEXT_PRESERVE_IMAGES };
+            let opts = FzTextOptions { flags: FZ_TEXT_PRESERVE_IMAGES, scale: 1.0 };
             let tp = mp_new_stext_page_from_page(self.ctx.0, self.page, &opts);
             if tp.is_null() {
                 return None;

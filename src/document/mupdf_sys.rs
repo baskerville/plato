@@ -3,7 +3,7 @@
 use std::mem;
 
 pub const FZ_MAX_COLORS: usize = 32;
-pub const FZ_VERSION: &str = "1.19.0";
+pub const FZ_VERSION: &str = "1.20.0";
 
 pub const FZ_META_INFO_AUTHOR: &str = "info:Author";
 pub const FZ_META_INFO_TITLE: &str = "info:Title";
@@ -51,6 +51,7 @@ extern {
     pub fn fz_open_memory(ctx: *mut FzContext, data: *const libc::c_uchar, len: libc::size_t) -> *mut FzStream;
     pub fn fz_drop_stream(ctx: *mut FzContext, stream: *mut FzStream);
     pub fn mp_count_pages(ctx: *mut FzContext, doc: *mut FzDocument) -> libc::c_int;
+    pub fn mp_page_number_from_location(ctx: *mut FzContext, doc: *mut FzDocument, loc: FzLocation) -> libc::c_int;
     pub fn fz_lookup_metadata(ctx: *mut FzContext, doc: *mut FzDocument, key: *const libc::c_char, buf: *mut libc::c_char, size: libc::c_int) -> libc::c_int;
     pub fn fz_needs_password(ctx: *mut FzContext, doc: *mut FzDocument) -> libc::c_int;
     pub fn fz_is_document_reflowable(ctx: *mut FzContext, doc: *mut FzDocument) -> libc::c_int;
@@ -137,6 +138,7 @@ pub struct FzStorable {
 #[repr(C)]
 pub struct FzTextOptions {
     pub flags: libc::c_int,
+    pub scale: libc::c_float,
 }
 
 #[repr(C)]
@@ -232,12 +234,19 @@ pub struct FzTextChar {
     pub next: *mut FzTextChar,
 }
 
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct FzLocation {
+	pub chapter: libc::c_int,
+	pub page: libc::c_int,
+}
+
 #[repr(C)]
 pub struct FzOutline {
     refs: libc::c_int,
     pub title: *mut libc::c_char,
     pub uri: *mut libc::c_char,
-    pub page: libc::c_int,
+    pub page: FzLocation,
     x: libc::c_float,
     y: libc::c_float,
     pub next: *mut FzOutline,
