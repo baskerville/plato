@@ -403,6 +403,15 @@ impl DrawCommand {
             _ => None,
         }
     }
+
+    pub fn position_mut(&mut self) -> Option<&mut Point> {
+        match *self {
+            DrawCommand::Text(TextCommand { ref mut position, .. }) => Some(position),
+            DrawCommand::ExtraText(TextCommand { ref mut position, .. }) => Some(position),
+            DrawCommand::Image(ImageCommand { ref mut position, .. }) => Some(position),
+            _ => None,
+        }
+    }
 }
 
 pub fn collapse_margins(a: i32, b: i32) -> i32 {

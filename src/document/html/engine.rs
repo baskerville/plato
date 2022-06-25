@@ -649,7 +649,6 @@ impl Engine {
                                            .map(|value| parse_font_features(value))
                                            .or_else(|| parent_style.font_features.clone());
 
-
                 if let Some(value) = props.get("font-variant") {
                     let mut features = parse_font_variant(value);
                     if let Some(v) = style.font_features.as_mut() {
@@ -1226,6 +1225,8 @@ impl Engine {
                 last_index += 1;
             }
 
+            let start_command_index = page.len();
+
             for i in last_index..index {
                 match items[i] {
                     ParagraphItem::Box { ref data, width } => {
@@ -1324,8 +1325,31 @@ impl Engine {
                                 } else {
                                     let mut pt = pt!(position.x, position.y - element.height - element.vertical_align);
 
-                                    if pt.y < root_data.rect.min.y {
-                                        pt.y = root_data.rect.min.y;
+                                    let y_min = position.y - ascender;
+                                    let delta = y_min - pt.y;
+                                    if delta > 0 {
+                                        pt.y += delta;
+                                        let y_max = root_data.rect.max.y - space_bottom;
+                                        if pt.y + element.height > y_max {
+                                            let mut start_commands = page.drain(start_command_index..).collect::<Vec<DrawCommand>>();
+                                            display_list.push(page);
+                                            let next_baseline = (root_data.rect.min.y + space_top - ascender + element.height).min(y_max);
+                                            for dc in &mut start_commands {
+                                                for pt in dc.position_mut() {
+                                                    pt.y += next_baseline - position.y;
+                                                }
+                                            }
+                                            pt.y = next_baseline - element.height - element.vertical_align;
+                                            position.y = next_baseline;
+                                            page = start_commands;
+                                        } else {
+                                            for dc in &mut page[start_command_index..] {
+                                                for pt in dc.position_mut() {
+                                                    pt.y += delta;
+                                                }
+                                            }
+                                            position.y += delta;
+                                        }
                                     }
 
                                     (element.width, element.height, pt, element.scale)
