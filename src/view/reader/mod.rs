@@ -225,6 +225,16 @@ fn find_cut(frame: &Rectangle, y_pos: i32, scale: f32, dir: LinearDir, lines: &[
     })
 }
 
+fn word_separator(lang: &str) -> &'static str {
+    let l = lang.to_ascii_lowercase();
+    match l.as_str() {
+        // https://en.wikipedia.org/wiki/Scriptio_continua
+        // Japanese, Chinese, Burmese, Lao, Khmer, Thai, Bengali, Javanese, Sundanese.
+        "ja" | "zh" | "my" | "lo" | "km" | "th" | "bn" | "jv" | "su" => "",
+        _ => " ",
+    }
+}
+
 impl Reader {
     pub fn new(rect: Rectangle, mut info: Info, hub: &Hub, context: &mut Context) -> Option<Reader> {
         let id = ID_FEEDER.next();
@@ -1091,6 +1101,7 @@ impl Reader {
         let running = Arc::clone(&s.running);
         let current_page = self.current_page;
         let search_direction = self.search_direction;
+        let ws = word_separator(&self.info.language);
 
         thread::spawn(move || {
             let mut loc = Location::Exact(current_page);
@@ -1117,7 +1128,7 @@ impl Reader {
                             if text.ends_with('\u{00AD}') {
                                 text.pop();
                             } else if !text.ends_with('-') && !text.is_empty() {
-                                text.push(' ');
+                                text.push_str(ws);
                             }
                             rects.insert(text.len(), word.rect);
                             text += &word.text;
@@ -2410,13 +2421,14 @@ impl Reader {
             return None;
         }
 
+        let ws = word_separator(&self.info.language);
         let mut text = parts[0].to_string();
 
         for p in &parts[1..] {
             if text.ends_with('\u{00AD}') {
                 text.pop();
             } else if !text.ends_with('-') {
-                text.push(' ');
+                text.push_str(ws);
             }
             text += p;
         }
