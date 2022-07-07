@@ -16,7 +16,6 @@ pub struct NamedInput {
     id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
-    input_size: usize,
     view_id: ViewId,
 }
 
@@ -77,7 +76,6 @@ impl NamedInput {
             id,
             rect,
             children,
-            input_size,
             view_id,
         }
     }

@@ -21,7 +21,7 @@ use crate::view::common::{locate, locate_by_id, transfer_notifications, overlapp
 use crate::view::common::{toggle_input_history_menu, toggle_keyboard_layout_menu};
 use crate::view::frontlight::FrontlightWindow;
 use crate::view::menu::{Menu, MenuKind};
-use crate::view::keyboard::{Layout};
+use crate::view::keyboard::Layout;
 use crate::view::dictionary::Dictionary as DictionaryApp;
 use crate::view::calculator::Calculator;
 use crate::view::sketch::Sketch;

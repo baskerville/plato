@@ -14,7 +14,6 @@ use crate::app::Context;
 use crate::geom::Rectangle;
 use crate::unit::scale_by_dpi;
 
-pub type Keys = Vec<Vec<KeyKind>>;
 const PADDING_RATIO: f32 = 0.06;
 
 #[derive(Debug, Clone, Deserialize)]
