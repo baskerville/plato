@@ -772,7 +772,7 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 
 [[package]]
 name = "plato"
-version = "0.9.28"
+version = "0.9.29"
 dependencies = [
  "anyhow",
  "bitflags",
