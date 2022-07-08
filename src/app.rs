@@ -50,11 +50,14 @@ use crate::rtc::Rtc;
 pub const APP_NAME: &str = "Plato";
 const FB_DEVICE: &str = "/dev/fb0";
 const RTC_DEVICE: &str = "/dev/rtc0";
-const INPUT_EVENTS_A: [&str; 2] = ["/dev/input/event0",
-                                   "/dev/input/event1"];
-const INPUT_EVENTS_B: [&str; 3] = ["/dev/input/by-path/platform-ntx_event0-event",
-                                   "/dev/input/by-path/platform-0-0010-event",
-                                   "/dev/input/by-path/platform-1-001e-event"];
+const TOUCH_INPUTS: [&str; 2] = ["/dev/input/by-path/platform-1-0010-event",
+                                 "/dev/input/event1"];
+const BUTTON_INPUTS: [&str; 4] = ["/dev/input/by-path/platform-gpio-keys-event",
+                                  "/dev/input/by-path/platform-ntx_event0-event",
+                                  "/dev/input/by-path/platform-mxckpd-event",
+                                  "/dev/input/event0"];
+const POWER_INPUT: &str = "/dev/input/by-path/platform-bd71828-pwrkey-event";
+
 const KOBO_UPDATE_BUNDLE: &str = "/mnt/onboard/.kobo/KoboRoot.tgz";
 const KEYBOARD_LAYOUTS_DIRNAME: &str = "keyboard-layouts";
 const DICTIONARIES_DIRNAME: &str = "dictionaries";
@@ -360,11 +363,23 @@ pub fn run() -> Result<(), Error> {
     context.load_dictionaries();
     context.load_keyboard_layouts();
 
-    let paths = if CURRENT_DEVICE.mark() != 8 {
-        INPUT_EVENTS_A.iter().cloned().map(String::from).collect()
-    } else {
-        INPUT_EVENTS_B.iter().cloned().map(String::from).collect()
-    };
+    let mut paths = Vec::new();
+    for ti in &TOUCH_INPUTS {
+        if Path::new(ti).exists() {
+            paths.push(ti.to_string());
+            break;
+        }
+    }
+    for bi in &BUTTON_INPUTS {
+        if Path::new(bi).exists() {
+            paths.push(bi.to_string());
+            break;
+        }
+    }
+    if Path::new(POWER_INPUT).exists() {
+        paths.push(POWER_INPUT.to_string());
+    }
+
     let (raw_sender, raw_receiver) = raw_events(paths);
     let touch_screen = gesture_events(device_events(raw_receiver, context.display, context.settings.button_scheme));
     let usb_port = usb_events();
