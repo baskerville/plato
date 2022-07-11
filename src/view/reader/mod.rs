@@ -455,7 +455,7 @@ impl Reader {
                                   .and_then(|r| r.cropping_margins.as_ref()
                                                  .map(|c| c.margin(location)))
                                   .cloned().unwrap_or_default();
-        let dims = doc.dims(location).unwrap();
+        let dims = doc.dims(location).unwrap_or((3.0, 4.0));
         let screen_margin_width = self.view_port.margin_width;
         let scale = scaling_factor(&self.rect, &cropping_margin, screen_margin_width, dims, self.view_port.zoom_mode);
         if let Some((pixmap, _)) = doc.pixmap(Location::Exact(location), scale) {
