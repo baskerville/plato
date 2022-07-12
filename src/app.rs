@@ -50,7 +50,8 @@ use crate::rtc::Rtc;
 pub const APP_NAME: &str = "Plato";
 const FB_DEVICE: &str = "/dev/fb0";
 const RTC_DEVICE: &str = "/dev/rtc0";
-const TOUCH_INPUTS: [&str; 2] = ["/dev/input/by-path/platform-1-0010-event",
+const TOUCH_INPUTS: [&str; 3] = ["/dev/input/by-path/platform-1-0010-event",
+                                 "/dev/input/by-path/platform-0-0010-event",
                                  "/dev/input/event1"];
 const BUTTON_INPUTS: [&str; 4] = ["/dev/input/by-path/platform-gpio-keys-event",
                                   "/dev/input/by-path/platform-ntx_event0-event",
