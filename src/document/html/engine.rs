@@ -875,13 +875,19 @@ impl Engine {
                                         }
                                     });
 
+                                    let has_more = text[start_index+i..].chars().any(|c| !c.is_xml_whitespace()) ||
+                                                   inlines[index+1..].iter().any(|m| m.text().map_or(false,
+                                                                                      |text| text.chars().any(|c| !c.is_xml_whitespace())));
+
                                     if !parent_style.retain_whitespace && c.is_xml_whitespace() &&
-                                        (last_c.map(|c| c.is_xml_whitespace()) == Some(true)) {
+                                        (last_c.map(|c| c.is_xml_whitespace()) != Some(false) || !has_more) {
                                             start_index += chunk.len();
                                             continue;
                                     }
 
-                                    let mut width = if let Some(index) = FONT_SPACES.chars().position(|x| x == c) {
+                                    let mut width = if !parent_style.retain_whitespace {
+                                        space_plan.glyph_advance(0)
+                                    } else if let Some(index) = FONT_SPACES.chars().position(|x| x == c) {
                                         space_plan.glyph_advance(index)
                                     } else if let Some(ratio) = WORD_SPACE_RATIOS.get(&c) {
                                         (space_plan.glyph_advance(0) as f32 * ratio) as i32
@@ -972,7 +978,7 @@ impl Engine {
             }
         }
 
-        if items.last().map(ParagraphItem::penalty) != Some(-INFINITE_PENALTY) {
+        if !items.is_empty() && items.last().map(ParagraphItem::penalty) != Some(-INFINITE_PENALTY) {
             items.push(ParagraphItem::Penalty { penalty: INFINITE_PENALTY,  width: 0, flagged: false });
 
             let stretch = if parent_style.text_align == TextAlign::Center { big_stretch } else { line_width };
@@ -985,6 +991,13 @@ impl Engine {
     }
 
     fn place_paragraphs(&mut self, inlines: &[InlineMaterial], style: &StyleData, root_data: &RootData, markers: &[usize], resource_fetcher: &mut dyn ResourceFetcher, draw_state: &mut DrawState, rects: &mut Vec<Option<Rectangle>>, display_list: &mut Vec<Page>) {
+        let line_width = style.end_x - style.start_x;
+        let (mut items, floats) = self.make_paragraph_items(inlines, style, line_width, resource_fetcher);
+
+        if items.is_empty() {
+            return;
+        }
+
         let position = &mut draw_state.position;
 
         let text_indent = if style.text_align == TextAlign::Center {
@@ -1011,8 +1024,6 @@ impl Engine {
 
         position.y += style.margin.top + space_top;
 
-        let line_width = style.end_x - style.start_x;
-
         let mut page = display_list.pop().unwrap();
         let mut page_rect = rects.pop().unwrap();
         if position.y > root_data.rect.max.y - space_bottom {
@@ -1022,7 +1033,6 @@ impl Engine {
             page = Vec::new();
         }
 
-        let (mut items, floats) = self.make_paragraph_items(inlines, style, line_width, resource_fetcher);
         let page_index = display_list.len();
 
         for mut element in floats.into_iter() {
