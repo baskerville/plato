@@ -74,7 +74,7 @@ export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"
 
 [ -e info.log ] && [ "$(stat -c '%s' info.log)" -gt $((1<<18)) ] && mv info.log archive.log
 
-[ "$PLATO_CONVERT_DICTIONARIES" ] && find dictionaries -name '*.ifo' -exec ./convert-dictionary.sh {} \;
+[ "$PLATO_CONVERT_DICTIONARIES" ] && find -L dictionaries -name '*.ifo' -exec ./convert-dictionary.sh {} \;
 
 if [ "$PLATO_SET_FRAMEBUFFER_DEPTH" ] ; then
 	case "${PRODUCT}:${MODEL_NUMBER}" in
