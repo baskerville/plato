@@ -118,6 +118,9 @@ min-margin-width = 0
 max-margin-width = 10
 # The default line height, in ems.
 line-height = 1.2
+# Determine the scroll mode used for the fit-to-width zoom mode
+# when opening a new document.
+continuous-fit-to-width = true
 # Whether to ignore the document's style sheets.
 ignore-document-css = false
 # The file extensions of the files that will automatically be dithered

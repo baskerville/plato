@@ -41,6 +41,7 @@ use crate::view::named_input::NamedInput;
 use crate::view::search_bar::SearchBar;
 use crate::view::keyboard::Keyboard;
 use crate::view::menu::{Menu, MenuKind};
+use crate::view::menu_entry::MenuEntry;
 use crate::view::notification::Notification;
 use crate::settings::{guess_frontlight, FinishedAction, SouthEastCornerAction, BottomRightGestureAction, SouthStripAction, WestStripAction, EastStripAction};
 use crate::settings::{DEFAULT_FONT_FAMILY, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT, DEFAULT_MARGIN_WIDTH};
@@ -50,7 +51,7 @@ use crate::gesture::GestureEvent;
 use crate::document::{Document, open, Location, TextLocation, BoundedText, Neighbors, BYTES_PER_PAGE};
 use crate::document::{TocEntry, SimpleTocEntry, TocLocation, toc_as_html, annotations_as_html, bookmarks_as_html};
 use crate::document::html::HtmlDocument;
-use crate::metadata::{Info, FileInfo, ReaderInfo, Annotation, TextAlign, ZoomMode, PageScheme};
+use crate::metadata::{Info, FileInfo, ReaderInfo, Annotation, TextAlign, ZoomMode, ScrollMode, PageScheme};
 use crate::metadata::{Margin, CroppingMargins, make_query};
 use crate::metadata::{DEFAULT_CONTRAST_EXPONENT, DEFAULT_CONTRAST_GRAY};
 use crate::geom::{Point, Vec2, Rectangle, Boundary, CornerSpec, BorderSpec};
@@ -97,6 +98,7 @@ pub struct Reader {
 #[derive(Debug)]
 struct ViewPort {
     zoom_mode: ZoomMode,
+    scroll_mode: ScrollMode,
     page_offset: Point,   // Offset relative to the top left corner of a resource's frame.
     margin_width: i32,
 }
@@ -105,6 +107,7 @@ impl Default for ViewPort {
     fn default() -> Self {
         ViewPort {
             zoom_mode: ZoomMode::FitToPage,
+            scroll_mode: ScrollMode::Screen,
             page_offset: pt!(0, 0),
             margin_width: 0,
         }
@@ -314,6 +317,16 @@ impl Reader {
 
                 if let Some(zoom_mode) = r.zoom_mode {
                     view_port.zoom_mode = zoom_mode;
+                }
+
+                if let Some(scroll_mode) = r.scroll_mode {
+                    view_port.scroll_mode = scroll_mode;
+                } else {
+                    view_port.scroll_mode = if settings.reader.continuous_fit_to_width {
+                        ScrollMode::Screen
+                    } else {
+                        ScrollMode::Page
+                    };
                 }
 
                 if let Some(page_offset) = r.page_offset {
@@ -612,7 +625,7 @@ impl Reader {
         }
     }
 
-    fn page_scroll(&mut self, delta_y: i32, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
+    fn vertical_scroll(&mut self, delta_y: i32, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         if delta_y == 0 || self.view_port.zoom_mode == ZoomMode::FitToPage || self.cache.is_empty() {
             return;
         }
@@ -620,45 +633,58 @@ impl Reader {
         let mut next_top_offset = self.view_port.page_offset.y + delta_y;
         let mut location = self.current_page;
 
-        let max_top_offset = self.cache[&location].frame.height().saturating_sub(1) as i32;
+        match self.view_port.scroll_mode {
+            ScrollMode::Screen => {
+                let max_top_offset = self.cache[&location].frame.height().saturating_sub(1) as i32;
 
-        if next_top_offset < 0 {
-            let mut doc = self.doc.lock().unwrap();
-            if let Some(previous_location) = doc.resolve_location(Location::Previous(location)) {
-                if !self.cache.contains_key(&previous_location) {
-                    return;
+                if next_top_offset < 0 {
+                    let mut doc = self.doc.lock().unwrap();
+                    if let Some(previous_location) = doc.resolve_location(Location::Previous(location)) {
+                        if !self.cache.contains_key(&previous_location) {
+                            return;
+                        }
+                        location = previous_location;
+                        let frame = self.cache[&location].frame;
+                        next_top_offset = (frame.height() as i32 + next_top_offset).max(0);
+                    } else {
+                        next_top_offset = 0;
+                    }
+                } else if next_top_offset > max_top_offset {
+                    let mut doc = self.doc.lock().unwrap();
+                    if let Some(next_location) = doc.resolve_location(Location::Next(location)) {
+                        if !self.cache.contains_key(&next_location) {
+                            return;
+                        }
+                        location = next_location;
+                        let frame = self.cache[&location].frame;
+                        let mto = frame.height().saturating_sub(1) as i32;
+                        next_top_offset = (next_top_offset - max_top_offset - 1).min(mto);
+                    } else {
+                        next_top_offset = max_top_offset;
+                    }
                 }
-                location = previous_location;
-                let frame = self.cache[&location].frame;
-                next_top_offset = (frame.height() as i32 + next_top_offset).max(0);
-            } else {
-                next_top_offset = 0;
-            }
-        } else if next_top_offset > max_top_offset {
-            let mut doc = self.doc.lock().unwrap();
-            if let Some(next_location) = doc.resolve_location(Location::Next(location)) {
-                if !self.cache.contains_key(&next_location) {
-                    return;
-                }
-                location = next_location;
-                let frame = self.cache[&location].frame;
-                let mto = frame.height().saturating_sub(1) as i32;
-                next_top_offset = (next_top_offset - max_top_offset - 1).min(mto);
-            } else {
-                next_top_offset = max_top_offset;
-            }
-        }
 
-        {
-            let Resource { frame, scale, .. } = *self.cache.get(&location).unwrap();
-            let mut doc = self.doc.lock().unwrap();
-            if let Some((lines, _)) = doc.lines(Location::Exact(location)) {
-                if let Some(mut y_pos) = find_cut(&frame, frame.min.y + next_top_offset,
-                                                  scale, LinearDir::Forward, &lines) {
-                    y_pos = y_pos.clamp(frame.min.y, frame.max.y - 1);
-                    next_top_offset = y_pos - frame.min.y;
+                {
+                    let Resource { frame, scale, .. } = *self.cache.get(&location).unwrap();
+                    let mut doc = self.doc.lock().unwrap();
+                    if let Some((lines, _)) = doc.lines(Location::Exact(location)) {
+                        if let Some(mut y_pos) = find_cut(&frame, frame.min.y + next_top_offset,
+                                                          scale, LinearDir::Forward, &lines) {
+                            y_pos = y_pos.clamp(frame.min.y, frame.max.y - 1);
+                            next_top_offset = y_pos - frame.min.y;
+                        }
+                    }
                 }
-            }
+            },
+            ScrollMode::Page => {
+                let frame_height = self.cache[&location].frame.height() as i32;
+                let available_height = self.rect.height() as i32 - 2 * self.view_port.margin_width;
+                if frame_height > available_height {
+                    next_top_offset = next_top_offset.max(0).min(frame_height - available_height);
+                } else {
+                    next_top_offset = self.view_port.page_offset.y;
+                }
+            },
         }
 
         let location_changed = location != self.current_page;
@@ -681,7 +707,7 @@ impl Reader {
         }
     }
 
-    fn screen_scroll(&mut self, delta: Point, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
+    fn directional_scroll(&mut self, delta: Point, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         if delta == pt!(0) || self.cache.is_empty() {
             return;
         }
@@ -707,77 +733,112 @@ impl Reader {
         let page_offset = self.view_port.page_offset;
 
         let loc = {
-            let neighloc = if dir == CycleDir::Previous {
-                match self.view_port.zoom_mode {
-                    ZoomMode::FitToPage => Location::Previous(current_page),
-                    ZoomMode::FitToWidth => {
-                        let first_chunk = self.chunks.first().cloned().unwrap();
-                        let mut location = first_chunk.location;
-                        let available_height = self.rect.height() as i32 - 2 * self.view_port.margin_width;
-                        let mut height = 0;
+            let neighloc = match dir { 
+                CycleDir::Previous => {
+                    match self.view_port.zoom_mode {
+                        ZoomMode::FitToPage => Location::Previous(current_page),
+                        ZoomMode::FitToWidth => match self.view_port.scroll_mode {
+                            ScrollMode::Screen => {
+                                let first_chunk = self.chunks.first().cloned().unwrap();
+                                let mut location = first_chunk.location;
+                                let available_height = self.rect.height() as i32 - 2 * self.view_port.margin_width;
+                                let mut height = 0;
 
-                        loop {
-                            self.load_pixmap(location);
-                            self.load_text(location);
-                            let Resource { mut frame, .. } = self.cache[&location];
-                            if location == first_chunk.location {
-                                frame.max.y = first_chunk.frame.min.y;
-                            }
-                            height += frame.height() as i32;
-                            if height >= available_height {
-                                break;
-                            }
-                            let mut doc = self.doc.lock().unwrap();
-                            if let Some(previous_location) = doc.resolve_location(Location::Previous(location)) {
-                                location = previous_location;
-                            } else {
-                                break;
-                            }
-                        }
-
-                        let mut next_top_offset = (height - available_height).max(0);
-                        if height > available_height {
-                            let Resource { frame, scale, .. } = self.cache[&location];
-                            let mut doc = self.doc.lock().unwrap();
-                            if let Some((lines, _)) = doc.lines(Location::Exact(location)) {
-                                if let Some(mut y_pos) = find_cut(&frame, frame.min.y + next_top_offset,
-                                                                  scale, LinearDir::Forward, &lines) {
-                                    y_pos = y_pos.clamp(frame.min.y, frame.max.y - 1);
-                                    next_top_offset = y_pos - frame.min.y;
+                                loop {
+                                    self.load_pixmap(location);
+                                    self.load_text(location);
+                                    let Resource { mut frame, .. } = self.cache[&location];
+                                    if location == first_chunk.location {
+                                        frame.max.y = first_chunk.frame.min.y;
+                                    }
+                                    height += frame.height() as i32;
+                                    if height >= available_height {
+                                        break;
+                                    }
+                                    let mut doc = self.doc.lock().unwrap();
+                                    if let Some(previous_location) = doc.resolve_location(Location::Previous(location)) {
+                                        location = previous_location;
+                                    } else {
+                                        break;
+                                    }
                                 }
-                            }
-                        }
 
-                        self.view_port.page_offset.y = next_top_offset;
-                        Location::Exact(location)
-                    },
-                    ZoomMode::Custom(_) => {
-                        self.view_port.page_offset = pt!(0);
-                        Location::Previous(current_page)
-                    },
-                }
-            } else {
-                match self.view_port.zoom_mode {
-                    ZoomMode::FitToPage => Location::Next(current_page),
-                    ZoomMode::FitToWidth => {
-                        let &RenderChunk { location, frame, .. } = self.chunks.last().unwrap();
-                        self.load_pixmap(location);
-                        self.load_text(location);
-                        let pixmap_frame = self.cache[&location].frame;
-                        let next_top_offset = frame.max.y - pixmap_frame.min.y;
-                        if next_top_offset == pixmap_frame.height() as i32 {
-                            self.view_port.page_offset.y = 0;
-                            Location::Next(location)
-                        } else {
-                            self.view_port.page_offset.y = next_top_offset;
-                            Location::Exact(location)
-                        }
-                    },
-                    ZoomMode::Custom(_) => {
-                        self.view_port.page_offset = pt!(0);
-                        Location::Next(current_page)
-                    },
-                }
+                                let mut next_top_offset = (height - available_height).max(0);
+                                if height > available_height {
+                                    let Resource { frame, scale, .. } = self.cache[&location];
+                                    let mut doc = self.doc.lock().unwrap();
+                                    if let Some((lines, _)) = doc.lines(Location::Exact(location)) {
+                                        if let Some(mut y_pos) = find_cut(&frame, frame.min.y + next_top_offset,
+                                            scale, LinearDir::Forward, &lines) {
+                                            y_pos = y_pos.clamp(frame.min.y, frame.max.y - 1);
+                                            next_top_offset = y_pos - frame.min.y;
+                                        }
+                                    }
+                                }
+
+                                self.view_port.page_offset.y = next_top_offset;
+                                Location::Exact(location)
+                            },
+                            ScrollMode::Page => {
+                                let available_height = self.rect.height() as i32 - 2 * self.view_port.margin_width;
+                                if self.view_port.page_offset.y > 0 {
+                                    self.view_port.page_offset.y = (self.view_port.page_offset.y - available_height).max(0);
+                                    Location::Exact(current_page)
+                                } else {
+                                    let previous_location = self.doc.lock().unwrap()
+                                                                .resolve_location(Location::Previous(current_page));
+                                    if let Some(location) = previous_location {
+                                        self.load_pixmap(location);
+                                        let frame = self.cache[&location].frame;
+                                        self.view_port.page_offset.y = (frame.height() as i32 - available_height).max(0);
+                                    }
+                                    Location::Previous(current_page)
+                                }
+                            },
+                        },
+                        ZoomMode::Custom(_) => {
+                            self.view_port.page_offset = pt!(0);
+                            Location::Previous(current_page)
+                        },
+                    }
+                },
+                CycleDir::Next => {
+                    match self.view_port.zoom_mode {
+                        ZoomMode::FitToPage => Location::Next(current_page),
+                        ZoomMode::FitToWidth => match self.view_port.scroll_mode {
+                            ScrollMode::Screen => {
+                                let &RenderChunk { location, frame, .. } = self.chunks.last().unwrap();
+                                self.load_pixmap(location);
+                                self.load_text(location);
+                                let pixmap_frame = self.cache[&location].frame;
+                                let next_top_offset = frame.max.y - pixmap_frame.min.y;
+                                if next_top_offset == pixmap_frame.height() as i32 {
+                                    self.view_port.page_offset.y = 0;
+                                    Location::Next(location)
+                                } else {
+                                    self.view_port.page_offset.y = next_top_offset;
+                                    Location::Exact(location)
+                                }
+                            },
+                            ScrollMode::Page => {
+                                let available_height = self.rect.height() as i32 - 2 * self.view_port.margin_width;
+                                let frame_height = self.cache[&current_page].frame.height() as i32;
+                                let next_top_offset = self.view_port.page_offset.y + available_height;
+                                if frame_height < available_height || next_top_offset == frame_height {
+                                    self.view_port.page_offset.y = 0;
+                                    Location::Next(current_page)
+                                } else {
+                                    self.view_port.page_offset.y = next_top_offset.min(frame_height - available_height);
+                                    Location::Exact(current_page)
+                                }
+                            },
+                        },
+                        ZoomMode::Custom(_) => {
+                            self.view_port.page_offset = pt!(0);
+                            Location::Next(current_page)
+                        },
+                    }
+                },
             };
             let mut doc = self.doc.lock().unwrap();
             doc.resolve_location(neighloc)
@@ -997,45 +1058,57 @@ impl Reader {
                 let dy = smw + ((self.rect.height() - frame.height()) as i32 - 2 * smw) / 2;
                 self.chunks.push(RenderChunk { frame, location, position: pt!(dx, dy), scale });
             },
-            ZoomMode::FitToWidth => {
-                let available_height = self.rect.height() as i32 - 2 * smw;
-                let mut height = 0;
-                while height < available_height {
-                    self.load_pixmap(location);
-                    self.load_text(location);
-                    let Resource { mut frame, scale, .. } = self.cache[&location];
-                    if location == self.current_page {
-                        frame.min.y += self.view_port.page_offset.y;
-                    }
-                    let position = pt!(smw, smw + height);
-                    self.chunks.push(RenderChunk { frame, location, position, scale });
-                    height += frame.height() as i32;
-                    if let Ok(mut doc) = self.doc.lock() {
-                        if let Some(next_location) = doc.resolve_location(Location::Next(location)) {
-                            location = next_location;
-                        } else {
-                            break;
+            ZoomMode::FitToWidth => match self.view_port.scroll_mode {
+                ScrollMode::Screen => {
+                    let available_height = self.rect.height() as i32 - 2 * smw;
+                    let mut height = 0;
+                    while height < available_height {
+                        self.load_pixmap(location);
+                        self.load_text(location);
+                        let Resource { mut frame, scale, .. } = self.cache[&location];
+                        if location == self.current_page {
+                            frame.min.y += self.view_port.page_offset.y;
                         }
-                    }
-                }
-                if height > available_height {
-                    if let Some(last_chunk) = self.chunks.last_mut() {
-                        last_chunk.frame.max.y -= height - available_height;
-                        let mut doc = self.doc.lock().unwrap();
-                        if let Some((lines, _)) = doc.lines(Location::Exact(last_chunk.location)) {
-                            let pixmap_frame = self.cache[&last_chunk.location].frame;
-                            if let Some(mut y_pos) = find_cut(&pixmap_frame, last_chunk.frame.max.y, last_chunk.scale, LinearDir::Backward, &lines) {
-                                y_pos = y_pos.clamp(pixmap_frame.min.y, pixmap_frame.max.y - 1);
-                                last_chunk.frame.max.y = y_pos;
+                        let position = pt!(smw, smw + height);
+                        self.chunks.push(RenderChunk { frame, location, position, scale });
+                        height += frame.height() as i32;
+                        if let Ok(mut doc) = self.doc.lock() {
+                            if let Some(next_location) = doc.resolve_location(Location::Next(location)) {
+                                location = next_location;
+                            } else {
+                                break;
                             }
                         }
                     }
-                    let actual_height: i32 = self.chunks.iter().map(|c| c.frame.height() as i32).sum();
-                    let dy = (available_height - actual_height) / 2;
-                    for chunk in &mut self.chunks {
-                        chunk.position.y += dy;
+                    if height > available_height {
+                        if let Some(last_chunk) = self.chunks.last_mut() {
+                            last_chunk.frame.max.y -= height - available_height;
+                            let mut doc = self.doc.lock().unwrap();
+                            if let Some((lines, _)) = doc.lines(Location::Exact(last_chunk.location)) {
+                                let pixmap_frame = self.cache[&last_chunk.location].frame;
+                                if let Some(mut y_pos) = find_cut(&pixmap_frame, last_chunk.frame.max.y, last_chunk.scale, LinearDir::Backward, &lines) {
+                                    y_pos = y_pos.clamp(pixmap_frame.min.y, pixmap_frame.max.y - 1);
+                                    last_chunk.frame.max.y = y_pos;
+                                }
+                            }
+                        }
+                        let actual_height: i32 = self.chunks.iter().map(|c| c.frame.height() as i32).sum();
+                        let dy = (available_height - actual_height) / 2;
+                        for chunk in &mut self.chunks {
+                            chunk.position.y += dy;
+                        }
                     }
-                }
+                },
+                ScrollMode::Page => {
+                    self.load_pixmap(location);
+                    self.load_text(location);
+                    let available_height = self.rect.height() as i32 - 2 * smw;
+                    let Resource { mut frame, scale, .. } = self.cache[&location];
+                    frame.min.y += self.view_port.page_offset.y;
+                    frame.max.y = (frame.min.y + available_height).min(frame.max.y);
+                    let position = pt!(smw, smw + (available_height - frame.height() as i32) / 2);
+                    self.chunks.push(RenderChunk { frame, location, position, scale });
+                },
             },
             ZoomMode::Custom(_) => {
                 self.load_pixmap(location);
@@ -1735,20 +1808,17 @@ impl Reader {
             }
 
             let zoom_mode = self.view_port.zoom_mode;
+            let scroll_mode = self.view_port.scroll_mode;
             let sf = if let ZoomMode::Custom(sf) = zoom_mode { sf } else { 1.0 };
 
             let mut entries = if self.reflowable {
-                if self.ephemeral {
-                    vec![EntryKind::Command("Save".to_string(), EntryId::Save)]
-                } else {
-                    vec![EntryKind::SubMenu("Zoom Mode".to_string(), vec![
-                         EntryKind::RadioButton("Fit to Page".to_string(),
-                                                EntryId::SetZoomMode(ZoomMode::FitToPage),
-                                                zoom_mode == ZoomMode::FitToPage),
-                         EntryKind::RadioButton(format!("Custom ({:.1}%)", 100.0 * sf),
-                                                EntryId::SetZoomMode(ZoomMode::Custom(sf)),
-                                                zoom_mode == ZoomMode::Custom(sf))])]
-                }
+                vec![EntryKind::SubMenu("Zoom Mode".to_string(), vec![
+                     EntryKind::RadioButton("Fit to Page".to_string(),
+                                            EntryId::SetZoomMode(ZoomMode::FitToPage),
+                                            zoom_mode == ZoomMode::FitToPage),
+                     EntryKind::RadioButton(format!("Custom ({:.1}%)", 100.0 * sf),
+                                            EntryId::SetZoomMode(ZoomMode::Custom(sf)),
+                                            zoom_mode == ZoomMode::Custom(sf))])]
             } else {
                 vec![EntryKind::SubMenu("Zoom Mode".to_string(), vec![
                      EntryKind::RadioButton("Fit to Page".to_string(),
@@ -1761,6 +1831,18 @@ impl Reader {
                                             EntryId::SetZoomMode(ZoomMode::Custom(sf)),
                                             zoom_mode == ZoomMode::Custom(sf))])]
             };
+
+            entries.push(EntryKind::SubMenu("Scroll Mode".to_string(), vec![
+                 EntryKind::RadioButton("Screen".to_string(),
+                                        EntryId::SetScrollMode(ScrollMode::Screen),
+                                        scroll_mode == ScrollMode::Screen),
+                 EntryKind::RadioButton("Page".to_string(),
+                                        EntryId::SetScrollMode(ScrollMode::Page),
+                                        scroll_mode == ScrollMode::Page)]));
+
+            if self.ephemeral {
+                entries.push(EntryKind::Command("Save".to_string(), EntryId::Save));
+            }
 
             if self.info.reader.as_ref().map_or(false, |r| !r.annotations.is_empty()) {
                 entries.push(EntryKind::Command("Annotations".to_string(), EntryId::Annotations));
@@ -1778,7 +1860,11 @@ impl Reader {
                                              EntryId::ToggleDithered,
                                              context.fb.dithered()));
 
-            let title_menu = Menu::new(rect, ViewId::TitleMenu, MenuKind::DropDown, entries, context);
+            let mut title_menu = Menu::new(rect, ViewId::TitleMenu, MenuKind::DropDown, entries, context);
+            title_menu.child_mut(1)
+                      .downcast_mut::<MenuEntry>().unwrap()
+                      .set_disabled(zoom_mode != ZoomMode::FitToWidth, rq);
+
             rq.add(RenderData::new(title_menu.id(), *title_menu.rect(), UpdateMode::Gui));
             self.children.push(Box::new(title_menu) as Box<dyn View>);
         }
@@ -2302,11 +2388,28 @@ impl Reader {
         if self.view_port.zoom_mode == zoom_mode {
             return;
         }
+
+        if let Some(index) = locate_by_id(self, ViewId::TitleMenu) {
+            self.child_mut(index)
+                .child_mut(1)
+                .downcast_mut::<MenuEntry>().unwrap()
+                .set_disabled(zoom_mode != ZoomMode::FitToWidth, rq);
+        }
+
         self.view_port.zoom_mode = zoom_mode;
         if reset_page_offset {
             self.view_port.page_offset = pt!(0, 0);
         }
         self.cache.clear();
+        self.update(None, hub, rq, context);
+    }
+
+    fn set_scroll_mode(&mut self, scroll_mode: ScrollMode, hub: &Hub, rq: &mut RenderQueue, context: &Context) {
+        if self.view_port.scroll_mode == scroll_mode || self.view_port.zoom_mode != ZoomMode::FitToWidth {
+            return;
+        }
+        self.view_port.scroll_mode = scroll_mode;
+        self.view_port.page_offset = pt!(0, 0);
         self.update(None, hub, rq, context);
     }
 
@@ -2532,6 +2635,12 @@ impl Reader {
                 r.page_offset = Some(self.view_port.page_offset);
             }
 
+            if self.view_port.zoom_mode == ZoomMode::FitToWidth {
+                r.scroll_mode = Some(self.view_port.scroll_mode);
+            } else {
+                r.scroll_mode = None;
+            }
+
             r.rotation = Some(CURRENT_DEVICE.to_canonical(context.display.rotation));
 
             if (self.contrast.exponent - DEFAULT_CONTRAST_EXPONENT).abs() > f32::EPSILON {
@@ -2592,13 +2701,13 @@ impl View for Reader {
                         match dir {
                             Dir::West => self.go_to_neighbor(CycleDir::Next, hub, rq, context),
                             Dir::East => self.go_to_neighbor(CycleDir::Previous, hub, rq, context),
-                            Dir::South | Dir::North => self.page_scroll(start.y - end.y, hub, rq, context),
+                            Dir::South | Dir::North => self.vertical_scroll(start.y - end.y, hub, rq, context),
                         };
                     },
                     ZoomMode::Custom(_) => {
                         match dir {
-                            Dir::West | Dir::East => self.screen_scroll(pt!(start.x - end.x, 0), hub, rq, context),
-                            Dir::South | Dir::North => self.screen_scroll(pt!(0,start.y - end.y), hub, rq, context),
+                            Dir::West | Dir::East => self.directional_scroll(pt!(start.x - end.x, 0), hub, rq, context),
+                            Dir::South | Dir::North => self.directional_scroll(pt!(0,start.y - end.y), hub, rq, context),
                         };
                     },
                 }
@@ -2606,7 +2715,7 @@ impl View for Reader {
             },
             Event::Gesture(GestureEvent::SlantedSwipe { start, end, .. }) if self.rect.includes(start) => {
                 if let ZoomMode::Custom(_) = self.view_port.zoom_mode {
-                    self.screen_scroll(start - end, hub, rq, context);
+                    self.directional_scroll(start - end, hub, rq, context);
                 }
                 true
             },
@@ -2619,6 +2728,19 @@ impl View for Reader {
             },
             Event::Gesture(GestureEvent::Pinch { axis: Axis::Horizontal, center, .. }) if self.rect.includes(center) => {
                 self.set_zoom_mode(ZoomMode::FitToPage, true, hub, rq, context);
+                true
+            },
+            Event::Gesture(GestureEvent::Spread { axis: Axis::Vertical, center, .. }) if self.rect.includes(center) => {
+                if !self.reflowable {
+                    self.set_scroll_mode(ScrollMode::Screen, hub, rq, context);
+                }
+                true
+
+            },
+            Event::Gesture(GestureEvent::Pinch { axis: Axis::Vertical, center, .. }) if self.rect.includes(center) => {
+                if !self.reflowable {
+                    self.set_scroll_mode(ScrollMode::Page, hub, rq, context);
+                }
                 true
             },
             Event::Gesture(GestureEvent::Spread { axis: Axis::Diagonal, center, factor }) |
@@ -3025,18 +3147,18 @@ impl View for Reader {
                                              context.settings.reader.corner_width) {
                         Region::Corner(diag_dir) => {
                             match diag_dir {
-                                DiagDir::NorthEast => self.screen_scroll(pt!(dx, -dy), hub, rq, context),
-                                DiagDir::SouthEast => self.screen_scroll(pt!(dx, dy), hub, rq, context),
-                                DiagDir::SouthWest => self.screen_scroll(pt!(-dx, dy), hub, rq, context),
-                                DiagDir::NorthWest => self.screen_scroll(pt!(-dx, -dy), hub, rq, context),
+                                DiagDir::NorthEast => self.directional_scroll(pt!(dx, -dy), hub, rq, context),
+                                DiagDir::SouthEast => self.directional_scroll(pt!(dx, dy), hub, rq, context),
+                                DiagDir::SouthWest => self.directional_scroll(pt!(-dx, dy), hub, rq, context),
+                                DiagDir::NorthWest => self.directional_scroll(pt!(-dx, -dy), hub, rq, context),
                             }
                         },
                         Region::Strip(dir) => {
                             match dir {
-                                Dir::North => self.screen_scroll(pt!(0, -dy), hub, rq, context),
-                                Dir::East => self.screen_scroll(pt!(dx, 0), hub, rq, context),
-                                Dir::South => self.screen_scroll(pt!(0, dy), hub, rq, context),
-                                Dir::West => self.screen_scroll(pt!(-dx, 0), hub, rq, context),
+                                Dir::North => self.directional_scroll(pt!(0, -dy), hub, rq, context),
+                                Dir::East => self.directional_scroll(pt!(dx, 0), hub, rq, context),
+                                Dir::South => self.directional_scroll(pt!(0, dy), hub, rq, context),
+                                Dir::West => self.directional_scroll(pt!(-dx, 0), hub, rq, context),
                             }
                         },
                         Region::Center => self.toggle_bars(None, hub, rq, context),
@@ -3655,6 +3777,10 @@ impl View for Reader {
             },
             Event::Select(EntryId::SetZoomMode(zoom_mode)) => {
                 self.set_zoom_mode(zoom_mode, true, hub, rq, context);
+                true
+            },
+            Event::Select(EntryId::SetScrollMode(scroll_mode)) => {
+                self.set_scroll_mode(scroll_mode, hub, rq, context);
                 true
             },
             Event::Select(EntryId::Save) => {

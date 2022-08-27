@@ -203,6 +203,8 @@ pub struct ReaderInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub zoom_mode: Option<ZoomMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub scroll_mode: Option<ScrollMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub page_offset: Option<Point>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rotation: Option<i8>,
@@ -239,6 +241,12 @@ pub enum ZoomMode {
     Custom(f32),
 }
 
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ScrollMode {
+    Screen,
+    Page,
+}
+
 impl PartialEq for ZoomMode {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -267,6 +275,7 @@ impl Default for ReaderInfo {
             finished: false,
             dithered: false,
             zoom_mode: None,
+            scroll_mode: None,
             page_offset: None,
             rotation: None,
             cropping_margins: None,

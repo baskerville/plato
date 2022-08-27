@@ -95,11 +95,12 @@ Tap gestures by region:
 
 Swipe west/east to go to the next/previous page.
 
-Swipe north/south to scroll the page stream when the zoom mode is fit-to-width.
+Swipe north/south to scroll the page stream when the zoom mode is fit-to-width. If the scroll mode is set to *page*, the scrolling is limited to the current page.
 
 Rotate to change the screen orientation (one finger is the center, the other describes the desired rotation with a circular motion around the center: the two fingers should land and take off simultaneously).
 
 Spread (resp. pinch) horizontally to switch the zoom mode to fit-to-width (resp. fit-to-page).
+Spread (resp. pinch) vertically to switch the scroll mode to *screen* (resp. *page*).
 Spread (resp. pinch) diagonally to zoom in (resp. out) on the current page (the zoom mode is set to *custom*).
 
 When the zoom mode is *custom*:
