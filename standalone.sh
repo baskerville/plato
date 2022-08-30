@@ -29,7 +29,7 @@ mkdir -p usr/local
 mkdir -p .adds/plato
 
 mv ../dist usr/local/Plato
-for name in bin css hyphenation-patterns keyboard-layouts ; do
+for name in bin css dictionaries hyphenation-patterns keyboard-layouts ; do
 	mv usr/local/Plato/"$name" .adds/plato
 	ln -s /mnt/onboard/.adds/plato/"$name" usr/local/Plato
 done
