@@ -198,6 +198,44 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
+name = "core"
+version = "0.9.31"
+dependencies = [
+ "anyhow",
+ "bitflags",
+ "byteorder",
+ "chrono",
+ "downcast-rs",
+ "entities",
+ "filetime",
+ "flate2",
+ "fxhash",
+ "globset",
+ "indexmap",
+ "kl-hyphenate",
+ "lazy_static",
+ "levenshtein",
+ "libc",
+ "nix",
+ "paragraph-breaker",
+ "percent-encoding",
+ "png",
+ "rand_core",
+ "rand_xoshiro",
+ "regex",
+ "septem",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "titlecase",
+ "toml",
+ "unicode-normalization",
+ "walkdir",
+ "xi-unicode",
+ "zip",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -268,6 +306,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
+name = "emulator"
+version = "0.9.31"
+dependencies = [
+ "core",
+ "sdl2",
+]
+
+[[package]]
 name = "encoding_rs"
 version = "0.8.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -281,6 +327,15 @@ name = "entities"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5320ae4c3782150d900b79807611a59a99fc9a1d61d686faafc24b93fc8d7ca"
+
+[[package]]
+name = "fetcher"
+version = "0.9.31"
+dependencies = [
+ "core",
+ "reqwest",
+ "signal-hook",
+]
 
 [[package]]
 name = "filetime"
@@ -549,6 +604,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "importer"
+version = "0.9.31"
+dependencies = [
+ "core",
+ "getopts",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -813,42 +876,7 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 name = "plato"
 version = "0.9.31"
 dependencies = [
- "anyhow",
- "bitflags",
- "byteorder",
- "chrono",
- "downcast-rs",
- "entities",
- "filetime",
- "flate2",
- "fxhash",
- "getopts",
- "globset",
- "indexmap",
- "kl-hyphenate",
- "lazy_static",
- "levenshtein",
- "libc",
- "nix",
- "paragraph-breaker",
- "percent-encoding",
- "png",
- "rand_core",
- "rand_xoshiro",
- "regex",
- "reqwest",
- "sdl2",
- "septem",
- "serde",
- "serde_json",
- "signal-hook",
- "thiserror",
- "titlecase",
- "toml",
- "unicode-normalization",
- "walkdir",
- "xi-unicode",
- "zip",
+ "core",
 ]
 
 [[package]]

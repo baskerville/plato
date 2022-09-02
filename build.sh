@@ -63,8 +63,8 @@ case "$method" in
 		;;
 esac
 
-cd src/mupdf_wrapper
+cd mupdf_wrapper
 ./build-kobo.sh
-cd ../..
+cd ..
 
-cargo build --release --target=arm-unknown-linux-gnueabihf
+cargo build --release --target=arm-unknown-linux-gnueabihf -p plato

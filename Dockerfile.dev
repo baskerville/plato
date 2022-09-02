@@ -22,4 +22,4 @@ WORKDIR /plato
 
 ADD . /plato
 
-CMD ["bash", "-c", "cd /plato/src/mupdf_wrapper && ./build.sh && cd /plato/ && cargo test && cargo build --all-features"]
+CMD ["bash", "-c", "cd /plato/mupdf_wrapper && ./build.sh && cd /plato/ && cargo test && cargo build --all"]

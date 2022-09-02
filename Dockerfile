@@ -41,7 +41,7 @@ WORKDIR /plato
 
 ADD . /plato
 
-# Plato requires a specific version of the mupdf dev library for src/mupdf_wrapper
+# Plato requires a specific version of the mupdf dev library for /mupdf_wrapper
 RUN cd /plato/thirdparty && ./download.sh mupdf
 
 CMD ["./build.sh"]
