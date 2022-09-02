@@ -21,5 +21,5 @@ The default article fetcher can be built with:
 ```sh
 cargo +nightly build --profile release-minsized -Z build-std=std,panic_abort \
                      --target arm-unknown-linux-gnueabihf \
-                     --bin article_fetcher --features fetcher
+                     --bin article_fetcher -p fetcher
 ```

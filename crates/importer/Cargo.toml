@@ -1,0 +1,14 @@
+[package]
+authors = ["Bastien Dejean <nihilhill@gmail.com>"]
+name = "importer"
+version = "0.9.31"
+edition = "2021"
+
+[[bin]]
+name = "plato-import"
+path = "src/main.rs"
+
+[dependencies]
+plato-core = { path = "../core" }
+getopts = "0.2.21"
+

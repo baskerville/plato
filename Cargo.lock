@@ -268,6 +268,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
+name = "emulator"
+version = "0.9.31"
+dependencies = [
+ "plato-core",
+ "sdl2",
+]
+
+[[package]]
 name = "encoding_rs"
 version = "0.8.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -281,6 +289,15 @@ name = "entities"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5320ae4c3782150d900b79807611a59a99fc9a1d61d686faafc24b93fc8d7ca"
+
+[[package]]
+name = "fetcher"
+version = "0.9.31"
+dependencies = [
+ "plato-core",
+ "reqwest",
+ "signal-hook",
+]
 
 [[package]]
 name = "filetime"
@@ -549,6 +566,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "importer"
+version = "0.9.31"
+dependencies = [
+ "getopts",
+ "plato-core",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -813,6 +838,13 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 name = "plato"
 version = "0.9.31"
 dependencies = [
+ "plato-core",
+]
+
+[[package]]
+name = "plato-core"
+version = "0.9.31"
+dependencies = [
  "anyhow",
  "bitflags",
  "byteorder",
@@ -822,7 +854,6 @@ dependencies = [
  "filetime",
  "flate2",
  "fxhash",
- "getopts",
  "globset",
  "indexmap",
  "kl-hyphenate",
@@ -836,12 +867,9 @@ dependencies = [
  "rand_core",
  "rand_xoshiro",
  "regex",
- "reqwest",
- "sdl2",
  "septem",
  "serde",
  "serde_json",
- "signal-hook",
  "thiserror",
  "titlecase",
  "toml",

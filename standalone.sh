@@ -43,7 +43,7 @@ rm -Rf etc usr
 
 FIRMWARE_VERSION=$(basename "$FIRMWARE_ARCHIVE" .zip)
 FIRMWARE_VERSION=${FIRMWARE_VERSION##*-}
-PLATO_VERSION=$(cargo pkgid | cut -d '#' -f 2)
+PLATO_VERSION=$(cargo pkgid -p plato | cut -d '#' -f 2)
 
 zip -r plato-standalone-"$PLATO_VERSION"-fw_"$FIRMWARE_VERSION".zip .adds .kobo
 rm -Rf .adds .kobo

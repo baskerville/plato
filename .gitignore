@@ -14,7 +14,6 @@
 /css/*-user.css
 /hyphenation-patterns
 /dictionaries
-/src/mupdf_wrapper/*/
 /dist
 /standalone
 /plato-*.zip
