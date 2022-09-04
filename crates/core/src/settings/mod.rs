@@ -481,7 +481,7 @@ impl Default for BatterySettings {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            selected_library: if CURRENT_DEVICE.has_removable_storage() { 1 } else { 0 },
+            selected_library: 0,
             libraries: vec![
                 LibrarySettings {
                     name: "On Board".to_string(),
