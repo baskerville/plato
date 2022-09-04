@@ -1,6 +1,6 @@
 [package]
 authors = ["Bastien Dejean <nihilhill@gmail.com>"]
-name = "core"
+name = "plato-core"
 version = "0.9.31"
 edition = "2021"
 

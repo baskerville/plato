@@ -1,13 +1,13 @@
 use std::env;
 use std::path::Path;
 use getopts::Options;
-use core::chrono::{Local, TimeZone};
-use core::anyhow::{Error, Context, format_err};
-use core::helpers::datetime_format;
-use core::library::Library;
-use core::settings::{LibraryMode, ImportSettings};
-use core::metadata::{extract_metadata_from_document, extract_metadata_from_filename};
-use core::metadata::{consolidate, rename_from_info};
+use plato_core::chrono::{Local, TimeZone};
+use plato_core::anyhow::{Error, Context, format_err};
+use plato_core::helpers::datetime_format;
+use plato_core::library::Library;
+use plato_core::settings::{LibraryMode, ImportSettings};
+use plato_core::metadata::{extract_metadata_from_document, extract_metadata_from_filename};
+use plato_core::metadata::{consolidate, rename_from_info};
 
 fn main() -> Result<(), Error> {
     let args: Vec<String> = env::args().skip(1).collect();

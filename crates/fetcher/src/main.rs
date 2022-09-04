@@ -4,12 +4,12 @@ use std::fs::{self, File};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use core::chrono::{Duration, Utc, Local, DateTime};
-use core::serde::{Serialize, Deserialize};
-use core::serde_json::{self, json, Value as JsonValue};
+use plato_core::chrono::{Duration, Utc, Local, DateTime};
+use plato_core::serde::{Serialize, Deserialize};
+use plato_core::serde_json::{self, json, Value as JsonValue};
 use reqwest::blocking::Client;
-use core::anyhow::{Error, Context, format_err};
-use core::helpers::{load_toml, load_json, save_json, decode_entities};
+use plato_core::anyhow::{Error, Context, format_err};
+use plato_core::helpers::{load_toml, load_json, save_json, decode_entities};
 
 const SETTINGS_PATH: &str = "Settings.toml";
 const SESSION_PATH: &str = ".session.json";
@@ -18,7 +18,7 @@ const URLS_PATH: &str = "urls.txt";
 const DATE_FORMAT: &str = "%FT%T%z";
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
-#[serde(crate = "core::serde")]
+#[serde(crate = "plato_core::serde")]
 #[serde(default, rename_all = "kebab-case")]
 struct Settings {
     base_url: String,
@@ -32,7 +32,7 @@ struct Settings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(crate = "core::serde")]
+#[serde(crate = "plato_core::serde")]
 #[serde(default, rename_all = "camelCase")]
 struct Session {
     since: i64,
@@ -43,7 +43,7 @@ struct Session {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(crate = "core::serde")]
+#[serde(crate = "plato_core::serde")]
 #[serde(default, rename_all = "camelCase")]
 struct Token {
     data: String,

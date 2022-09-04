@@ -10,6 +10,6 @@ path = "src/main.rs"
 
 
 [dependencies]
-core = { path = "../core" }
+plato-core = { path = "../core" }
 getopts = "0.2.21"
 
