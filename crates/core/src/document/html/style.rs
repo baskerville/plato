@@ -215,7 +215,6 @@ fn expand_and_insert(name: &str, value: &str, props: &mut PropertyMap) {
 mod tests {
     use super::specified_values;
     use super::super::css::CssParser;
-    use super::super::style::StyleSheet;
     use super::super::xml::XmlParser;
 
     #[test]
