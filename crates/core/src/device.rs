@@ -239,7 +239,7 @@ impl Device {
     pub fn has_removable_storage(&self) -> bool {
         matches!(self.model,
                  Model::AuraH2O | Model::Aura | Model::AuraHD |
-                 Model::Mini | Model::Glo | Model::TouchAB | Model::TouchC)
+                 Model::Glo | Model::TouchAB | Model::TouchC)
     }
 
     pub fn should_invert_buttons(&self, rotation: i8) -> bool {
