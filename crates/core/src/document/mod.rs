@@ -9,7 +9,7 @@ mod mupdf_sys;
 use std::env;
 use std::process::Command;
 use std::path::Path;
-use std::fs::File;
+use std::fs::{self, File};
 use std::ffi::OsStr;
 use std::collections::BTreeSet;
 use std::os::unix::fs::FileExt;
@@ -456,6 +456,7 @@ pub fn chapter_from_uri<'a>(target_uri: &str, toc: &'a [TocEntry]) -> Option<&'a
     None
 }
 
+const CPUINFO_KEYS: [&str; 3] = ["Processor", "Features", "Hardware"];
 const HWINFO_KEYS: [&str; 19] = ["CPU", "PCB", "DisplayPanel", "DisplayCtrl", "DisplayBusWidth",
                                  "DisplayResolution", "FrontLight", "FrontLight_LEDrv", "FL_PWM",
                                  "TouchCtrl", "TouchType", "Battery", "IFlash", "RamSize", "RamType",
@@ -532,6 +533,23 @@ pub fn sys_info_as_html() -> String {
                               load.1 * 100.0,
                               load.2 * 100.0));
         buf.push_str("\t\t\t</tr>\n");
+    }
+
+    buf.push_str("\t\t\t<tr class=\"sep\"></tr>\n");
+
+    if let Ok(info) = fs::read_to_string("/proc/cpuinfo") {
+        for line in info.lines() {
+            if let Some(index) = line.find(':') {
+                let key = line[0..index].trim();
+                let value = line[index+1..].trim();
+                if CPUINFO_KEYS.contains(&key) {
+                    buf.push_str("\t\t\t<tr>\n");
+                    buf.push_str(&format!("\t\t\t\t<td class=\"key\">{}</td>\n", key));
+                    buf.push_str(&format!("\t\t\t\t<td class=\"value\">{}</td>\n", value));
+                    buf.push_str("\t\t\t</tr>\n");
+                }
+            }
+        }
     }
 
     buf.push_str("\t\t\t<tr class=\"sep\"></tr>\n");
