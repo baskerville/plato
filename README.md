@@ -25,6 +25,7 @@ Any 4.*X*.*Y* firmware, with *X* ≥ 6, will do.
 - *Aura*.
 - *Glo*.
 - *Touch C*.
+- *Touch B*.
 
 ## Supported formats
 
