@@ -399,6 +399,10 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
             } else if evt.code == tc.pressure {
                 if let Some(state) = packets.get_mut(&id) {
                     state.pressure = evt.value;
+                    if proto == TouchProto::Single && CURRENT_DEVICE.mark() == 3 && state.pressure == 0 {
+                        state.position.x = dims.0 as i32 - 1 - state.position.x;
+                        mem::swap(&mut state.position.x, &mut state.position.y);
+                    }
                 }
             }
         } else if evt.kind == EV_SYN && evt.code == SYN_REPORT {
