@@ -91,9 +91,11 @@ fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
                   .map_err(|e| eprintln!("Can't open RTC device: {:#}.", e))
                   .ok();
     let path = Path::new(SETTINGS_PATH);
-    let mut settings = load_toml::<Settings, _>(path)
-                                .map_err(|e| eprintln!("Can't load settings: {:#}.", e))
-                                .unwrap_or_default();
+    let mut settings = if path.exists() {
+        load_toml::<Settings, _>(path).context("can't load settings")?
+    } else {
+        Default::default()
+    };
 
     if settings.libraries.is_empty() {
         return Err(format_err!("no libraries found"));
