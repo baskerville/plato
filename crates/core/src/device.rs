@@ -5,6 +5,7 @@ use crate::input::TouchProto;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Model {
+    Clara2E,
     Libra2,
     Sage,
     Elipsa,
@@ -39,6 +40,7 @@ pub enum Orientation {
 impl fmt::Display for Model {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Model::Clara2E       => write!(f, "Clara 2E"),
             Model::Libra2        => write!(f, "Libra 2"),
             Model::Sage          => write!(f, "Sage"),
             Model::Elipsa        => write!(f, "Elipsa"),
@@ -186,6 +188,12 @@ impl Device {
                 dims: (1264, 1680),
                 dpi: 300,
             },
+            "goldfinch" => Device {
+                model: Model::Clara2E,
+                proto: TouchProto::MultiC,
+                dims: (1072, 1448),
+                dpi: 300,
+            },
             _ => Device {
                 model: if model_number == "320" { Model::TouchC } else { Model::TouchAB },
                 proto: TouchProto::Single,
@@ -206,7 +214,8 @@ impl Device {
             Model::Forma32GB |
             Model::LibraH2O |
             Model::Sage |
-            Model::Libra2 => FrontlightKind::Premixed,
+            Model::Libra2 |
+            Model::Clara2E => FrontlightKind::Premixed,
             _ => FrontlightKind::Standard,
         }
     }
@@ -223,7 +232,7 @@ impl Device {
     pub fn has_gyroscope(&self) -> bool {
         matches!(self.model,
                  Model::Forma | Model::Forma32GB | Model::LibraH2O |
-                 Model::Elipsa | Model::Sage | Model::Libra2)
+                 Model::Elipsa | Model::Sage | Model::Libra2 | Model::Clara2E)
     }
 
     pub fn has_page_turn_buttons(&self) -> bool {
@@ -259,6 +268,7 @@ impl Device {
 
     pub fn mark(&self) -> u8 {
         match self.model {
+            Model::Clara2E => 10,
             Model::Libra2 => 9,
             Model::Sage |
             Model::Elipsa => 8,
