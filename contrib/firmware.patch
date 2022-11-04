@@ -1,6 +1,6 @@
-diff -ru a/init.d/rcS b/init.d/rcS
---- a/init.d/rcS	2022-11-04 10:02:34.000000000 +0100
-+++ b/init.d/rcS	2022-11-04 10:02:30.000000000 +0100
+diff -ru a/etc/init.d/rcS b/etc/init.d/rcS
+--- a/etc/init.d/rcS	2022-11-04 10:02:34.000000000 +0100
++++ b/etc/init.d/rcS	2022-11-04 10:02:30.000000000 +0100
 @@ -108,7 +108,12 @@
  FS_CORRUPT=0
  dosfsck -a -w $ONBOARD_PARTITION || dosfsck -a -w $ONBOARD_PARTITION || dosfsck -a -w $ONBOARD_PARTITION || dosfsck -a -w $ONBOARD_PARTITION || FS_CORRUPT=1
