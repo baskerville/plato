@@ -12,9 +12,7 @@ echo 3 > /proc/sys/vm/drop_caches
 
 for name in onboard sd ; do
 	DIR=/mnt/"$name"
-	if grep -q "$DIR" /proc/mounts ; then
-		umount "$DIR" || umount -l "$DIR"
-	fi
+	grep -q "$DIR" /proc/mounts && umount -l "$DIR"
 done
 
 VENDOR_ID=0x2237

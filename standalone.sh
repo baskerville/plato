@@ -19,23 +19,19 @@ tar -xzvf KoboRoot.tgz etc/init.d/rcS
 patch -p 1 < ../contrib/firmware.patch || exit 1
 rm KoboRoot.tgz
 
-unzip "$NICKEL_MENU_ARCHIVE" KoboRoot.tgz
+if gzip -tq "$NICKEL_MENU_ARCHIVE"; then
+	ln -s "$NICKEL_MENU_ARCHIVE" KoboRoot.tgz
+else
+	unzip "$NICKEL_MENU_ARCHIVE" KoboRoot.tgz
+fi
+
 tar -xzvf KoboRoot.tgz
 rm KoboRoot.tgz
 mv mnt/onboard/.adds .
 rm -Rf mnt
 
-mkdir -p usr/local
-mkdir -p .adds/plato
-
-mv ../dist usr/local/Plato
-for name in bin css dictionaries hyphenation-patterns keyboard-layouts ; do
-	mv usr/local/Plato/"$name" .adds/plato
-	ln -s /mnt/onboard/.adds/plato/"$name" usr/local/Plato
-done
-
-ln -s /mnt/onboard/.adds/plato/Settings.toml usr/local/Plato/Settings.toml
-cp ../contrib/NickelMenu/plato .adds/nm
+mv ../dist .adds/plato
+cp ../contrib/NickelMenu/* .adds/nm
 
 mkdir .kobo
 tar -czvf .kobo/KoboRoot.tgz etc usr
