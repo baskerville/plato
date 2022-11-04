@@ -123,10 +123,6 @@ impl Context {
         }
     }
 
-    pub fn unload_dictionaries(&mut self) {
-        self.dictionaries.clear();
-    }
-
     pub fn record_input(&mut self, text: &str, id: ViewId) {
         if text.is_empty() {
             return;

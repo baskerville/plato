@@ -498,7 +498,6 @@ pub fn run() -> Result<(), Error> {
                             if context.settings.import.unshare_trigger {
                                 context.batch_import();
                             }
-                            context.load_dictionaries();
                             view.handle_event(&Event::Reseed, &tx, &mut bus, &mut rq, &mut context);
                         } else {
                             context.plugged = false;
@@ -670,7 +669,6 @@ pub fn run() -> Result<(), Error> {
                 }
 
                 context.shared = true;
-                context.unload_dictionaries();
                 Command::new("scripts/usb-enable.sh").status().ok();
             },
             Event::Gesture(ge) => {
