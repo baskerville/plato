@@ -38,7 +38,7 @@ else
 			;;
 		*)
 			MODULE_PARAMETERS="vendor=${VENDOR_ID} product=${PRODUCT_ID} vendor_id=Kobo product_id=eReader-${FIRMWARE_VERSION} SN=${SERIAL_NUMBER}"
-			if [ -e "$GADGETS"/arcotg_udc.ko ] ; then
+			if [ "$PLATFORM" != mx6sl-ntx ] ; then
 				insmod "$GADGETS"/arcotg_udc.ko
 				sleep 2
 			fi
