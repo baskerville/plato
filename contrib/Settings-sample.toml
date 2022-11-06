@@ -58,6 +58,14 @@ first-column = "title-and-author"
 second-column = "progress"
 thumbnail-previews = true
 
+[[libraries]]
+name = "Dropbox"
+path = "/mnt/onboard/.kobo/dropbox"
+
+[[libraries]]
+name = "KePub"
+path = "/mnt/onboard/.kobo/kepub"
+
 # Defines the images displayed when entering an intermission.
 # Possible values: "logo:", "cover:", "/path/to/image/file".
 # If a relative file path is given, it will be relative to
