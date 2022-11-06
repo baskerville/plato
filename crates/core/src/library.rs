@@ -37,6 +37,10 @@ pub struct Library {
 
 impl Library {
     pub fn new<P: AsRef<Path>>(home: P, mode: LibraryMode) -> Self {
+        if !home.as_ref().exists() {
+            fs::create_dir_all(&home).ok();
+        }
+
         let mut db: IndexMap<Fp, Info, FxBuildHasher> = if mode == LibraryMode::Database {
             let path = home.as_ref().join(METADATA_FILENAME);
             match load_json(&path) {
