@@ -100,7 +100,9 @@ pub const MD_SIZE: Style = Style {
 #[cfg(any(not(target_os = "linux"), target_arch = "arm"))]
 #[link(name="mupdf")]
 extern {
-    // Extracted from mupdf via `tail -q -n 1 generated/resources/fonts/{droid,noto}/*`
+    // Based on the outputs of:
+    // arm-linux-gnueabihf-readelf -Ws ./libs/libmupdf.so | grep '\b_binary_' | \
+    // grep -v '_size$' | awk '{print $8, strtonum($3)-1}' | sort -u
     pub static _binary_DroidSansFallback_ttf: [libc::c_uchar; 3556308];
     pub static _binary_NotoEmoji_Regular_ttf: [libc::c_uchar; 418804];
     pub static _binary_NotoMusic_Regular_otf: [libc::c_uchar; 60812];
