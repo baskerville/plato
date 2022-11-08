@@ -101,7 +101,7 @@ pub struct TouchCodes {
 pub enum TouchProto {
     Single,
     MultiA,
-    MultiB,
+    MultiB, // Pressure won't indicate a finger release.
     MultiC,
 }
 

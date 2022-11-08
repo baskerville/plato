@@ -190,7 +190,7 @@ impl Device {
             },
             "goldfinch" => Device {
                 model: Model::Clara2E,
-                proto: TouchProto::MultiC,
+                proto: TouchProto::MultiB,
                 dims: (1072, 1448),
                 dpi: 300,
             },
