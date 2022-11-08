@@ -232,7 +232,7 @@ impl Device {
     pub fn has_gyroscope(&self) -> bool {
         matches!(self.model,
                  Model::Forma | Model::Forma32GB | Model::LibraH2O |
-                 Model::Elipsa | Model::Sage | Model::Libra2 | Model::Clara2E)
+                 Model::Elipsa | Model::Sage | Model::Libra2)
     }
 
     pub fn has_page_turn_buttons(&self) -> bool {
