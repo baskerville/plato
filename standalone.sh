@@ -15,7 +15,7 @@ mkdir standalone
 cd standalone || exit 1
 
 unzip "$FIRMWARE_ARCHIVE" KoboRoot.tgz
-tar -xzvf KoboRoot.tgz etc/init.d/rcS
+tar -xzvf KoboRoot.tgz ./etc/init.d/rcS
 patch -p 1 < ../contrib/firmware.patch || exit 1
 rm KoboRoot.tgz
 
