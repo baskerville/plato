@@ -10,6 +10,7 @@ Any 4.*X*.*Y* firmware, with *X* ≥ 6, will do.
 
 ## Supported devices
 
+- *Clara 2E*.
 - *Libra 2*.
 - *Sage*.
 - *Elipsa*.
