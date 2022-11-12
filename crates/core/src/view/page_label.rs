@@ -48,20 +48,20 @@ impl PageLabel {
         if self.pages_count == 0 {
             return "No pages".to_string();
         }
-        let (current_page, pages_count, precision) = if self.synthetic {
+        let (current_page, pages_count) = if self.synthetic {
             (self.current_page as f64 / BYTES_PER_PAGE,
-             self.pages_count as f64 / BYTES_PER_PAGE, 1)
+             self.pages_count as f64 / BYTES_PER_PAGE)
         } else {
             (self.current_page as f64 + 1.0,
-             self.pages_count as f64, 0)
+             self.pages_count as f64)
         };
         let percent = 100.0 * self.current_page as f32 / self.pages_count as f32;
         match size {
-            0 => format!("Page {1:.0$} of {2:.0$} ({3:.1}%)", precision, current_page, pages_count, percent),
-            1 => format!("P. {1:.0$} of {2:.0$} ({3:.1}%)", precision, current_page, pages_count, percent),
-            2 => format!("{1:.0$}/{2:.0$} ({3:.1}%)", precision, current_page, pages_count, percent),
-            3 => format!("{1:.0$} ({2:.1}%)", precision, current_page, percent),
-            _ => format!("{:.1}%", percent),
+            0 => format!("Page {0:.0} of {1:.0} ({2:.0}%)", current_page, pages_count, percent),
+            1 => format!("P. {0:.0} of {1:.0} ({2:.0}%)", current_page, pages_count, percent),
+            2 => format!("{0:.0}/{1:.0} ({2:.0}%)", current_page, pages_count, percent),
+            3 => format!("{0:.0} ({1:.0}%)", current_page, percent),
+            _ => format!("{:.0}%", percent),
         }
     }
 }
