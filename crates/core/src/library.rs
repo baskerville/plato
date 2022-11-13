@@ -194,7 +194,7 @@ impl Library {
                         };
                         let secs = (*fp >> 32) as i64;
                         let nsecs = ((*fp & ((1<<32) - 1)) % 1_000_000_000) as u32;
-                        let added = Local.timestamp(secs, nsecs);
+                        let added = Local.timestamp_opt(secs, nsecs).single().unwrap();
                         let info = Info {
                             file,
                             added,
