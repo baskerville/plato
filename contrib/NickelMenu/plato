@@ -1,3 +1,1 @@
-menu_item  :main  :Reboot in Plato  :cmd_output :200:quiet:touch /mnt/onboard/.adds/plato/bootlock
-chain_success                       :power      :reboot
-menu_item  :main  :Start Plato      :cmd_spawn  :quiet:/mnt/onboard/.adds/plato/plato.sh
+menu_item  :main  :Plato      :cmd_spawn  :quiet:/mnt/onboard/.adds/plato/plato.sh

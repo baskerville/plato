@@ -9,20 +9,10 @@ PLATO_CONVERT_DICTIONARIES=1
 # shellcheck disable=SC1091
 [ -e config.sh ] && . config.sh
 
-if [ "$PLATO_STANDALONE" ] ; then
-	# Stop the animation started by rcS
-	REM_TRIES=10
-	while [ "$REM_TRIES" -gt 0 ] ; do
-		killall on-animator.sh && break
-		REM_TRIES=$((REM_TRIES-1))
-		usleep 400000
-	done
-else
-	# shellcheck disable=SC2046
-	export $(grep -sE '^(INTERFACE|WIFI_MODULE|DBUS_SESSION_BUS_ADDRESS|NICKEL_HOME|LANG)=' /proc/"$(pidof -s nickel)"/environ)
-	sync
-	killall -TERM nickel hindenburg sickel fickel adobehost foxitpdf iink dhcpcd-dbus dhcpcd fmon > /dev/null 2>&1
-fi
+# shellcheck disable=SC2046
+export $(grep -sE '^(INTERFACE|WIFI_MODULE|DBUS_SESSION_BUS_ADDRESS|NICKEL_HOME|LANG)=' /proc/"$(pidof -s nickel)"/environ)
+sync
+killall -TERM nickel hindenburg sickel fickel adobehost foxitpdf iink dhcpcd-dbus dhcpcd fmon > /dev/null 2>&1
 
 # Turn off the LEDs
 # https://www.tablix.org/~avian/blog/archives/2013/03/blinken_kindle/
@@ -90,7 +80,7 @@ fi
 
 [ "$ORIG_BPP" ] && ./bin/utils/fbdepth -q -d 8
 
-LIBC_FATAL_STDERR_=1 ./plato >> info.log 2>&1 || rm bootlock
+LIBC_FATAL_STDERR_=1 ./plato >> info.log 2>&1
 
 [ "$ORIG_BPP" ] && ./bin/utils/fbdepth -q -d "$ORIG_BPP"
 
@@ -98,8 +88,6 @@ if [ -e /tmp/reboot ] ; then
 	reboot
 elif [ -e /tmp/power_off ] ; then
 	poweroff -f
-elif [ "$PLATO_STANDALONE" ] ; then
-	reboot
 else
 	./nickel.sh &
 fi

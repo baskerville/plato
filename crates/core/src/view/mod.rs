@@ -575,7 +575,6 @@ pub enum EntryId {
     Refresh,
     TakeScreenshot,
     Reboot,
-    RebootInNickel,
     Quit,
 }
 

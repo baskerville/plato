@@ -1,4 +1,4 @@
-use std::fs::{self, File};
+use std::fs::File;
 use std::env;
 use std::thread;
 use std::process::Command;
@@ -949,13 +949,6 @@ pub fn run() -> Result<(), Error> {
                 break;
             },
             Event::Select(EntryId::Quit) => {
-                break;
-            },
-            Event::Select(EntryId::RebootInNickel) => {
-                fs::remove_file("bootlock").map_err(|e| {
-                    eprintln!("Couldn't remove the bootlock file: {:#}.", e);
-                }).ok();
-                exit_status = ExitStatus::Reboot;
                 break;
             },
             Event::MightSuspend if context.settings.auto_suspend > 0 => {
