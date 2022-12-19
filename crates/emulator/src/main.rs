@@ -55,7 +55,7 @@ const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 pub fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let settings = load_toml::<Settings, _>(SETTINGS_PATH)?;
     let library_settings = &settings.libraries[settings.selected_library];
-    let library = Library::new(&library_settings.path, library_settings.mode);
+    let library = Library::new(&library_settings.path, library_settings.mode)?;
 
     let battery = Box::new(FakeBattery::new()) as Box<dyn Battery>;
     let frontlight = Box::new(LightLevels::default()) as Box<dyn Frontlight>;

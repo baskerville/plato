@@ -70,9 +70,11 @@ impl Context {
             if index == selected_library {
                 continue;
             }
-            let mut library = Library::new(&library_settings.path, library_settings.mode);
-            library.import(&self.settings.import);
-            library.flush();
+            if let Ok(mut library) = Library::new(&library_settings.path, library_settings.mode)
+                                             .map_err(|e| eprintln!("{:#?}", e)) {
+                library.import(&self.settings.import);
+                library.flush();
+            }
         }
     }
 

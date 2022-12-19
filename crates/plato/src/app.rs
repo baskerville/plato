@@ -107,7 +107,7 @@ fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     }
 
     let library_settings = &settings.libraries[settings.selected_library];
-    let library = Library::new(&library_settings.path, library_settings.mode);
+    let library = Library::new(&library_settings.path, library_settings.mode)?;
 
     let fonts = Fonts::load().context("can't load fonts")?;
 

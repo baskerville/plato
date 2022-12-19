@@ -64,7 +64,7 @@ fn main() -> Result<(), Error> {
                           }
                       }).unwrap_or(LibraryMode::Database);
 
-    let mut library = Library::new(&library_path, mode);
+    let mut library = Library::new(&library_path, mode)?;
 
     if matches.opt_present("I") {
         library.import(&import_settings);
