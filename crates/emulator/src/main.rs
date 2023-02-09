@@ -270,7 +270,7 @@ fn main() -> Result<(), Error> {
 
     'outer: loop {
         let mut event_pump = sdl_context.event_pump().unwrap();
-        if let Some(sdl_evt) = event_pump.wait_event_timeout(20) {
+        while let Some(sdl_evt) = event_pump.poll_event() {
             match sdl_evt {
                 SdlEvent::Quit { .. } |
                 SdlEvent::KeyDown { keycode: Some(Keycode::Escape), keymod: Mod::NOMOD, .. } => {
