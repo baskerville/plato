@@ -6,9 +6,11 @@ use crate::view::icon::Icon;
 use crate::view::clock::Clock;
 use crate::view::battery::Battery;
 use crate::view::label::Label;
-use crate::geom::{Rectangle};
+use crate::geom::Rectangle;
 use crate::font::Fonts;
 use crate::context::Context;
+
+use log::debug;
 
 #[derive(Debug)]
 pub struct TopBar {
@@ -22,46 +24,32 @@ impl TopBar {
         let id = ID_FEEDER.next();
         let mut children = Vec::new();
 
-        let side = rect.height() as i32;
         let icon_name = match root_event {
             Event::Back => "back",
             _ => "search",
         };
+        let sizes = Self::compute_sizes(rect, context);
+        debug!("Construct top bar with sizes {:?}", sizes);
 
-        let root_icon = Icon::new(icon_name,
-                                  rect![rect.min, rect.min+side],
-                                  root_event);
+        let root_icon = Icon::new(icon_name, sizes[0], root_event);
         children.push(Box::new(root_icon) as Box<dyn View>);
 
-        let mut clock_rect = rect![rect.max - pt!(4*side, side),
-                                   rect.max - pt!(3*side, 0)];
-        let clock_label = Clock::new(&mut clock_rect, context);
-        let title_rect = rect![rect.min.x + side, rect.min.y,
-                               clock_rect.min.x, rect.max.y];
-        let title_label = Label::new(title_rect, title, Align::Center)
-                                .event(Some(Event::ToggleNear(ViewId::TitleMenu, title_rect)));
+        let title_label = Label::new(sizes[1], title, Align::Center)
+            .event(Some(Event::ToggleNear(ViewId::TitleMenu, sizes[1])));
         children.push(Box::new(title_label) as Box<dyn View>);
+        let clock_label = Clock::new(sizes[2], context);
         children.push(Box::new(clock_label) as Box<dyn View>);
 
         let capacity = context.battery.capacity().map_or(0.0, |v| v[0]);
         let status = context.battery.status().map_or(crate::battery::Status::Discharging, |v| v[0]);
-        let battery_widget = Battery::new(rect![rect.max - pt!(3*side, side),
-                                                rect.max - pt!(2*side, 0)],
-                                          capacity,
-                                          status);
+        let battery_widget = Battery::new(sizes[3], capacity, status);
         children.push(Box::new(battery_widget) as Box<dyn View>);
 
         let name = if context.settings.frontlight { "frontlight" } else { "frontlight-disabled" };
-        let frontlight_icon = Icon::new(name,
-                                        rect![rect.max - pt!(2*side, side),
-                                              rect.max - pt!(side, 0)],
-                                        Event::Show(ViewId::Frontlight));
+        let frontlight_icon = Icon::new(name, sizes[4], Event::Show(ViewId::Frontlight));
         children.push(Box::new(frontlight_icon) as Box<dyn View>);
 
-        let menu_rect = rect![rect.max-side, rect.max];
-        let menu_icon = Icon::new("menu",
-                                  menu_rect,
-                                  Event::ToggleNear(ViewId::MainMenu, menu_rect));
+        let menu_icon = Icon::new("menu", sizes[5], Event::ToggleNear(ViewId::MainMenu, sizes[5]));
         children.push(Box::new(menu_icon) as Box<dyn View>);
 
         TopBar {
@@ -69,6 +57,29 @@ impl TopBar {
             rect,
             children,
         }
+    }
+
+    fn compute_sizes(rect: Rectangle, context: &mut Context) -> [Rectangle; 6] {
+        let clock_width = Clock::compute_width(context);
+        let side = rect.height() as i32;
+        [
+            // Root icon
+            rect![rect.min, rect.min+side],
+            // title
+            rect![pt!(rect.min.x + side, rect.min.y),
+                  pt!(rect.max.x - 3 * side - clock_width, rect.max.y)],
+            // clock
+            rect![rect.max - pt!(3*side + clock_width, side),
+                  rect.max - pt!(3*side, 0)],
+            // battery
+            rect![rect.max - pt!(3*side, side),
+                  rect.max - pt!(2*side, 0)],
+            // frontlight
+            rect![rect.max - pt!(2*side, side),
+                  rect.max - pt!(side, 0)],
+            // menu
+            rect![rect.max-side, rect.max],
+        ]
     }
 
     pub fn update_root_icon(&mut self, name: &str, rq: &mut RenderQueue) {
@@ -125,26 +136,13 @@ impl View for TopBar {
     }
 
     fn resize(&mut self, rect: Rectangle, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
-        let side = rect.height() as i32;
-        self.children[0].resize(rect![rect.min, rect.min+side], hub, rq, context);
-        let clock_width = self.children[2].rect().width() as i32;
-        let clock_rect = rect![rect.max - pt!(3*side + clock_width, side),
-                               rect.max - pt!(3*side, 0)];
-        self.children[1].resize(rect![rect.min.x + side,
-                                      rect.min.y,
-                                      clock_rect.min.x,
-                                      rect.max.y],
-                                hub, rq, context);
-        self.children[2].resize(clock_rect, hub, rq, context);
-        self.children[3].resize(rect![rect.max - pt!(3*side, side),
-                                      rect.max - pt!(2*side, 0)],
-                                hub, rq, context);
-        self.children[4].resize(rect![rect.max - pt!(2*side, side),
-                                      rect.max - pt!(side, 0)],
-                                hub, rq, context);
-        self.children[5].resize(rect![rect.max-side, rect.max],
-                                hub, rq, context);
+        debug!("Resizing top bar from {} to {}", self.rect, rect);
         self.rect = rect;
+
+        let sizes = Self::compute_sizes(rect, context);
+        for (index, size) in sizes.iter().enumerate() {
+            self.children[index].resize(*size, hub, rq, context);
+        }
     }
 
     fn rect(&self) -> &Rectangle {

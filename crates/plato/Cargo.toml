@@ -10,3 +10,8 @@ path = "src/main.rs"
 
 [dependencies]
 plato-core = { path = "../core" }
+
+[features]
+default = ["chess"]
+chess = ["plato-core/chess"]
+devel = ["plato-core/devel"]

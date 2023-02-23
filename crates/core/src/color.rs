@@ -27,6 +27,10 @@ pub const TEXT_BUMP_LARGE: [u8; 3] = [GRAY11, BLACK, BLACK];
 pub const TEXT_INVERTED_SOFT: [u8; 3] = [GRAY05, WHITE, WHITE];
 pub const TEXT_INVERTED_HARD: [u8; 3] = [BLACK, WHITE, GRAY06];
 
+pub const CHESSBOARD_BG: u8 = KEYBOARD_BG;
+pub const CELL_BLACK: [u8; 2] = [GRAY05, GRAY07];
+pub const CELL_WHITE: [u8; 2] = [GRAY10, GRAY07];
+
 pub const SEPARATOR_NORMAL: u8 = GRAY10;
 pub const SEPARATOR_STRONG: u8 = GRAY07;
 

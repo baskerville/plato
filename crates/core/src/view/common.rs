@@ -85,6 +85,9 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
                                            EntryId::Launch(AppCmd::Calculator)),
                         EntryKind::Command("Sketch".to_string(),
                                            EntryId::Launch(AppCmd::Sketch)),
+                        #[cfg(feature = "chess")]
+                        EntryKind::Command("Chess".to_string(),
+                                           EntryId::Launch(AppCmd::Chess)),
                         EntryKind::Separator,
                         EntryKind::Command("Touch Events".to_string(),
                                            EntryId::Launch(AppCmd::TouchEvents)),

@@ -15,6 +15,7 @@ pub struct Label {
     align: Align,
     event: Option<Event>,
     hold_event: Option<Event>,
+    font_size: u32,
 }
 
 impl Label {
@@ -27,6 +28,7 @@ impl Label {
             align,
             event: None,
             hold_event: None,
+            font_size: NORMAL_STYLE.size,
         }
     }
 
@@ -45,6 +47,10 @@ impl Label {
             self.text = text.to_string();
             rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
         }
+    }
+
+    pub fn set_font_size(&mut self, font_size: f32) {
+        self.font_size = (64.0 * font_size) as u32;
     }
 }
 
@@ -72,7 +78,8 @@ impl View for Label {
 
         fb.draw_rectangle(&self.rect, TEXT_NORMAL[0]);
 
-        let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
+        let mut style = NORMAL_STYLE; style.size = self.font_size;
+        let font = font_from_style(fonts, &style, dpi);
         let x_height = font.x_heights.0 as i32;
         let padding = font.em() as i32;
         let max_width = self.rect.width() as i32 - padding;

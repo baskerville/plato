@@ -23,6 +23,14 @@ fn main() {
             "linux" => {
                 println!("cargo:rustc-link-search=target/mupdf_wrapper/Linux");
                 println!("cargo:rustc-link-lib=dylib=stdc++");
+                println!("cargo:rustc-link-lib=dylib=stdc++");
+                println!("cargo:rustc-link-lib=z");
+                println!("cargo:rustc-link-lib=bz2");
+                println!("cargo:rustc-link-lib=jpeg");
+                println!("cargo:rustc-link-lib=png16");
+                println!("cargo:rustc-link-lib=gumbo");
+                println!("cargo:rustc-link-lib=openjp2");
+                println!("cargo:rustc-link-lib=jbig2dec");
             },
             "macos" => {
                 println!("cargo:rustc-link-search=target/mupdf_wrapper/Darwin");

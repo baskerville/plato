@@ -42,6 +42,13 @@ pub mod calculator;
 pub mod sketch;
 pub mod touch_events;
 pub mod rotation_values;
+#[cfg(feature = "chess")]
+pub mod plato_chess;
+
+#[cfg(feature = "devel")]
+use {
+    crate::device::CURRENT_DEVICE,
+};
 
 use std::ops::{Deref, DerefMut};
 use std::time::{Instant, Duration};
@@ -63,6 +70,12 @@ use crate::gesture::GestureEvent;
 use self::calculator::LineOrigin;
 use self::key::KeyKind;
 use crate::context::Context;
+#[cfg(feature = "chess")]
+use {
+    chess::Square,
+    chess_uci::uci_command::EngineCommand,
+};
+use log::{debug, warn};
 
 // Border thicknesses in pixels, at 300 DPI.
 pub const THICKNESS_SMALL: f32 = 1.0;
@@ -294,6 +307,12 @@ pub enum Event {
     Gesture(GestureEvent),
     Keyboard(KeyboardEvent),
     Key(KeyKind),
+    #[cfg(feature = "chess")]
+    ChessCommand(EngineCommand),
+    #[cfg(feature = "chess")]
+    ChessGo(bool),
+    #[cfg(feature = "chess")]
+    ChessCell(Square, bool),
     Open(Box<Info>),
     OpenHtml(String, Option<String>),
     LoadPixmap(usize),
@@ -350,6 +369,12 @@ pub enum Event {
     Scroll(i32),
     Save,
     Guess,
+    #[cfg(feature = "chess")]
+    Reset,
+    #[cfg(feature = "chess")]
+    UpdateValue(f32),
+    #[cfg(feature = "chess")]
+    SaveAll(ViewId, Vec<f32>),
     CheckBattery,
     SetWifi(bool),
     MightSuspend,
@@ -368,6 +393,8 @@ pub enum Event {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum AppCmd {
     Sketch,
+    #[cfg(feature = "chess")]
+    Chess,
     Calculator,
     Dictionary {
         query: String,
@@ -408,6 +435,14 @@ pub enum ViewId {
     MarginCropperMenu,
     SearchMenu,
     SketchMenu,
+    #[cfg(feature = "chess")]
+    ChessMenu,
+    #[cfg(feature = "chess")]
+    ChessSettings,
+    #[cfg(feature = "chess")]
+    ChessPromotion,
+    #[cfg(feature = "chess")]
+    ChessMoves,
     RenameDocument,
     RenameDocumentInput,
     GoToPage,
@@ -444,6 +479,10 @@ pub enum SliderId {
     LightWarmth,
     ContrastExponent,
     ContrastGray,
+    #[cfg(feature = "chess")]
+    ChessElo,
+    #[cfg(feature = "chess")]
+    ChessSlow,
 }
 
 impl SliderId {
@@ -454,6 +493,10 @@ impl SliderId {
             SliderId::FontSize => "Font Size".to_string(),
             SliderId::ContrastExponent => "Contrast Exponent".to_string(),
             SliderId::ContrastGray => "Contrast Gray".to_string(),
+            #[cfg(feature = "chess")]
+            SliderId::ChessElo => "Elo level calibration".to_string(),
+            #[cfg(feature = "chess")]
+            SliderId::ChessSlow => "Slow motion".to_string(),
         }
     }
 }
@@ -521,6 +564,14 @@ pub enum EntryId {
     CopyTo(PathBuf, usize),
     MoveTo(PathBuf, usize),
     AddDirectory(PathBuf),
+    #[cfg(feature = "chess")]
+    ChessPlayer(chess::Color, chess_uci::Player),
+    #[cfg(feature = "chess")]
+    ChessPiece(chess::ChessMove),
+    #[cfg(feature = "chess")]
+    ChessEngineSettings,
+    #[cfg(feature = "chess")]
+    ChessTimeControl(u64, u64),
     SelectDirectory(PathBuf),
     ToggleSelectDirectory(PathBuf),
     SetStatus(PathBuf, SimpleStatus),
@@ -612,6 +663,7 @@ impl EntryKind {
     }
 }
 
+#[derive(Debug)]
 pub struct RenderData {
     pub id: Option<Id>,
     pub rect: Rectangle,
@@ -671,6 +723,12 @@ impl RenderQueue {
     }
 
     pub fn add(&mut self, data: RenderData) {
+        debug!("adding to render queue {:?}", data);
+        #[cfg(feature = "devel")]
+        if (data.rect.max.x as u32, data.rect.max.y as u32) > CURRENT_DEVICE.dims {
+            warn!("rect ({:?})out of screen limits {:?}", data.rect, CURRENT_DEVICE.dims);
+        }
+
         self.entry((data.mode, data.wait)).or_insert_with(|| {
             Vec::new()
         }).push((data.id, data.rect));
