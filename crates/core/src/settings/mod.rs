@@ -464,7 +464,7 @@ impl Default for ImportSettings {
             startup_trigger: true,
             metadata_kinds: ["epub", "pdf", "djvu"].iter().map(|k| k.to_string()).collect(),
             allowed_kinds: ["pdf", "djvu", "epub", "fb2",
-                            "xps", "oxps", "cbz"].iter().map(|k| k.to_string()).collect(),
+                            "xps", "oxps", "mobi", "cbz"].iter().map(|k| k.to_string()).collect(),
         }
     }
 }

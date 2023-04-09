@@ -3,7 +3,7 @@
 use std::mem;
 
 pub const FZ_MAX_COLORS: usize = 32;
-pub const FZ_VERSION: &str = "1.20.0";
+pub const FZ_VERSION: &str = "1.21.1";
 
 pub const FZ_META_INFO_AUTHOR: &str = "info:Author";
 pub const FZ_META_INFO_TITLE: &str = "info:Title";
@@ -33,6 +33,9 @@ pub enum FzAllocContext {}
 pub enum FzLocksContext {}
 pub enum FzCookie {}
 pub enum FzStoreDropFn {}
+pub enum FzLinkSetRectFn {}
+pub enum FzLinkSetUriFn {}
+pub enum FzLinkDropLinkFn {}
 pub enum FzSeparations {}
 pub enum FzImage {}
 
@@ -173,6 +176,9 @@ pub struct FzLink {
     pub next: *mut FzLink,
     pub rect: FzRect,
     pub uri: *mut libc::c_char,
+    set_rect_fn: *mut FzLinkSetRectFn,
+    set_uri_fn: *mut FzLinkSetUriFn,
+    drop: *mut FzLinkDropLinkFn,
 }
 
 #[repr(C)]
