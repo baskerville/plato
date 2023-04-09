@@ -39,4 +39,4 @@ fxhash = "0.2.1"
 rand_core = "0.6.4"
 rand_xoshiro = "0.6.0"
 percent-encoding = "2.2.0"
-chrono = { version = "0.4.24", features = ["serde"] }
+chrono = { version = "0.4.24", features = ["serde", "clock"], default-features = false }
