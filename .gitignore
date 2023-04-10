@@ -15,7 +15,7 @@
 /hyphenation-patterns
 /dictionaries
 /dist
-/standalone
+/bundle
 /plato-*.zip
 /thirdparty/*/*
 !/thirdparty/*/*kobo*

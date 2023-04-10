@@ -1,4 +1,3 @@
-use std::env;
 use std::sync::mpsc;
 use chrono::Local;
 use crate::device::CURRENT_DEVICE;
@@ -110,13 +109,8 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
                                EntryKind::SubMenu("Applications".to_string(), apps),
                                EntryKind::Separator];
 
-        if env::var_os("PLATO_STANDALONE").is_some() {
-            entries.push(EntryKind::Command("Reboot in Nickel".to_string(), EntryId::RebootInNickel));
-            entries.push(EntryKind::Command("Reboot".to_string(), EntryId::Reboot));
-        } else {
-            entries.push(EntryKind::Command("Reboot".to_string(), EntryId::Reboot));
-            entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
-        }
+        entries.push(EntryKind::Command("Reboot".to_string(), EntryId::Reboot));
+        entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
 
         if CURRENT_DEVICE.has_page_turn_buttons() {
             let button_scheme = context.settings.button_scheme;

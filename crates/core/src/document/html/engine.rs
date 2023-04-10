@@ -126,9 +126,7 @@ impl Engine {
     }
 
     pub fn set_margin_width(&mut self, width: i32) {
-        if width >= 0 && width <= 10 {
-            self.margin = Edge::uniform(mm_to_px(width as f32, self.dpi).round() as i32);
-        }
+        self.margin = Edge::uniform(mm_to_px(width as f32, self.dpi).round() as i32);
     }
 
     pub fn set_line_height(&mut self, line_height: f32) {
@@ -1345,7 +1343,7 @@ impl Engine {
                                             display_list.push(page);
                                             let next_baseline = (root_data.rect.min.y + space_top - ascender + element.height).min(y_max);
                                             for dc in &mut start_commands {
-                                                for pt in dc.position_mut() {
+                                                if let Some(pt) = dc.position_mut() {
                                                     pt.y += next_baseline - position.y;
                                                 }
                                             }
@@ -1354,7 +1352,7 @@ impl Engine {
                                             page = start_commands;
                                         } else {
                                             for dc in &mut page[start_command_index..] {
-                                                for pt in dc.position_mut() {
+                                                if let Some(pt) = dc.position_mut() {
                                                     pt.y += delta;
                                                 }
                                             }

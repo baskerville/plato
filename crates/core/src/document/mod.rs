@@ -482,7 +482,7 @@ pub fn sys_info_as_html() -> String {
 
     for (name, var) in [("Code name", "PRODUCT"),
                          ("Model number", "MODEL_NUMBER"),
-                         ("Firmare version", "FIRMWARE_VERSION")].iter() {
+                         ("Firmware version", "FIRMWARE_VERSION")].iter() {
         if let Ok(value) = env::var(var) {
             buf.push_str("\t\t\t<tr>\n");
             buf.push_str(&format!("\t\t\t\t<td class=\"key\">{}</td>\n", name));

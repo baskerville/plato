@@ -9,7 +9,7 @@ use indexmap::IndexMap;
 use fxhash::{FxHashMap, FxHashSet, FxBuildHasher};
 use chrono::{Local, TimeZone};
 use filetime::{FileTime, set_file_mtime, set_file_handle_times};
-use anyhow::{Error, format_err};
+use anyhow::{Error, bail, format_err};
 use crate::metadata::{Info, ReaderInfo, FileInfo, BookQuery, SimpleStatus, SortMethod};
 use crate::metadata::{sort, sorter, extract_metadata_from_document};
 use crate::settings::{LibraryMode, ImportSettings};
@@ -36,35 +36,41 @@ pub struct Library {
 }
 
 impl Library {
-    pub fn new<P: AsRef<Path>>(home: P, mode: LibraryMode) -> Self {
-        if !home.as_ref().exists() {
-            fs::create_dir_all(&home).ok();
+    pub fn new<P: AsRef<Path>>(home: P, mode: LibraryMode) -> Result<Self, Error> {
+        if let Err(e) = fs::create_dir(&home) {
+            if e.kind() != ErrorKind::AlreadyExists {
+                bail!(e);
+            }
         }
 
-        let mut db: IndexMap<Fp, Info, FxBuildHasher> = if mode == LibraryMode::Database {
-            let path = home.as_ref().join(METADATA_FILENAME);
-            match load_json(&path) {
+        let path = home.as_ref().join(METADATA_FILENAME);
+        let mut db;
+        if mode == LibraryMode::Database {
+            match load_json::<IndexMap<Fp, Info, FxBuildHasher>, _>(&path) {
                 Err(e) => {
                     if e.downcast_ref::<IoError>().map(|e| e.kind()) != Some(ErrorKind::NotFound) {
-                        eprintln!("Can't load database: {:#}.", e);
+                        bail!(e);
+                    } else {
+                        db = IndexMap::with_capacity_and_hasher(0, FxBuildHasher::default());
                     }
-                    IndexMap::with_capacity_and_hasher(0, FxBuildHasher::default())
                 },
-                Ok(v) => v,
+                Ok(v) => db = v,
             }
         } else {
-            IndexMap::with_capacity_and_hasher(0, FxBuildHasher::default())
-        };
+            db = IndexMap::with_capacity_and_hasher(0, FxBuildHasher::default());
+        }
 
         let mut reading_states = FxHashMap::default();
 
         let path = home.as_ref().join(READING_STATES_DIRNAME);
-        if !path.exists() {
-            fs::create_dir(&path).ok();
+        if let Err(e) = fs::create_dir(&path) {
+            if e.kind() != ErrorKind::AlreadyExists {
+                bail!(e);
+            }
         }
 
-        for entry in fs::read_dir(&path).unwrap() {
-            let entry = entry.unwrap();
+        for entry in fs::read_dir(&path)? {
+            let entry = entry?;
             let path = entry.path();
             if let Some(fp) = path.file_stem().and_then(|v| v.to_str())
                                   .and_then(|v| Fp::from_str(v).ok()) {
@@ -95,17 +101,16 @@ impl Library {
 
         let path = home.as_ref().join(FAT32_EPOCH_FILENAME);
         if !path.exists() {
-            let file = File::create(&path).unwrap();
+            let file = File::create(&path)?;
             let mtime = FileTime::from_unix_time(315_532_800, 0);
-            set_file_handle_times(&file, None, Some(mtime))
-                    .map_err(|e| eprintln!("Can't set file times: {:#}.", e)).ok();
+            set_file_handle_times(&file, None, Some(mtime))?;
         }
 
-        let fat32_epoch = path.metadata().unwrap().modified().unwrap();
+        let fat32_epoch = path.metadata()?.modified()?;
 
         let sort_method = SortMethod::Opened;
 
-        Library {
+        Ok(Library {
             home: home.as_ref().to_path_buf(),
             mode,
             db,
@@ -117,7 +122,7 @@ impl Library {
             sort_method,
             reverse_order: sort_method.reverse_order(),
             show_hidden: false,
-        }
+        })
     }
 
     pub fn list<P: AsRef<Path>>(&self, prefix: P, query: Option<&BookQuery>, skip_files: bool) -> (Vec<Info>, BTreeSet<PathBuf>) {

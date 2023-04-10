@@ -251,3 +251,6 @@ pub const HB_SCRIPT_OLD_UYGHUR: HbTag = hb_tag!('O','u','g','r');
 pub const HB_SCRIPT_TANGSA: HbTag = hb_tag!('T','n','s','a');
 pub const HB_SCRIPT_TOTO: HbTag = hb_tag!('T','o','t','o');
 pub const HB_SCRIPT_VITHKUQI: HbTag = hb_tag!('V','i','t','h');
+pub const HB_SCRIPT_MATH: HbTag = hb_tag!('Z','m','t','h');
+pub const HB_SCRIPT_KAWI: HbTag = hb_tag!('K','a','w','i');
+pub const HB_SCRIPT_NAG_MUNDARI: HbTag = hb_tag!('N','a','g','m');

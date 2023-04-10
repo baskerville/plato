@@ -540,6 +540,7 @@ impl Fonts {
 }
 
 bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct Variant: u8 {
         const REGULAR = 0;
         const ITALIC = 1;
