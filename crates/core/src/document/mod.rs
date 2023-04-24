@@ -18,8 +18,7 @@ use regex::Regex;
 use nix::sys::statvfs;
 #[cfg(target_os = "linux")]
 use nix::sys::sysinfo;
-use fxhash::{FxHashMap, FxHashSet};
-use lazy_static::lazy_static;
+use fxhash::FxHashMap;
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::{is_combining_mark};
 use serde::{Serialize, Deserialize};
@@ -582,60 +581,4 @@ pub fn sys_info_as_html() -> String {
 
     buf.push_str("\t\t</table>\n\t</body>\n</html>");
     buf
-}
-
-// cd mupdf/source && awk '/_extensions\[/,/}/' */*.c
-lazy_static! {
-pub static ref RECOGNIZED_KINDS: FxHashSet<&'static str> =
-    [
-    // djvu
-    "djvu",
-    "djv",
-    // cbz
-    "cbt",
-    "cbz",
-    "tar",
-    "zip",
-    // img
-    "bmp",
-    "gif",
-    "hdp",
-    "j2k",
-    "jfif",
-    "jfif-tbnl",
-    "jp2",
-    "jpe",
-    "jpeg",
-    "jpg",
-    "jpx",
-    "jxr",
-    "pam",
-    "pbm",
-    "pgm",
-    "png",
-    "pnm",
-    "ppm",
-    "wdp",
-    // tiff
-    "tif",
-    "tiff",
-    // gprf
-    "gproof",
-    // epub
-    "epub",
-    // html
-    "fb2",
-    "htm",
-    "html",
-    "xhtml",
-    "xml",
-    // pdf
-    "pdf",
-    "ai",
-    // svg
-    "svg",
-    // xps
-    "oxps",
-    "xps",
-    ].iter().cloned().collect();
 }
