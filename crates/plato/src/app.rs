@@ -52,7 +52,8 @@ const BUTTON_INPUTS: [&str; 4] = ["/dev/input/by-path/platform-gpio-keys-event",
                                   "/dev/input/by-path/platform-ntx_event0-event",
                                   "/dev/input/by-path/platform-mxckpd-event",
                                   "/dev/input/event0"];
-const POWER_INPUT: &str = "/dev/input/by-path/platform-bd71828-pwrkey-event";
+const POWER_INPUTS: [&str; 2] = ["/dev/input/by-path/platform-bd71828-pwrkey-event",
+                                 "/dev/input/by-path/platform-bd71828-pwrkey.4.auto-event"];
 
 const KOBO_UPDATE_BUNDLE: &str = "/mnt/onboard/.kobo/KoboRoot.tgz";
 
@@ -242,8 +243,11 @@ pub fn run() -> Result<(), Error> {
             break;
         }
     }
-    if Path::new(POWER_INPUT).exists() {
-        paths.push(POWER_INPUT.to_string());
+    for pi in &POWER_INPUTS {
+        if Path::new(pi).exists() {
+            paths.push(pi.to_string());
+            break;
+        }
     }
 
     let (raw_sender, raw_receiver) = raw_events(paths);
