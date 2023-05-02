@@ -106,8 +106,8 @@ pub struct Settings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rotation_lock: Option<RotationLock>,
     pub button_scheme: ButtonScheme,
-    pub auto_suspend: u8,
-    pub auto_power_off: u8,
+    pub auto_suspend: f32,
+    pub auto_power_off: f32,
     pub time_format: String,
     pub date_format: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -522,8 +522,8 @@ impl Default for Settings {
             auto_share: false,
             rotation_lock: None,
             button_scheme: ButtonScheme::Natural,
-            auto_suspend: 30,
-            auto_power_off: 3,
+            auto_suspend: 30.0,
+            auto_power_off: 3.0,
             time_format: "%H:%M".to_string(),
             date_format: "%A, %B %-d, %Y".to_string(),
             intermissions: Intermissions {

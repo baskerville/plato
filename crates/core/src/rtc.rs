@@ -55,8 +55,8 @@ impl Rtc {
         }
     }
 
-    pub fn set_alarm(&self, days: u8) -> Result<i32, Error> {
-        let wt = Utc::now() + Duration::days(days as i64);
+    pub fn set_alarm(&self, days: f32) -> Result<i32, Error> {
+        let wt = Utc::now() + Duration::seconds((86_400.0 * days) as i64);
         let rwa = RtcWkalrm {
             enabled: 1,
             pending: 0,
