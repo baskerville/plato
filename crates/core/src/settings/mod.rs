@@ -169,6 +169,7 @@ impl Default for LibrarySettings {
 pub struct ImportSettings {
     pub unshare_trigger: bool,
     pub startup_trigger: bool,
+    pub sync_metadata: bool,
     pub metadata_kinds: FxHashSet<String>,
     pub allowed_kinds: FxHashSet<String>,
 }
@@ -462,6 +463,7 @@ impl Default for ImportSettings {
         ImportSettings {
             unshare_trigger: true,
             startup_trigger: true,
+            sync_metadata: true,
             metadata_kinds: ["epub", "pdf", "djvu"].iter().map(|k| k.to_string()).collect(),
             allowed_kinds: ["pdf", "djvu", "epub", "fb2",
                             "xps", "oxps", "mobi", "cbz"].iter().map(|k| k.to_string()).collect(),
