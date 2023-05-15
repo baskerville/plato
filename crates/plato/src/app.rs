@@ -52,7 +52,8 @@ const BUTTON_INPUTS: [&str; 4] = ["/dev/input/by-path/platform-gpio-keys-event",
                                   "/dev/input/by-path/platform-ntx_event0-event",
                                   "/dev/input/by-path/platform-mxckpd-event",
                                   "/dev/input/event0"];
-const POWER_INPUT: &str = "/dev/input/by-path/platform-bd71828-pwrkey-event";
+const POWER_INPUTS: [&str; 2] = ["/dev/input/by-path/platform-bd71828-pwrkey-event",
+                                 "/dev/input/by-path/platform-bd71828-pwrkey.4.auto-event"];
 
 const KOBO_UPDATE_BUNDLE: &str = "/mnt/onboard/.kobo/KoboRoot.tgz";
 
@@ -242,8 +243,11 @@ pub fn run() -> Result<(), Error> {
             break;
         }
     }
-    if Path::new(POWER_INPUT).exists() {
-        paths.push(POWER_INPUT.to_string());
+    for pi in &POWER_INPUTS {
+        if Path::new(pi).exists() {
+            paths.push(pi.to_string());
+            break;
+        }
     }
 
     let (raw_sender, raw_receiver) = raw_events(paths);
@@ -282,7 +286,7 @@ pub fn run() -> Result<(), Error> {
         }
     });
 
-    if context.settings.auto_suspend > 0 {
+    if context.settings.auto_suspend > 0.0 {
         let tx6 = tx.clone();
         thread::spawn(move || {
             loop {
@@ -537,7 +541,7 @@ pub fn run() -> Result<(), Error> {
 
                         tx.send(Event::Select(EntryId::Rotate(n))).ok();
                     },
-                    DeviceEvent::UserActivity if context.settings.auto_suspend > 0 => {
+                    DeviceEvent::UserActivity if context.settings.auto_suspend > 0.0 => {
                         inactive_since = Instant::now();
                     },
                     _ => {
@@ -587,7 +591,7 @@ pub fn run() -> Result<(), Error> {
                               SUSPEND_WAIT_DELAY, &tx, &mut tasks);
             },
             Event::Suspend => {
-                if context.settings.auto_power_off > 0 {
+                if context.settings.auto_power_off > 0.0 {
                     context.rtc.iter().for_each(|rtc| {
                         rtc.set_alarm(context.settings.auto_power_off)
                            .map_err(|e| eprintln!("Can't set alarm: {:#}.", e))
@@ -603,7 +607,7 @@ pub fn run() -> Result<(), Error> {
                         .status()
                         .ok();
                 inactive_since = Instant::now();
-                if context.settings.auto_power_off > 0 {
+                if context.settings.auto_power_off > 0.0 {
                     if let Some(enabled) = context.rtc.as_ref()
                                                   .and_then(|rtc| rtc.is_alarm_enabled()
                                                                      .map_err(|e| eprintln!("Can't get alarm: {:#}", e))
@@ -951,14 +955,14 @@ pub fn run() -> Result<(), Error> {
             Event::Select(EntryId::Quit) => {
                 break;
             },
-            Event::MightSuspend if context.settings.auto_suspend > 0 => {
+            Event::MightSuspend if context.settings.auto_suspend > 0.0 => {
                 if context.shared || tasks.iter().any(|task| task.id == TaskId::PrepareSuspend ||
                                                              task.id == TaskId::Suspend) {
                     inactive_since = Instant::now();
                     continue;
                 }
-                let seconds = 60 * context.settings.auto_suspend as u64;
-                if inactive_since.elapsed() > Duration::from_secs(seconds) {
+                let seconds = 60.0 * context.settings.auto_suspend;
+                if inactive_since.elapsed() > Duration::from_secs_f32(seconds) {
                     view.handle_event(&Event::Suspend, &tx, &mut bus, &mut rq, &mut context);
                     let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
                     rq.add(RenderData::new(interm.id(), *interm.rect(), UpdateMode::Full));

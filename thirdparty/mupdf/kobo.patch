@@ -1,6 +1,6 @@
 diff -ru a/Makefile b/Makefile
---- a/Makefile	2023-04-09 12:05:37
-+++ b/Makefile	2023-04-09 12:06:57
+--- a/Makefile	2023-04-13 14:30:09
++++ b/Makefile	2023-04-17 09:46:46
 @@ -150,7 +150,7 @@
  
  THIRD_GLUT_OBJ := $(THIRD_GLUT_SRC:%.c=$(OUT)/%.o)
@@ -11,9 +11,9 @@ diff -ru a/Makefile b/Makefile
  MUPDF_SRC += $(sort $(wildcard source/pdf/*.c))
  MUPDF_SRC += $(sort $(wildcard source/xps/*.c))
 diff -ru a/Makerules b/Makerules
---- a/Makerules	2023-04-09 12:05:38
-+++ b/Makerules	2023-04-09 12:08:54
-@@ -288,6 +288,35 @@
+--- a/Makerules	2023-04-13 14:30:09
++++ b/Makerules	2023-04-17 09:47:24
+@@ -300,6 +300,35 @@
    HAVE_WIN32=yes
  endif
  
@@ -50,8 +50,8 @@ diff -ru a/Makerules b/Makerules
  # which is called from the Xcode project as a "Run Script" build step.
  # The following section works for both device and simulator builds.
 diff -ru a/Makethird b/Makethird
---- a/Makethird	2023-04-09 12:05:38
-+++ b/Makethird	2023-04-09 12:12:59
+--- a/Makethird	2023-04-13 14:30:09
++++ b/Makethird	2023-04-17 09:48:23
 @@ -43,10 +43,6 @@
    endif
  endif

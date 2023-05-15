@@ -761,10 +761,6 @@ lazy_static! {
 
 #[inline]
 pub fn extract_metadata_from_document(prefix: &Path, info: &mut Info) {
-    if !info.title.is_empty() {
-        return;
-    }
-
     let path = prefix.join(&info.file.path);
 
     match info.file.kind.as_ref() {
@@ -823,10 +819,6 @@ pub fn extract_metadata_from_document(prefix: &Path, info: &mut Info) {
 }
 
 pub fn extract_metadata_from_filename(_prefix: &Path, info: &mut Info) {
-    if !info.title.is_empty() {
-        return;
-    }
-
     if let Some(filename) = info.file.path.file_name().and_then(OsStr::to_str) {
         let mut start_index = 0;
 

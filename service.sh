@@ -5,6 +5,12 @@ if [ $# -lt 1 ]; then
 	exit 1
 fi
 
+if ! [ -e thirdparty/mupdf/include ]; then
+	cd thirdparty || exit 1
+	./download.sh mupdf
+	cd -
+fi
+
 WRAPPER_PATH=mupdf_wrapper
 TARGET_OS=$(uname -s)
 
