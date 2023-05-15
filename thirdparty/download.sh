@@ -15,7 +15,7 @@ declare -A urls=(
 	# Documents
 	["gumbo"]="https://github.com/google/gumbo-parser/archive/v0.10.1.tar.gz"
 	["djvulibre"]="http://downloads.sourceforge.net/djvu/djvulibre-3.5.28.tar.gz"
-	["mupdf"]="https://mupdf.com/downloads/archive/mupdf-1.22.0-source.tar.gz"
+	["mupdf"]="https://mupdf.com/downloads/archive/mupdf-1.22.1-source.tar.gz"
 )
 
 for name in "${@:-${!urls[@]}}" ; do
