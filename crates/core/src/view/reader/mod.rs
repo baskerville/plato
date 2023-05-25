@@ -3339,16 +3339,15 @@ impl View for Reader {
                                 self.go_to_page(location, true, hub, rq, context);
                             }
                         } else if let Ok(number) = caps[2].parse::<f64>() {
-                            let location = if !self.synthetic {
-                                let mut index = number.max(0.0) as usize;
+                            let location = {
+                                let bpp = if self.synthetic { BYTES_PER_PAGE } else { 1.0 };
+                                let mut index = (number * bpp).max(0.0).round() as usize;
                                 match prefix {
                                     Some("-") => index = self.current_page.saturating_sub(index),
                                     Some("+") => index += self.current_page,
-                                    _ => index = index.saturating_sub(1),
+                                    _ => index = index.saturating_sub(1/(bpp as usize)),
                                 }
                                 index
-                            } else {
-                                (number * BYTES_PER_PAGE).max(0.0).round() as usize
                             };
                             self.go_to_page(location, true, hub, rq, context);
                         }
