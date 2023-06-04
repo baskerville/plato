@@ -3092,7 +3092,8 @@ impl View for Reader {
                 }
 
                 if let Some(link) = nearest_link.take() {
-                    let pdf_page = Regex::new(r"^#(\d+)(?:,-?\d+,-?\d+)?$").unwrap();
+                    let pdf_page = Regex::new(r"^#page=(\d+).*$").unwrap();
+                    let djvu_page = Regex::new(r"^#([+-])?(\d+)$").unwrap();
                     let toc_page = Regex::new(r"^@(.+)$").unwrap();
                     if let Some(caps) = toc_page.captures(&link.text) {
                         let loc_opt = if caps[1].chars().all(|c| c.is_digit(10)) {
@@ -3110,6 +3111,16 @@ impl View for Reader {
                     } else if let Some(caps) = pdf_page.captures(&link.text) {
                         if let Ok(index) = caps[1].parse::<usize>() {
                             self.go_to_page(index.saturating_sub(1), true, hub, rq, context);
+                        }
+                    } else if let Some(caps) = djvu_page.captures(&link.text) {
+                        if let Ok(mut index) = caps[2].parse::<usize>() {
+                            let prefix = caps.get(1).map(|m| m.as_str());
+                            match prefix {
+                                Some("-") => index = self.current_page.saturating_sub(index),
+                                Some("+") => index += self.current_page,
+                                _ => index = index.saturating_sub(1),
+                            }
+                            self.go_to_page(index, true, hub, rq, context);
                         }
                     } else {
                         let mut doc = self.doc.lock().unwrap();
