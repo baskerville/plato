@@ -291,7 +291,7 @@ fn main() -> Result<(), Error> {
                     while let Some(mut view) = history.pop() {
                         view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
                     }
-                    break;
+                    break 'outer;
                 },
                 SdlEvent::KeyUp { scancode: Some(scancode), keymod: Mod::NOMOD, timestamp, .. } => {
                     if let Some(code) = code_from_key(scancode) {
