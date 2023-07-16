@@ -376,6 +376,17 @@ fn main() -> Result<(), Error> {
                         _ => (),
                     }
                 },
+                SdlEvent::MouseWheel { mut y, direction, .. } => {
+                    if direction == sdl2::mouse::MouseWheelDirection::Flipped {
+                        y = -y;
+                    }
+
+                    if y > 0 {
+                        tx.send(Event::Page(plato_core::geom::CycleDir::Previous)).ok();
+                    } else if y < 0 {
+                        tx.send(Event::Page(plato_core::geom::CycleDir::Next)).ok();
+                    }
+                },
                 _ => {
                     if let Some(dev_evt) = device_event(sdl_evt) {
                         ty.send(dev_evt).ok();
