@@ -598,11 +598,11 @@ pub fn run() -> Result<(), Error> {
                            .ok();
                     });
                 }
-                println!("{}", Local::now().format("Went to sleep on %B %-d, %Y at %H:%M."));
+                println!("{}", Local::now().format("Went to sleep on %B %-d, %Y at %H:%M:%S."));
                 Command::new("scripts/suspend.sh")
                         .status()
                         .ok();
-                println!("{}", Local::now().format("Woke up on %B %-d, %Y at %H:%M."));
+                println!("{}", Local::now().format("Woke up on %B %-d, %Y at %H:%M:%S."));
                 Command::new("scripts/resume.sh")
                         .status()
                         .ok();
