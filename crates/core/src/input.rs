@@ -466,6 +466,8 @@ pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, 
                     ty.send(DeviceEvent::CoverOn).ok();
                 } else if evt.value == VAL_RELEASE {
                     ty.send(DeviceEvent::CoverOff).ok();
+                } else if evt.value == VAL_REPEAT {
+                    ty.send(DeviceEvent::CoverOn).ok();
                 }
             } else if evt.code == KEY_BUTTON_SCHEME {
                 if evt.value == VAL_PRESS {

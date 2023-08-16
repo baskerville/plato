@@ -359,6 +359,10 @@ pub fn run() -> Result<(), Error> {
                         tx.send(Event::ToggleFrontlight).ok();
                     },
                     DeviceEvent::CoverOn => {
+                        if context.covered {
+                           continue;
+                        }
+
                         context.covered = true;
 
                         if !context.settings.sleep_cover || context.shared ||
@@ -375,6 +379,10 @@ pub fn run() -> Result<(), Error> {
                         view.children_mut().push(Box::new(interm) as Box<dyn View>);
                     },
                     DeviceEvent::CoverOff => {
+                        if !context.covered {
+                           continue;
+                        }
+
                         context.covered = false;
 
                         if context.shared {
