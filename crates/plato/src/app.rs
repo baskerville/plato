@@ -44,7 +44,8 @@ use plato_core::context::Context;
 pub const APP_NAME: &str = "Plato";
 const FB_DEVICE: &str = "/dev/fb0";
 const RTC_DEVICE: &str = "/dev/rtc0";
-const TOUCH_INPUTS: [&str; 4] = ["/dev/input/by-path/platform-1-0038-event",
+const TOUCH_INPUTS: [&str; 5] = ["/dev/input/by-path/platform-2-0010-event",
+                                 "/dev/input/by-path/platform-1-0038-event",
                                  "/dev/input/by-path/platform-1-0010-event",
                                  "/dev/input/by-path/platform-0-0010-event",
                                  "/dev/input/event1"];
@@ -52,8 +53,9 @@ const BUTTON_INPUTS: [&str; 4] = ["/dev/input/by-path/platform-gpio-keys-event",
                                   "/dev/input/by-path/platform-ntx_event0-event",
                                   "/dev/input/by-path/platform-mxckpd-event",
                                   "/dev/input/event0"];
-const POWER_INPUTS: [&str; 2] = ["/dev/input/by-path/platform-bd71828-pwrkey-event",
-                                 "/dev/input/by-path/platform-bd71828-pwrkey.4.auto-event"];
+const POWER_INPUTS: [&str; 3] = ["/dev/input/by-path/platform-bd71828-pwrkey.6.auto-event",
+                                 "/dev/input/by-path/platform-bd71828-pwrkey.4.auto-event",
+                                 "/dev/input/by-path/platform-bd71828-pwrkey-event"];
 
 const KOBO_UPDATE_BUNDLE: &str = "/mnt/onboard/.kobo/KoboRoot.tgz";
 

@@ -1,12 +1,13 @@
 use std::fs::File;
 use std::path::Path;
 use std::io::{Read, Seek, SeekFrom};
-use anyhow::Error;
+use anyhow::{Error, format_err};
 use crate::device::CURRENT_DEVICE;
 use super::{Battery, Status};
 
-const BATTERY_INTERFACE_A: &str = "/sys/class/power_supply/mc13892_bat";
-const BATTERY_INTERFACE_B: &str = "/sys/class/power_supply/battery";
+const BATTERY_INTERFACES: [&str; 3] = ["/sys/class/power_supply/bd71827_bat",
+                                       "/sys/class/power_supply/mc13892_bat",
+                                       "/sys/class/power_supply/battery"];
 const POWER_COVER_INTERFACE: &str = "/sys/class/misc/cilix";
 
 const BATTERY_CAPACITY: &str = "capacity";
@@ -31,11 +32,9 @@ pub struct KoboBattery {
 
 impl KoboBattery {
     pub fn new() -> Result<KoboBattery, Error> {
-        let base = if Path::new(BATTERY_INTERFACE_B).exists() {
-            Path::new(BATTERY_INTERFACE_B)
-        } else {
-            Path::new(BATTERY_INTERFACE_A)
-        };
+        let base = Path::new(BATTERY_INTERFACES.iter()
+                             .find(|bi| Path::new(bi).exists())
+                             .ok_or_else(|| format_err!("battery path missing"))?);
         let capacity = File::open(base.join(BATTERY_CAPACITY))?;
         let status = File::open(base.join(BATTERY_STATUS))?;
         let power_cover = if CURRENT_DEVICE.has_power_cover() {
