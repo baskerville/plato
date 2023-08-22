@@ -121,6 +121,7 @@ pub struct Settings {
     pub reader: ReaderSettings,
     pub import: ImportSettings,
     pub dictionary: DictionarySettings,
+    pub remote_display: RemoteDisplaySettings,
     pub sketch: SketchSettings,
     pub calculator: CalculatorSettings,
     pub battery: BatterySettings,
@@ -189,6 +190,20 @@ impl Default for DictionarySettings {
             font_size: 11.0,
             margin_width: 4,
             languages: BTreeMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct RemoteDisplaySettings {
+    pub address: String
+}
+
+impl Default for RemoteDisplaySettings {
+    fn default() -> Self {
+        RemoteDisplaySettings {
+            address: "ws://localhost:8222/device".to_string()
         }
     }
 }
@@ -546,6 +561,7 @@ impl Default for Settings {
             reader: ReaderSettings::default(),
             import: ImportSettings::default(),
             dictionary: DictionarySettings::default(),
+            remote_display: RemoteDisplaySettings::default(),
             sketch: SketchSettings::default(),
             calculator: CalculatorSettings::default(),
             battery: BatterySettings::default(),

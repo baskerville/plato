@@ -1,0 +1,14 @@
+{
+  "manifest_version": 2,
+  "name": "Plato Remote Display",
+  "version": "0.1",
+  "description": "Plato Remote Display",
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "permissions": [
+    "tabs",
+    "<all_urls>",
+    "storage"
+  ]
+}

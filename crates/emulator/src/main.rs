@@ -31,6 +31,7 @@ use plato_core::view::calculator::Calculator;
 use plato_core::view::sketch::Sketch;
 use plato_core::view::touch_events::TouchEvents;
 use plato_core::view::rotation_values::RotationValues;
+use plato_core::view::remote_display::RemoteDisplay;
 use plato_core::view::common::{locate, locate_by_id, transfer_notifications, overlapping_rectangle};
 use plato_core::view::common::{toggle_input_history_menu, toggle_keyboard_layout_menu};
 use plato_core::helpers::{load_toml, save_toml};
@@ -439,6 +440,9 @@ fn main() -> Result<(), Error> {
                         AppCmd::RotationValues => {
                             Box::new(RotationValues::new(context.fb.rect(), &mut rq, &mut context))
                         },
+                        AppCmd::RemoteDisplay => {
+                            Box::new(RemoteDisplay::new(context.fb.rect(), &tx, &mut rq, &mut context))
+                        }
                     };
                     transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);
                     history.push(view as Box<dyn View>);
