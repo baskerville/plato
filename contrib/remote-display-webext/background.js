@@ -113,6 +113,23 @@ async function clickUnderTap(pctX, pctY) {
       `document.elementFromPoint(window.innerWidth * ${pctX}, window.innerHeight * ${pctY})?.click()`,
   });
 }
+
+async function offsetContrastFilter(offset) {
+  const [newContrast] = await browser.tabs.executeScript({
+    code: `(() => {
+      const el = document.documentElement;
+      const match = el.style.filter?.match(/contrast\\((\\d+)%\\)/);
+      const contrast = match ? parseInt(match[1]) : 100;
+      const offsetContrast = contrast + ${offset};
+      const newContrast = offsetContrast < 100 ? 100 : offsetContrast;
+      el.style.filter = newContrast !== 100
+        ? "grayscale() contrast(" + newContrast + "%)"
+        : "";
+      return newContrast;
+    })()`,
+  });
+  return newContrast;
+}
 // #endregion
 
 // #region main loop
@@ -248,6 +265,22 @@ async function onMessage(e) {
       const { x, y } = msg.value;
       await clickUnderTap(x / deviceWidth, y / deviceHeight);
       await sendImage();
+      break;
+    }
+    case "corner": {
+      const { dir } = msg.value;
+      switch (dir) {
+        case "southWest":
+        case "southEast":
+          {
+            const newContrast = await offsetContrastFilter(
+              dir === "southWest" ? -25 : 25,
+            );
+            sendNotice(`contrast ${newContrast}%`);
+            await sendImage();
+          }
+          break;
+      }
       break;
     }
   }
