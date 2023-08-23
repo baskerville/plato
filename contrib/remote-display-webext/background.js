@@ -286,7 +286,7 @@ function connect(config) {
 
 getConfig().then(connect).catch(console.error);
 
-browser.storage.onChanged.addListener((changes) => {
+browser.storage.local.onChanged.addListener((changes) => {
   if (
     "enabled" in changes &&
     changes.enabled.newValue &&
