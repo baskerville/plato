@@ -116,14 +116,6 @@ async function clickUnderTap(pctX, pctY) {
 // #endregion
 
 // #region main loop
-async function getWsUrl() {
-  let wsUrl = "ws://localhost:8222/browser";
-  const result = await browser.storage.local.get("wsUrl");
-  if (result.wsUrl) {
-    wsUrl = result.wsUrl;
-  }
-  return wsUrl;
-}
 
 let deviceWidth = 0;
 let deviceHeight = 0;
@@ -167,114 +159,155 @@ browser.tabs.onUpdated.addListener(async (_id, changeInfo, tab) => {
   }, 1000);
 });
 
-async function connect() {
-  console.log("attempting connection");
-  if (ws) ws.close();
-  ws = new WebSocket(await getWsUrl());
-  ws.onmessage = async (e) => {
-    console.log("message", e);
-    const msg = JSON.parse(e.data);
-    switch (msg.type) {
-      case "size": {
-        const { width, height } = msg.value;
-        deviceWidth = width;
-        deviceHeight = height;
-        await sendImage();
-        break;
-      }
-      case "swipe": {
-        const { dir, start, end } = msg.value;
-        switch (dir) {
-          case "north":
-          case "south": {
-            const dy = end.y - start.y;
-            await scroll(
-              start.x / deviceWidth,
-              start.y / deviceHeight,
-              -(dy / deviceHeight),
-            );
-            await sendImage();
-            break;
-          }
-          case "east":
-          case "west": {
-            const offset = dir === "east" ? -1 : 1;
-            const dx = end.x - start.x;
-            // change windows if swipe covers more than half the screen
-            await (Math.abs(dx) > deviceHeight / 2
-              ? windowOffset(offset)
-              : tabOffset(offset));
-            await sendImage();
-            const info = await currentTabInfo();
-            sendNotice(info);
-            break;
-          }
-        }
-        break;
-      }
-      case "arrow": {
-        const { dir } = msg.value;
-        switch (dir) {
-          case "east":
-            await goForward();
-            break;
-          case "west":
-            await goBack();
-            break;
-          case "north": {
-            const info = await currentTabInfo();
-            sendNotice(`closing ${info}`);
-            await closeCurrentTab();
-            await sendImage();
-            const newInfo = await currentTabInfo();
-            sendNotice(newInfo);
-            break;
-          }
-        }
-        break;
-      }
-      case "pinch":
-        await zoomPage(-0.1);
-        await sendImage();
-        break;
-      case "spread":
-        await zoomPage(0.1);
-        await sendImage();
-        break;
-      case "rotate":
-        await reloadCurrentTab();
-        break;
-      case "holdFingerShort":
-        await resizeViewport(deviceWidth, deviceHeight);
-        await sendImage();
-        await ws.send(JSON.stringify({ type: "refreshDisplay" }));
-        break;
-      case "holdFingerLong": {
-        const [{ x, y }] = msg.value;
-        const tab = await openLinkUnderTap(x / deviceWidth, y / deviceHeight);
-        if (tab) sendNotice(`${tab} opened`);
-        else sendNotice("no link under finger");
-        break;
-      }
-      case "tap": {
-        const { x, y } = msg.value;
-        await clickUnderTap(x / deviceWidth, y / deviceHeight);
-        await sendImage();
-        break;
-      }
+async function onMessage(e) {
+  console.log("message", e);
+  const msg = JSON.parse(e.data);
+  switch (msg.type) {
+    case "size": {
+      const { width, height } = msg.value;
+      deviceWidth = width;
+      deviceHeight = height;
+      await sendImage();
+      break;
     }
-  };
-}
-
-async function mainLoop() {
-  for (;;) {
-    if (!ws || ws.readyState === WebSocket.CLOSED) {
-      console.log("connection closed, restarting");
-      await connect();
+    case "swipe": {
+      const { dir, start, end } = msg.value;
+      switch (dir) {
+        case "north":
+        case "south": {
+          const dy = end.y - start.y;
+          await scroll(
+            start.x / deviceWidth,
+            start.y / deviceHeight,
+            -(dy / deviceHeight),
+          );
+          await sendImage();
+          break;
+        }
+        case "east":
+        case "west": {
+          const offset = dir === "east" ? -1 : 1;
+          const dx = end.x - start.x;
+          // change windows if swipe covers more than half the screen
+          await (Math.abs(dx) > deviceHeight / 2
+            ? windowOffset(offset)
+            : tabOffset(offset));
+          await sendImage();
+          const info = await currentTabInfo();
+          sendNotice(info);
+          break;
+        }
+      }
+      break;
     }
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    case "arrow": {
+      const { dir } = msg.value;
+      switch (dir) {
+        case "east":
+          await goForward();
+          break;
+        case "west":
+          await goBack();
+          break;
+        case "north": {
+          const info = await currentTabInfo();
+          sendNotice(`closing ${info}`);
+          await closeCurrentTab();
+          await sendImage();
+          const newInfo = await currentTabInfo();
+          sendNotice(newInfo);
+          break;
+        }
+      }
+      break;
+    }
+    case "pinch":
+      await zoomPage(-0.1);
+      await sendImage();
+      break;
+    case "spread":
+      await zoomPage(0.1);
+      await sendImage();
+      break;
+    case "rotate":
+      await reloadCurrentTab();
+      break;
+    case "holdFingerShort":
+      await resizeViewport(deviceWidth, deviceHeight);
+      await sendImage();
+      await ws.send(JSON.stringify({ type: "refreshDisplay" }));
+      break;
+    case "holdFingerLong": {
+      const [{ x, y }] = msg.value;
+      const tab = await openLinkUnderTap(x / deviceWidth, y / deviceHeight);
+      if (tab) sendNotice(`${tab} opened`);
+      else sendNotice("no link under finger");
+      break;
+    }
+    case "tap": {
+      const { x, y } = msg.value;
+      await clickUnderTap(x / deviceWidth, y / deviceHeight);
+      await sendImage();
+      break;
+    }
   }
 }
 
-mainLoop().catch((e) => console.error(e));
+const defaultConfig = {
+  wsUrl: "ws://localhost:8222/browser",
+  enabled: false,
+};
+
+async function getConfig() {
+  const result = await browser.storage.local.get(["wsUrl", "enabled"]);
+  await browser.storage.local.set({ ...defaultConfig, ...result });
+  return { ...defaultConfig, ...result };
+}
+
+const RETRY_TIMEOUT = 5000;
+let { enabled, wsUrl } = defaultConfig;
+function connect(config) {
+  enabled = config.enabled;
+  wsUrl = config.wsUrl;
+  if (!enabled) return;
+  ws = new WebSocket(wsUrl);
+  ws.addEventListener("open", () => {
+    console.log("connected");
+  });
+  ws.addEventListener("close", () => {
+    if (!enabled) return;
+    console.log("disconnected");
+    setTimeout(() => {
+      getConfig().then(connect).catch(console.error);
+    }, RETRY_TIMEOUT);
+  });
+  ws.addEventListener("message", onMessage);
+}
+
+getConfig().then(connect).catch(console.error);
+
+browser.storage.onChanged.addListener((changes) => {
+  if (
+    "enabled" in changes &&
+    changes.enabled.newValue &&
+    !changes.enabled.oldValue &&
+    (!ws || ws.readyState === WebSocket.CLOSED)
+  ) {
+    getConfig().then(connect).catch(console.error);
+  } else if (
+    "enabled" in changes &&
+    !changes.enabled.newValue &&
+    changes.enabled.oldValue &&
+    ws
+  ) {
+    ws.close();
+  } else if (
+    "wsUrl" in changes &&
+    changes.wsUrl.newValue !== changes.wsUrl.oldValue &&
+    ws
+  ) {
+    ws.close();
+  }
+});
+
 // #endregion
