@@ -74,6 +74,8 @@ async function reloadCurrentTab() {
 }
 
 async function resizeViewport(width, height) {
+  width = Math.round(width);
+  height = Math.round(height);
   const window = await browser.windows.getCurrent();
   const tab = await currentTab();
   if (tab.width === width && tab.height === height) return;
@@ -134,6 +136,7 @@ async function offsetContrastFilter(offset) {
 
 // #region main loop
 
+let scaleFactor = 1;
 let deviceWidth = 0;
 let deviceHeight = 0;
 let ws;
@@ -141,7 +144,9 @@ let ws;
 async function sendImage() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   console.log("capturing");
-  const dataUrl = await browser.tabs.captureVisibleTab();
+  const dataUrl = await browser.tabs.captureVisibleTab(undefined, {
+    scale: scaleFactor,
+  });
   const buf = await (await fetch(dataUrl)).arrayBuffer();
   ws.send(buf);
   await new Promise((resolve) => {
@@ -250,7 +255,7 @@ async function onMessage(e) {
       await reloadCurrentTab();
       break;
     case "holdFingerShort":
-      await resizeViewport(deviceWidth, deviceHeight);
+      await resizeViewport(deviceWidth / scaleFactor, deviceHeight / scaleFactor);
       await sendImage();
       await ws.send(JSON.stringify({ type: "refreshDisplay" }));
       break;
@@ -280,6 +285,15 @@ async function onMessage(e) {
             await sendImage();
           }
           break;
+        case "northWest":
+        case "northEast": {
+          const newScaleFactor = scaleFactor + (dir === "northWest" ? -0.1 : 0.1);
+          if (newScaleFactor < 0.1 || newScaleFactor > 2) break;
+          scaleFactor = newScaleFactor;
+          sendNotice(`scale ${Math.round(scaleFactor * 100)}%`);
+          await resizeViewport(deviceWidth / scaleFactor, deviceHeight / scaleFactor);
+          await sendImage();
+        }
       }
       break;
     }
