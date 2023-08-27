@@ -752,6 +752,27 @@ impl Library {
         }
     }
 
+    pub fn set_starred<P: AsRef<Path>>(&mut self, path: P, starred: bool) {
+        let fp = self.paths.get(path.as_ref()).cloned().unwrap_or_else(|| {
+            self.home.join(path.as_ref())
+                .metadata().unwrap()
+                .fingerprint(self.fat32_epoch).unwrap()
+        });
+        if self.mode == LibraryMode::Database {
+            if let Some(info) = self.db.get_mut(&fp) {
+                let reader_info = info.reader
+                    .get_or_insert_with(ReaderInfo::default);
+                reader_info.starred = starred;
+                self.modified_reading_states.insert(fp);
+            }
+        } else {
+            let reader_info = self.reading_states.entry(fp)
+                .or_insert_with(ReaderInfo::default);
+            reader_info.starred = starred;
+            self.modified_reading_states.insert(fp);
+        }
+    }
+
     pub fn reload(&mut self) {
         if self.mode == LibraryMode::Database {
             let path = self.home.join(METADATA_FILENAME);

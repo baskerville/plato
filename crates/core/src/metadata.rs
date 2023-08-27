@@ -199,6 +199,7 @@ pub struct ReaderInfo {
     pub current_page: usize,
     pub pages_count: usize,
     pub finished: bool,
+    pub starred: bool,
     pub dithered: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub zoom_mode: Option<ZoomMode>,
@@ -273,6 +274,7 @@ impl Default for ReaderInfo {
             current_page: 0,
             pages_count: 1,
             finished: false,
+            starred: false,
             dithered: false,
             zoom_mode: None,
             scroll_mode: None,
@@ -360,6 +362,13 @@ impl Info {
             }
         } else {
             SimpleStatus::New
+        }
+    }
+
+    pub fn starred(&self) -> bool {
+        match &self.reader {
+            None => false,
+            Some(info) => info.starred,
         }
     }
 

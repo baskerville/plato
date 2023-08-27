@@ -921,10 +921,15 @@ impl Home {
                 SimpleStatus::Reading => &[SimpleStatus::New, SimpleStatus::Finished],
                 SimpleStatus::Finished => &[SimpleStatus::New, SimpleStatus::Reading],
             };
+            let mut submenu: Vec<EntryKind> = submenu.iter()
+                .map(|s| EntryKind::Command(s.to_string(), EntryId::SetStatus(path.clone(), *s)))
+                .collect();
 
-            let submenu = submenu.iter().map(|s| EntryKind::Command(s.to_string(),
-                                                                    EntryId::SetStatus(path.clone(), *s)))
-                                 .collect();
+            submenu.push(EntryKind::Separator);
+            submenu.push(match info.starred() {
+                true => EntryKind::Command("Not starred".to_string(), EntryId::SetStarred(path.clone(), false)),
+                false => EntryKind::Command("Starred".to_string(), EntryId::SetStarred(path.clone(), true)),
+            });
             entries.push(EntryKind::SubMenu("Mark As".to_string(), submenu));
             entries.push(EntryKind::Separator);
 
@@ -1058,6 +1063,12 @@ impl Home {
         if self.sort_method.is_status_related() {
             self.sort(false, hub, rq, context);
         }
+
+        self.refresh_visibles(true, false, hub, rq, context);
+    }
+
+    fn set_starred(&mut self, path: &Path, starred: bool, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
+        context.library.set_starred(path, starred);
 
         self.refresh_visibles(true, false, hub, rq, context);
     }
@@ -1552,6 +1563,10 @@ impl View for Home {
             },
             Event::Select(EntryId::SetStatus(ref path, status)) => {
                 self.set_status(path, status, hub, rq, context);
+                true
+            },
+            Event::Select(EntryId::SetStarred(ref path, starred)) => {
+                self.set_starred(path, starred, hub, rq, context);
                 true
             },
             Event::Select(EntryId::FirstColumn(first_column)) => {

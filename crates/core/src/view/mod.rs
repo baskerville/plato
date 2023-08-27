@@ -524,6 +524,7 @@ pub enum EntryId {
     SelectDirectory(PathBuf),
     ToggleSelectDirectory(PathBuf),
     SetStatus(PathBuf, SimpleStatus),
+    SetStarred(PathBuf, bool),
     SearchAuthor(String),
     RemovePreset(usize),
     FirstColumn(FirstColumn),
