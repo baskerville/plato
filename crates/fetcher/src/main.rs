@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::io;
 use std::env;
+use std::fmt::Debug;
 use std::fs::{self, File};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -208,6 +210,7 @@ fn main() -> Result<(), Error> {
 
         let last_removals_count = session.removals_count;
         let mut archivals_count = 0;
+        let mut starred_count = 0;
 
         if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
             if let Some(results) = event.get("results").and_then(JsonValue::as_array) {
@@ -232,11 +235,16 @@ fn main() -> Result<(), Error> {
                                                .and_then(JsonValue::as_str)
                                                .and_then(|v| v.parse::<u64>().ok()) {
                             let url = format!("{}/api/entries/{}", &settings.base_url, id);
-                            let query = json!({"archive": 1});
+                            let mut body = HashMap::new();
+                            body.insert("archive", 1);
+                            if let JsonValue::Bool(true) = entry["reader"]["starred"] {
+                                body.insert("starred", 1);
+                                starred_count += 1;
+                            }
                             let response = client.patch(&url)
                                                  .header(reqwest::header::AUTHORIZATION,
                                                          format!("Bearer {}", &session.access_token.data))
-                                                 .json(&query)
+                                                 .json(&body)
                                                  .send();
                             let response = response.unwrap();
                             if response.status().is_success() {
@@ -283,6 +291,14 @@ fn main() -> Result<(), Error> {
                             "message": &message,
                         });
                         println!("{}", event);
+
+                        if starred_count > 0 {
+                            let event = json!({
+                                "type": "notify",
+                                "message": format!("Marked {} finished article{} as starred.", starred_count, if starred_count != 1 { "s" } else { "" }),
+                            });
+                            println!("{}", event);
+                        }
                     }
 
                     if settings.remove_finished {
