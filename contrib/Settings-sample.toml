@@ -147,6 +147,11 @@ stretch-tolerance = 1.26
 regular = 8
 inverted = 2
 
+# Override the refresh rate for individual file types.
+[reader.refresh-rate.file-types]
+epub = { regular = 8, inverted = 2 }
+cbz = { regular = 1, inverted = 1 }
+
 [import]
 # Start the import process when the device is unplugged from a computer.
 unshare-trigger = true

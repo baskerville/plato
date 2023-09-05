@@ -4,7 +4,7 @@ use std::env;
 use std::ops::Index;
 use std::fmt::{self, Debug};
 use std::path::PathBuf;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use fxhash::FxHashSet;
 use serde::{Serialize, Deserialize};
 use crate::metadata::{SortMethod, TextAlign};
@@ -311,6 +311,7 @@ pub struct HomeSettings {
 pub struct RefreshRateSettings {
     pub regular: u8,
     pub inverted: u8,
+    pub file_types: HashMap<String, RefreshRateSettings>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -404,6 +405,7 @@ impl Default for RefreshRateSettings {
         RefreshRateSettings {
             regular: 8,
             inverted: 2,
+            file_types: HashMap::new(),
         }
     }
 }
