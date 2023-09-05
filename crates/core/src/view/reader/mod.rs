@@ -1033,11 +1033,10 @@ impl Reader {
     fn update(&mut self, update_mode: Option<UpdateMode>, hub: &Hub, rq: &mut RenderQueue, context: &Context) {
         self.page_turns += 1;
         let update_mode = update_mode.unwrap_or_else(|| {
-            let refresh_rate = if context.fb.inverted() {
-                context.settings.reader.refresh_rate.inverted
-            } else {
-                context.settings.reader.refresh_rate.regular
-            };
+            let pair = context.settings.reader.refresh_rate.by_kind
+                                       .get(&self.info.file.kind)
+                                       .unwrap_or_else(|| &context.settings.reader.refresh_rate.global);
+            let refresh_rate = if context.fb.inverted() { pair.inverted } else { pair.regular };
             if refresh_rate == 0 || self.page_turns % (refresh_rate as usize) != 0 {
                 UpdateMode::Partial
             } else {
