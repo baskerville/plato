@@ -9,13 +9,6 @@ fn main() {
         println!("cargo:rustc-link-search=target/mupdf_wrapper/Kobo");
         println!("cargo:rustc-link-search=libs");
         println!("cargo:rustc-link-lib=dylib=stdc++");
-        println!("cargo:rustc-link-lib=z");
-        println!("cargo:rustc-link-lib=bz2");
-        println!("cargo:rustc-link-lib=jpeg");
-        println!("cargo:rustc-link-lib=png16");
-        println!("cargo:rustc-link-lib=gumbo");
-        println!("cargo:rustc-link-lib=openjp2");
-        println!("cargo:rustc-link-lib=jbig2dec");
     // Handle the Linux and macOS platforms.
     } else {
         let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
@@ -33,4 +26,12 @@ fn main() {
 
         println!("cargo:rustc-link-lib=mupdf-third");
     }
+
+    println!("cargo:rustc-link-lib=z");
+    println!("cargo:rustc-link-lib=bz2");
+    println!("cargo:rustc-link-lib=jpeg");
+    println!("cargo:rustc-link-lib=png16");
+    println!("cargo:rustc-link-lib=gumbo");
+    println!("cargo:rustc-link-lib=openjp2");
+    println!("cargo:rustc-link-lib=jbig2dec");
 }
