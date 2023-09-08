@@ -254,6 +254,7 @@ async function onMessage(e) {
       await sendImage();
       break;
     case "rotate":
+      if (Math.abs(msg.value.angle) < 20) break;
       await reloadCurrentTab();
       break;
     case "holdFingerShort":
