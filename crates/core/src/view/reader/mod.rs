@@ -1033,7 +1033,7 @@ impl Reader {
     fn update(&mut self, update_mode: Option<UpdateMode>, hub: &Hub, rq: &mut RenderQueue, context: &Context) {
         self.page_turns += 1;
         let update_mode = update_mode.unwrap_or_else(|| {
-            let file_refresh_settings = context.settings.reader.refresh_rate.file_types.get(&self.info.file.kind);
+            let file_refresh_settings = context.settings.reader.refresh_rate.refresh_kinds.get(&self.info.file.kind);
             let refresh_rate = match file_refresh_settings {
                 Some(settings) => {
                     if context.fb.inverted() {

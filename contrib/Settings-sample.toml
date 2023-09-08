@@ -147,9 +147,8 @@ stretch-tolerance = 1.26
 regular = 8
 inverted = 2
 
-# Override the refresh rate for individual file types.
-[reader.refresh-rate.file-types]
-epub = { regular = 8, inverted = 2 }
+# Override the refresh rate for individual file types (cbz, epub, etc.).
+[reader.refresh-rate.refresh-kinds]
 cbz = { regular = 1, inverted = 1 }
 
 [import]

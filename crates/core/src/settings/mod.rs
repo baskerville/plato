@@ -311,7 +311,15 @@ pub struct HomeSettings {
 pub struct RefreshRateSettings {
     pub regular: u8,
     pub inverted: u8,
-    pub file_types: HashMap<String, RefreshRateSettings>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub refresh_kinds: HashMap<String, FileRefreshRateSettings>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct FileRefreshRateSettings {
+    pub regular: u8,
+    pub inverted: u8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -405,7 +413,9 @@ impl Default for RefreshRateSettings {
         RefreshRateSettings {
             regular: 8,
             inverted: 2,
-            file_types: HashMap::new(),
+            refresh_kinds: HashMap::from([
+                ("cbz".to_string(), FileRefreshRateSettings { regular: 1, inverted: 1 })
+            ]),
         }
     }
 }
