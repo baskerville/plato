@@ -122,12 +122,14 @@ async function offsetContrastFilter(offset) {
       const el = document.documentElement;
       const match = el.style.filter?.match(/contrast\\((\\d+)%\\)/);
       const contrast = match ? parseInt(match[1]) : 100;
+      const invert = el.style.filter?.includes("invert");
       const offsetContrast = contrast + ${offset};
-      const newContrast = offsetContrast < 100 ? 100 : offsetContrast;
-      el.style.filter = newContrast !== 100
-        ? "grayscale() contrast(" + newContrast + "%)"
-        : "";
-      return newContrast;
+      if (offsetContrast < 100) {
+        el.style.filter = \`grayscale() \${invert ? "" : "invert() "}contrast(100%)\`;
+      } else {
+        el.style.filter = \`grayscale() \${invert ? "invert() " : ""}contrast(\${offsetContrast}%)\`;
+      }
+      return el.style.filter.match(/contrast\\((\\d+)%\\)/)[1];
     })()`,
   });
   return newContrast;
