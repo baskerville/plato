@@ -1,7 +1,7 @@
 #! /bin/sh
 
 [ -e thirdparty/README ] && rm -rf thirdparty/*
-[ -e .gitattributes ] && rm .git*
+[ -e .gitattributes ] && rm -rf .git*
 
 BUILD_KIND=${1:-release}
 make verbose=yes generate

@@ -126,9 +126,7 @@ impl Engine {
     }
 
     pub fn set_margin_width(&mut self, width: i32) {
-        if width >= 0 && width <= 10 {
-            self.margin = Edge::uniform(mm_to_px(width as f32, self.dpi).round() as i32);
-        }
+        self.margin = Edge::uniform(mm_to_px(width as f32, self.dpi).round() as i32);
     }
 
     pub fn set_line_height(&mut self, line_height: f32) {

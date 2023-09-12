@@ -19,7 +19,7 @@ args="${base}.dict"
 
 # shellcheck disable=SC2086
 "$bindir"/sdunpack $args < "${base}.idx" > "${base}.txt"
-[ "${short_name%% *}" = "Wiktionary" ] && sed -i 's/^\(\\.*\)/<p>\1<\/p>/' "${base}.txt"
+[ "${short_name%% *}" = "Wiktionary" ] && sed -i 's/^\([\[/].*\)/<p>\1<\/p>/' "${base}.txt"
 "$bindir"/dictfmt --quiet --utf8 --index-keep-orig --headword-separator '|' -s "$short_name" -u "$url" -t "$base" < "${base}.txt"
 "$bindir"/dictzip "${base}.dict"
 

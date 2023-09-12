@@ -16,7 +16,7 @@ use sdl2::mouse::MouseState;
 use sdl2::rect::Point as SdlPoint;
 use sdl2::rect::Rect as SdlRect;
 use plato_core::framebuffer::{Framebuffer, UpdateMode};
-use plato_core::input::{DeviceEvent, FingerStatus};
+use plato_core::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use plato_core::document::sys_info_as_html;
 use plato_core::view::{View, Event, ViewId, EntryId, AppCmd, EntryKind};
 use plato_core::view::{process_render_queue, wait_for_all, handle_event, RenderQueue, RenderData};
@@ -93,6 +93,19 @@ pub fn device_event(event: SdlEvent) -> Option<DeviceEvent> {
                                        status: FingerStatus::Motion,
                                        position: pt!(x, y),
                                        time: seconds(timestamp) }),
+        _ => None,
+    }
+}
+
+fn code_from_key(key: Scancode) -> Option<ButtonCode> {
+    match key {
+        Scancode::B => Some(ButtonCode::Backward),
+        Scancode::F => Some(ButtonCode::Forward),
+        Scancode::P => Some(ButtonCode::Power),
+        Scancode::L => Some(ButtonCode::Light),
+        Scancode::H => Some(ButtonCode::Home),
+        Scancode::E => Some(ButtonCode::Erase),
+        Scancode::G => Some(ButtonCode::Highlight),
         _ => None,
     }
 }
@@ -285,9 +298,18 @@ fn main() -> Result<(), Error> {
                     while let Some(mut view) = history.pop() {
                         view.handle_event(&Event::Back, &tx, &mut VecDeque::new(), &mut RenderQueue::new(), &mut context);
                     }
-                    break;
+                    break 'outer;
                 },
-                SdlEvent::KeyDown { scancode: Some(scancode), keymod, .. } => {
+                SdlEvent::KeyUp { scancode: Some(scancode), keymod: Mod::NOMOD, timestamp, .. } => {
+                    if let Some(code) = code_from_key(scancode) {
+                        ty.send(DeviceEvent::Button {
+                            time: seconds(timestamp),
+                            code,
+                            status: ButtonStatus::Released,
+                        }).ok();
+                    }
+                },
+                SdlEvent::KeyDown { scancode: Some(scancode), keymod, timestamp, repeat, .. } => {
                     match keymod {
                         Mod::NOMOD => {
                             match scancode {
@@ -301,6 +323,21 @@ fn main() -> Result<(), Error> {
                                 },
                                 Scancode::S => {
                                     tx.send(Event::Select(EntryId::TakeScreenshot)).ok();
+                                },
+                                Scancode::B | Scancode::F | Scancode::P | Scancode::L | Scancode::H |
+                                    Scancode::E | Scancode::G => {
+                                    if let Some(code) = code_from_key(scancode) {
+                                        let status = if repeat {
+                                            ButtonStatus::Repeated
+                                        } else {
+                                            ButtonStatus::Pressed
+                                        };
+                                        ty.send(DeviceEvent::Button {
+                                            time: seconds(timestamp),
+                                            code,
+                                            status,
+                                        }).ok();
+                                    }
                                 },
                                 Scancode::I | Scancode::O => {
                                     let mouse_state = MouseState::new(&event_pump);

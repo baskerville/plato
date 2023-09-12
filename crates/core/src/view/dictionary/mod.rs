@@ -439,7 +439,7 @@ impl View for Dictionary {
                 }
                 true
             },
-            Event::Device(DeviceEvent::Button { code, status: ButtonStatus::Pressed, .. }) => {
+            Event::Device(DeviceEvent::Button { code, status: ButtonStatus::Released, .. }) => {
                 let cd = match code {
                     ButtonCode::Backward => Some(CycleDir::Previous),
                     ButtonCode::Forward => Some(CycleDir::Next),

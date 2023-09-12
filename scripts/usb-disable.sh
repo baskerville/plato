@@ -35,7 +35,7 @@ FS_CORRUPT=0
 dosfsck -a -w "$PARTITION" || dosfsck -a -w "$PARTITION" || FS_CORRUPT=1
 [ "$FS_CORRUPT" -eq 1 ] && reboot
 
-mount -o "$MOUNT_ARGS" -t vfat "$PARTITION" /mnt/onboard
+mount -o "$MOUNT_ARGS" -t vfat "$PARTITION" /mnt/onboard || reboot
 
 PARTITION=${DISK}1p1
 

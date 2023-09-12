@@ -253,7 +253,10 @@ impl Library {
             // The path is known: update the fp.
             } else if let Some(fp2) = self.paths.get(relat).cloned() {
                 println!("Update fingerprint for {}: {} → {}.", relat.display(), fp2, fp);
-                let info = self.db.remove(&fp2).unwrap();
+                let mut info = self.db.remove(&fp2).unwrap();
+                if settings.sync_metadata && settings.metadata_kinds.contains(&info.file.kind) {
+                    extract_metadata_from_document(&self.home, &mut info);
+                }
                 self.db.insert(fp, info);
                 self.db[&fp].file.size = md.len();
                 self.paths.insert(relat.to_path_buf(), fp);
