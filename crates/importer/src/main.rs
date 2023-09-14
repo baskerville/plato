@@ -1,7 +1,7 @@
 use std::env;
 use std::path::Path;
 use getopts::Options;
-use plato_core::chrono::{Local, TimeZone};
+use plato_core::chrono::NaiveDateTime;
 use plato_core::anyhow::{Error, Context, format_err};
 use plato_core::helpers::datetime_format;
 use plato_core::library::Library;
@@ -53,7 +53,7 @@ fn main() -> Result<(), Error> {
     }
 
     let added_after = matches.opt_str("a").as_ref()
-                             .and_then(|v| Local.datetime_from_str(v, datetime_format::FORMAT).ok());
+                             .and_then(|v| NaiveDateTime::parse_from_str(v, datetime_format::FORMAT).ok());
 
     let mode = matches.opt_str("m").as_ref()
                       .and_then(|v| {
