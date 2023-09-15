@@ -1,6 +1,6 @@
 use std::ptr;
 use std::path::Path;
-use std::io;
+use std::io::{self, Write};
 use std::fs::{OpenOptions, File};
 use std::slice;
 use std::os::unix::io::AsRawFd;
@@ -36,6 +36,7 @@ pub struct KoboFramebuffer1 {
     flags: u32,
     monochrome: bool,
     dithered: bool,
+    inverted: bool,
     transform: ColorTransform,
     set_pixel_rgb: SetPixelRgb,
     get_pixel_rgb: GetPixelRgb,
@@ -84,6 +85,7 @@ impl KoboFramebuffer1 {
                    flags: 0,
                    monochrome: false,
                    dithered: false,
+                   inverted: false,
                    transform: transform_identity,
                    set_pixel_rgb,
                    get_pixel_rgb,
@@ -144,11 +146,14 @@ impl Framebuffer for KoboFramebuffer1 {
         let mark = CURRENT_DEVICE.mark();
         let mut flags = self.flags;
         let mut monochrome = self.monochrome;
+        let mut dithered = self.dithered;
 
         let (update_mode, mut waveform_mode) = match mode {
             UpdateMode::Gui => (UPDATE_MODE_PARTIAL, WAVEFORM_MODE_AUTO),
             UpdateMode::Partial => {
-                if mark >= 7 {
+                if mark >= 11 {
+                    (UPDATE_MODE_PARTIAL, HWTCON_WAVEFORM_MODE_GLR16)
+                } else if mark >= 7 {
                     (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_GLR16)
                 } else if CURRENT_DEVICE.model == Model::Aura {
                     flags |= EPDC_FLAG_USE_AAD;
@@ -161,39 +166,84 @@ impl Framebuffer for KoboFramebuffer1 {
                 monochrome = false;
                 (UPDATE_MODE_FULL, NTX_WFM_MODE_GC16)
             },
-            UpdateMode::Fast => (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2),
+            UpdateMode::Fast => {
+                if mark >= 11 {
+                    (UPDATE_MODE_PARTIAL, HWTCON_WAVEFORM_MODE_A2)
+                } else {
+                    (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2)
+                }
+            },
             UpdateMode::FastMono => {
-                flags |= EPDC_FLAG_FORCE_MONOCHROME;
-                (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2)
+                if mark >= 11 {
+                    flags |= HWTCON_FLAG_FORCE_A2_OUTPUT;
+                    (UPDATE_MODE_PARTIAL, HWTCON_WAVEFORM_MODE_A2)
+                } else {
+                    flags |= EPDC_FLAG_FORCE_MONOCHROME;
+                    (UPDATE_MODE_PARTIAL, NTX_WFM_MODE_A2)
+                }
             },
         };
 
         if monochrome {
-            if mark >= 7 {
+            if mark >= 11 {
+                if waveform_mode != HWTCON_WAVEFORM_MODE_A2 {
+                    waveform_mode = NTX_WFM_MODE_DU;
+                    dithered = true;
+                }
+            } else if mark >= 7 {
                 if waveform_mode != NTX_WFM_MODE_A2 {
                     waveform_mode = NTX_WFM_MODE_DU;
-                    if !self.dithered {
-                        flags |= EPDC_FLAG_USE_DITHERING_Y1;
-                    }
+                    dithered = true;
                 }
             } else {
                 waveform_mode = NTX_WFM_MODE_A2;
             }
         }
 
-        if mark >= 9 && flags & EPDC_FLAG_ENABLE_INVERSION != 0 {
-            if waveform_mode == NTX_WFM_MODE_GLR16 {
-                waveform_mode = NTX_WFM_MODE_GLKW16;
-            } else if waveform_mode == NTX_WFM_MODE_GC16 {
-                waveform_mode = NTX_WFM_MODE_GCK16;
+        if self.inverted {
+            if mark >= 11 {
+                if waveform_mode == HWTCON_WAVEFORM_MODE_GL16 {
+                    waveform_mode = HWTCON_WAVEFORM_MODE_GLKW16;
+                } else if waveform_mode == NTX_WFM_MODE_GC16 {
+                    waveform_mode = HWTCON_WAVEFORM_MODE_GCK16;
+                }
+            } else if mark >= 9 {
+                if waveform_mode == NTX_WFM_MODE_GLR16 {
+                    waveform_mode = NTX_WFM_MODE_GLKW16;
+                } else if waveform_mode == NTX_WFM_MODE_GC16 {
+                    waveform_mode = NTX_WFM_MODE_GCK16;
+                }
             }
         }
 
-        let result = if mark >= 7 {
+        let result = if mark >= 11 {
+            let mut dither_mode = 0;
+
+            if dithered {
+                flags |= HWTCON_FLAG_USE_DITHERING;
+                if monochrome {
+                    dither_mode = HWTCON_FLAG_USE_DITHERING_Y8_Y1_S
+                } else {
+                    dither_mode = HWTCON_FLAG_USE_DITHERING_Y8_Y4_S;
+                }
+            }
+
+            let update_data = HwtConUpdateData {
+                update_region: (*rect).into(),
+                waveform_mode,
+                update_mode,
+                update_marker,
+                flags,
+                dither_mode,
+            };
+            unsafe {
+                send_update_v3(self.file.as_raw_fd(), &update_data)
+            }
+        } else if mark >= 7 {
             let mut quant_bit = 0;
             let mut dither_mode = EPDC_FLAG_USE_DITHERING_PASSTHROUGH;
 
-            if self.dithered {
+            if dithered {
                 if monochrome {
                     flags |= EPDC_FLAG_USE_DITHERING_Y1;
                 } else if mode == UpdateMode::Partial || mode == UpdateMode::Full {
@@ -201,7 +251,6 @@ impl Framebuffer for KoboFramebuffer1 {
                     quant_bit = 7;
                 }
             }
-
 
             let update_data = MxcfbUpdateDataV2 {
                 update_region: (*rect).into(),
@@ -218,7 +267,7 @@ impl Framebuffer for KoboFramebuffer1 {
                 send_update_v2(self.file.as_raw_fd(), &update_data)
             }
         } else {
-            if monochrome && !self.dithered {
+            if monochrome && !dithered {
                 flags |= EPDC_FLAG_FORCE_MONOCHROME;
             }
 
@@ -313,15 +362,25 @@ impl Framebuffer for KoboFramebuffer1 {
     }
 
     fn set_inverted(&mut self, enable: bool) {
-        if enable {
-            self.flags |= EPDC_FLAG_ENABLE_INVERSION;
+        if self.inverted == enable {
+            return;
+        }
+        self.inverted = enable;
+        if CURRENT_DEVICE.mark() < 11 {
+            if enable {
+                self.flags |= EPDC_FLAG_ENABLE_INVERSION;
+            } else {
+                self.flags &= !EPDC_FLAG_ENABLE_INVERSION;
+            }
         } else {
-            self.flags &= !EPDC_FLAG_ENABLE_INVERSION;
+            File::open("/proc/hwtcon/cmd").and_then(|mut file| {
+                file.write_all(if enable { b"night_mode 4" } else { b"night_mode 0" })
+            }).map_err(|e| eprintln!("{:#?}", e)).ok();
         }
     }
 
     fn inverted(&self) -> bool {
-        self.flags & EPDC_FLAG_ENABLE_INVERSION != 0
+        self.inverted
     }
 
     fn set_monochrome(&mut self, enable: bool) {

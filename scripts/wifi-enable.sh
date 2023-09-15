@@ -1,25 +1,50 @@
 #! /bin/sh
 
-grep -q "^${WIFI_MODULE}\b" /proc/modules && exit 1
+MODULE_PATH=/drivers/$PLATFORM/wifi
+WPA_SUPPLICANT_DRIVER=wext
+POWER_TOGGLE=module
+
+case "$WIFI_MODULE" in
+	moal)
+		WPA_SUPPLICANT_DRIVER=nl80211
+		POWER_TOGGLE=ntx_io
+		;;
+	wlan_drv_gen4m)
+		MODULE_PATH=/drivers/$PLATFORM/mt66xx
+		WPA_SUPPLICANT_DRIVER=nl80211
+		POWER_TOGGLE=wmt
+		;;
+esac
+
+if [ "$POWER_TOGGLE" != wmt ]; then
+	grep -q "^${WIFI_MODULE}\b" /proc/modules && exit 1
+fi
 
 SCRIPTS_DIR=$(dirname "$0")
 PRE_UP_SCRIPT=$SCRIPTS_DIR/wifi-pre-up.sh
 [ -e "$PRE_UP_SCRIPT" ] && $PRE_UP_SCRIPT
 
-HAS_SDIO_WIFI_PWR=1
-WPA_SUPPLICANT_DRIVER=wext
-
-if [ "$WIFI_MODULE" = moal ]; then
-	HAS_SDIO_WIFI_PWR=0
-	WPA_SUPPLICANT_DRIVER=nl80211
-fi
-
-if [ "$HAS_SDIO_WIFI_PWR" -eq 1 ]; then
-	insmod /drivers/"$PLATFORM"/wifi/sdio_wifi_pwr.ko
-else
-	# CM_WIFI_CTRL
-	ioctl -q -v 1 /dev/ntx_io 208
-fi
+case "$POWER_TOGGLE" in
+	wmt)
+		insmod "$MODULE_PATH"/wmt_drv.ko
+		insmod "$MODULE_PATH"/wmt_chrdev_wifi.ko
+		insmod "$MODULE_PATH"/wmt_cdev_bt.ko
+		insmod "${MODULE_PATH}/${WIFI_MODULE}.ko"
+		echo 0xDB9DB9 > /proc/driver/wmt_dbg
+		echo 7 9 0 > /proc/driver/wmt_dbg
+		sleep 1
+		echo 0xDB9DB9 > /proc/driver/wmt_dbg
+		echo 7 9 1 > /proc/driver/wmt_dbg
+		echo 1 > /dev/wmtWifi
+		;;
+	ntx_io)
+		# CM_WIFI_CTRL
+		ioctl -q -v 1 /dev/ntx_io 208
+		;;
+	module)
+		insmod "$MODULE_PATH"/sdio_wifi_pwr.ko
+		;;
+esac
 
 COUNTRY_CODE=$(grep "^WifiRegulatoryDomain=" "/mnt/onboard/.kobo/Kobo/Kobo eReader.conf")
 if [ "$COUNTRY_CODE" ]; then
@@ -36,19 +61,19 @@ fi
 if [ "$WIFI_MODULE" = moal ]; then
 	WIFI_DEP_MODULE=mlan
 	MODULE_PARAMETERS="${MODULE_PARAMETERS} mod_para=nxp/wifi_mod_para_sd8987.conf"
-	if [ -e /drivers/"${PLATFORM}/${WIFI_DEP_MODULE}".ko ]; then
-		insmod /drivers/"${PLATFORM}/${WIFI_DEP_MODULE}".ko
+	if [ -e /drivers/"${PLATFORM}/${WIFI_DEP_MODULE}.ko" ]; then
+		insmod /drivers/"${PLATFORM}/${WIFI_DEP_MODULE}.ko"
 	else
-		insmod /drivers/"$PLATFORM"/wifi/"$WIFI_DEP_MODULE".ko
+		insmod "${MODULE_PATH}/${WIFI_DEP_MODULE}.ko"
 	fi
 fi
 
-if [ -e /drivers/"${PLATFORM}/${WIFI_MODULE}".ko ]; then
+if [ -e /drivers/"${PLATFORM}/${WIFI_MODULE}.ko" ]; then
 	# shellcheck disable=SC2086
 	insmod /drivers/"${PLATFORM}/${WIFI_MODULE}".ko$MODULE_PARAMETERS
 else
 	# shellcheck disable=SC2086
-	insmod /drivers/"$PLATFORM"/wifi/"$WIFI_MODULE".ko$MODULE_PARAMETERS
+	insmod "${MODULE_PATH}/${WIFI_MODULE}".ko$MODULE_PARAMETERS
 fi
 
 REM_TRIES=20

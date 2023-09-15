@@ -7,7 +7,7 @@ use std::io::{Error as IoError, ErrorKind};
 use walkdir::WalkDir;
 use indexmap::IndexMap;
 use fxhash::{FxHashMap, FxHashSet, FxBuildHasher};
-use chrono::{Local, TimeZone};
+use chrono::{Local, NaiveDateTime};
 use filetime::{FileTime, set_file_mtime, set_file_handle_times};
 use anyhow::{Error, bail, format_err};
 use crate::metadata::{Info, ReaderInfo, FileInfo, BookQuery, SimpleStatus, SortMethod};
@@ -199,7 +199,7 @@ impl Library {
                         };
                         let secs = (*fp >> 32) as i64;
                         let nsecs = ((*fp & ((1<<32) - 1)) % 1_000_000_000) as u32;
-                        let added = Local.timestamp_opt(secs, nsecs).single().unwrap();
+                        let added = NaiveDateTime::from_timestamp_opt(secs, nsecs).unwrap();
                         let info = Info {
                             file,
                             added,

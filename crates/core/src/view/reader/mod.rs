@@ -304,7 +304,7 @@ impl Reader {
 
             // TODO: use get_or_insert_with?
             if let Some(ref mut r) = info.reader {
-                r.opened = Local::now();
+                r.opened = Local::now().naive_local();
 
                 if r.finished {
                     r.finished = false;
@@ -1033,11 +1033,10 @@ impl Reader {
     fn update(&mut self, update_mode: Option<UpdateMode>, hub: &Hub, rq: &mut RenderQueue, context: &Context) {
         self.page_turns += 1;
         let update_mode = update_mode.unwrap_or_else(|| {
-            let refresh_rate = if context.fb.inverted() {
-                context.settings.reader.refresh_rate.inverted
-            } else {
-                context.settings.reader.refresh_rate.regular
-            };
+            let pair = context.settings.reader.refresh_rate.by_kind
+                                       .get(&self.info.file.kind)
+                                       .unwrap_or_else(|| &context.settings.reader.refresh_rate.global);
+            let refresh_rate = if context.fb.inverted() { pair.inverted } else { pair.regular };
             if refresh_rate == 0 || self.page_turns % (refresh_rate as usize) != 0 {
                 UpdateMode::Partial
             } else {
@@ -3391,7 +3390,7 @@ impl View for Reader {
                             selection: sel,
                             note: note.to_string(),
                             text,
-                            modified: Local::now(),
+                            modified: Local::now().naive_local(),
                         });
                     }
                     if let Some(rect) = self.text_rect(sel) {
@@ -3401,7 +3400,7 @@ impl View for Reader {
                     if let Some(sel) = self.target_annotation.take() {
                         if let Some(annot) = self.find_annotation_mut(sel) {
                             annot.note = note.to_string();
-                            annot.modified = Local::now();
+                            annot.modified = Local::now().naive_local();
                         }
                         if let Some(rect) = self.text_rect(sel) {
                             rq.add(RenderData::new(self.id, rect, UpdateMode::Gui));
@@ -3698,7 +3697,7 @@ impl View for Reader {
                             selection: [sel.start, sel.end],
                             note: String::new(),
                             text,
-                            modified: Local::now(),
+                            modified: Local::now().naive_local(),
                         });
                     }
                     if let Some(rect) = self.text_rect([sel.start, sel.end]) {
@@ -3767,7 +3766,7 @@ impl View for Reader {
             Event::Select(EntryId::RemoveAnnotationNote(sel)) => {
                 if let Some(annot) = self.find_annotation_mut(sel) {
                     annot.note.clear();
-                    annot.modified = Local::now();
+                    annot.modified = Local::now().naive_local();
                     self.update_annotations();
                 }
                 if let Some(rect) = self.text_rect(sel) {
