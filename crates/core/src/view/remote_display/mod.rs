@@ -194,10 +194,10 @@ impl View for RemoteDisplay {
                     .ok();
                 true
             }
-            Event::UpdateRemoteView(ref png_data) => {
-                let data = png_data.clone();
+            Event::UpdateRemoteView(ref pbm_data) => {
+                let data = pbm_data.clone();
                 match self.update_remote_view(data) {
-                    Ok(_) => {}
+                    Ok(..) => {}
                     Err(e) => {
                         println!("{}", e);
                         hub.send(Event::Notify(e.to_string())).unwrap();
