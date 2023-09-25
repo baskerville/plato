@@ -29,9 +29,8 @@ async function currentTabInfo() {
   const currentWindow = windows.find((window) => window.focused);
   const currentWindowIndex = windows.indexOf(currentWindow);
   const url = new URL(currentTab.url);
-  return `W${currentWindowIndex + 1} T${
-    currentTabIndex + 1
-  }/${tabs.length} ${url.host}`;
+  return `W${currentWindowIndex + 1} T${currentTabIndex + 1
+    }/${tabs.length} ${url.host}`;
 }
 
 async function scroll(pctX, pctY, pct) {
@@ -225,6 +224,23 @@ async function onMessage(e) {
           break;
         }
       }
+      break;
+    }
+    case "button": {
+      const { button, status } = msg.value;
+      if (status !== "released") break;
+      // scroll half pages
+      switch (button) {
+        case "forward": {
+          await scroll(0.5, 0.5, 0.5);
+          break;
+        }
+        case "backward": {
+          await scroll(0.5, 0.5, -0.5);
+          break;
+        }
+      }
+      await sendImage();
       break;
     }
     case "arrow": {

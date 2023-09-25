@@ -3,6 +3,7 @@ use crate::font::Fonts;
 use crate::framebuffer::{Framebuffer, Pixmap, UpdateMode};
 use crate::geom::{Dir, Rectangle};
 use crate::gesture::GestureEvent;
+use crate::input::{ButtonCode, ButtonStatus, DeviceEvent};
 use crate::view::{Bus, Event, Hub, RenderData, RenderQueue, View};
 use crate::view::{Id, ID_FEEDER};
 use anyhow::Error;
@@ -191,6 +192,28 @@ impl View for RemoteDisplay {
             Event::Gesture(ge) => {
                 self.socket_tx
                     .try_send(SocketEvent::SendJSON(serde_json::to_value(ge).unwrap()))
+                    .ok();
+                true
+            }
+            Event::Device(DeviceEvent::Button { code, status, .. }) => {
+                let button = match code {
+                    ButtonCode::Forward => "forward",
+                    ButtonCode::Backward => "backward",
+                    _ => return false,
+                };
+                let status = match status {
+                    ButtonStatus::Pressed => "pressed",
+                    ButtonStatus::Released => "released",
+                    ButtonStatus::Repeated => "repeated",
+                };
+                self.socket_tx
+                    .try_send(SocketEvent::SendJSON(json!({
+                        "type": "button",
+                        "value": {
+                            "button": button,
+                            "status": status,
+                        }
+                    })))
                     .ok();
                 true
             }
