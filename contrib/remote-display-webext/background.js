@@ -1,6 +1,13 @@
 // #region browser interactivity
+
+let windowId;
+browser.tabs.query({ active: true, currentWindow: true })
+  .then((tabs) => {
+    windowId = tabs[0].windowId;
+  });
+
 async function tabOffset(offset) {
-  const tabs = await browser.tabs.query({ currentWindow: true });
+  const tabs = await browser.tabs.query({ windowId });
   const currentTab = tabs.find((tab) => tab.active);
   const currentIndex = tabs.indexOf(currentTab);
   const newIndex = (currentIndex + offset + tabs.length) % tabs.length;
@@ -9,24 +16,24 @@ async function tabOffset(offset) {
 
 async function windowOffset(offset) {
   const windows = await browser.windows.getAll({ populate: true });
-  const currentWindow = windows.find((window) => window.focused);
+  const currentWindow = windows.find((window) => window.id === windowId);
   const currentIndex = windows.indexOf(currentWindow);
   const newIndex = (currentIndex + offset + windows.length) % windows.length;
-  await browser.windows.update(windows[newIndex].id, { focused: true });
+  windowId = windows[newIndex].id;
   await new Promise((resolve) => setTimeout(resolve, 100));
 }
 
 async function currentTab() {
-  const tabs = await browser.tabs.query({ currentWindow: true });
-  return tabs.find((tab) => tab.active);
+  const [tab] = await browser.tabs.query({ windowId, active: true });
+  return tab;
 }
 
 async function currentTabInfo() {
-  const tabs = await browser.tabs.query({ currentWindow: true });
+  const tabs = await browser.tabs.query({ windowId });
   const currentTab = tabs.find((tab) => tab.active);
   const currentTabIndex = tabs.indexOf(currentTab);
   const windows = await browser.windows.getAll({ populate: true });
-  const currentWindow = windows.find((window) => window.focused);
+  const currentWindow = windows.find((window) => window.id === windowId);
   const currentWindowIndex = windows.indexOf(currentWindow);
   const url = new URL(currentTab.url);
   return `W${currentWindowIndex + 1} T${currentTabIndex + 1
@@ -34,7 +41,8 @@ async function currentTabInfo() {
 }
 
 async function scroll(pctX, pctY, pct) {
-  await browser.tabs.executeScript({
+  const { id } = await currentTab();
+  await browser.tabs.executeScript(id, {
     code: `(() => {
       const el = [...document.elementsFromPoint(
         window.innerWidth * ${pctX}, window.innerHeight * ${pctY}
@@ -49,33 +57,38 @@ async function scroll(pctX, pctY, pct) {
 }
 
 async function zoomPage(addFactor) {
-  const factor = await browser.tabs.getZoom();
+  const { id } = await currentTab();
+  const factor = await browser.tabs.getZoom(id);
   let newFactor = factor + addFactor;
   if (newFactor < 0.3) newFactor = 0.3;
   if (newFactor > 5) newFactor = 5;
-  await browser.tabs.setZoom(undefined, newFactor);
+  await browser.tabs.setZoom(id, newFactor);
 }
 
 async function goForward() {
-  await browser.tabs.goForward();
+  const { id } = await currentTab();
+  await browser.tabs.goForward(id);
 }
 
 async function goBack() {
-  await browser.tabs.goBack();
+  const { id } = await currentTab();
+  await browser.tabs.goBack(id);
 }
 
 async function closeCurrentTab() {
-  await browser.tabs.remove((await currentTab()).id);
+  const { id } = await currentTab();
+  await browser.tabs.remove(id);
 }
 
 async function reloadCurrentTab() {
-  await browser.tabs.reload();
+  const { id } = await currentTab();
+  await browser.tabs.reload(id);
 }
 
 async function resizeViewport(width, height) {
   width = Math.round(width);
   height = Math.round(height);
-  const window = await browser.windows.getCurrent();
+  const window = await browser.windows.get(windowId);
   const tab = await currentTab();
   if (tab.width === width && tab.height === height) return;
   if (tab.width > width || tab.height > height) {
@@ -95,8 +108,8 @@ async function resizeViewport(width, height) {
 }
 
 async function openLinkUnderTap(pctX, pctY) {
-  const tab = await currentTab();
-  const [url] = await browser.tabs.executeScript({
+  const { id } = await currentTab();
+  const [url] = await browser.tabs.executeScript(id, {
     code:
       `[...document.elementsFromPoint(window.innerWidth * ${pctX}, window.innerHeight * ${pctY})]
        .find((e) => !!e.href)
@@ -104,19 +117,21 @@ async function openLinkUnderTap(pctX, pctY) {
   });
   if (!url) return;
   await browser.tabs.create({ url });
-  await browser.tabs.update(tab.id, { active: true });
+  await browser.tabs.update(id, { active: true });
   return new URL(url).host;
 }
 
 async function clickUnderTap(pctX, pctY) {
-  await browser.tabs.executeScript({
+  const { id } = await currentTab();
+  await browser.tabs.executeScript(id, {
     code:
       `document.elementFromPoint(window.innerWidth * ${pctX}, window.innerHeight * ${pctY})?.click()`,
   });
 }
 
 async function offsetContrastFilter(offset) {
-  const [newContrast] = await browser.tabs.executeScript({
+  const { id } = await currentTab();
+  const [newContrast] = await browser.tabs.executeScript(id, {
     code: `(() => {
       const el = document.documentElement;
       const match = el.style.filter?.match(/contrast\\((\\d+)%\\)/);
@@ -148,7 +163,8 @@ let ws;
 async function sendImage() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   console.log("capturing");
-  const dataUrl = await browser.tabs.captureVisibleTab(undefined, {
+  const { id } = await currentTab();
+  const dataUrl = await browser.tabs.captureTab(id, {
     scale: scaleFactor,
   });
   const buf = await (await fetch(dataUrl)).arrayBuffer();
