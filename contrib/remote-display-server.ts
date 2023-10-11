@@ -36,7 +36,6 @@ async function convertToBlob(
 // #endregion
 
 const app = new Application();
-const port = parseInt(Deno.env.get("PORT") || "8222");
 const router = new Router();
 
 let deviceSocket: WebSocket | undefined;
@@ -124,8 +123,26 @@ router.get("/device", (ctx) => {
 });
 // #endregion
 
+const password = Deno.env.get("REMOTE_DISPLAY_PASSWORD");
+if (password) {
+  app.use(async (ctx, next) => {
+    const auth = ctx.request.headers.get("authorization");
+    const expectedAuth = `Basic ${btoa(`plato:${password}`)}`;
+    if (auth !== expectedAuth) {
+      console.log(`Unauthorized access from ${ctx.request.ip}`);
+      ctx.response.status = 401;
+      ctx.response.headers.set("WWW-Authenticate", "Basic");
+      ctx.response.body = "Unauthorized";
+      return;
+    }
+    await next();
+  });
+  console.log("Password protected with username 'plato'");
+}
+
 app.use(router.routes());
 app.use(router.allowedMethods());
 
+const port = parseInt(Deno.env.get("PORT") || "8222");
 console.log("Listening at port " + port);
 await app.listen({ port });

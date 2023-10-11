@@ -42,6 +42,7 @@ percent-encoding = "2.3.0"
 chrono = { version = "0.4.30", features = ["serde", "clock"], default-features = false }
 image = { version = "0.24.7", features = ["pnm"], default-features = false }
 url = { version = "2.1.0" }
-tokio-tungstenite = "0.20.0"
+base64 = "0.21.4"
+tokio-tungstenite = { version = "0.20.0", features = ["rustls-tls-webpki-roots"] }
 tokio = { version = "1.32.0", features = ["macros", "rt", "net", "sync"] }
 futures-util = { version = "0.3.28", default-features = false, features = ["sink", "std"] }

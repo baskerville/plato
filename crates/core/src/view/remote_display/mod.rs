@@ -7,6 +7,7 @@ use crate::input::{ButtonCode, ButtonStatus, DeviceEvent};
 use crate::view::{Bus, Event, Hub, RenderData, RenderQueue, View};
 use crate::view::{Id, ID_FEEDER};
 use anyhow::Error;
+use base64::{engine::general_purpose, Engine as _};
 use flate2::bufread::ZlibDecoder;
 use futures_util::{SinkExt, StreamExt};
 use image::codecs::pnm::PnmDecoder;
@@ -17,6 +18,7 @@ use std::io::Read;
 use std::sync::mpsc as std_mpsc;
 use std::thread::spawn;
 use tokio::sync::mpsc as tokio_mpsc;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use url::Url;
 
@@ -39,7 +41,26 @@ async fn display_connection(
     mut socket_rx: tokio_mpsc::Receiver<SocketEvent>,
     url: Url,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (mut socket, _) = connect_async(url).await?;
+    let username = url.username();
+    let password = url.password().unwrap_or("");
+
+    let mut request = url.clone().into_client_request()?;
+    match username {
+        "" => {}
+        username => {
+            request.headers_mut().append(
+                "Authorization",
+                format!(
+                    "Basic {}",
+                    general_purpose::STANDARD
+                        .encode(format!("{}:{}", username, password).as_bytes())
+                )
+                .parse()?,
+            );
+        }
+    }
+
+    let (mut socket, _) = connect_async(request).await?;
     event_tx.send(Event::Notify("Connected".to_string()))?;
     loop {
         tokio::select! {

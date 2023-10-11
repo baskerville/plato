@@ -961,6 +961,7 @@ name = "plato-core"
 version = "0.9.39"
 dependencies = [
  "anyhow",
+ "base64",
  "bitflags 2.4.0",
  "byteorder",
  "chrono",
@@ -1518,8 +1519,11 @@ checksum = "212d5dcb2a1ce06d81107c3d0ffa3121fe974b73f068c8282cb1c32328113b6c"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
  "tokio",
+ "tokio-rustls",
  "tungstenite",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -1615,6 +1619,7 @@ dependencies = [
  "httparse",
  "log",
  "rand",
+ "rustls",
  "sha1",
  "thiserror",
  "url",
