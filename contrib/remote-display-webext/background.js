@@ -96,7 +96,6 @@ async function resizeViewport(width, height) {
       width: width,
       height: height,
     });
-    await resizeViewport(width, height);
   }
   const offsetWidth = window.width - tab.width;
   const offsetHeight = window.height - tab.height;
