@@ -12,6 +12,7 @@
   "permissions": [
     "tabs",
     "<all_urls>",
-    "storage"
+    "storage",
+    "sessions"
   ]
 }

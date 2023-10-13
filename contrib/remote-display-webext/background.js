@@ -80,6 +80,16 @@ async function closeCurrentTab() {
   await browser.tabs.remove(id);
 }
 
+async function reopenClosedTab() {
+  const sessions = await browser.sessions.getRecentlyClosed();
+  const lastSession = sessions
+    .find((session) => session.tab && session.tab.windowId === windowId);
+  if (!lastSession) return;
+  await browser.sessions.restore(lastSession.tab.sessionId);
+  await browser.tabs.update(lastSession.tab.id, { active: true });
+  return new URL(lastSession.tab.url).host;
+}
+
 async function reloadCurrentTab() {
   const { id } = await currentTab();
   await browser.tabs.reload(id);
@@ -289,7 +299,14 @@ async function onMessage(e) {
       break;
     case "rotate":
       if (Math.abs(msg.value.angle) < 20) break;
-      await reloadCurrentTab();
+      if (msg.value.angle > 0) {
+        const restoredTab = await reopenClosedTab();
+        if (restoredTab) sendNotice(`restored ${restoredTab}`);
+        else sendNotice("no tab restored");
+        await sendImage();
+      } else {
+        await reloadCurrentTab();
+      }
       break;
     case "holdFingerShort":
       await resizeViewport(deviceWidth / scaleFactor, deviceHeight / scaleFactor);
