@@ -110,12 +110,7 @@ router.get("/device", (ctx) => {
       case "size":
         deviceWidth = msg.value.width;
         deviceHeight = msg.value.height;
-        $`convert -size ${deviceWidth}x${deviceHeight} xc:white -gravity center -font DejaVu-Sans-Mono-Book -pointsize 32 -annotate +0+0 "Welcome" pnm:-`
-          .bytes()
-          .then((data) => convertToBlob(data, deviceWidth, deviceHeight))
-          .then((blob) => deviceSocket?.send(blob));
-        browserSocket?.send(m.data);
-        break;
+        /* falls through */
       default:
         browserSocket?.send(m.data);
     }

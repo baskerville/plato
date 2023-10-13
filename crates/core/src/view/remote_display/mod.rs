@@ -259,7 +259,17 @@ impl View for RemoteDisplay {
     }
 
     fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, _fonts: &mut Fonts) {
-        fb.draw_framed_pixmap_halftone(&self.pixmap, &rect, rect.min);
+        let max_pixel_x = (rect.max.x - 1) as u32;
+        let max_pixel_y = (rect.max.y - 1) as u32;
+        let addr = (max_pixel_y * self.pixmap.width + max_pixel_x) as usize;
+        let out_of_bounds = addr >= self.pixmap.data.len();
+        if out_of_bounds {
+            // Blank to prevent a panic when the pixmap is not the expected size.
+            let pixmap = Pixmap::new(fb.width(), fb.height());
+            fb.draw_framed_pixmap(&pixmap, &rect, rect.min);
+            return;
+        }
+        fb.draw_framed_pixmap(&self.pixmap, &rect, rect.min);
     }
 
     fn render_rect(&self, rect: &Rectangle) -> Rectangle {
@@ -275,6 +285,16 @@ impl View for RemoteDisplay {
         for i in 0..self.children.len() {
             self.children[i].resize(rect, hub, rq, context);
         }
+
+        self.socket_tx
+            .try_send(SocketEvent::SendJSON(json!({
+                "type": "size",
+                "value": {
+                    "width": rect.width(),
+                    "height": rect.height(),
+                }
+            })))
+            .ok();
 
         self.rect = rect;
         rq.add(RenderData::new(self.id, self.rect, UpdateMode::Full));
