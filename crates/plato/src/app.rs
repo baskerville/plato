@@ -608,30 +608,36 @@ pub fn run() -> Result<(), Error> {
                            .ok();
                     });
                 }
-                println!("{}", Local::now().format("Went to sleep on %B %-d, %Y at %H:%M:%S."));
+                let before = Local::now();
+                println!("{}", before.format("Went to sleep on %B %-d, %Y at %H:%M:%S."));
                 Command::new("scripts/suspend.sh")
                         .status()
                         .ok();
-                println!("{}", Local::now().format("Woke up on %B %-d, %Y at %H:%M:%S."));
+                let after = Local::now();
+                println!("{}", after.format("Woke up on %B %-d, %Y at %H:%M:%S."));
                 Command::new("scripts/resume.sh")
                         .status()
                         .ok();
                 inactive_since = Instant::now();
                 if context.settings.auto_power_off > 0.0 {
-                    if let Some(enabled) = context.rtc.as_ref()
-                                                  .and_then(|rtc| rtc.is_alarm_enabled()
-                                                                     .map_err(|e| eprintln!("Can't get alarm: {:#}", e))
-                                                                     .ok()) {
-                        if enabled {
+                    let dur = plato_core::chrono::Duration::seconds((86_400.0 * context.settings.auto_power_off) as i64);
+                    if let Some(fired) = context.rtc.as_ref()
+                                                .and_then(|rtc| rtc.alarm()
+                                                                   .map_err(|e| eprintln!("Can't get alarm: {:#}", e))
+                                                                   .map(|rwa| !rwa.enabled() ||
+                                                                              (rwa.year() <= 1970 &&
+                                                                               ((after - before) - dur).num_seconds().abs() < 3))
+                                                                   .ok()) {
+                        if fired {
+                            power_off(view.as_mut(), &mut history, &mut updating, &mut context);
+                            exit_status = ExitStatus::PowerOff;
+                            break;
+                        } else {
                             context.rtc.iter().for_each(|rtc| {
                                 rtc.disable_alarm()
                                    .map_err(|e| eprintln!("Can't disable alarm: {:#}.", e))
                                    .ok();
                             });
-                        } else {
-                            power_off(view.as_mut(), &mut history, &mut updating, &mut context);
-                            exit_status = ExitStatus::PowerOff;
-                            break;
                         }
                     }
                 }
