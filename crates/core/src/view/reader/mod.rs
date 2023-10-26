@@ -517,8 +517,10 @@ impl Reader {
                 s.current_page = s.highlights.range(..=location).count().saturating_sub(1);
             }
 
-            self.view_port.page_offset = pt!(0);
             self.current_page = location;
+            self.view_port.page_offset = pt!(0);
+            self.selection = None;
+            self.state = State::Idle;
             self.update(None, hub, rq, context);
             self.update_bottom_bar(rq);
 
@@ -850,6 +852,8 @@ impl Reader {
                 }
 
                 self.current_page = location;
+                self.selection = None;
+                self.state = State::Idle;
                 self.update(None, hub, rq, context);
                 self.update_bottom_bar(rq);
 
@@ -897,8 +901,10 @@ impl Reader {
             }
         }
         if let Some(location) = loc {
-            self.view_port.page_offset = pt!(0, 0);
             self.current_page = location;
+            self.view_port.page_offset = pt!(0, 0);
+            self.selection = None;
+            self.state = State::Idle;
             self.update_results_bar(rq);
             self.update_bottom_bar(rq);
             self.update(None, hub, rq, context);
