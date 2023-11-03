@@ -109,7 +109,8 @@ east-strip = "next-page"
 # Launch the *Touch Events* application to display the current touch regions.
 strip-width = 0.6
 corner-width = 0.4
-# The path for the user's font directory.
+# The path for the user's custom font directory. Note: this does not exist by
+# default.
 font-path = "/mnt/onboard/fonts"
 # The default serif font.
 font-family = "Libertinus Serif"
