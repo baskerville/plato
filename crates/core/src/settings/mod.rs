@@ -121,6 +121,8 @@ pub struct Settings {
     pub reader: ReaderSettings,
     pub import: ImportSettings,
     pub dictionary: DictionarySettings,
+    #[cfg(feature = "chess")]
+    pub chess_engine_settings: ChessEngineSettings,
     pub sketch: SketchSettings,
     pub calculator: CalculatorSettings,
     pub battery: BatterySettings,
@@ -172,6 +174,25 @@ pub struct ImportSettings {
     pub sync_metadata: bool,
     pub metadata_kinds: FxHashSet<String>,
     pub allowed_kinds: FxHashSet<String>,
+}
+
+#[cfg(feature = "chess")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct ChessEngineSettings {
+    pub elo: u32,
+    pub slow_motion: u32,
+    pub path: PathBuf,
+    pub font_size: f32,
+    pub margin_width: i32,
+}
+
+#[cfg(feature = "chess")]
+impl Default for ChessEngineSettings {
+    fn default() -> Self {
+        ChessEngineSettings { elo: 1500, slow_motion: 100, path: PathBuf::from("bin/stockfish"),
+        font_size: 8.0, margin_width: 2}
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -546,6 +567,8 @@ impl Default for Settings {
             reader: ReaderSettings::default(),
             import: ImportSettings::default(),
             dictionary: DictionarySettings::default(),
+            #[cfg(feature = "chess")]
+            chess_engine_settings: ChessEngineSettings::default(),
             sketch: SketchSettings::default(),
             calculator: CalculatorSettings::default(),
             battery: BatterySettings::default(),

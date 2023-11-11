@@ -67,6 +67,9 @@ use crate::library::Library;
 use crate::font::Fonts;
 use crate::app::Context;
 
+#[cfg(feature = "chess")]
+use crate::view::plato_chess::PlatoChess;
+
 pub const APP_NAME: &str = "Plato";
 const DEFAULT_ROTATION: i8 = 1;
 
@@ -412,6 +415,10 @@ fn main() -> Result<(), Error> {
                     let mut next_view: Box<dyn View> = match app_cmd {
                         AppCmd::Sketch => {
                             Box::new(Sketch::new(context.fb.rect(), &mut rq, &mut context))
+                        },
+                        #[cfg(feature = "chess")]
+                        AppCmd::Chess => {
+                            Box::new(PlatoChess::new(context.fb.rect(), &mut rq, &mut context))
                         },
                         AppCmd::Calculator => {
                             Box::new(Calculator::new(context.fb.rect(), &tx, &mut rq, &mut context)?)

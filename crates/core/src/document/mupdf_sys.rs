@@ -3,6 +3,9 @@
 use std::mem;
 
 pub const FZ_MAX_COLORS: usize = 32;
+#[cfg(target_arch = "x86_64")]
+pub const FZ_VERSION: &str = "1.23.3";
+#[cfg(target_arch = "arm")]
 pub const FZ_VERSION: &str = "1.22.2";
 
 pub const FZ_META_INFO_AUTHOR: &str = "info:Author";

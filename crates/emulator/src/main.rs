@@ -5,6 +5,7 @@ use std::sync::mpsc;
 use std::collections::VecDeque;
 use std::path::Path;
 use std::time::Duration;
+use env_logger;
 use plato_core::anyhow::{Error, Context as ResultExt};
 use plato_core::chrono::Local;
 use sdl2::event::Event as SdlEvent;
@@ -46,6 +47,9 @@ use plato_core::font::Fonts;
 use plato_core::context::Context;
 use plato_core::pt;
 use plato_core::png;
+
+#[cfg(feature = "chess")]
+use plato_core::view::plato_chess::PlatoChess;
 
 pub const APP_NAME: &str = "Plato";
 const DEFAULT_ROTATION: i8 = 1;
@@ -218,6 +222,9 @@ impl Framebuffer for FBCanvas {
 }
 
 fn main() -> Result<(), Error> {
+
+    env_logger::init();
+
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let (width, height) = CURRENT_DEVICE.dims;
@@ -426,6 +433,10 @@ fn main() -> Result<(), Error> {
                     let mut next_view: Box<dyn View> = match app_cmd {
                         AppCmd::Sketch => {
                             Box::new(Sketch::new(context.fb.rect(), &mut rq, &mut context))
+                        },
+                        #[cfg(feature = "chess")]
+                        AppCmd::Chess => {
+                            Box::new(PlatoChess::new(context.fb.rect(), &mut rq, &mut context, &tx)) // , &mut rq, &mut context))
                         },
                         AppCmd::Calculator => {
                             Box::new(Calculator::new(context.fb.rect(), &tx, &mut rq, &mut context)?)

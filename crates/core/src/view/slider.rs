@@ -56,6 +56,10 @@ impl Slider {
             rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
         }
     }
+
+    pub fn get(&self) -> f32 {
+        self.value
+    }
 }
 
 impl View for Slider {

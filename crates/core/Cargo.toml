@@ -40,3 +40,14 @@ rand_core = "0.6.4"
 rand_xoshiro = "0.6.0"
 percent-encoding = "2.3.0"
 chrono = { version = "0.4.30", features = ["serde", "clock"], default-features = false }
+log = "0.4.17"
+
+chess_uci = { git = "https://git.hadoly.fr/bateast/chess_uci.git", optional = true }
+chess = { version = "3.2.0", optional = true }
+env_logger = { version = "0.10.0", optional = true }
+
+
+[features]
+chess = ["dep:chess_uci", "dep:chess"]
+devel = ["dep:env_logger"]
+

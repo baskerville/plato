@@ -41,6 +41,9 @@ use plato_core::font::Fonts;
 use plato_core::rtc::Rtc;
 use plato_core::context::Context;
 
+#[cfg(feature = "chess")]
+use plato_core::view::plato_chess::PlatoChess;
+
 pub const APP_NAME: &str = "Plato";
 const FB_DEVICE: &str = "/dev/fb0";
 const RTC_DEVICE: &str = "/dev/rtc0";
@@ -812,6 +815,8 @@ pub fn run() -> Result<(), Error> {
                         context.fb.set_monochrome(true);
                         Box::new(Sketch::new(context.fb.rect(), &mut rq, &mut context))
                     },
+                    #[cfg(feature = "chess")]
+                    AppCmd::Chess => Box::new(PlatoChess::new(context.fb.rect(), &mut rq, &mut context, &tx)),
                     AppCmd::Calculator => Box::new(Calculator::new(context.fb.rect(), &tx, &mut rq, &mut context)?),
                     AppCmd::Dictionary { ref query, ref language } => Box::new(DictionaryApp::new(context.fb.rect(), query,
                                                                                                   language, &tx, &mut rq, &mut context)),
