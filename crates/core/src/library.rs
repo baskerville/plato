@@ -370,17 +370,23 @@ impl Library {
     }
 
     pub fn add_document(&mut self, info: Info) {
-        if self.mode == LibraryMode::Filesystem {
-            return;
-        }
-
         let path = self.home.join(&info.file.path);
         let md = path.metadata().unwrap();
         let fp = md.fingerprint(self.fat32_epoch).unwrap();
 
-        self.paths.insert(info.file.path.clone(), fp);
-        self.db.insert(fp, info);
-        self.has_db_changed = true;
+        if info.reader.is_some() {
+            self.modified_reading_states.insert(fp);
+        }
+
+        if self.mode == LibraryMode::Database {
+            self.paths.insert(info.file.path.clone(), fp);
+            self.db.insert(fp, info);
+            self.has_db_changed = true;
+        } else {
+            if let Some(reader_info) = info.reader {
+                self.reading_states.insert(fp, reader_info);
+            }
+        }
     }
 
     pub fn rename<P: AsRef<Path>>(&mut self, path: P, file_name: &str) -> Result<(), Error> {

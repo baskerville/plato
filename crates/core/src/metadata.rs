@@ -52,9 +52,9 @@ pub struct Info {
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     pub categories: BTreeSet<String>,
     pub file: FileInfo,
-    #[serde(skip)]
+    #[serde(skip_serializing)]
     pub reader: Option<ReaderInfo>,
-    #[serde(skip_serializing_if = "Option::is_none", skip_deserializing)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub _reader: Option<ReaderInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub toc: Option<Vec<SimpleTocEntry>>,
