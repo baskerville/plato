@@ -164,7 +164,7 @@ sync-metadata = true
 metadata-kinds = ["epub", "pdf", "djvu"]
 # The file extensions of the documents that will be considered during the
 # import process.
-allowed-kinds = ["djvu", "xps", "fb2", "pdf", "oxps", "cbz", "epub"]
+allowed-kinds = ["djvu", "xps", "fb2", "txt", "pdf", "oxps", "cbz", "epub"]
 
 [dictionary]
 # The default font size and margin width, for the Dictionary application.
