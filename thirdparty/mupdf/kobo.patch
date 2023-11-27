@@ -2,9 +2,9 @@ diff -ru a/Makefile b/Makefile
 --- a/Makefile	2023-11-14 09:46:57
 +++ b/Makefile	2023-11-14 09:47:11
 @@ -150,7 +150,7 @@
- 
+
  THIRD_GLUT_OBJ := $(THIRD_GLUT_SRC:%.c=$(OUT)/%.o)
- 
+
 -MUPDF_SRC := $(sort $(wildcard source/fitz/*.c))
 +MUPDF_SRC := $(sort $(filter-out source/fitz/output-docx.c, $(wildcard source/fitz/*.c)))
  MUPDF_SRC += $(sort $(wildcard source/fitz/*.cpp))
@@ -16,7 +16,7 @@ diff -ru a/Makerules b/Makerules
 @@ -321,6 +321,35 @@
    HAVE_WIN32=yes
  endif
- 
+
 +ifeq "$(OS)" "kobo"
 +  CC = arm-linux-gnueabihf-gcc
 +  CXX = arm-linux-gnueabihf-g++
@@ -55,13 +55,13 @@ diff -ru a/Makethird b/Makethird
 @@ -43,10 +43,6 @@
    endif
  endif
- 
+
 -# --- Include source file lists ---
 -
 -include Makelists
 -
  # --- FREETYPE 2 ---
- 
+
  ifeq ($(USE_SYSTEM_FREETYPE),yes)
 @@ -235,36 +231,3 @@
  	$(CXX_CMD) $(LIB_CFLAGS) $(TESSERACT_CFLAGS) $(TESSERACT_BUILD_CFLAGS)
@@ -103,9 +103,9 @@ diff -ru a/Makethird b/Makethird
 diff -ru a/source/html/html-parse.c b/source/html/html-parse.c
 --- a/source/html/html-parse.c	2023-11-14 09:46:58
 +++ b/source/html/html-parse.c	2023-11-14 09:59:43
-@@ -1622,13 +1622,13 @@
+@@ -1615,13 +1615,13 @@
  }
- 
+
  static const char *mobi_font_size[7] = {
 -	"8pt",
 -	"10pt",
@@ -122,5 +122,5 @@ diff -ru a/source/html/html-parse.c b/source/html/html-parse.c
 +	"1.5em",
 +	"1.67em",
  };
- 
+
  static void
