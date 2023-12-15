@@ -1,45 +1,45 @@
 [package]
 authors = ["Bastien Dejean <nihilhill@gmail.com>"]
 name = "plato-core"
-version = "0.9.39"
+version = "0.9.40"
 edition = "2021"
 
 [lib]
 crate-type = ["rlib"]
 
 [dependencies]
-bitflags = "2.4.0"
+bitflags = "2.4.1"
 downcast-rs = "1.2.0"
 lazy_static = "1.4.0"
-libc = "0.2.148"
+libc = "0.2.150"
 png = "0.17.10"
-regex = "1.9.5"
-serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.107"
+regex = "1.10.2"
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
 titlecase = "2.2.1"
 unicode-normalization = "0.1.22"
-toml = "0.8.0"
+toml = "0.8.8"
 zip = "0.6.6"
 kl-hyphenate = "0.7.3"
 entities = "1.0.1"
 paragraph-breaker = "0.4.4"
 xi-unicode = "0.3.0"
 septem = "1.1.0"
-byteorder = "1.4.3"
-flate2 = "1.0.27"
+byteorder = "1.5.0"
+flate2 = "1.0.28"
 levenshtein = "1.0.5"
 nix = { version = "0.27.1", features = ["fs", "ioctl"] }
-indexmap = { version = "2.0.0", features = ["serde"] }
+indexmap = { version = "2.1.0", features = ["serde"] }
 anyhow = "1.0.75"
-thiserror = "1.0.48"
+thiserror = "1.0.50"
 walkdir = "2.4.0"
-globset = "0.4.13"
+globset = "0.4.14"
 filetime = "0.2.22"
 fxhash = "0.2.1"
 rand_core = "0.6.4"
 rand_xoshiro = "0.6.0"
-percent-encoding = "2.3.0"
-chrono = { version = "0.4.30", features = ["serde", "clock"], default-features = false }
+percent-encoding = "2.3.1"
+chrono = { version = "0.4.31", features = ["serde", "clock"], default-features = false }
 image = { version = "0.24.7", features = ["pnm"], default-features = false }
 url = { version = "2.1.0" }
 base64 = "0.21.4"
