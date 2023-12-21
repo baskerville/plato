@@ -69,11 +69,14 @@ router.get("/browser", (ctx) => {
     console.log("Browser disconnected");
   };
 
-  browserSocket.onmessage = (m) => {
-    if (m.data instanceof ArrayBuffer) {
+  browserSocket.onmessage = async (m) => {
+    if (m.data instanceof ArrayBuffer || m.data instanceof Blob) {
       console.log("Browser sends image");
       if (!deviceSocket) return;
-      convertToBlob(new Uint8Array(m.data), deviceWidth, deviceHeight)
+      const data = m.data instanceof ArrayBuffer
+        ? m.data
+        : await m.data.arrayBuffer();
+      convertToBlob(new Uint8Array(data), deviceWidth, deviceHeight)
         .then((blob) => deviceSocket?.send(blob));
       return;
     }
