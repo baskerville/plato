@@ -253,7 +253,7 @@ async function onMessage(e) {
     }
     case "button": {
       const { button, status } = msg.value;
-      if (status !== "released") break;
+      if (!["released", "repeated"].includes(status)) break;
       // scroll half pages
       switch (button) {
         case "forward": {
@@ -265,7 +265,7 @@ async function onMessage(e) {
           break;
         }
       }
-      await sendImage();
+      if (status === "released") await sendImage();
       break;
     }
     case "arrow": {
