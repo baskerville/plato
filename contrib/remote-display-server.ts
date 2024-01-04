@@ -76,12 +76,26 @@ router.get("/browser", (ctx) => {
       const data = m.data instanceof ArrayBuffer
         ? m.data
         : await m.data.arrayBuffer();
-      convertToBlob(new Uint8Array(data), deviceWidth, deviceHeight)
-        .then((blob) => deviceSocket?.send(blob));
+      const blob = await convertToBlob(
+        new Uint8Array(data),
+        deviceWidth,
+        deviceHeight,
+      );
+      try {
+        deviceSocket.send(blob);
+      } catch (e) {
+        console.error("Error sending to device: ", e);
+        deviceSocket = undefined;
+      }
       return;
     }
     console.log("Browser sends: ", m.data);
-    deviceSocket?.send(m.data);
+    try {
+      deviceSocket?.send(m.data);
+    } catch (e) {
+      console.error("Error sending to device: ", e);
+      deviceSocket = undefined;
+    }
   };
 });
 // #endregion
@@ -115,7 +129,12 @@ router.get("/device", (ctx) => {
         deviceHeight = msg.value.height;
         /* falls through */
       default:
-        browserSocket?.send(m.data);
+        try {
+          browserSocket?.send(m.data);
+        } catch (e) {
+          console.error("Error sending to browser: ", e);
+          browserSocket = undefined;
+        }
     }
   };
 });
@@ -127,7 +146,7 @@ if (password) {
     const auth = ctx.request.headers.get("authorization");
     const expectedAuth = `Basic ${btoa(`plato:${password}`)}`;
     if (auth !== expectedAuth) {
-      console.log(`Unauthorized access from ${ctx.request.ip}`);
+      console.error(`Unauthorized access from ${ctx.request.ip}`);
       ctx.response.status = 401;
       ctx.response.headers.set("WWW-Authenticate", "Basic");
       ctx.response.body = "Unauthorized";
