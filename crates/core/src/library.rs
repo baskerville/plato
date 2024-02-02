@@ -8,7 +8,6 @@ use walkdir::WalkDir;
 use indexmap::IndexMap;
 use fxhash::{FxHashMap, FxHashSet, FxBuildHasher};
 use chrono::{Local, NaiveDateTime};
-use filetime::{FileTime, set_file_mtime, set_file_handle_times};
 use anyhow::{Error, bail, format_err};
 use crate::metadata::{Info, ReaderInfo, FileInfo, BookQuery, SimpleStatus, SortMethod};
 use crate::metadata::{sort, sorter, extract_metadata_from_document};
@@ -102,8 +101,7 @@ impl Library {
         let path = home.as_ref().join(FAT32_EPOCH_FILENAME);
         if !path.exists() {
             let file = File::create(&path)?;
-            let mtime = FileTime::from_unix_time(315_532_800, 0);
-            set_file_handle_times(&file, None, Some(mtime))?;
+            file.set_modified(std::time::UNIX_EPOCH + Duration::from_secs(315_532_800))?;
         }
 
         let fat32_epoch = path.metadata()?.modified()?;
@@ -481,8 +479,10 @@ impl Library {
         }
 
         fs::copy(&src, &dest)?;
-        let mtime = FileTime::from_last_modification_time(&md);
-        set_file_mtime(&dest, mtime)?;
+        {
+            let fdest = File::open(&dest)?;
+            fdest.set_modified(md.modified()?)?;
+        }
 
         let rsp_src = self.reading_state_path(fp);
         if rsp_src.exists() {

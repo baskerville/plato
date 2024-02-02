@@ -516,7 +516,7 @@ impl Engine {
         }
 
         // Collapse top and bottom margins of empty blocks.
-        if rects.is_empty() {
+        if rects.is_empty() || rects == [None] {
             style.margin.bottom = collapse_margins(style.margin.bottom, style.margin.top);
             style.margin.top = 0;
         }
