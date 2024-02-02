@@ -1,6 +1,6 @@
-import { Application, Router } from "https://deno.land/x/oak@v12.6.0/mod.ts";
+import { Application, Router } from "https://deno.land/x/oak@v13.0.0/mod.ts";
 import { Foras, zlib } from "https://deno.land/x/foras@2.0.8/src/deno/mod.ts";
-import $ from "https://deno.land/x/dax@0.34.0/mod.ts";
+import $ from "https://deno.land/x/dax@0.38.0/mod.ts";
 
 await Foras.initBundledOnce();
 
