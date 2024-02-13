@@ -67,13 +67,7 @@ const PREPARE_SUSPEND_WAIT_DELAY: Duration = Duration::from_secs(3);
 
 struct Task {
     id: TaskId,
-    chan: Receiver<()>,
-}
-
-impl Task {
-    fn has_occurred(&self) -> bool {
-        self.chan.try_recv() == Ok(())
-    }
+    _chan: Receiver<()>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -139,7 +133,8 @@ fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
 fn schedule_task(id: TaskId, event: Event, delay: Duration, hub: &Sender<Event>, tasks: &mut Vec<Task>) {
     let (ty, ry) = mpsc::channel();
     let hub2 = hub.clone();
-    tasks.push(Task { id, chan: ry });
+    tasks.retain(|task| task.id != id);
+    tasks.push(Task { id, _chan: ry });
     thread::spawn(move || {
         thread::sleep(delay);
         if ty.send(()).is_ok() {
@@ -387,16 +382,7 @@ pub fn run() -> Result<(), Error> {
 
                         context.covered = false;
 
-                        if context.shared {
-                            continue;
-                        }
-
-                        if !context.settings.sleep_cover {
-                            if tasks.iter().any(|task| task.id == TaskId::Suspend && task.has_occurred()) {
-                                tasks.retain(|task| task.id != TaskId::Suspend);
-                                schedule_task(TaskId::Suspend, Event::Suspend,
-                                              SUSPEND_WAIT_DELAY, &tx, &mut tasks);
-                            }
+                        if context.shared || !context.settings.sleep_cover {
                             continue;
                         }
 
@@ -443,10 +429,7 @@ pub fn run() -> Result<(), Error> {
 
                         match power_source {
                             PowerSource::Wall => {
-                                if tasks.iter().any(|task| task.id == TaskId::Suspend && task.has_occurred()) {
-                                    tasks.retain(|task| task.id != TaskId::Suspend);
-                                    schedule_task(TaskId::Suspend, Event::Suspend,
-                                                  SUSPEND_WAIT_DELAY, &tx, &mut tasks);
+                                if tasks.iter().any(|task| task.id == TaskId::Suspend) {
                                     continue;
                                 }
                             },
@@ -517,12 +500,8 @@ pub fn run() -> Result<(), Error> {
                             context.plugged = false;
                             schedule_task(TaskId::CheckBattery, Event::CheckBattery,
                                           BATTERY_REFRESH_INTERVAL, &tx, &mut tasks);
-                            if tasks.iter().any(|task| task.id == TaskId::Suspend && task.has_occurred()) {
-                                if context.covered {
-                                    tasks.retain(|task| task.id != TaskId::Suspend);
-                                    schedule_task(TaskId::Suspend, Event::Suspend,
-                                                  SUSPEND_WAIT_DELAY, &tx, &mut tasks);
-                                } else {
+                            if tasks.iter().any(|task| task.id == TaskId::Suspend) {
+                                if !context.covered {
                                     resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut rq, &mut context);
                                 }
                             } else {
@@ -619,6 +598,9 @@ pub fn run() -> Result<(), Error> {
                         .status()
                         .ok();
                 inactive_since = Instant::now();
+                // If the wake is legitimate, the task will be cancelled by `resume`.
+                schedule_task(TaskId::Suspend, Event::Suspend,
+                              SUSPEND_WAIT_DELAY, &tx, &mut tasks);
                 if context.settings.auto_power_off > 0.0 {
                     let dur = plato_core::chrono::Duration::seconds((86_400.0 * context.settings.auto_power_off) as i64);
                     if let Some(fired) = context.rtc.as_ref()
