@@ -1276,6 +1276,7 @@ impl Reader {
                 rq.add(RenderData::expose(rect, UpdateMode::Gui));
             }
 
+            context.kb_rect = Rectangle::default();
             hub.send(Event::Focus(None)).ok();
         } else {
             if !enable {
