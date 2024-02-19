@@ -453,6 +453,33 @@ impl Library {
         Ok(())
     }
 
+    pub fn update<P: AsRef<Path>>(&mut self, path: P, info: Info) -> Result<(), Error> {
+        let full_path = self.home.join(path.as_ref());
+
+        let md = full_path.metadata()?;
+        let fp = self.paths.get(path.as_ref()).cloned().or_else(|| {
+           full_path.metadata().ok()
+                    .and_then(|md| md.fingerprint(self.fat32_epoch).ok())
+        }).ok_or_else(|| format_err!("can't get fingerprint of {}", path.as_ref().display()))?;
+        let fp2 = self.paths.get(path.as_ref()).cloned().ok_or_else(|| format_err!("can't get fingerprint of {}", path.as_ref().display()))?;
+
+        println!("Update fingerprint for {}: {} → {}.", path.as_ref().display(), fp2, fp);
+        self.db.remove(&fp).unwrap();
+        self.db.insert(fp, info);
+        self.db[&fp].file.size = md.len();
+        self.paths.insert(path.as_ref().to_path_buf(), fp);
+        let rp1 = self.reading_state_path(fp2);
+        let rp2 = self.reading_state_path(fp);
+        fs::rename(rp1, rp2).ok();
+        let tpp = self.thumbnail_preview_path(fp2);
+        if tpp.exists() {
+            fs::remove_file(tpp).ok();
+        }
+        self.has_db_changed = true;
+        Ok(())
+    }
+
+
     pub fn copy_to<P: AsRef<Path>>(&mut self, path: P, other: &mut Library) -> Result<(), Error> {
         let src = self.home.join(path.as_ref());
 

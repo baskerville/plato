@@ -468,6 +468,7 @@ pub struct BookQuery {
     pub edition: Option<Regex>,
     pub volume: Option<Regex>,
     pub number: Option<Regex>,
+    pub identifier: Option<Regex>,
     pub reading: Option<bool>,
     pub new: Option<bool>,
     pub finished: Option<bool>,
@@ -501,6 +502,7 @@ impl BookQuery {
                         Some('e') => { buf.reverse(); query.edition = make_query(&buf.join(" ")); buf.clear(); },
                         Some('v') => { buf.reverse(); query.volume = make_query(&buf.join(" ")); buf.clear(); },
                         Some('n') => { buf.reverse(); query.number = make_query(&buf.join(" ")); buf.clear(); },
+                        Some('i') => { buf.reverse(); query.identifier = make_query(&buf.join(" ")); buf.clear(); },
                         Some('R') => query.reading = Some(!invert),
                         Some('N') => query.new = Some(!invert),
                         Some('F') => query.finished = Some(!invert),
@@ -540,6 +542,7 @@ impl BookQuery {
            query.edition.is_none() &&
            query.volume.is_none() &&
            query.number.is_none() &&
+           query.identifier.is_none() &&
            query.reading.is_none() &&
            query.new.is_none() &&
            query.finished.is_none() &&
@@ -571,6 +574,7 @@ impl BookQuery {
         self.edition.as_ref().map(|re| re.is_match(&info.edition)) != Some(false) &&
         self.volume.as_ref().map(|re| re.is_match(&info.volume)) != Some(false) &&
         self.number.as_ref().map(|re| re.is_match(&info.number)) != Some(false) &&
+        self.identifier.as_ref().map(|re| re.is_match(&info.identifier)) != Some(false) &&
         self.reading.as_ref().map(|eq| info.simple_status().eq(&SimpleStatus::Reading) == *eq) != Some(false) &&
         self.new.as_ref().map(|eq| info.simple_status().eq(&SimpleStatus::New) == *eq) != Some(false) &&
         self.finished.as_ref().map(|eq| info.simple_status().eq(&SimpleStatus::Finished) == *eq) != Some(false) &&

@@ -333,6 +333,7 @@ pub enum Event {
     SearchResult(usize, Vec<Boundary>),
     FetcherAddDocument(u32, Box<Info>),
     FetcherRemoveDocument(u32, PathBuf),
+    FetcherUpdateDocument(u32, PathBuf, Box<Info>),
     FetcherSearch {
         id: u32,
         path: Option<PathBuf>,

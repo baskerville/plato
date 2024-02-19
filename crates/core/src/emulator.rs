@@ -543,6 +543,7 @@ fn main() -> Result<(), Error> {
                 Event::CheckFetcher(..) |
                 Event::FetcherAddDocument(..) |
                 Event::FetcherRemoveDocument(..) |
+                Event::FetcherUpdateDocument(..) |
                 Event::FetcherSearch { .. } if !view.is::<Home>() => {
                     if let Some(home) = history.get_mut(0).filter(|view| view.is::<Home>()) {
                         let (tx, _rx) = mpsc::channel();
