@@ -96,7 +96,9 @@ impl View for NamedInput {
             },
             Event::Gesture(GestureEvent::Tap(center)) | Event::Gesture(GestureEvent::HoldFingerShort(center, _)) => {
                 if !self.rect.includes(center) && !context.kb_rect.includes(center) {
-                    bus.push_back(Event::Close(self.view_id));
+                    if !context.kb_rect.is_empty() {
+                        bus.push_back(Event::Close(self.view_id));
+                    }
                     true
                 } else {
                     self.rect.includes(center)
