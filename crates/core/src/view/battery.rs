@@ -104,7 +104,7 @@ impl View for Battery {
 
         pt = self.rect.min + pt!(dx, dy) + pt!(border_thickness);
 
-        if self.status != Status::Discharging {
+        if self.status.is_wired() {
             let name = if self.status == Status::Charging { "plug" } else { "check_mark-small" };
             let pixmap = ICONS_PIXMAPS.get(name).unwrap();
             pt += pt!((max_fill_width - pixmap.width as i32) / 2,
