@@ -764,7 +764,7 @@ unsafe fn font_data_from_script(script: HbScript) -> &'static [libc::c_uchar] {
         HB_SCRIPT_BOPOMOFO |
         HB_SCRIPT_HAN => &_binary_resources_fonts_droid_DroidSansFallback_ttf_start,
 
-        HB_SCRIPT_ARABIC => &_binary_resources_fonts_noto_NotoNaskhArabic_Regular_ttf_start,
+        HB_SCRIPT_ARABIC => &_binary_resources_fonts_noto_NotoNaskhArabic_Regular_otf_start,
         HB_SCRIPT_SYRIAC => &_binary_resources_fonts_noto_NotoSansSyriac_Regular_otf_start,
         HB_SCRIPT_MEROITIC_CURSIVE |
         HB_SCRIPT_MEROITIC_HIEROGLYPHS => &_binary_resources_fonts_noto_NotoSansMeroitic_Regular_otf_start,

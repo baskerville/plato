@@ -7,8 +7,7 @@ use std::io::{Error as IoError, ErrorKind};
 use walkdir::WalkDir;
 use indexmap::IndexMap;
 use fxhash::{FxHashMap, FxHashSet, FxBuildHasher};
-use chrono::{Local, TimeZone};
-use filetime::{FileTime, set_file_mtime, set_file_handle_times};
+use chrono::{Local, NaiveDateTime};
 use anyhow::{Error, bail, format_err};
 use crate::metadata::{Info, ReaderInfo, FileInfo, BookQuery, SimpleStatus, SortMethod};
 use crate::metadata::{sort, sorter, extract_metadata_from_document};
@@ -102,8 +101,7 @@ impl Library {
         let path = home.as_ref().join(FAT32_EPOCH_FILENAME);
         if !path.exists() {
             let file = File::create(&path)?;
-            let mtime = FileTime::from_unix_time(315_532_800, 0);
-            set_file_handle_times(&file, None, Some(mtime))?;
+            file.set_modified(std::time::UNIX_EPOCH + Duration::from_secs(315_532_800))?;
         }
 
         let fat32_epoch = path.metadata()?.modified()?;
@@ -199,7 +197,7 @@ impl Library {
                         };
                         let secs = (*fp >> 32) as i64;
                         let nsecs = ((*fp & ((1<<32) - 1)) % 1_000_000_000) as u32;
-                        let added = Local.timestamp_opt(secs, nsecs).single().unwrap();
+                        let added = NaiveDateTime::from_timestamp_opt(secs, nsecs).unwrap();
                         let info = Info {
                             file,
                             added,
@@ -253,7 +251,7 @@ impl Library {
             // The path is known: update the fp.
             } else if let Some(fp2) = self.paths.get(relat).cloned() {
                 println!("Update fingerprint for {}: {} → {}.", relat.display(), fp2, fp);
-                let mut info = self.db.remove(&fp2).unwrap();
+                let mut info = self.db.swap_remove(&fp2).unwrap();
                 if settings.sync_metadata && settings.metadata_kinds.contains(&info.file.kind) {
                     extract_metadata_from_document(&self.home, &mut info);
                 }
@@ -288,7 +286,7 @@ impl Library {
                 // and moved within another.
                 if let Some(nfp) = nfp {
                     println!("Update fingerprint for {}: {} → {}.", self.db[&nfp].file.path.display(), nfp, fp);
-                    let info = self.db.remove(&nfp).unwrap();
+                    let info = self.db.swap_remove(&nfp).unwrap();
                     self.db.insert(fp, info);
                     let rp1 = self.reading_state_path(nfp);
                     let rp2 = self.reading_state_path(fp);
@@ -370,17 +368,23 @@ impl Library {
     }
 
     pub fn add_document(&mut self, info: Info) {
-        if self.mode == LibraryMode::Filesystem {
-            return;
-        }
-
         let path = self.home.join(&info.file.path);
         let md = path.metadata().unwrap();
         let fp = md.fingerprint(self.fat32_epoch).unwrap();
 
-        self.paths.insert(info.file.path.clone(), fp);
-        self.db.insert(fp, info);
-        self.has_db_changed = true;
+        if info.reader.is_some() {
+            self.modified_reading_states.insert(fp);
+        }
+
+        if self.mode == LibraryMode::Database {
+            self.paths.insert(info.file.path.clone(), fp);
+            self.db.insert(fp, info);
+            self.has_db_changed = true;
+        } else {
+            if let Some(reader_info) = info.reader {
+                self.reading_states.insert(fp, reader_info);
+            }
+        }
     }
 
     pub fn rename<P: AsRef<Path>>(&mut self, path: P, file_name: &str) -> Result<(), Error> {
@@ -475,8 +479,10 @@ impl Library {
         }
 
         fs::copy(&src, &dest)?;
-        let mtime = FileTime::from_last_modification_time(&md);
-        set_file_mtime(&dest, mtime)?;
+        {
+            let fdest = File::open(&dest)?;
+            fdest.set_modified(md.modified()?)?;
+        }
 
         let rsp_src = self.reading_state_path(fp);
         if rsp_src.exists() {

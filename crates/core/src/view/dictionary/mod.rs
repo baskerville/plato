@@ -256,6 +256,7 @@ impl Dictionary {
             rect.absorb(self.child(index-1).rect());
             self.children.drain(index - 1 ..= index);
 
+            context.kb_rect = Rectangle::default();
             rq.add(RenderData::expose(rect, UpdateMode::Gui));
             hub.send(Event::Focus(None)).ok();
         } else {
@@ -439,7 +440,7 @@ impl View for Dictionary {
                 }
                 true
             },
-            Event::Device(DeviceEvent::Button { code, status: ButtonStatus::Pressed, .. }) => {
+            Event::Device(DeviceEvent::Button { code, status: ButtonStatus::Released, .. }) => {
                 let cd = match code {
                     ButtonCode::Backward => Some(CycleDir::Previous),
                     ButtonCode::Forward => Some(CycleDir::Next),

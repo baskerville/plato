@@ -109,7 +109,8 @@ east-strip = "next-page"
 # Launch the *Touch Events* application to display the current touch regions.
 strip-width = 0.6
 corner-width = 0.4
-# The path for the user's font directory.
+# The path for the user's custom font directory.
+# Note: this does not exist by default.
 font-path = "/mnt/onboard/fonts"
 # The default serif font.
 font-family = "Libertinus Serif"
@@ -147,6 +148,10 @@ stretch-tolerance = 1.26
 regular = 8
 inverted = 2
 
+# Override the refresh rates for individual file types.
+# [reader.refresh-rate.by-kind]
+# cbz = { regular = 1, inverted = 1 }
+
 [import]
 # Start the import process when the device is unplugged from a computer.
 unshare-trigger = true
@@ -159,7 +164,7 @@ sync-metadata = true
 metadata-kinds = ["epub", "pdf", "djvu"]
 # The file extensions of the documents that will be considered during the
 # import process.
-allowed-kinds = ["djvu", "xps", "fb2", "pdf", "oxps", "cbz", "epub"]
+allowed-kinds = ["djvu", "xps", "fb2", "txt", "pdf", "oxps", "cbz", "epub"]
 
 [dictionary]
 # The default font size and margin width, for the Dictionary application.

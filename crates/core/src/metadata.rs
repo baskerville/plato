@@ -5,7 +5,7 @@ use std::collections::{BTreeSet, BTreeMap};
 use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
 use regex::Regex;
-use chrono::{Local, DateTime, TimeZone};
+use chrono::{NaiveDateTime, Local};
 use fxhash::FxHashMap;
 use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
@@ -52,14 +52,14 @@ pub struct Info {
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     pub categories: BTreeSet<String>,
     pub file: FileInfo,
-    #[serde(skip)]
+    #[serde(skip_serializing)]
     pub reader: Option<ReaderInfo>,
-    #[serde(skip_serializing_if = "Option::is_none", skip_deserializing)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub _reader: Option<ReaderInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub toc: Option<Vec<SimpleTocEntry>>,
     #[serde(with = "datetime_format")]
-    pub added: DateTime<Local>,
+    pub added: NaiveDateTime,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,7 +89,7 @@ pub struct Annotation {
     pub text: String,
     pub selection: [TextLocation; 2],
     #[serde(with = "datetime_format")]
-    pub modified: DateTime<Local>,
+    pub modified: NaiveDateTime,
 }
 
 impl Default for Annotation {
@@ -98,7 +98,7 @@ impl Default for Annotation {
             note: String::new(),
             text: String::new(),
             selection: [TextLocation::Dynamic(0), TextLocation::Dynamic(1)],
-            modified: Local::now(),
+            modified: Local::now().naive_local(),
         }
     }
 }
@@ -195,7 +195,7 @@ impl fmt::Display for TextAlign {
 #[serde(default, rename_all = "camelCase")]
 pub struct ReaderInfo {
     #[serde(with = "datetime_format")]
-    pub opened: DateTime<Local>,
+    pub opened: NaiveDateTime,
     pub current_page: usize,
     pub pages_count: usize,
     pub finished: bool,
@@ -269,7 +269,7 @@ impl ReaderInfo {
 impl Default for ReaderInfo {
     fn default() -> Self {
         ReaderInfo {
-            opened: Local::now(),
+            opened: Local::now().naive_local(),
             current_page: 0,
             pages_count: 1,
             finished: false,
@@ -310,7 +310,7 @@ impl Default for Info {
             identifier: String::default(),
             categories: BTreeSet::new(),
             file: FileInfo::default(),
-            added: Local::now(),
+            added: Local::now().naive_local(),
             reader: None,
             _reader: None,
             toc: None,
@@ -473,8 +473,8 @@ pub struct BookQuery {
     pub finished: Option<bool>,
     pub annotations: Option<bool>,
     pub bookmarks: Option<bool>,
-    pub opened_after: Option<(bool, DateTime<Local>)>,
-    pub added_after: Option<(bool, DateTime<Local>)>,
+    pub opened_after: Option<(bool, NaiveDateTime)>,
+    pub added_after: Option<(bool, NaiveDateTime)>,
 }
 
 impl BookQuery {
@@ -508,14 +508,16 @@ impl BookQuery {
                         Some('B') => query.bookmarks = Some(!invert),
                         Some('O') => {
                             buf.reverse();
-                            query.opened_after = Local.datetime_from_str(&buf.join(" "), datetime_format::FORMAT)
-                                                      .ok().map(|opened| (!invert, opened));
+                            query.opened_after = NaiveDateTime::parse_from_str(&buf.join(" "),
+                                                                               datetime_format::FORMAT)
+                                                              .ok().map(|opened| (!invert, opened));
                             buf.clear();
                         },
                         Some('D') => {
                             buf.reverse();
-                            query.added_after = Local.datetime_from_str(&buf.join(" "), datetime_format::FORMAT)
-                                                     .ok().map(|added| (!invert, added));
+                            query.added_after = NaiveDateTime::parse_from_str(&buf.join(" "),
+                                                                              datetime_format::FORMAT)
+                                                             .ok().map(|added| (!invert, added));
                             buf.clear();
                         },
                         Some('\'') => buf.push(&word[1..]),

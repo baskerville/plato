@@ -1,22 +1,22 @@
 diff -ru a/Makefile b/Makefile
---- a/Makefile	2023-04-13 14:30:09
-+++ b/Makefile	2023-04-17 09:46:46
+--- a/Makefile	2023-11-14 09:46:57
++++ b/Makefile	2023-11-14 09:47:11
 @@ -150,7 +150,7 @@
- 
+
  THIRD_GLUT_OBJ := $(THIRD_GLUT_SRC:%.c=$(OUT)/%.o)
- 
+
 -MUPDF_SRC := $(sort $(wildcard source/fitz/*.c))
 +MUPDF_SRC := $(sort $(filter-out source/fitz/output-docx.c, $(wildcard source/fitz/*.c)))
  MUPDF_SRC += $(sort $(wildcard source/fitz/*.cpp))
  MUPDF_SRC += $(sort $(wildcard source/pdf/*.c))
  MUPDF_SRC += $(sort $(wildcard source/xps/*.c))
 diff -ru a/Makerules b/Makerules
---- a/Makerules	2023-04-13 14:30:09
-+++ b/Makerules	2023-04-17 09:47:24
-@@ -300,6 +300,35 @@
+--- a/Makerules	2023-11-14 09:46:58
++++ b/Makerules	2023-11-14 09:47:11
+@@ -321,6 +321,35 @@
    HAVE_WIN32=yes
  endif
- 
+
 +ifeq "$(OS)" "kobo"
 +  CC = arm-linux-gnueabihf-gcc
 +  CXX = arm-linux-gnueabihf-g++
@@ -50,18 +50,18 @@ diff -ru a/Makerules b/Makerules
  # which is called from the Xcode project as a "Run Script" build step.
  # The following section works for both device and simulator builds.
 diff -ru a/Makethird b/Makethird
---- a/Makethird	2023-04-13 14:30:09
-+++ b/Makethird	2023-04-17 09:48:23
+--- a/Makethird	2023-11-14 09:46:58
++++ b/Makethird	2023-11-14 09:47:11
 @@ -43,10 +43,6 @@
    endif
  endif
- 
+
 -# --- Include source file lists ---
 -
 -include Makelists
 -
  # --- FREETYPE 2 ---
- 
+
  ifeq ($(USE_SYSTEM_FREETYPE),yes)
 @@ -235,36 +231,3 @@
  	$(CXX_CMD) $(LIB_CFLAGS) $(TESSERACT_CFLAGS) $(TESSERACT_BUILD_CFLAGS)
@@ -100,3 +100,27 @@ diff -ru a/Makethird b/Makethird
 -	@touch $@
 -
 -generate: thirdparty/extract/src/docx_template.c
+diff -ru a/source/html/html-parse.c b/source/html/html-parse.c
+--- a/source/html/html-parse.c	2023-11-14 09:46:58
++++ b/source/html/html-parse.c	2023-11-14 09:59:43
+@@ -1615,13 +1615,13 @@
+ }
+
+ static const char *mobi_font_size[7] = {
+-	"8pt",
+-	"10pt",
+-	"12pt",
+-	"14pt",
+-	"16pt",
+-	"18pt",
+-	"20pt",
++	"0.67em",
++	"0.83em",
++	"1em",
++	"1.17em",
++	"1.33em",
++	"1.5em",
++	"1.67em",
+ };
+
+ static void

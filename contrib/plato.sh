@@ -14,14 +14,27 @@ export $(grep -sE '^(INTERFACE|WIFI_MODULE|DBUS_SESSION_BUS_ADDRESS|NICKEL_HOME|
 sync
 killall -TERM nickel hindenburg sickel fickel adobehost foxitpdf iink dhcpcd-dbus dhcpcd fmon > /dev/null 2>&1
 
-# Turn off the LEDs
-# https://www.tablix.org/~avian/blog/archives/2013/03/blinken_kindle/
+
+STANDARD_LEDS=0
 LEDS_INTERFACE=/sys/devices/platform/pmic_light.1/lit
-for ch in 3 4 5; do
-	echo "ch ${ch}" > "$LEDS_INTERFACE"
-	echo "cur 1" > "$LEDS_INTERFACE"
-	echo "dc 0" > "$LEDS_INTERFACE"
-done
+if [ -e /sys/class/leds/bd71828-green-led ] ; then
+	STANDARD_LEDS=1
+	LEDS_INTERFACE=/sys/class/leds/bd71828-green-led
+elif [ -e /sys/devices/platform/ntx_led/lit ] ; then
+	LEDS_INTERFACE=/sys/devices/platform/ntx_led/lit
+fi
+
+# Turn off the LEDs
+if [ "$STANDARD_LEDS" -eq 1 ] ; then
+	echo 0 > "$LEDS_INTERFACE"
+else
+	# https://www.tablix.org/~avian/blog/archives/2013/03/blinken_kindle/
+	for ch in 3 4 5; do
+		echo "ch ${ch}" > "$LEDS_INTERFACE"
+		echo "cur 1" > "$LEDS_INTERFACE"
+		echo "dc 0" > "$LEDS_INTERFACE"
+	done
+fi
 
 # Remount the SD card read-write if it's mounted read-only
 grep -q ' /mnt/sd .*[ ,]ro[ ,]' /proc/mounts && mount -o remount,rw /mnt/sd
@@ -55,6 +68,7 @@ if [ -e "$KOBO_TAG" ] ; then
 		383)     PRODUCT_ID=0x4231 ;; # Sage
 		388)     PRODUCT_ID=0x4234 ;; # Libra 2
 		386)     PRODUCT_ID=0x4235 ;; # Clara 2E
+		389)     PRODUCT_ID=0x4236 ;; # Elipsa 2E
 		*)       PRODUCT_ID=0x6666 ;;
 	esac
 
@@ -69,7 +83,7 @@ export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"
 
 if [ "$PLATO_SET_FRAMEBUFFER_DEPTH" ] ; then
 	case "${PRODUCT}:${MODEL_NUMBER}" in
-		goldfinch:*|io:*|cadmus:*|europa:*|storm:*|frost:*|nova:*|snow:378|star:379)
+		condor:*|goldfinch:*|io:*|cadmus:*|europa:*|storm:*|frost:*|nova:*|snow:378|star:379)
 			unset ORIG_BPP
 			;;
 		*)
