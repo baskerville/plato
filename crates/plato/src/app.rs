@@ -199,6 +199,7 @@ fn set_wifi(enable: bool, context: &mut Context) {
     }
 }
 
+#[derive(PartialEq)]
 enum ExitStatus {
     Quit,
     Reboot,
@@ -985,7 +986,7 @@ pub fn run() -> Result<(), Error> {
         }
     }
 
-    if !CURRENT_DEVICE.has_gyroscope() && context.display.rotation != initial_rotation {
+    if exit_status == ExitStatus::Quit && !CURRENT_DEVICE.has_gyroscope() && context.display.rotation != initial_rotation {
         context.fb.set_rotation(initial_rotation).ok();
     }
 
