@@ -10,4 +10,4 @@ path = "src/main.rs"
 
 [dependencies]
 plato-core = { path = "../core" }
-sdl2 = "0.35.2"
+sdl2 = "0.36.0"

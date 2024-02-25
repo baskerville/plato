@@ -251,7 +251,7 @@ impl Library {
             // The path is known: update the fp.
             } else if let Some(fp2) = self.paths.get(relat).cloned() {
                 println!("Update fingerprint for {}: {} → {}.", relat.display(), fp2, fp);
-                let mut info = self.db.remove(&fp2).unwrap();
+                let mut info = self.db.swap_remove(&fp2).unwrap();
                 if settings.sync_metadata && settings.metadata_kinds.contains(&info.file.kind) {
                     extract_metadata_from_document(&self.home, &mut info);
                 }
@@ -286,7 +286,7 @@ impl Library {
                 // and moved within another.
                 if let Some(nfp) = nfp {
                     println!("Update fingerprint for {}: {} → {}.", self.db[&nfp].file.path.display(), nfp, fp);
-                    let info = self.db.remove(&nfp).unwrap();
+                    let info = self.db.swap_remove(&nfp).unwrap();
                     self.db.insert(fp, info);
                     let rp1 = self.reading_state_path(nfp);
                     let rp2 = self.reading_state_path(fp);
