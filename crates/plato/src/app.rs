@@ -223,6 +223,9 @@ pub fn run() -> Result<(), Error> {
     }
 
     let mut context = build_context(fb).context("can't build context")?;
+
+    context.plugged = context.battery.status().is_ok_and(|v| v[0].is_wired());
+
     if context.settings.import.startup_trigger {
         context.batch_import();
     }

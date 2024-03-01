@@ -15,6 +15,12 @@ pub enum Status {
     // Full,
 }
 
+impl Status {
+    pub fn is_wired(self) -> bool {
+        matches!(self, Status::Charging | Status::Charged)
+    }
+}
+
 pub trait Battery {
     fn capacity(&mut self) -> Result<Vec<f32>, Error>;
     fn status(&mut self) -> Result<Vec<Status>, Error>;
