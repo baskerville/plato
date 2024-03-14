@@ -46,9 +46,8 @@ let deviceHeight = 0;
 // #region browser socket
 router.get("/browser", (ctx) => {
   if (browserSocket) {
-    ctx.response.status = 400;
-    ctx.response.body = "Only one browser connection allowed";
-    return;
+    browserSocket.close();
+    console.log("Closing previous browser connection");
   }
   browserSocket = ctx.upgrade();
   console.log("Browser starting connection");
