@@ -1,39 +1,4 @@
 import { Application, Router } from "https://deno.land/x/oak@v13.0.0/mod.ts";
-import { Foras, zlib } from "https://deno.land/x/foras@2.0.8/src/deno/mod.ts";
-import $ from "https://deno.land/x/dax@0.38.0/mod.ts";
-
-await Foras.initBundledOnce();
-
-// #region support functions
-const bytes = Intl.NumberFormat("en", {
-  notation: "compact",
-  style: "unit",
-  unit: "byte",
-  unitDisplay: "narrow",
-});
-
-/** Use ImageMagick `convert` to create a deflated PBM. */
-async function convertToBlob(
-  data: Uint8Array,
-  width: number,
-  height: number,
-): Promise<Blob> {
-  const start = performance.now();
-  const image =
-    await $`convert - -resize ${width}x${height}! -dither FloydSteinberg -remap pattern:gray50 pnm:-`
-      .stdin(data)
-      .bytes();
-  const compressed = zlib(image);
-  console.log(
-    `converted ${bytes.format(data.byteLength)} frame to ${
-      bytes.format(compressed.byteLength)
-    } (${bytes.format(image.byteLength)} inflated) in ${
-      Math.round(performance.now() - start)
-    }ms`,
-  );
-  return new Blob([compressed], { type: "application/x-deflate" });
-}
-// #endregion
 
 const app = new Application();
 const router = new Router();
@@ -68,27 +33,12 @@ router.get("/browser", (ctx) => {
     console.log("Browser disconnected");
   };
 
-  browserSocket.onmessage = async (m) => {
+  browserSocket.onmessage = (m) => {
     if (m.data instanceof ArrayBuffer || m.data instanceof Blob) {
       console.log("Browser sends image");
-      if (!deviceSocket) return;
-      const data = m.data instanceof ArrayBuffer
-        ? m.data
-        : await m.data.arrayBuffer();
-      const blob = await convertToBlob(
-        new Uint8Array(data),
-        deviceWidth,
-        deviceHeight,
-      );
-      try {
-        deviceSocket.send(blob);
-      } catch (e) {
-        console.error("Error sending to device: ", e);
-        deviceSocket = undefined;
-      }
-      return;
+    } else {
+      console.log(`Browser sends ${m.data}`);
     }
-    console.log("Browser sends: ", m.data);
     try {
       deviceSocket?.send(m.data);
     } catch (e) {
@@ -120,7 +70,7 @@ router.get("/device", (ctx) => {
 
   deviceSocket.onmessage = (m) => {
     if (m.data instanceof ArrayBuffer) return;
-    console.log("Device sends: ", m.data);
+    console.log(`Device sends ${m.data}`);
     const msg = JSON.parse(m.data);
     switch (msg.type) {
       case "size":

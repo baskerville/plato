@@ -169,6 +169,23 @@ let deviceWidth = 0;
 let deviceHeight = 0;
 let ws;
 
+import {
+  ColorSpace,
+  DitherMethod,
+  ImageMagick,
+  initializeImageMagick,
+  MagickFormat,
+  QuantizeSettings,
+  MagickGeometry
+} from "https://esm.sh/@imagemagick/magick-wasm@0.0.28";
+import { Foras, Memory, zlib } from "https://esm.sh/@hazae41/foras@2.1.4";
+const wasmFile =
+  "https://esm.sh/@imagemagick/magick-wasm@0.0.28/dist/magick.wasm";
+await fetch(wasmFile, { cache: "force-cache" })
+  .then(a => a.arrayBuffer())
+  .then(a => initializeImageMagick(a));
+await Foras.initBundledOnce();
+
 async function sendImage() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   console.log("capturing");
@@ -176,8 +193,24 @@ async function sendImage() {
   const dataUrl = await browser.tabs.captureTab(id, {
     scale: scaleFactor,
   });
-  const buf = await (await fetch(dataUrl)).arrayBuffer();
-  ws.send(buf);
+  const buf = await fetch(dataUrl)
+    .then(a => a.arrayBuffer())
+    .then(a => new Uint8Array(a));
+
+  ImageMagick.read(buf, (img) => {
+    const mg = new MagickGeometry(deviceWidth, deviceHeight);
+    mg.ignoreAspectRatio = true;
+    const qs = new QuantizeSettings();
+    qs.colors = 2;
+    qs.colorSpace = ColorSpace.Gray;
+    qs.ditherMethod = DitherMethod.FloydSteinberg;
+    img.resize(mg);
+    img.quantize(qs);
+    img.write(MagickFormat.Pnm, (data) => {
+      ws.send(zlib(new Memory(data)).bytes);
+    });
+  });
+
   await new Promise((resolve) => {
     ws.addEventListener("message", (e) => {
       const msg = JSON.parse(e.data);

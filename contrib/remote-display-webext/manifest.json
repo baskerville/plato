@@ -4,11 +4,13 @@
   "version": "0.1",
   "description": "Plato Remote Display",
   "background": {
-    "scripts": ["background.js"]
+    "scripts": ["background.js"],
+    "type": "module"
   },
   "browser_action": {
     "default_popup": "popup.html"
   },
+  "content_security_policy": "script-src 'self' 'wasm-unsafe-eval' https://esm.sh; object-src 'self'",
   "permissions": [
     "tabs",
     "<all_urls>",
