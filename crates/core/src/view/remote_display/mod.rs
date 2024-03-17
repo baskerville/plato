@@ -17,6 +17,7 @@ use rumqttc::{
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
+use tokio::time::sleep;
 use std::io::Read;
 use std::sync::{mpsc as std_mpsc, Arc};
 use std::thread::spawn;
@@ -66,8 +67,6 @@ async fn display_connection(
     let (client, mut eventloop) = AsyncClient::new(mqo, 10);
     let sub_topic = topic.clone() + "/device";
     let pub_topic = topic.clone() + "/browser";
-    client.subscribe(sub_topic, QoS::ExactlyOnce).await?;
-    event_tx.send(Event::Notify("Connected".to_string()))?;
     loop {
         tokio::select! {
             Some(socket_event) = socket_rx.recv() => {
@@ -77,7 +76,7 @@ async fn display_connection(
                         break;
                     }
                     SocketEvent::SendJSON(value) => {
-                        client.publish(pub_topic.clone(), QoS::ExactlyOnce, false, value.to_string()).await?;
+                        client.publish(pub_topic.clone(), QoS::AtMostOnce, false, value.to_string()).await?;
                     }
                 }
             }
@@ -106,12 +105,15 @@ async fn display_connection(
                     Ok(rumqttc::Event::Incoming(
                         Incoming::ConnAck(ConnAck { session_present: _, code: ConnectReturnCode::Success }))
                     ) => {
+                        event_tx.send(Event::Notify("Connected".to_string()))?;
+                        client.subscribe(sub_topic.clone(), QoS::AtMostOnce).await?;
                         event_tx.send(Event::SendRemoteViewSize)?;
                     }
                     Ok(..) => {}
                     Err(e) => {
                         println!("{}", e);
                         event_tx.send(Event::Notify(e.to_string()))?;
+                        sleep(Duration::from_millis(2000)).await;
                     }
                 }
             }
