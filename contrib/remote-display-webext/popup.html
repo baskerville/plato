@@ -1,21 +1,34 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <title>Settings</title>
 </head>
+
 <body>
 
-<form id="form">
-  <label>WebSocket URL:</label>
-  <input id="url" type="text">
-  
-  <label>Enabled:</label>
-  <input id="enabled" type="checkbox">
-  
-  <button type="submit">Save</button>
-</form>
+  <form id="form">
+    <label>
+      WebSocket URL:
+      <input id="url" type="text">
+    </label>
 
-<script src="popup.js"></script>
+    <label>
+      Topic:
+      <input id="topic" type="text">
+    </label>
+
+
+    <label>
+      Enabled:
+      <input id="enabled" type="checkbox">
+    </label>
+
+    <button type="submit">Save</button>
+  </form>
+
+  <script src="popup.js"></script>
 
 </body>
+
 </html>

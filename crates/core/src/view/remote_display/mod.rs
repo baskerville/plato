@@ -7,20 +7,21 @@ use crate::input::{ButtonCode, ButtonStatus, DeviceEvent};
 use crate::view::{Bus, Event, Hub, RenderData, RenderQueue, View};
 use crate::view::{Id, ID_FEEDER};
 use anyhow::Error;
-use base64::{engine::general_purpose, Engine as _};
 use flate2::bufread::ZlibDecoder;
-use futures_util::{SinkExt, StreamExt};
 use image::codecs::pnm::PnmDecoder;
 use image::ImageDecoder;
+use rumqttc::tokio_rustls::rustls::ClientConfig;
+use rumqttc::{
+    AsyncClient, ConnAck, ConnectReturnCode, Incoming, MqttOptions, QoS, TlsConfiguration,
+    Transport,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::io::Read;
-use std::sync::mpsc as std_mpsc;
+use std::sync::{mpsc as std_mpsc, Arc};
 use std::thread::spawn;
+use std::time::Duration;
 use tokio::sync::mpsc as tokio_mpsc;
-use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-use url::Url;
 
 #[derive(Debug, Clone)]
 enum SocketEvent {
@@ -33,83 +34,90 @@ enum SocketEvent {
 enum ServerMessage {
     Notify(String),
     RefreshDisplay,
+    UpdateSize,
 }
 
 #[tokio::main(flavor = "current_thread")]
 async fn display_connection(
     event_tx: std_mpsc::Sender<Event>,
     mut socket_rx: tokio_mpsc::Receiver<SocketEvent>,
-    url: Url,
+    address: String,
+    topic: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let username = url.username();
-    let password = url.password().unwrap_or("");
-
-    let mut request = url.clone().into_client_request()?;
-    match username {
-        "" => {}
-        username => {
-            request.headers_mut().append(
-                "Authorization",
-                format!(
-                    "Basic {}",
-                    general_purpose::STANDARD
-                        .encode(format!("{}:{}", username, password).as_bytes())
-                )
-                .parse()?,
-            );
+    let mut mqo = MqttOptions::parse_url(address)?;
+    mqo.set_keep_alive(Duration::from_secs(30));
+    mqo.set_max_packet_size(1_048_576, 1_048_576);
+    let root_store = rumqttc::tokio_rustls::rustls::RootCertStore {
+        roots: webpki_roots::TLS_SERVER_ROOTS.iter().cloned().collect(),
+    };
+    let cc = ClientConfig::builder()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+    let tlsc = TlsConfiguration::Rustls(Arc::new(cc));
+    match mqo.transport() {
+        Transport::Tls(..) => {
+            mqo.set_transport(Transport::Tls(tlsc));
         }
+        Transport::Wss(..) => {
+            mqo.set_transport(Transport::Wss(tlsc));
+        }
+        _ => {}
     }
-
-    let (mut socket, _) = connect_async(request).await?;
+    let (client, mut eventloop) = AsyncClient::new(mqo, 10);
+    let sub_topic = topic.clone() + "/device";
+    let pub_topic = topic.clone() + "/browser";
+    client.subscribe(sub_topic, QoS::ExactlyOnce).await?;
     event_tx.send(Event::Notify("Connected".to_string()))?;
     loop {
         tokio::select! {
-            Some(event) = socket_rx.recv() => {
-                match event {
-                    SocketEvent::Finished => { break; }
-                    SocketEvent::SendJSON(val) => {
-                        socket.send(Message::Text(val.to_string())).await?;
+            Some(socket_event) = socket_rx.recv() => {
+                match socket_event {
+                    SocketEvent::Finished => {
+                        client.disconnect().await?;
+                        break;
+                    }
+                    SocketEvent::SendJSON(value) => {
+                        client.publish(pub_topic.clone(), QoS::ExactlyOnce, false, value.to_string()).await?;
                     }
                 }
             }
-            Some(msg) = socket.next() => {
-                let text = match msg {
-                    Ok(Message::Text(text)) => text,
-                    Ok(Message::Binary(bin)) => {
-                        event_tx.send(Event::UpdateRemoteView(Box::new(bin)))?;
-                        continue;
-                    },
-                    Ok(Message::Close(_)) => { break; }
-                    Ok(_) => { continue; }
-                    Err(e) => {
-                        event_tx.send(Event::Notify(e.to_string()))?;
-                        break;
-                    }
-                };
+            event = eventloop.poll() => {
+                match event {
+                    Ok(rumqttc::Event::Incoming(Incoming::Publish(p))) => {
+                        let payload = p.payload;
 
-                let server_msg = match serde_json::from_str::<ServerMessage>(&text) {
-                    Ok(sm) => sm,
+                        if !payload.starts_with(&[123, 34]) {
+                            event_tx.send(Event::UpdateRemoteView(Box::new(payload.to_vec())))?;
+                            continue;
+                        }
+                        let message = serde_json::from_slice::<ServerMessage>(&payload)?;
+                        event_tx.send(match message {
+                            ServerMessage::Notify(message) => {
+                                Event::Notify(message)
+                            }
+                            ServerMessage::RefreshDisplay => {
+                                Event::Update(UpdateMode::Full)
+                            }
+                            ServerMessage::UpdateSize => {
+                                Event::SendRemoteViewSize
+                            }
+                        })?;
+                    }
+                    Ok(rumqttc::Event::Incoming(
+                        Incoming::ConnAck(ConnAck { session_present: _, code: ConnectReturnCode::Success }))
+                    ) => {
+                        event_tx.send(Event::SendRemoteViewSize)?;
+                    }
+                    Ok(..) => {}
                     Err(e) => {
                         println!("{}", e);
-                        println!("contents: {}", text);
-                        event_tx.send(Event::Notify("Invalid message from server".to_string()))?;
-                        continue;
-                    }
-                };
-
-                match server_msg {
-                    ServerMessage::Notify(msg) => {
-                        event_tx.send(Event::Notify(msg))?;
-                    }
-                    ServerMessage::RefreshDisplay => {
-                        event_tx.send(Event::Update(UpdateMode::Full))?;
+                        event_tx.send(Event::Notify(e.to_string()))?;
                     }
                 }
             }
         }
     }
     event_tx.send(Event::Notify("Disconnected".to_string()))?;
-    socket.close(None).await?;
 
     Ok(())
 }
@@ -119,7 +127,7 @@ pub struct RemoteDisplay {
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     pixmap: Pixmap,
-    socket_tx: tokio_mpsc::Sender<SocketEvent>,
+    message_tx: tokio_mpsc::Sender<SocketEvent>,
 }
 
 impl RemoteDisplay {
@@ -133,44 +141,28 @@ impl RemoteDisplay {
         let children = Vec::new();
         rq.add(RenderData::new(id, rect, UpdateMode::Full));
 
-        let tx = hub.clone();
-        let my_tx = hub.clone();
-
         let address = context.settings.remote_display.address.clone();
-        let (socket_tx, socket_rx) = tokio_mpsc::channel(10);
-        spawn(move || {
-            let url = match Url::parse(&address) {
-                Ok(url) => url,
+        let topic = context.settings.remote_display.topic.clone();
+
+        let (message_tx, message_rx) = tokio_mpsc::channel(16);
+        let event_tx = hub.clone();
+
+        spawn(
+            move || match display_connection(event_tx.clone(), message_rx, address, topic) {
+                Ok(..) => {}
                 Err(e) => {
-                    my_tx.send(Event::Back).ok();
-                    tx.send(Event::Notify(e.to_string())).ok();
-                    return;
+                    event_tx.send(Event::Back).ok();
+                    event_tx.send(Event::Notify(e.to_string())).ok();
                 }
-            };
-            match display_connection(tx, socket_rx, url) {
-                Ok(_) => {}
-                Err(e) => {
-                    my_tx.send(Event::Back).ok();
-                    my_tx.send(Event::Notify(e.to_string())).ok();
-                }
-            }
-        });
-        socket_tx
-            .try_send(SocketEvent::SendJSON(json!({
-                "type": "size",
-                "value": {
-                    "width": rect.width(),
-                    "height": rect.height(),
-                }
-            })))
-            .ok();
+            },
+        );
 
         RemoteDisplay {
             id,
             rect,
             children,
-            socket_tx,
             pixmap: Pixmap::new(rect.width(), rect.height()),
+            message_tx,
         }
     }
 
@@ -182,7 +174,7 @@ impl RemoteDisplay {
         let mut pixmap = Pixmap::new(width, height);
         dec.read_image(&mut pixmap.data_mut())?;
         self.pixmap = pixmap;
-        self.socket_tx
+        self.message_tx
             .try_send(SocketEvent::SendJSON(json!({
                 "type": "displayUpdated",
             })))
@@ -206,12 +198,12 @@ impl View for RemoteDisplay {
                 start: _start,
                 end: _end,
             }) => {
-                self.socket_tx.try_send(SocketEvent::Finished).ok();
+                self.message_tx.try_send(SocketEvent::Finished).ok();
                 bus.push_back(Event::Back);
                 true
             }
             Event::Gesture(ge) => {
-                self.socket_tx
+                self.message_tx
                     .try_send(SocketEvent::SendJSON(serde_json::to_value(ge).unwrap()))
                     .ok();
                 true
@@ -227,7 +219,7 @@ impl View for RemoteDisplay {
                     ButtonStatus::Released => "released",
                     ButtonStatus::Repeated => "repeated",
                 };
-                self.socket_tx
+                self.message_tx
                     .try_send(SocketEvent::SendJSON(json!({
                         "type": "button",
                         "value": {
@@ -248,6 +240,18 @@ impl View for RemoteDisplay {
                     }
                 }
                 rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+                true
+            }
+            Event::SendRemoteViewSize => {
+                self.message_tx
+                    .try_send(SocketEvent::SendJSON(json!({
+                        "type": "size",
+                        "value": {
+                            "width": self.rect.width(),
+                            "height": self.rect.height(),
+                        }
+                    })))
+                    .ok();
                 true
             }
             Event::Update(UpdateMode::Full) => {
@@ -286,17 +290,8 @@ impl View for RemoteDisplay {
             self.children[i].resize(rect, hub, rq, context);
         }
 
-        self.socket_tx
-            .try_send(SocketEvent::SendJSON(json!({
-                "type": "size",
-                "value": {
-                    "width": rect.width(),
-                    "height": rect.height(),
-                }
-            })))
-            .ok();
-
         self.rect = rect;
+        hub.send(Event::SendRemoteViewSize).unwrap();
         rq.add(RenderData::new(self.id, self.rect, UpdateMode::Full));
     }
 

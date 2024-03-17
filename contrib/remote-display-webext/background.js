@@ -167,7 +167,7 @@ async function offsetContrastFilter(offset) {
 let scaleFactor = 1;
 let deviceWidth = 0;
 let deviceHeight = 0;
-let ws;
+let mq;
 
 import {
   ColorSpace,
@@ -179,6 +179,9 @@ import {
   MagickGeometry
 } from "https://esm.sh/@imagemagick/magick-wasm@0.0.28";
 import { Foras, Memory, zlib } from "https://esm.sh/@hazae41/foras@2.1.4";
+import mqtt from "https://esm.sh/mqtt@5.4.0";
+const connectMq = mqtt.connect;
+
 const wasmFile =
   "https://esm.sh/@imagemagick/magick-wasm@0.0.28/dist/magick.wasm";
 await fetch(wasmFile, { cache: "force-cache" })
@@ -186,8 +189,24 @@ await fetch(wasmFile, { cache: "force-cache" })
   .then(a => initializeImageMagick(a));
 await Foras.initBundledOnce();
 
+let topic = "remote-display-webext";
+function send(msg) {
+  if (mq?.connected) {
+    mq.publish(`${topic}/device`, JSON.stringify(msg));
+  }
+}
+
+function sendNotice(notice) {
+  send({ type: "notify", value: notice });
+}
+
 async function sendImage() {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (!mq?.connected) return;
+  if (!deviceWidth || !deviceHeight) {
+    send({ type: "updateSize" });
+    console.log("cannot update image without size");
+    return;
+  }
   console.log("capturing");
   const { id } = await currentTab();
   const dataUrl = await browser.tabs.captureTab(id, {
@@ -207,23 +226,20 @@ async function sendImage() {
     img.resize(mg);
     img.quantize(qs);
     img.write(MagickFormat.Pnm, (data) => {
-      ws.send(zlib(new Memory(data)).bytes);
+      mq.publish(`${topic}/device`, zlib(new Memory(data)).bytes);
     });
   });
 
   await new Promise((resolve) => {
-    ws.addEventListener("message", (e) => {
-      const msg = JSON.parse(e.data);
+    const updated = (_, m) => {
+      const msg = JSON.parse(m.toString());
+      mq.off("message", updated);
       if (msg.type === "displayUpdated") {
         resolve();
       }
-    }, { once: true });
+    }
+    mq.on("message", updated);
   });
-}
-
-function sendNotice(notice) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ type: "notify", value: notice }));
 }
 
 let timeout;
@@ -243,9 +259,8 @@ browser.tabs.onUpdated.addListener(async (_id, changeInfo, tab) => {
   }, 1000);
 });
 
-async function onMessage(e) {
-  console.log("message", e);
-  const msg = JSON.parse(e.data);
+async function onMessage(msg) {
+  console.log("message", msg);
   switch (msg.type) {
     case "size": {
       const { width, height } = msg.value;
@@ -344,7 +359,7 @@ async function onMessage(e) {
     case "holdFingerShort":
       await resizeViewport(deviceWidth / scaleFactor, deviceHeight / scaleFactor);
       await sendImage();
-      await ws.send(JSON.stringify({ type: "refreshDisplay" }));
+      send({ type: "refreshDisplay" });
       break;
     case "holdFingerLong": {
       const [{ x, y }] = msg.value;
@@ -388,59 +403,50 @@ async function onMessage(e) {
 }
 
 const defaultConfig = {
-  wsUrl: "ws://localhost:8222/browser",
+  wsUrl: "wss://broker.hivemq.com:8884/mqtt",
+  topic: "remote-display-webext",
   enabled: false,
 };
 
 async function getConfig() {
-  const result = await browser.storage.local.get(["wsUrl", "enabled"]);
+  const result = await browser.storage.local.get(["wsUrl", "topic", "enabled"]);
+  topic = result.topic || defaultConfig.topic;
   await browser.storage.local.set({ ...defaultConfig, ...result });
   return { ...defaultConfig, ...result };
 }
 
-const RETRY_TIMEOUT = 5000;
-let { enabled, wsUrl } = defaultConfig;
-function connect(config) {
-  enabled = config.enabled;
-  wsUrl = config.wsUrl;
-  if (!enabled) return;
-  ws = new WebSocket(wsUrl);
-  ws.addEventListener("open", () => {
-    console.log("connected");
-  });
-  ws.addEventListener("close", () => {
-    if (!enabled) return;
-    console.log("disconnected");
-    setTimeout(() => {
-      getConfig().then(connect).catch(console.error);
-    }, RETRY_TIMEOUT);
-  });
-  ws.addEventListener("message", onMessage);
+
+function refreshConnection(config) {
+  if (config.enabled && !mq?.connected) {
+    mq = connectMq(config.wsUrl);
+    mq.subscribe(`${config.topic}/browser`);
+    mq.on("message", (_topic, message) => onMessage(JSON.parse(message.toString())));
+    mq.on("connect", () => {
+      console.log("connected");
+    });
+    mq.on("disconnect", () => {
+      console.log("disconnected");
+    });
+  } else if (!config.enabled && mq?.connected) {
+    mq.end();
+  }
 }
 
-getConfig().then(connect).catch(console.error);
+getConfig().then(refreshConnection).catch(console.error);
 
 browser.storage.local.onChanged.addListener((changes) => {
   if (
-    "enabled" in changes &&
-    changes.enabled.newValue &&
-    !changes.enabled.oldValue &&
-    (!ws || ws.readyState === WebSocket.CLOSED)
+    (
+      ("wsUrl" in changes && changes.wsUrl.newValue !== changes.wsUrl.oldValue)
+      || ("topic" in changes && changes.topic.newValue !== changes.topic.oldValue)
+    ) &&
+    mq?.connected
   ) {
-    getConfig().then(connect).catch(console.error);
-  } else if (
-    "enabled" in changes &&
-    !changes.enabled.newValue &&
-    changes.enabled.oldValue &&
-    ws
-  ) {
-    ws.close();
-  } else if (
-    "wsUrl" in changes &&
-    changes.wsUrl.newValue !== changes.wsUrl.oldValue &&
-    ws
-  ) {
-    ws.close();
+    mq.end();
+    getConfig().then(refreshConnection).catch(console.error);
+  }
+  if ("enabled" in changes && changes.enabled.newValue !== changes.enabled.oldValue) {
+    getConfig().then(refreshConnection).catch(console.error);
   }
 });
 

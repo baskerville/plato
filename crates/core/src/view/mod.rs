@@ -364,7 +364,8 @@ pub enum Event {
     Back,
     Quit,
     WakeUp,
-    UpdateRemoteView(Box<Vec<u8>>)
+    UpdateRemoteView(Box<Vec<u8>>),
+    SendRemoteViewSize
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]

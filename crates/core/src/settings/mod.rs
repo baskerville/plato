@@ -6,6 +6,8 @@ use std::fmt::{self, Debug};
 use std::path::PathBuf;
 use std::collections::{BTreeMap, HashMap};
 use fxhash::FxHashSet;
+use rand::distributions::Alphanumeric;
+use rand::Rng;
 use serde::{Serialize, Deserialize};
 use crate::metadata::{SortMethod, TextAlign};
 use crate::frontlight::LightLevels;
@@ -197,14 +199,24 @@ impl Default for DictionarySettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct RemoteDisplaySettings {
-    pub address: String
+    pub address: String,
+    pub topic: String,
 }
 
 impl Default for RemoteDisplaySettings {
     fn default() -> Self {
-        RemoteDisplaySettings {
-            address: "ws://localhost:8222/device".to_string()
-        }
+        let topic: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(16)
+            .map(char::from)
+            .collect();
+        let client_id: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(16)
+            .map(char::from)
+            .collect();
+        let address = format!("mqtts://broker.hivemq.com?client_id={}", client_id);
+        RemoteDisplaySettings { address, topic }
     }
 }
 

@@ -1,6 +1,0 @@
-FROM denoland/deno:alpine-1.41.2
-WORKDIR /app
-ADD ./contrib/remote-display-server.ts .
-RUN deno cache remote-display-server.ts
-EXPOSE 8222
-CMD ["run", "-A", "remote-display-server.ts"]
