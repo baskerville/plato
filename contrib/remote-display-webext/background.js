@@ -418,10 +418,17 @@ async function getConfig() {
 
 function refreshConnection(config) {
   if (config.enabled && !mq?.connected) {
-    mq = connectMq(config.wsUrl);
+    mq = connectMq(config.wsUrl, {
+      will: {
+        topic: `${config.topic}/device`,
+        payload: JSON.stringify({ type: "notify", value: "Browser disconnected" }),
+        qos: 0,
+      }
+    });
     mq.subscribe(`${config.topic}/browser`);
     mq.on("message", (_topic, message) => onMessage(JSON.parse(message.toString())));
     mq.on("connect", () => {
+      sendNotice("Browser connected");
       console.log("connected");
     });
     mq.on("disconnect", () => {
