@@ -7,6 +7,8 @@ use crate::input::{ButtonCode, ButtonStatus, DeviceEvent};
 use crate::view::{Bus, Event, Hub, RenderData, RenderQueue, View};
 use crate::view::{Id, ID_FEEDER};
 use anyhow::Error;
+use bytes::Buf;
+use coset::cbor::{cbor, de::from_reader, ser::into_writer, Value};
 use flate2::bufread::ZlibDecoder;
 use image::codecs::pnm::PnmDecoder;
 use image::ImageDecoder;
@@ -16,18 +18,17 @@ use rumqttc::{
     Transport,
 };
 use serde::Deserialize;
-use serde_json::{json, Value};
-use tokio::time::sleep;
 use std::io::Read;
 use std::sync::{mpsc as std_mpsc, Arc};
 use std::thread::spawn;
 use std::time::Duration;
 use tokio::sync::mpsc as tokio_mpsc;
+use tokio::time::sleep;
 
 #[derive(Debug, Clone)]
 enum SocketEvent {
     Finished,
-    SendJSON(Value),
+    SendMessage(Value),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -36,6 +37,7 @@ enum ServerMessage {
     Notify(String),
     RefreshDisplay,
     UpdateSize,
+    UpdateDisplay(Vec<u8>),
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -75,21 +77,17 @@ async fn display_connection(
                         client.disconnect().await?;
                         break;
                     }
-                    SocketEvent::SendJSON(value) => {
-                        client.publish(pub_topic.clone(), QoS::AtMostOnce, false, value.to_string()).await?;
+                    SocketEvent::SendMessage(value) => {
+                        let mut writer = Vec::new();
+                        into_writer(&value, &mut writer)?;
+                        client.publish(pub_topic.clone(), QoS::AtMostOnce, false, writer).await?;
                     }
                 }
             }
             event = eventloop.poll() => {
                 match event {
                     Ok(rumqttc::Event::Incoming(Incoming::Publish(p))) => {
-                        let payload = p.payload;
-
-                        if !payload.starts_with(&[123, 34]) {
-                            event_tx.send(Event::UpdateRemoteView(Box::new(payload.to_vec())))?;
-                            continue;
-                        }
-                        let message = serde_json::from_slice::<ServerMessage>(&payload)?;
+                        let message = from_reader(p.payload.chunk())?;
                         event_tx.send(match message {
                             ServerMessage::Notify(message) => {
                                 Event::Notify(message)
@@ -99,6 +97,9 @@ async fn display_connection(
                             }
                             ServerMessage::UpdateSize => {
                                 Event::SendRemoteViewSize
+                            }
+                            ServerMessage::UpdateDisplay(data) => {
+                                Event::UpdateRemoteView(Box::new(data))
                             }
                         })?;
                     }
@@ -177,9 +178,9 @@ impl RemoteDisplay {
         dec.read_image(&mut pixmap.data_mut())?;
         self.pixmap = pixmap;
         self.message_tx
-            .try_send(SocketEvent::SendJSON(json!({
-                "type": "displayUpdated",
-            })))
+            .try_send(SocketEvent::SendMessage(cbor!({
+                "type" => "displayUpdated",
+            })?))
             .ok();
         Ok(())
     }
@@ -206,7 +207,7 @@ impl View for RemoteDisplay {
             }
             Event::Gesture(ge) => {
                 self.message_tx
-                    .try_send(SocketEvent::SendJSON(serde_json::to_value(ge).unwrap()))
+                    .try_send(SocketEvent::SendMessage(cbor!(ge).unwrap()))
                     .ok();
                 true
             }
@@ -222,13 +223,16 @@ impl View for RemoteDisplay {
                     ButtonStatus::Repeated => "repeated",
                 };
                 self.message_tx
-                    .try_send(SocketEvent::SendJSON(json!({
-                        "type": "button",
-                        "value": {
-                            "button": button,
-                            "status": status,
-                        }
-                    })))
+                    .try_send(SocketEvent::SendMessage(
+                        cbor!({
+                            "type" => "button",
+                            "value" => {
+                                "button" => button,
+                                "status" => status,
+                            }
+                        })
+                        .unwrap(),
+                    ))
                     .ok();
                 true
             }
@@ -246,13 +250,16 @@ impl View for RemoteDisplay {
             }
             Event::SendRemoteViewSize => {
                 self.message_tx
-                    .try_send(SocketEvent::SendJSON(json!({
-                        "type": "size",
-                        "value": {
-                            "width": self.rect.width(),
-                            "height": self.rect.height(),
-                        }
-                    })))
+                    .try_send(SocketEvent::SendMessage(
+                        cbor!({
+                            "type" => "size",
+                            "value" => {
+                                "width" => self.rect.width(),
+                                "height" => self.rect.height(),
+                            }
+                        })
+                        .unwrap(),
+                    ))
                     .ok();
                 true
             }

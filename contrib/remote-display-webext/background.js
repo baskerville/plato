@@ -180,6 +180,7 @@ import {
 } from "https://esm.sh/@imagemagick/magick-wasm@0.0.28";
 import { Foras, Memory, zlib } from "https://esm.sh/@hazae41/foras@2.1.4";
 import mqtt from "https://esm.sh/mqtt@5.4.0";
+import { encode, decode } from "https://esm.sh/cborg@4.1.4";
 const connectMq = mqtt.connect;
 
 const wasmFile =
@@ -192,7 +193,7 @@ await Foras.initBundledOnce();
 let topic = "remote-display-webext";
 function send(msg) {
   if (mq?.connected) {
-    mq.publish(`${topic}/device`, JSON.stringify(msg));
+    mq.publish(`${topic}/device`, encode(msg));
   }
 }
 
@@ -226,13 +227,13 @@ async function sendImage() {
     img.resize(mg);
     img.quantize(qs);
     img.write(MagickFormat.Pnm, (data) => {
-      mq.publish(`${topic}/device`, zlib(new Memory(data)).bytes);
+      send({ type: "updateDisplay", value: zlib(new Memory(data)).bytes });
     });
   });
 
   await new Promise((resolve) => {
     const updated = (_, m) => {
-      const msg = JSON.parse(m.toString());
+      const msg = decode(m);
       mq.off("message", updated);
       if (msg.type === "displayUpdated") {
         resolve();
@@ -421,12 +422,12 @@ function refreshConnection(config) {
     mq = connectMq(config.wsUrl, {
       will: {
         topic: `${config.topic}/device`,
-        payload: JSON.stringify({ type: "notify", value: "Browser disconnected" }),
+        payload: encode({ type: "notify", value: "Browser disconnected" }),
         qos: 0,
       }
     });
     mq.subscribe(`${config.topic}/browser`);
-    mq.on("message", (_topic, message) => onMessage(JSON.parse(message.toString())));
+    mq.on("message", (_topic, message) => onMessage(decode(message)));
     mq.on("connect", () => {
       sendNotice("Browser connected");
       console.log("connected");

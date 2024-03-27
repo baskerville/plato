@@ -46,3 +46,5 @@ tokio = { version = "1.32.0", features = ["macros", "rt", "net", "sync"] }
 rumqttc = { version = "0.24.0", features = ["use-rustls", "websocket", "url"] }
 rand = "=0.8.5"
 webpki-roots = "0.26.1"
+coset = "0.3.6"
+bytes = "^1.5"
