@@ -236,6 +236,7 @@ async function sendImage() {
       const msg = decode(m);
       mq.off("message", updated);
       if (msg.type === "displayUpdated") {
+        console.log("resolved display update roundtrip")
         resolve();
       }
     }
@@ -430,6 +431,7 @@ function refreshConnection(config) {
     mq.on("message", (_topic, message) => onMessage(decode(message)));
     mq.on("connect", () => {
       sendNotice("Browser connected");
+      send({ type: "updateSize" });
       console.log("connected");
     });
     mq.on("disconnect", () => {
