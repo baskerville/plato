@@ -4,7 +4,8 @@ use std::cmp::Ordering;
 use std::f32::consts;
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign};
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Dir {
     North,
     East,
@@ -41,7 +42,8 @@ impl fmt::Display for Dir {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum DiagDir {
     NorthWest,
     NorthEast,
@@ -71,7 +73,8 @@ impl fmt::Display for DiagDir {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Axis {
     Horizontal,
     Vertical,

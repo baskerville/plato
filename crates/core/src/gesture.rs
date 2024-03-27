@@ -5,6 +5,7 @@ use fxhash::FxHashMap;
 use std::f64;
 use std::time::Duration;
 use std::thread;
+use serde::Serialize;
 use crate::unit::mm_to_px;
 use crate::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use crate::view::Event;
@@ -16,7 +17,8 @@ pub const HOLD_JITTER_MM: f32 = 1.5;
 pub const HOLD_DELAY_SHORT: Duration = Duration::from_millis(666);
 pub const HOLD_DELAY_LONG: Duration = Duration::from_millis(1333);
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize)]
+#[serde(rename_all = "camelCase", tag = "type", content = "value")]
 pub enum GestureEvent {
     Tap(Point),
     MultiTap([Point; 2]),
