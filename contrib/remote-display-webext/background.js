@@ -181,6 +181,11 @@ import {
 import { Foras, Memory, zlib } from "https://esm.sh/@hazae41/foras@2.1.4";
 import mqtt from "https://esm.sh/mqtt@5.4.0";
 import { encode, decode } from "https://esm.sh/cborg@4.1.4";
+import { Encrypt0Message } from "https://esm.sh/@ldclabs/cose-ts@1.1.1/encrypt0?dev";
+import { hexToBytes } from "https://esm.sh/@ldclabs/cose-ts@1.1.1/utils?dev";
+import { Header } from "https://esm.sh/@ldclabs/cose-ts@1.1.1/header?dev";
+import { ChaCha20Poly1305Key } from "https://esm.sh/@ldclabs/cose-ts@1.1.1/chacha20poly1305?dev";
+import * as iana from "https://esm.sh/@ldclabs/cose-ts@1.1.1/iana?dev";
 const connectMq = mqtt.connect;
 
 const wasmFile =
@@ -191,10 +196,33 @@ await fetch(wasmFile, { cache: "force-cache" })
 await Foras.initBundledOnce();
 
 let topic = "remote-display-webext";
-function send(msg) {
-  if (mq?.connected) {
-    mq.publish(`${topic}/device`, encode(msg));
+let key;
+
+async function encodeCipher(msg) {
+  if (!key) {
+    throw new Error("no key");
   }
+  const nonce = new Uint8Array(12);
+  crypto.getRandomValues(nonce);
+  return await new Encrypt0Message(
+    encode(msg),
+    new Header().setParam(iana.HeaderParameterAlg, iana.AlgorithmChaCha20Poly1305),
+    new Header().setParam(iana.HeaderParameterIV, nonce),
+  ).toBytes(key);
+}
+
+async function send(msg) {
+  if (mq?.connected) {
+    mq.publish(`${topic}/device`, await encodeCipher(msg));
+  }
+}
+
+async function decodeCipher(msg) {
+  if (!key) {
+    throw new Error("no key");
+  }
+  const emsg = await Encrypt0Message.fromBytes(key, new Uint8Array(msg));
+  return decode(emsg.payload);
 }
 
 function sendNotice(notice) {
@@ -232,8 +260,8 @@ async function sendImage() {
   });
 
   await new Promise((resolve) => {
-    const updated = (_, m) => {
-      const msg = decode(m);
+    const updated = async (_, m) => {
+      const msg = await decodeCipher(m);
       mq.off("message", updated);
       if (msg.type === "displayUpdated") {
         console.log("resolved display update roundtrip")
@@ -408,27 +436,30 @@ const defaultConfig = {
   wsUrl: "wss://broker.hivemq.com:8884/mqtt",
   topic: "remote-display-webext",
   enabled: false,
+  key: "",
 };
 
 async function getConfig() {
-  const result = await browser.storage.local.get(["wsUrl", "topic", "enabled"]);
+  const result = await browser.storage.local.get(["wsUrl", "topic", "enabled", "key"]);
   topic = result.topic || defaultConfig.topic;
+  const hexKey = result.key || defaultConfig.key;
+  key = ChaCha20Poly1305Key.fromSecret(hexToBytes(hexKey));
   await browser.storage.local.set({ ...defaultConfig, ...result });
   return { ...defaultConfig, ...result };
 }
 
 
-function refreshConnection(config) {
+async function refreshConnection(config) {
   if (config.enabled && !mq?.connected) {
     mq = connectMq(config.wsUrl, {
       will: {
         topic: `${config.topic}/device`,
-        payload: encode({ type: "notify", value: "Browser disconnected" }),
+        payload: await encodeCipher({ type: "notify", value: "Browser disconnected" }),
         qos: 0,
       }
     });
     mq.subscribe(`${config.topic}/browser`);
-    mq.on("message", (_topic, message) => onMessage(decode(message)));
+    mq.on("message", (_topic, message) => decodeCipher(message).then(onMessage));
     mq.on("connect", () => {
       sendNotice("Browser connected");
       send({ type: "updateSize" });

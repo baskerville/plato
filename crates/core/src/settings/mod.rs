@@ -5,6 +5,10 @@ use std::ops::Index;
 use std::fmt::{self, Debug};
 use std::path::PathBuf;
 use std::collections::{BTreeMap, HashMap};
+use chacha20poly1305::KeyInit;
+use chacha20poly1305::{
+    aead::OsRng, ChaCha20Poly1305,
+};
 use fxhash::FxHashSet;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
@@ -201,6 +205,7 @@ impl Default for DictionarySettings {
 pub struct RemoteDisplaySettings {
     pub address: String,
     pub topic: String,
+    pub key: String,
 }
 
 impl Default for RemoteDisplaySettings {
@@ -216,7 +221,9 @@ impl Default for RemoteDisplaySettings {
             .map(char::from)
             .collect();
         let address = format!("mqtts://broker.hivemq.com?client_id={}", client_id);
-        RemoteDisplaySettings { address, topic }
+        let cha_key = ChaCha20Poly1305::generate_key(&mut OsRng);
+        let key = hex::encode(cha_key.as_slice());
+        RemoteDisplaySettings { address, topic, key }
     }
 }
 

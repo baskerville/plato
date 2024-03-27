@@ -8,7 +8,12 @@ use crate::view::{Bus, Event, Hub, RenderData, RenderQueue, View};
 use crate::view::{Id, ID_FEEDER};
 use anyhow::Error;
 use bytes::Buf;
+use chacha20poly1305::KeyInit;
+use chacha20poly1305::{
+    aead::generic_array::GenericArray, aead::OsRng, AeadCore, AeadInPlace, ChaCha20Poly1305,
+};
 use coset::cbor::{cbor, de::from_reader, ser::into_writer, Value};
+use coset::{CborSerializable, CoseEncrypt0, CoseEncrypt0Builder, HeaderBuilder};
 use flate2::bufread::ZlibDecoder;
 use image::codecs::pnm::PnmDecoder;
 use image::ImageDecoder;
@@ -46,6 +51,7 @@ async fn display_connection(
     mut socket_rx: tokio_mpsc::Receiver<SocketEvent>,
     address: String,
     topic: String,
+    hex_key: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut mqo = MqttOptions::parse_url(address)?;
     mqo.set_keep_alive(Duration::from_secs(30));
@@ -69,6 +75,14 @@ async fn display_connection(
     let (client, mut eventloop) = AsyncClient::new(mqo, 10);
     let sub_topic = topic.clone() + "/device";
     let pub_topic = topic.clone() + "/browser";
+
+    let header = HeaderBuilder::new()
+        .algorithm(coset::iana::Algorithm::ChaCha20Poly1305)
+        .build();
+
+    let key = hex::decode(hex_key)?;
+    let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key.as_slice()));
+
     loop {
         tokio::select! {
             Some(socket_event) = socket_rx.recv() => {
@@ -80,14 +94,38 @@ async fn display_connection(
                     SocketEvent::SendMessage(value) => {
                         let mut writer = Vec::new();
                         into_writer(&value, &mut writer)?;
-                        client.publish(pub_topic.clone(), QoS::AtMostOnce, false, writer).await?;
+                        let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+                        let payload = CoseEncrypt0Builder::new()
+                            .protected(header.clone())
+                            .unprotected(HeaderBuilder::new().iv(nonce.into_iter().collect()).build())
+                            .try_create_ciphertext(writer.as_slice(), &[], |pt, aad| {
+                                let mut out = pt.to_vec();
+                                cipher.encrypt_in_place(&nonce, aad, &mut out)
+                                    .map_err(|e| anyhow::anyhow!("Encryption error: {}", e.to_string()))
+                                    .map(|_| out)
+                            })?
+                            .build()
+                            .to_vec()
+                            .map_err(|e| anyhow::anyhow!("Encryption error: {}", e.to_string()))?;
+                        client.publish(pub_topic.clone(), QoS::AtMostOnce, false, payload).await?;
                     }
                 }
             }
             event = eventloop.poll() => {
                 match event {
                     Ok(rumqttc::Event::Incoming(Incoming::Publish(p))) => {
-                        let message = from_reader(p.payload.chunk())?;
+                        let ct_obj = CoseEncrypt0::from_slice(p.payload.chunk())
+                            .map_err(|e| anyhow::anyhow!("Encrypted message format error: {}", e.to_string()))?;
+                        let pt = ct_obj.decrypt(&[], |pt, aad| {
+                                let mut out = pt.to_vec();
+                                cipher.decrypt_in_place(
+                                    GenericArray::from_slice(ct_obj.unprotected.iv.as_slice()),
+                                    aad, &mut out
+                                )
+                                    .map_err(|e| anyhow::anyhow!("Decryption error: {}", e.to_string()))
+                                    .map(|_| out)
+                            })?;
+                        let message = from_reader(pt.as_slice())?;
                         event_tx.send(match message {
                             ServerMessage::Notify(message) => {
                                 Event::Notify(message)
@@ -146,19 +184,20 @@ impl RemoteDisplay {
 
         let address = context.settings.remote_display.address.clone();
         let topic = context.settings.remote_display.topic.clone();
+        let key = context.settings.remote_display.key.clone();
 
         let (message_tx, message_rx) = tokio_mpsc::channel(16);
         let event_tx = hub.clone();
 
-        spawn(
-            move || match display_connection(event_tx.clone(), message_rx, address, topic) {
+        spawn(move || {
+            match display_connection(event_tx.clone(), message_rx, address, topic, key) {
                 Ok(..) => {}
                 Err(e) => {
                     event_tx.send(Event::Back).ok();
                     event_tx.send(Event::Notify(e.to_string())).ok();
                 }
-            },
-        );
+            }
+        });
 
         RemoteDisplay {
             id,
