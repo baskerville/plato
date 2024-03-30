@@ -238,6 +238,7 @@ async function sendImage() {
   }
   console.log("capturing");
   const { id } = await currentTab();
+  await new Promise(r => setTimeout(r, 175));
   const dataUrl = await browser.tabs.captureTab(id, {
     scale: scaleFactor,
   });
