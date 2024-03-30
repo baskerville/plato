@@ -14,16 +14,13 @@ use chacha20poly1305::{
 };
 use coset::cbor::{cbor, de::from_reader, ser::into_writer, Value};
 use coset::{CborSerializable, CoseEncrypt0, CoseEncrypt0Builder, HeaderBuilder};
-use flate2::bufread::ZlibDecoder;
-use image::codecs::pnm::PnmDecoder;
-use image::ImageDecoder;
+use jxl_oxide::JxlImage;
 use rumqttc::tokio_rustls::rustls::ClientConfig;
 use rumqttc::{
     AsyncClient, ConnAck, ConnectReturnCode, Incoming, MqttOptions, QoS, TlsConfiguration,
     Transport,
 };
 use serde::Deserialize;
-use std::io::Read;
 use std::sync::{mpsc as std_mpsc, Arc};
 use std::thread::spawn;
 use std::time::Duration;
@@ -208,19 +205,27 @@ impl RemoteDisplay {
         }
     }
 
-    fn update_remote_view(&mut self, deflated_data: Box<Vec<u8>>) -> Result<(), Error> {
-        let mut inflated = Vec::new();
-        ZlibDecoder::new(deflated_data.as_slice()).read_to_end(&mut inflated)?;
-        let dec = PnmDecoder::new(inflated.as_slice())?;
-        let (width, height) = dec.dimensions();
-        let mut pixmap = Pixmap::new(width, height);
-        dec.read_image(&mut pixmap.data_mut())?;
+    fn update_remote_view(&mut self, jxl_data: &Box<Vec<u8>>) -> Result<(), Error> { 
+        let jxl = JxlImage::builder()
+            .read(jxl_data.as_slice())
+            .map_err(|e| anyhow::anyhow!("JXL decoding error: {}", e))?;
+        let render = jxl
+            .render_frame(jxl.num_loaded_keyframes() - 1)
+            .map_err(|e| anyhow::anyhow!("JXL rendering error: {}", e))?
+            .image_planar()
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("No channels in JXL image"))?
+            .buf()
+            .iter()
+            .map(|&f| (f * 255.0).round() as u8)
+            .collect::<Vec<u8>>();
+        let mut pixmap = Pixmap::new(jxl.width(), jxl.height());
+        pixmap.data_mut().copy_from_slice(&render);
         self.pixmap = pixmap;
         self.message_tx
             .try_send(SocketEvent::SendMessage(cbor!({
                 "type" => "displayUpdated",
-            })?))
-            .ok();
+            })?))?;
         Ok(())
     }
 }
@@ -275,9 +280,8 @@ impl View for RemoteDisplay {
                     .ok();
                 true
             }
-            Event::UpdateRemoteView(ref pbm_data) => {
-                let data = pbm_data.clone();
-                match self.update_remote_view(data) {
+            Event::UpdateRemoteView(ref jxl_data) => {
+                match self.update_remote_view(jxl_data) {
                     Ok(..) => {}
                     Err(e) => {
                         println!("{}", e);

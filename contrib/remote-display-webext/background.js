@@ -178,7 +178,6 @@ import {
   QuantizeSettings,
   MagickGeometry
 } from "https://esm.sh/@imagemagick/magick-wasm@0.0.28";
-import { Foras, Memory, zlib } from "https://esm.sh/@hazae41/foras@2.1.4";
 import mqtt from "https://esm.sh/mqtt@5.4.0";
 import { encode, decode } from "https://esm.sh/cborg@4.1.4";
 import { Encrypt0Message } from "https://esm.sh/@ldclabs/cose-ts@1.1.1/encrypt0?dev";
@@ -193,7 +192,6 @@ const wasmFile =
 await fetch(wasmFile, { cache: "force-cache" })
   .then(a => a.arrayBuffer())
   .then(a => initializeImageMagick(a));
-await Foras.initBundledOnce();
 
 let topic = "remote-display-webext";
 let key;
@@ -246,16 +244,24 @@ async function sendImage() {
     .then(a => a.arrayBuffer())
     .then(a => new Uint8Array(a));
 
+  const { monochrome = false, quality = "100" } =
+    await browser.storage.local.get(['monochrome', 'quality']);
+
   ImageMagick.read(buf, (img) => {
     const mg = new MagickGeometry(deviceWidth, deviceHeight);
     mg.ignoreAspectRatio = true;
     const qs = new QuantizeSettings();
     qs.colorSpace = ColorSpace.Gray;
     qs.ditherMethod = DitherMethod.FloydSteinberg;
+    if (monochrome) qs.colors = 2;
     img.resize(mg);
     img.quantize(qs);
-    img.write(MagickFormat.Pnm, (data) => {
-      send({ type: "updateDisplay", value: zlib(new Memory(data)).bytes });
+    img.quality = parseInt(quality);
+    img.settings.setDefine("jxl:effort", "10")
+    img.write(MagickFormat.Jxl, (value) => {
+      const size = value.length / 1024;
+      console.log(`captured JXL size: ${size.toFixed(2)} KB`);
+      send({ type: "updateDisplay", value });
     });
   });
 

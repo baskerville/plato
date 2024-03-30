@@ -7,7 +7,7 @@
 
 <body>
 
-  <form id="form">
+  <form id="form" style="display: flex; flex-direction: column;">
     <label>
       WebSocket URL:
       <input id="url" type="text">
@@ -21,6 +21,16 @@
     <label>
       Key:
       <input id="key" type="text">
+    </label>
+    
+    <label>
+      Monochrome:
+      <input id="monochrome" type="checkbox">
+    </label>
+    
+    <label>
+      Quality:
+      <input id="quality" type="number" min="1" max="100">
     </label>
 
     <label>

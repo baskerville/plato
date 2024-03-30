@@ -39,7 +39,6 @@ rand_core = "0.6.4"
 rand_xoshiro = "0.6.0"
 percent-encoding = "2.3.1"
 chrono = { version = "0.4.34", features = ["serde", "clock"], default-features = false }
-image = { version = "0.24.7", features = ["pnm"], default-features = false }
 url = { version = "2.1.0" }
 base64 = "0.21.4"
 tokio = { version = "1.32.0", features = ["macros", "rt", "net", "sync"] }
@@ -50,3 +49,4 @@ coset = "0.3.6"
 bytes = "^1.5"
 chacha20poly1305 = "0.10.1"
 hex = "0.4.3"
+jxl-oxide = "0.8.0"
