@@ -262,8 +262,8 @@ async function sendImage() {
   await new Promise((resolve) => {
     const updated = async (_, m) => {
       const msg = await decodeCipher(m);
-      mq.off("message", updated);
       if (msg.type === "displayUpdated") {
+        mq.off("message", updated);
         console.log("resolved display update roundtrip")
         resolve();
       }
