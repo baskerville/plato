@@ -213,7 +213,7 @@ async function encodeCipher(msg) {
 
 async function send(msg) {
   if (mq?.connected) {
-    mq.publish(`${topic}/device`, await encodeCipher(msg));
+    await mq.publishAsync(`${topic}/device`, await encodeCipher(msg));
   }
 }
 
@@ -225,14 +225,14 @@ async function decodeCipher(msg) {
   return decode(emsg.payload);
 }
 
-function sendNotice(notice) {
-  send({ type: "notify", value: notice });
+async function sendNotice(notice) {
+  await send({ type: "notify", value: notice });
 }
 
 async function sendImage() {
   if (!mq?.connected) return;
   if (!deviceWidth || !deviceHeight) {
-    send({ type: "updateSize" });
+    await send({ type: "updateSize" });
     console.log("cannot update image without size");
     return;
   }
@@ -285,7 +285,7 @@ browser.tabs.onUpdated.addListener(async (_id, changeInfo, tab) => {
     console.log("updating from tab load", changeInfo, tab);
     await sendImage();
     const info = await currentTabInfo();
-    sendNotice(info);
+    await sendNotice(info);
   }, 1000);
 });
 
@@ -323,7 +323,7 @@ async function onMessage(msg) {
             : tabOffset(offset));
           await sendImage();
           const info = await currentTabInfo();
-          sendNotice(info);
+          await sendNotice(info);
           break;
         }
       }
@@ -357,11 +357,11 @@ async function onMessage(msg) {
           break;
         case "north": {
           const info = await currentTabInfo();
-          sendNotice(`closing ${info}`);
+          await sendNotice(`closing ${info}`);
           await closeCurrentTab();
           await sendImage();
           const newInfo = await currentTabInfo();
-          sendNotice(newInfo);
+          await sendNotice(newInfo);
           break;
         }
       }
@@ -379,8 +379,8 @@ async function onMessage(msg) {
       if (Math.abs(msg.value.angle) < 20) break;
       if (msg.value.angle > 0) {
         const restoredTab = await reopenClosedTab();
-        if (restoredTab) sendNotice(`restored ${restoredTab}`);
-        else sendNotice("no tab restored");
+        if (restoredTab) await sendNotice(`restored ${restoredTab}`);
+        else await sendNotice("no tab restored");
         await sendImage();
       } else {
         await reloadCurrentTab();
@@ -389,13 +389,13 @@ async function onMessage(msg) {
     case "holdFingerShort":
       await resizeViewport(deviceWidth / scaleFactor, deviceHeight / scaleFactor);
       await sendImage();
-      send({ type: "refreshDisplay" });
+      await send({ type: "refreshDisplay" });
       break;
     case "holdFingerLong": {
       const [{ x, y }] = msg.value;
       const tab = await openLinkUnderTap(x / deviceWidth, y / deviceHeight);
-      if (tab) sendNotice(`${tab} opened`);
-      else sendNotice("no link under finger");
+      if (tab) await sendNotice(`${tab} opened`);
+      else await sendNotice("no link under finger");
       break;
     }
     case "tap": {
@@ -413,7 +413,7 @@ async function onMessage(msg) {
             const newContrast = await offsetContrastFilter(
               dir === "southWest" ? -25 : 25,
             );
-            sendNotice(`contrast ${newContrast}%`);
+            await sendNotice(`contrast ${newContrast}%`);
             await sendImage();
           }
           break;
@@ -422,7 +422,7 @@ async function onMessage(msg) {
           const newScaleFactor = scaleFactor + (dir === "northWest" ? -0.1 : 0.1);
           if (newScaleFactor < 0.1 || newScaleFactor > 2) break;
           scaleFactor = newScaleFactor;
-          sendNotice(`scale ${Math.round(scaleFactor * 100)}%`);
+          await sendNotice(`scale ${Math.round(scaleFactor * 100)}%`);
           await resizeViewport(deviceWidth / scaleFactor, deviceHeight / scaleFactor);
           await sendImage();
         }
@@ -461,9 +461,9 @@ async function refreshConnection(config) {
     mq.subscribe(`${config.topic}/browser`);
     mq.on("message", (_topic, message) => decodeCipher(message).then(onMessage));
     mq.on("connect", () => {
-      sendNotice("Browser connected");
-      send({ type: "updateSize" });
-      console.log("connected");
+      sendNotice("Browser connected")
+        .then(() => send({ type: "updateSize" }))
+        .then(() => { console.log("connected"); })
     });
     mq.on("disconnect", () => {
       console.log("disconnected");
