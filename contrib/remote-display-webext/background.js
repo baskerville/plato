@@ -249,7 +249,6 @@ async function sendImage() {
     const mg = new MagickGeometry(deviceWidth, deviceHeight);
     mg.ignoreAspectRatio = true;
     const qs = new QuantizeSettings();
-    qs.colors = 2;
     qs.colorSpace = ColorSpace.Gray;
     qs.ditherMethod = DitherMethod.FloydSteinberg;
     img.resize(mg);
