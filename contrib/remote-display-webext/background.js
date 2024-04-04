@@ -186,6 +186,7 @@ import { hexToBytes } from "https://esm.sh/@ldclabs/cose-ts@1.1.1/utils?dev";
 import { Header } from "https://esm.sh/@ldclabs/cose-ts@1.1.1/header?dev";
 import { ChaCha20Poly1305Key } from "https://esm.sh/@ldclabs/cose-ts@1.1.1/chacha20poly1305?dev";
 import * as iana from "https://esm.sh/@ldclabs/cose-ts@1.1.1/iana?dev";
+import pDebounce from "https://esm.sh/p-debounce@4.0.0";
 const connectMq = mqtt.connect;
 
 const wasmFile =
@@ -228,7 +229,7 @@ async function sendNotice(notice) {
   await send({ type: "notify", value: notice });
 }
 
-async function sendImage() {
+const sendImage = pDebounce(async () => {
   if (!mq?.connected) return;
   if (!deviceWidth || !deviceHeight) {
     await send({ type: "updateSize" });
@@ -237,7 +238,6 @@ async function sendImage() {
   }
   console.log("capturing");
   const { id } = await currentTab();
-  await new Promise(r => setTimeout(r, 175));
   const dataUrl = await browser.tabs.captureTab(id, {
     scale: scaleFactor,
   });
@@ -277,7 +277,7 @@ async function sendImage() {
     }
     mq.on("message", updated);
   });
-}
+}, 175);
 
 let timeout;
 browser.tabs.onUpdated.addListener(async (_id, changeInfo, tab) => {
