@@ -63,6 +63,7 @@ async function zoomPage(addFactor) {
   if (newFactor < 0.3) newFactor = 0.3;
   if (newFactor > 5) newFactor = 5;
   await browser.tabs.setZoom(id, newFactor);
+  return newFactor;
 }
 
 async function goForward() {
@@ -374,13 +375,12 @@ async function onMessage(msg) {
       break;
     }
     case "pinch":
-      await zoomPage(-0.1);
+    case "spread": {
+      const newFactor = await zoomPage(msg.type === "spread" ? 0.1 : -0.1);
+      await sendNotice(`zoom ${(100.0 * newFactor).toFixed(0)}%`);
       await sendImage();
       break;
-    case "spread":
-      await zoomPage(0.1);
-      await sendImage();
-      break;
+    }
     case "rotate":
       if (Math.abs(msg.value.angle) < 20) break;
       if (msg.value.angle > 0) {
