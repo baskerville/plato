@@ -240,7 +240,10 @@ pub fn open<P: AsRef<Path>>(path: P) -> Option<Box<dyn Document>> {
                 })
             },
             _ => {
-                PdfOpener::new().and_then(|o| {
+                PdfOpener::new().and_then(|mut o| {
+                    if matches!(k.as_ref(), "mobi" | "fb2" | "xps" | "txt") {
+                        o.load_user_stylesheet();
+                    }
                     o.open(path)
                      .map(|d| Box::new(d) as Box<dyn Document>)
                 })
