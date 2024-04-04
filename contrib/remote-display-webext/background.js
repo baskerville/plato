@@ -290,9 +290,9 @@ browser.tabs.onUpdated.addListener(async (_id, changeInfo, tab) => {
   }
   timeout = setTimeout(async () => {
     console.log("updating from tab load", changeInfo, tab);
-    await sendImage();
     const info = await currentTabInfo();
     await sendNotice(info);
+    await sendImage();
   }, 1000);
 });
 
@@ -328,9 +328,9 @@ async function onMessage(msg) {
           await (Math.abs(dx) > deviceHeight / 2
             ? windowOffset(offset)
             : tabOffset(offset));
-          await sendImage();
           const info = await currentTabInfo();
           await sendNotice(info);
+          await sendImage();
           break;
         }
       }
@@ -366,9 +366,9 @@ async function onMessage(msg) {
           const info = await currentTabInfo();
           await sendNotice(`closing ${info}`);
           await closeCurrentTab();
-          await sendImage();
           const newInfo = await currentTabInfo();
           await sendNotice(newInfo);
+          await sendImage();
           break;
         }
       }
