@@ -853,7 +853,9 @@ impl Engine {
                         font.plan(" 0.", None, None)
                     };
                     let mut start_index = 0;
+                    let mut ruby_start_index = 0;
                     for (end_index, _is_hardbreak) in LineBreakIterator::new(text) {
+                        let text_len = text[start_index..end_index].chars().count();
                         for chunk in text[start_index..end_index].split_inclusive(char::is_whitespace) {
                             if let Some((i, c)) = chunk.char_indices().next_back() {
                                 let j = i + if c.is_whitespace() { 0 } else { c.len_utf8() };
@@ -870,13 +872,16 @@ impl Engine {
                                     };
                                     plan.space_out(style.letter_spacing);
 
+                                    let ruby_chars = style.ruby.clone().map(|r| r.chars().count());
+                                    let ruby_chars_use = ruby_chars.map(|c| std::cmp::min(c.div_ceil(text_len), (c - ruby_start_index).div_ceil(text_len)));
+
                                     items.push(ParagraphItem::Box {
                                         width: plan.width,
                                         data: ParagraphElement::Text(TextElement {
                                             offset: local_offset,
                                             language: style.language.clone(),
                                             text: buf.to_string(),
-                                            ruby: if start_index == 0 { style.ruby.clone() } else { None },
+                                            ruby: style.ruby.clone().map(|r| r.chars().skip(ruby_start_index).take(ruby_chars_use.unwrap()).collect()),
                                             plan,
                                             font_features: style.font_features.clone(),
                                             font_kind: style.font_kind,
@@ -889,6 +894,8 @@ impl Engine {
                                             uri: style.uri.clone(),
                                         }),
                                     });
+
+                                    ruby_start_index += ruby_chars_use.unwrap_or(0);
                                 }
                                 if c.is_whitespace() {
                                     if c == '\n' && parent_style.retain_whitespace {
@@ -1279,7 +1286,7 @@ impl Engine {
 
             for i in last_index..index {
                 match items[i] {
-                    ParagraphItem::Box { ref data, width } => {
+                    ParagraphItem::Box { ref data, mut width } => {
                         match data {
                             ParagraphElement::Text(element) => {
                                 let pt = pt!(position.x, position.y - element.vertical_align);
@@ -1317,6 +1324,9 @@ impl Engine {
                                         font.set_size(element.font_size / 2, self.dpi);
                                         font.plan(ruby.to_string(), None, style.font_features.as_deref())
                                     };
+                                    if width < ruby_plan.width {
+                                        width = ruby_plan.width;
+                                    }
                                     page.push(DrawCommand::ExtraText(TextCommand {
                                         offset: element.offset + root_data.start_offset,
                                         position: pt + pt!(0, -ascender),
