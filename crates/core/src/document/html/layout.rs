@@ -69,6 +69,7 @@ pub struct StyleData {
     pub vertical_align: i32,
     pub list_style_type: Option<ListStyleType>,
     pub uri: Option<String>,
+    pub ruby: Option<String>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -193,6 +194,7 @@ impl Default for StyleData {
             vertical_align: 0,
             list_style_type: None,
             uri: None,
+            ruby: None,
         }
     }
 }
@@ -326,6 +328,7 @@ pub struct TextElement {
     pub offset: usize,
     pub language: Option<String>,
     pub text: String,
+    pub ruby: Option<String>,
     pub plan: RenderPlan,
     pub font_features: Option<Vec<String>>,
     pub font_kind: FontKind,

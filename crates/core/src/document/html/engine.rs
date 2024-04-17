@@ -701,6 +701,48 @@ impl Engine {
                         inlines.push(InlineMaterial::LineBreak);
                         return;
                     },
+                    "ruby" => {
+                        // Ruby needs to be applied to the first text element only, with the content from the succeeding rt tag.
+                        // So grab all text until rt, and attach its content to the first text child.
+                        let mut text_datas = Vec::new();
+                        for child in node.children() {
+                            match child.data() {
+                                NodeData::Element(ElementData { name, .. }) => {
+                                    if name == "rt" {
+                                        let mut ruby_content = "".to_owned();
+                                        for subchild in child.children() {
+                                            match subchild.data() {
+                                                NodeData::Text(TextData { text, .. }) => {
+                                                    ruby_content.push_str(&decode_entities(text))
+                                                },
+                                                _ => {},
+                                            }
+                                        }
+                                        style.ruby = Some(ruby_content);
+
+                                        for TextData {text, offset} in &text_datas {
+                                            inlines.push(InlineMaterial::Text(TextMaterial {
+                                                offset: *offset,
+                                                text: decode_entities(text).into_owned(),
+                                                style: style.clone(),
+                                            }));
+                                            style.ruby = None;
+                                        }
+
+                                        text_datas.clear();
+                                    }
+                                },
+                                NodeData::Text(text_data) => {
+                                    text_datas.push(text_data.clone());
+                                },
+                                _ => {},
+                            }
+                        }
+                        return;
+                    },
+                    "rt" => {
+                        return;
+                    },
                     _ => {},
                 }
 
@@ -834,6 +876,7 @@ impl Engine {
                                             offset: local_offset,
                                             language: style.language.clone(),
                                             text: buf.to_string(),
+                                            ruby: if start_index == 0 { style.ruby.clone() } else { None },
                                             plan,
                                             font_features: style.font_features.clone(),
                                             font_kind: style.font_kind,
@@ -1267,6 +1310,27 @@ impl Engine {
                                     font_size: element.font_size,
                                     color: element.color,
                                 }));
+                                if let Some(ruby) = &element.ruby {
+                                    let ruby_plan = {
+                                        let font = self.fonts.as_mut().unwrap()
+                                                       .get_mut(element.font_kind, element.font_style, element.font_weight);
+                                        font.set_size(element.font_size / 2, self.dpi);
+                                        font.plan(ruby.to_string(), None, style.font_features.as_deref())
+                                    };
+                                    page.push(DrawCommand::ExtraText(TextCommand {
+                                        offset: element.offset + root_data.start_offset,
+                                        position: pt + pt!(0, -ascender),
+                                        rect,
+                                        text: ruby.to_string(),
+                                        plan: ruby_plan,
+                                        uri: element.uri.clone(),
+                                        font_kind: element.font_kind,
+                                        font_style: element.font_style,
+                                        font_weight: element.font_weight,
+                                        font_size: element.font_size / 2,
+                                        color: element.color,
+                                    }));
+                                }
                             },
                             ParagraphElement::Image(element) => {
                                 while let Some(offset) = markers.get(markers_index) {
@@ -1490,6 +1554,7 @@ impl Engine {
                 letter_spacing: element.letter_spacing,
                 color: element.color,
                 uri: element.uri.clone(),
+                ruby: element.ruby.clone(),
             }),
         }
     }
