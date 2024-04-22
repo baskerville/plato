@@ -852,159 +852,190 @@ impl Engine {
                         font.set_size(font_size, self.dpi);
                         font.plan(" 0.", None, None)
                     };
-                    let mut start_index = 0;
-                    let mut ruby_start_index = 0;
-                    for (end_index, _is_hardbreak) in LineBreakIterator::new(text) {
-                        let text_len = text[start_index..end_index].chars().count();
-                        for chunk in text[start_index..end_index].split_inclusive(char::is_whitespace) {
-                            if let Some((i, c)) = chunk.char_indices().next_back() {
-                                let j = i + if c.is_whitespace() { 0 } else { c.len_utf8() };
-                                if j > 0 {
-                                    let buf = &text[start_index..start_index+j];
-                                    let local_offset = offset + start_index;
-                                    let mut plan = {
-                                        let font = self.fonts.as_mut().unwrap()
-                                                       .get_mut(style.font_kind,
-                                                                style.font_style,
-                                                                style.font_weight);
-                                        font.set_size(font_size, self.dpi);
-                                        font.plan(buf, None, style.font_features.as_deref())
-                                    };
-                                    plan.space_out(style.letter_spacing);
 
-                                    let ruby_chars = style.ruby.clone().map(|r| r.chars().count());
-                                    let ruby_chars_use = ruby_chars.map(|c| (c - ruby_start_index).div_ceil(text_len));
+                    if let Some(ruby_text) = style.ruby.clone() {
+                        // When an inline-block has ruby annotated, it's no longer allowed to linebreak.
+                        // In this case, the entire block has to be pushed as a ParagraphItem::Box
+                        // with the ruby characters rendered on top of the entire box.
+                        let mut plan = {
+                            let font = self.fonts.as_mut().unwrap()
+                                           .get_mut(style.font_kind,
+                                                    style.font_style,
+                                                    style.font_weight);
+                            font.set_size(font_size, self.dpi);
+                            font.plan(text, None, style.font_features.as_deref())
+                        };
+                        plan.space_out(style.letter_spacing);
 
-                                    items.push(ParagraphItem::Box {
-                                        width: plan.width,
-                                        data: ParagraphElement::Text(TextElement {
-                                            offset: local_offset,
-                                            language: style.language.clone(),
-                                            text: buf.to_string(),
-                                            ruby: style.ruby.clone().map(|r| r.chars().skip(ruby_start_index).take(ruby_chars_use.unwrap()).collect()),
-                                            plan,
-                                            font_features: style.font_features.clone(),
-                                            font_kind: style.font_kind,
-                                            font_style: style.font_style,
-                                            font_weight: style.font_weight,
-                                            vertical_align: style.vertical_align,
-                                            letter_spacing: style.letter_spacing,
-                                            font_size,
-                                            color: style.color,
-                                            uri: style.uri.clone(),
-                                        }),
-                                    });
+                        items.push(ParagraphItem::Box {
+                            width: plan.width,
+                            data: ParagraphElement::Text(TextElement {
+                                offset: *offset,
+                                language: style.language.clone(),
+                                text: text.to_string(),
+                                ruby: Some(ruby_text),
+                                plan,
+                                font_features: style.font_features.clone(),
+                                font_kind: style.font_kind,
+                                font_style: style.font_style,
+                                font_weight: style.font_weight,
+                                vertical_align: style.vertical_align,
+                                letter_spacing: style.letter_spacing,
+                                font_size,
+                                color: style.color,
+                                uri: style.uri.clone(),
+                            }),
+                        });
+                    }
+                    else {
+                        let mut start_index = 0;
 
-                                    ruby_start_index += ruby_chars_use.unwrap_or(0);
-                                }
-                                if c.is_whitespace() {
-                                    if c == '\n' && parent_style.retain_whitespace {
-                                        let stretch = if parent_style.text_align == TextAlign::Center { big_stretch } else { line_width };
+                        for (end_index, _is_hardbreak) in LineBreakIterator::new(text) {
+                            for chunk in text[start_index..end_index].split_inclusive(char::is_whitespace) {
+                                if let Some((i, c)) = chunk.char_indices().next_back() {
+                                    let j = i + if c.is_whitespace() { 0 } else { c.len_utf8() };
+                                    if j > 0 {
+                                        let buf = &text[start_index..start_index+j];
+                                        let local_offset = offset + start_index;
+                                        let mut plan = {
+                                            let font = self.fonts.as_mut().unwrap()
+                                                           .get_mut(style.font_kind,
+                                                                    style.font_style,
+                                                                    style.font_weight);
+                                            font.set_size(font_size, self.dpi);
+                                            font.plan(buf, None, style.font_features.as_deref())
+                                        };
+                                        plan.space_out(style.letter_spacing);
 
-                                        items.push(ParagraphItem::Penalty { penalty: INFINITE_PENALTY, width: 0, flagged: false });
-                                        items.push(ParagraphItem::Glue { width: 0, stretch, shrink: 0 });
-
-                                        items.push(ParagraphItem::Penalty { width: 0, penalty: -INFINITE_PENALTY, flagged: false });
-
-                                        if parent_style.text_align == TextAlign::Center {
-                                            items.push(ParagraphItem::Box { width: 0, data: ParagraphElement::Nothing });
-                                            items.push(ParagraphItem::Penalty { width: 0, penalty: INFINITE_PENALTY, flagged: false });
-                                            items.push(ParagraphItem::Glue { width: 0, stretch: big_stretch, shrink: 0 });
-                                        }
-                                        start_index += chunk.len();
-                                        continue;
+                                        items.push(ParagraphItem::Box {
+                                            width: plan.width,
+                                            data: ParagraphElement::Text(TextElement {
+                                                offset: local_offset,
+                                                language: style.language.clone(),
+                                                text: buf.to_string(),
+                                                ruby: None,
+                                                plan,
+                                                font_features: style.font_features.clone(),
+                                                font_kind: style.font_kind,
+                                                font_style: style.font_style,
+                                                font_weight: style.font_weight,
+                                                vertical_align: style.vertical_align,
+                                                letter_spacing: style.letter_spacing,
+                                                font_size,
+                                                color: style.color,
+                                                uri: style.uri.clone(),
+                                            }),
+                                        });
                                     }
+                                    if c.is_whitespace() {
+                                        if c == '\n' && parent_style.retain_whitespace {
+                                            let stretch = if parent_style.text_align == TextAlign::Center { big_stretch } else { line_width };
 
-                                    let last_c = text[..start_index+i].chars().next_back().or_else(|| {
-                                        if index > 0 {
-                                            inlines[index-1].text().and_then(|text| text.chars().next_back())
-                                        } else {
-                                            None
-                                        }
-                                    });
+                                            items.push(ParagraphItem::Penalty { penalty: INFINITE_PENALTY, width: 0, flagged: false });
+                                            items.push(ParagraphItem::Glue { width: 0, stretch, shrink: 0 });
 
-                                    let has_more = text[start_index+i..].chars().any(|c| !c.is_xml_whitespace()) ||
-                                                   inlines[index+1..].iter().any(|m| m.text().map_or(false,
-                                                                                      |text| text.chars().any(|c| !c.is_xml_whitespace())));
+                                            items.push(ParagraphItem::Penalty { width: 0, penalty: -INFINITE_PENALTY, flagged: false });
 
-                                    if !parent_style.retain_whitespace && c.is_xml_whitespace() &&
-                                        (last_c.map(|c| c.is_xml_whitespace()) != Some(false) || !has_more) {
-                                            start_index += chunk.len();
-                                            continue;
-                                    }
-
-                                    let mut width = if !parent_style.retain_whitespace {
-                                        space_plan.glyph_advance(0)
-                                    } else if let Some(index) = FONT_SPACES.chars().position(|x| x == c) {
-                                        space_plan.glyph_advance(index)
-                                    } else if let Some(ratio) = WORD_SPACE_RATIOS.get(&c) {
-                                        (space_plan.glyph_advance(0) as f32 * ratio) as i32
-                                    } else if let Some(ratio) = EM_SPACE_RATIOS.get(&c) {
-                                        pt_to_px(style.font_size * ratio, self.dpi).round() as i32
-                                    } else {
-                                        space_plan.glyph_advance(0)
-                                    };
-
-                                    width += match style.word_spacing {
-                                        WordSpacing::Normal => 0,
-                                        WordSpacing::Length(l) => l,
-                                        WordSpacing::Ratio(r) => (r * width as f32) as i32,
-                                    } + style.letter_spacing;
-
-                                    let is_unbreakable = c == '\u{00A0}' || c == '\u{202F}' || c == '\u{2007}';
-
-                                    if (is_unbreakable || (parent_style.retain_whitespace && c.is_xml_whitespace())) &&
-                                       (last_c == Some('\n') || last_c.is_none()) {
-                                        items.push(ParagraphItem::Box { width: 0, data: ParagraphElement::Nothing });
-                                    }
-
-                                    if is_unbreakable {
-                                        items.push(ParagraphItem::Penalty { width: 0, penalty: INFINITE_PENALTY, flagged: false });
-                                    }
-
-                                    match parent_style.text_align {
-                                        TextAlign::Justify => {
-                                            items.push(ParagraphItem::Glue { width, stretch: width/2, shrink: width/3 });
-                                        },
-                                        TextAlign::Center => {
-                                            if style.font_kind == FontKind::Monospace || is_unbreakable {
-                                                items.push(ParagraphItem::Glue { width, stretch: 0, shrink: 0 });
-                                            } else {
-                                                let stretch = 3 * width;
-                                                items.push(ParagraphItem::Glue { width: 0, stretch, shrink: 0 });
-                                                items.push(ParagraphItem::Penalty { width: 0, penalty: 0, flagged: false });
-                                                items.push(ParagraphItem::Glue { width, stretch: -2 * stretch, shrink: 0 });
+                                            if parent_style.text_align == TextAlign::Center {
                                                 items.push(ParagraphItem::Box { width: 0, data: ParagraphElement::Nothing });
                                                 items.push(ParagraphItem::Penalty { width: 0, penalty: INFINITE_PENALTY, flagged: false });
-                                                items.push(ParagraphItem::Glue { width: 0, stretch, shrink: 0 });
+                                                items.push(ParagraphItem::Glue { width: 0, stretch: big_stretch, shrink: 0 });
                                             }
-                                        },
-                                        TextAlign::Left | TextAlign::Right => {
-                                            if style.font_kind == FontKind::Monospace || is_unbreakable {
-                                                items.push(ParagraphItem::Glue { width, stretch: 0, shrink: 0 });
+                                            start_index += chunk.len();
+                                            continue;
+                                        }
+
+                                        let last_c = text[..start_index+i].chars().next_back().or_else(|| {
+                                            if index > 0 {
+                                                inlines[index-1].text().and_then(|text| text.chars().next_back())
                                             } else {
-                                                let stretch = 3 * width;
-                                                items.push(ParagraphItem::Glue { width: 0, stretch, shrink: 0 });
-                                                items.push(ParagraphItem::Penalty { width: 0, penalty: 0, flagged: false });
-                                                items.push(ParagraphItem::Glue { width, stretch: -stretch, shrink: 0 });
+                                                None
                                             }
-                                        },
-                                    }
-                                } else if end_index < text.len() {
-                                    let penalty = if c == '-' { self.hyphen_penalty } else { 0 };
-                                    let flagged = penalty > 0;
-                                    if matches!(parent_style.text_align, TextAlign::Justify | TextAlign::Center) {
-                                        items.push(ParagraphItem::Penalty { width: 0, penalty, flagged });
-                                    } else {
-                                        let stretch = 3 * space_plan.glyph_advance(0);
-                                        items.push(ParagraphItem::Penalty { width: 0, penalty: INFINITE_PENALTY, flagged: false });
-                                        items.push(ParagraphItem::Glue { width: 0, stretch, shrink: 0 });
-                                        items.push(ParagraphItem::Penalty { width: 0, penalty: 10*penalty, flagged: true });
-                                        items.push(ParagraphItem::Glue { width: 0, stretch: -stretch, shrink: 0 });
+                                        });
+
+                                        let has_more = text[start_index+i..].chars().any(|c| !c.is_xml_whitespace()) ||
+                                                       inlines[index+1..].iter().any(|m| m.text().map_or(false,
+                                                                                          |text| text.chars().any(|c| !c.is_xml_whitespace())));
+
+                                        if !parent_style.retain_whitespace && c.is_xml_whitespace() &&
+                                            (last_c.map(|c| c.is_xml_whitespace()) != Some(false) || !has_more) {
+                                                start_index += chunk.len();
+                                                continue;
+                                        }
+
+                                        let mut width = if !parent_style.retain_whitespace {
+                                            space_plan.glyph_advance(0)
+                                        } else if let Some(index) = FONT_SPACES.chars().position(|x| x == c) {
+                                            space_plan.glyph_advance(index)
+                                        } else if let Some(ratio) = WORD_SPACE_RATIOS.get(&c) {
+                                            (space_plan.glyph_advance(0) as f32 * ratio) as i32
+                                        } else if let Some(ratio) = EM_SPACE_RATIOS.get(&c) {
+                                            pt_to_px(style.font_size * ratio, self.dpi).round() as i32
+                                        } else {
+                                            space_plan.glyph_advance(0)
+                                        };
+
+                                        width += match style.word_spacing {
+                                            WordSpacing::Normal => 0,
+                                            WordSpacing::Length(l) => l,
+                                            WordSpacing::Ratio(r) => (r * width as f32) as i32,
+                                        } + style.letter_spacing;
+
+                                        let is_unbreakable = c == '\u{00A0}' || c == '\u{202F}' || c == '\u{2007}';
+
+                                        if (is_unbreakable || (parent_style.retain_whitespace && c.is_xml_whitespace())) &&
+                                           (last_c == Some('\n') || last_c.is_none()) {
+                                            items.push(ParagraphItem::Box { width: 0, data: ParagraphElement::Nothing });
+                                        }
+
+                                        if is_unbreakable {
+                                            items.push(ParagraphItem::Penalty { width: 0, penalty: INFINITE_PENALTY, flagged: false });
+                                        }
+
+                                        match parent_style.text_align {
+                                            TextAlign::Justify => {
+                                                items.push(ParagraphItem::Glue { width, stretch: width/2, shrink: width/3 });
+                                            },
+                                            TextAlign::Center => {
+                                                if style.font_kind == FontKind::Monospace || is_unbreakable {
+                                                    items.push(ParagraphItem::Glue { width, stretch: 0, shrink: 0 });
+                                                } else {
+                                                    let stretch = 3 * width;
+                                                    items.push(ParagraphItem::Glue { width: 0, stretch, shrink: 0 });
+                                                    items.push(ParagraphItem::Penalty { width: 0, penalty: 0, flagged: false });
+                                                    items.push(ParagraphItem::Glue { width, stretch: -2 * stretch, shrink: 0 });
+                                                    items.push(ParagraphItem::Box { width: 0, data: ParagraphElement::Nothing });
+                                                    items.push(ParagraphItem::Penalty { width: 0, penalty: INFINITE_PENALTY, flagged: false });
+                                                    items.push(ParagraphItem::Glue { width: 0, stretch, shrink: 0 });
+                                                }
+                                            },
+                                            TextAlign::Left | TextAlign::Right => {
+                                                if style.font_kind == FontKind::Monospace || is_unbreakable {
+                                                    items.push(ParagraphItem::Glue { width, stretch: 0, shrink: 0 });
+                                                } else {
+                                                    let stretch = 3 * width;
+                                                    items.push(ParagraphItem::Glue { width: 0, stretch, shrink: 0 });
+                                                    items.push(ParagraphItem::Penalty { width: 0, penalty: 0, flagged: false });
+                                                    items.push(ParagraphItem::Glue { width, stretch: -stretch, shrink: 0 });
+                                                }
+                                            },
+                                        }
+                                    } else if end_index < text.len() {
+                                        let penalty = if c == '-' { self.hyphen_penalty } else { 0 };
+                                        let flagged = penalty > 0;
+                                        if matches!(parent_style.text_align, TextAlign::Justify | TextAlign::Center) {
+                                            items.push(ParagraphItem::Penalty { width: 0, penalty, flagged });
+                                        } else {
+                                            let stretch = 3 * space_plan.glyph_advance(0);
+                                            items.push(ParagraphItem::Penalty { width: 0, penalty: INFINITE_PENALTY, flagged: false });
+                                            items.push(ParagraphItem::Glue { width: 0, stretch, shrink: 0 });
+                                            items.push(ParagraphItem::Penalty { width: 0, penalty: 10*penalty, flagged: true });
+                                            items.push(ParagraphItem::Glue { width: 0, stretch: -stretch, shrink: 0 });
+                                        }
                                     }
                                 }
+                                start_index += chunk.len();
                             }
-                            start_index += chunk.len();
                         }
                     }
                 },
