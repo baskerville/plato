@@ -873,7 +873,7 @@ impl Engine {
                                     plan.space_out(style.letter_spacing);
 
                                     let ruby_chars = style.ruby.clone().map(|r| r.chars().count());
-                                    let ruby_chars_use = ruby_chars.map(|c| std::cmp::min(c.div_ceil(text_len), (c - ruby_start_index).div_ceil(text_len)));
+                                    let ruby_chars_use = ruby_chars.map(|c| (c - ruby_start_index).div_ceil(text_len));
 
                                     items.push(ParagraphItem::Box {
                                         width: plan.width,
