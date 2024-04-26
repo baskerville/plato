@@ -431,6 +431,7 @@ impl Engine {
                 } else {
                     let mut iter = node.children().filter(|child| child.is_element()).peekable();
                     inner_loop_context.is_first = true;
+                    let is_list_item = node.tag_name() == Some("li");
                     let mut index = 0;
 
                     while let Some(child) = iter.next() {
@@ -440,7 +441,7 @@ impl Engine {
 
                         inner_loop_context.index = index;
 
-                        if child.is_wrapper() {
+                        if is_list_item || child.is_wrapper() {
                             inner_loop_context.index = loop_context.index;
                         }
 
@@ -485,11 +486,8 @@ impl Engine {
                 if !inlines.is_empty() {
                     draw_state.prefix = match style.list_style_type {
                         None => {
-                            let parent = if node.is_wrapper() {
-                                node.ancestor_elements().nth(1)
-                            } else {
-                                node.parent_element()
-                            };
+                            let parent = node.ancestor_elements()
+                                             .find(|n| matches!(n.tag_name(), Some("ul"|"ol")));
                             match parent.and_then(|parent| parent.tag_name()) {
                                 Some("ul") => format_list_prefix(ListStyleType::Disc, loop_context.index),
                                 Some("ol") => format_list_prefix(ListStyleType::Decimal, loop_context.index),
