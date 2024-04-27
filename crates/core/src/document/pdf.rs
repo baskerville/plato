@@ -1,21 +1,22 @@
 use super::mupdf_sys::*;
 
+use std::fs;
 use std::ptr;
 use std::slice;
 use std::char;
 use std::rc::Rc;
 use std::path::Path;
-use std::io::Read;
-use std::fs::File;
+use std::io::ErrorKind;
 use std::ffi::{CString, CStr};
 use std::os::unix::ffi::OsStrExt;
-use anyhow::Error;
 use super::{Document, Location, TextLocation, BoundedText, TocEntry};
 use super::{chapter, chapter_relative};
 use crate::metadata::TextAlign;
 use crate::geom::{Boundary, CycleDir};
 use crate::unit::pt_to_px;
 use crate::framebuffer::Pixmap;
+
+const USER_STYLESHEET: &str = "css/html-user.css";
 
 impl Into<Boundary> for FzRect {
     fn into(self) -> Boundary {
@@ -92,16 +93,12 @@ impl PdfOpener {
         }
     }
 
-    pub fn set_user_css<P: AsRef<Path>>(&mut self, path: P) -> Result<(), Error> {
-        let mut file = File::open(path)?;
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf)?;
-        let buf = CString::new(buf)?;
-        unsafe {
-            // The CSS will only be parsed when an HTML or EPUB document is opened
-            fz_set_user_css((self.0).0, buf.as_ptr());
+    pub fn load_user_stylesheet(&mut self) {
+        if let Ok(content) = fs::read_to_string(USER_STYLESHEET)
+                                .and_then(|s| CString::new(s).map_err(Into::into))
+                                .map_err(|e| if e.kind() != ErrorKind::NotFound { eprintln!("{:#}", e) }) {
+            unsafe { fz_set_user_css((self.0).0, content.as_ptr()) }
         }
-        Ok(())
     }
 }
 
