@@ -69,6 +69,7 @@ if [ -e "$KOBO_TAG" ] ; then
 		388)     PRODUCT_ID=0x4234 ;; # Libra 2
 		386)     PRODUCT_ID=0x4235 ;; # Clara 2E
 		389)     PRODUCT_ID=0x4236 ;; # Elipsa 2E
+		391)     PRODUCT_ID=0x4237 ;; # Clara BW
 		*)       PRODUCT_ID=0x6666 ;;
 	esac
 
@@ -83,7 +84,7 @@ export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"
 
 if [ "$PLATO_SET_FRAMEBUFFER_DEPTH" ] ; then
 	case "${PRODUCT}:${MODEL_NUMBER}" in
-		condor:*|goldfinch:*|io:*|cadmus:*|europa:*|storm:*|frost:*|nova:*|snow:378|star:379)
+		spaBW:*|condor:*|goldfinch:*|io:*|cadmus:*|europa:*|storm:*|frost:*|nova:*|snow:378|star:379)
 			unset ORIG_BPP
 			;;
 		*)
