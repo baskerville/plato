@@ -373,9 +373,12 @@ impl Framebuffer for KoboFramebuffer1 {
                 self.flags &= !EPDC_FLAG_ENABLE_INVERSION;
             }
         } else {
-            File::open("/proc/hwtcon/cmd").and_then(|mut file| {
+            OpenOptions::new()
+            .read(false)
+            .write(true)
+            .open("/proc/hwtcon/cmd").and_then(|mut file| {
                 file.write_all(if enable { b"night_mode 4" } else { b"night_mode 0" })
-            }).map_err(|e| eprintln!("{:#?}", e)).ok();
+            }).map_err(|e| eprintln!("Failed to invert colors: {:#?}", e)).ok();
         }
     }
 
