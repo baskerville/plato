@@ -55,10 +55,8 @@ legacy() {
 
 mtk() {
 	DIR=/sys/kernel/config/usb_gadget/g1
-	mkdir -p "$DIR"
-	mkdir -p "$DIR"/strings/0x409
-	PARTITION=${DISK}0p12
 
+	mkdir -p "$DIR"/strings/0x409
 	echo "$VENDOR_ID" > "$DIR"/idVendor
 	echo "$PRODUCT_ID" > "$DIR"/idProduct
 	echo "$SERIAL_NUMBER" > "$DIR"/strings/0x409/serialnumber
@@ -69,7 +67,7 @@ mtk() {
 	echo KOBOeReader > "$DIR"/configs/c.1/strings/0x409/configuration
 
 	mkdir -p "$DIR"/functions/mass_storage.0/lun.0
-	echo "$PARTITION" > "$DIR"/functions/mass_storage.0/lun.0/file
+	echo "${DISK}0p12" > "$DIR"/functions/mass_storage.0/lun.0/file
 	ln -s "$DIR"/functions/mass_storage.0 "$DIR"/configs/c.1
 	echo 11211000.usb > "$DIR"/UDC
 }

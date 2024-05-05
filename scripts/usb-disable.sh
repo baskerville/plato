@@ -38,9 +38,7 @@ mtk() {
 	PARTITION=${DISK}0p12
 	DIR=/sys/kernel/config/usb_gadget/g1
 
-	mkdir -p "$DIR"
 	mkdir -p "$DIR"/strings/0x409
-
 	echo "" > "$DIR"/UDC
 }
 
