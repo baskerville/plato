@@ -15,13 +15,21 @@ sync
 killall -TERM nickel hindenburg sickel fickel adobehost foxitpdf iink dhcpcd-dbus dhcpcd fmon > /dev/null 2>&1
 
 
-STANDARD_LEDS=0
-LEDS_INTERFACE=/sys/devices/platform/pmic_light.1/lit
-if [ -e /sys/class/leds/bd71828-green-led ] ; then
+if [ -e /sys/class/leds/LED ] ; then
+	LEDS_INTERFACE=/sys/class/leds/LED/brightness
 	STANDARD_LEDS=1
-	LEDS_INTERFACE=/sys/class/leds/bd71828-green-led
+elif [ -e /sys/class/leds/GLED ] ; then
+	LEDS_INTERFACE=/sys/class/leds/GLED/brightness
+	STANDARD_LEDS=1
+elif [ -e /sys/class/leds/bd71828-green-led ] ; then
+	LEDS_INTERFACE=/sys/class/leds/bd71828-green-led/brightness
+	STANDARD_LEDS=1
 elif [ -e /sys/devices/platform/ntx_led/lit ] ; then
 	LEDS_INTERFACE=/sys/devices/platform/ntx_led/lit
+	STANDARD_LEDS=0
+elif [ -e /sys/devices/platform/pmic_light.1/lit ] ; then
+	LEDS_INTERFACE=/sys/devices/platform/pmic_light.1/lit
+	STANDARD_LEDS=0
 fi
 
 # Turn off the LEDs
