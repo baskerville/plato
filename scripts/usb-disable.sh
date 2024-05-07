@@ -40,6 +40,13 @@ mtk() {
 
 	mkdir -p "$DIR"/strings/0x409
 	echo "" > "$DIR"/UDC
+
+	rm "$DIR"/configs/c.1/mass_storage.0
+	rmdir "$DIR"/configs/c.1/strings/0x409
+	rmdir "$DIR"/configs/c.1
+	rmdir "$DIR"/functions/mass_storage.0
+	rmdir "$DIR"/strings/0x409
+	rmdir "$DIR"
 }
 
 case "$PLATFORM" in
