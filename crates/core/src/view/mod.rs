@@ -574,6 +574,7 @@ pub enum EntryId {
     New,
     Refresh,
     TakeScreenshot,
+    LockScreenInput,
     Reboot,
     Quit,
 }
