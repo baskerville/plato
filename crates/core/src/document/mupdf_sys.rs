@@ -73,6 +73,7 @@ extern {
     pub fn fz_run_page(ctx: *mut FzContext, page: *mut FzPage, dev: *mut FzDevice, mat: FzMatrix, cookie: *mut FzCookie);
     pub fn mp_load_links(ctx: *mut FzContext, page: *mut FzPage) -> *mut FzLink;
     pub fn fz_drop_link(ctx: *mut FzContext, link: *mut FzLink);
+    pub fn fz_resolve_link_dest(ctx: *mut FzContext, doc: *mut FzDocument, uri: *const libc::c_char) -> FzLinkDest;
     pub fn mp_new_stext_page_from_page(ctx: *mut FzContext, page: *mut FzPage, options: *const FzTextOptions) -> *mut FzTextPage;
     pub fn fz_drop_stext_page(ctx: *mut FzContext, tp: *mut FzTextPage);
     pub fn fz_new_bbox_device(ctx: *mut FzContext, rect: *mut FzRect) -> *mut FzDevice;
@@ -142,6 +143,17 @@ pub struct FzStorable {
 pub struct FzTextOptions {
     pub flags: libc::c_int,
     pub scale: libc::c_float,
+}
+
+#[repr(C)]
+pub struct FzLinkDest {
+    pub loc: FzLocation,
+    pub kind: libc::c_int,
+    pub x: libc::c_float,
+    pub y: libc::c_float,
+    pub w: libc::c_float,
+    pub h: libc::c_float,
+    pub zoom: libc::c_float,
 }
 
 #[repr(C)]

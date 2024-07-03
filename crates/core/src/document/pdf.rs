@@ -169,6 +169,46 @@ impl Document for PdfDocument {
         unsafe { mp_count_pages(self.ctx.0, self.doc) as usize }
     }
 
+    fn resolve_location(&mut self, loc: Location) -> Option<usize> {
+        if self.pages_count() == 0 {
+            return None;
+        }
+
+        match loc {
+            Location::Exact(index) => {
+                if index >= self.pages_count() {
+                    None
+                } else {
+                    Some(index)
+                }
+            },
+            Location::Previous(index) => {
+                if index > 0 {
+                    Some(index - 1)
+                } else {
+                    None
+                }
+            },
+            Location::Next(index) => {
+                if index < self.pages_count() - 1 {
+                    Some(index + 1)
+                } else {
+                    None
+                }
+            },
+            Location::LocalUri(_index, uri) => {
+                let c_uri = CString::new(uri).unwrap();
+                let dest = unsafe { fz_resolve_link_dest(self.ctx.0, self.doc, c_uri.as_ptr()) };
+                if dest.loc.page.is_positive() {
+                    Some(dest.loc.page as usize)
+                } else {
+                    None
+                }
+            },
+            _ => None,
+        }
+    }
+
     fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, usize)> {
         let index = self.resolve_location(loc)?;
         self.page(index).and_then(|page| page.pixmap(scale)).map(|pixmap| (pixmap, index))
