@@ -295,6 +295,8 @@ impl Reader {
                 doc.set_ignore_document_css(true);
             }
 
+            println!("{}", info.file.path.display());
+
             let first_location = doc.resolve_location(Location::Exact(0))?;
 
             let mut view_port = ViewPort::default();
@@ -357,8 +359,6 @@ impl Reader {
 
             let synthetic = doc.has_synthetic_page_numbers();
             let reflowable = doc.is_reflowable();
-
-            println!("{}", info.file.path.display());
 
             hub.send(Event::Update(UpdateMode::Partial)).ok();
 
