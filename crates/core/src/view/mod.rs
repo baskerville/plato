@@ -363,6 +363,7 @@ pub enum Event {
     Back,
     Quit,
     WakeUp,
+    QueueAddUrl(String),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
