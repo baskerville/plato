@@ -10,7 +10,7 @@
   "browser_action": {
     "default_popup": "popup.html"
   },
-  "content_security_policy": "script-src 'self' 'wasm-unsafe-eval' https://esm.sh; object-src 'self'",
+  "content_security_policy": "script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://esm.sh; object-src 'self'; worker-src 'self' blob: https://esm.sh",
   "permissions": [
     "tabs",
     "<all_urls>",

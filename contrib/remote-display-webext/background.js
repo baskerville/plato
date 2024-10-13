@@ -178,19 +178,18 @@ import {
   MagickFormat,
   QuantizeSettings,
   MagickGeometry
-} from "https://esm.sh/@imagemagick/magick-wasm@0.0.28";
-import mqtt from "https://esm.sh/mqtt@5.4.0";
-import { encode, decode } from "https://esm.sh/cborg@4.1.4";
-import { Encrypt0Message } from "https://esm.sh/@ldclabs/cose-ts@1.1.1/encrypt0?dev";
-import { hexToBytes } from "https://esm.sh/@ldclabs/cose-ts@1.1.1/utils?dev";
-import { Header } from "https://esm.sh/@ldclabs/cose-ts@1.1.1/header?dev";
-import { ChaCha20Poly1305Key } from "https://esm.sh/@ldclabs/cose-ts@1.1.1/chacha20poly1305?dev";
-import * as iana from "https://esm.sh/@ldclabs/cose-ts@1.1.1/iana?dev";
+} from "https://esm.sh/@imagemagick/magick-wasm@0.0.31";
+import mqtt from "https://esm.sh/mqtt@5.10.1";
+import { encode, decode } from "https://esm.sh/cborg@4.2.4";
+import { Encrypt0Message } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/encrypt0?dev";
+import { hexToBytes } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/utils?dev";
+import { Header } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/header?dev";
+import { ChaCha20Poly1305Key } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/chacha20poly1305?dev";
+import * as iana from "https://esm.sh/@ldclabs/cose-ts@1.3.2/iana?dev";
 import pDebounce from "https://esm.sh/p-debounce@4.0.0";
-const connectMq = mqtt.connect;
 
 const wasmFile =
-  "https://esm.sh/@imagemagick/magick-wasm@0.0.28/dist/magick.wasm";
+  "https://esm.sh/@imagemagick/magick-wasm@0.0.31/dist/magick.wasm";
 await fetch(wasmFile, { cache: "force-cache" })
   .then(a => a.arrayBuffer())
   .then(a => initializeImageMagick(a));
@@ -457,7 +456,7 @@ async function getConfig() {
 
 async function refreshConnection(config) {
   if (config.enabled && !mq?.connected) {
-    mq = connectMq(config.wsUrl, {
+    mq = mqtt.connect(config.wsUrl, {
       will: {
         topic: `${config.topic}/device`,
         payload: await encodeCipher({ type: "notify", value: "Browser disconnected" }),
