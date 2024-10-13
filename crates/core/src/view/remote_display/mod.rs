@@ -253,7 +253,14 @@ impl View for RemoteDisplay {
                 self.message_tx
                     .try_send(SocketEvent::SendMessage(cbor!(ge).unwrap()))
                     .ok();
-                true
+                match ge {
+                    GestureEvent::HoldFingerShort(pt, _) | GestureEvent::Tap(pt) => {
+                        self.pixmap.draw_crosshair(pt, 5.0);
+                        rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+                        true
+                    }
+                    _ => true,
+                }
             }
             Event::Device(DeviceEvent::Button { code, status, .. }) => {
                 let button = match code {
