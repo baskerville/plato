@@ -8,6 +8,7 @@ use std::sync::mpsc::{self, Sender, Receiver};
 use std::os::unix::io::AsRawFd;
 use std::ffi::CString;
 use fxhash::FxHashMap;
+use serde::Serialize;
 use crate::framebuffer::Display;
 use crate::settings::ButtonScheme;
 use crate::device::CURRENT_DEVICE;
@@ -130,7 +131,8 @@ impl ButtonStatus {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum ButtonCode {
     Power,
     Home,
