@@ -8,9 +8,11 @@ mod kobo1;
 mod kobo2;
 
 use anyhow::Error;
+use crate::device::CURRENT_DEVICE;
 use crate::geom::{Point, Rectangle, surface_area, nearest_segment_point, lerp};
 use crate::geom::{CornerSpec, BorderSpec, ColorSource, Vec2};
 use crate::color::{BLACK, WHITE};
+use crate::unit::mm_to_px;
 
 pub use self::kobo1::KoboFramebuffer1;
 pub use self::kobo2::KoboFramebuffer2;
@@ -391,6 +393,24 @@ pub trait Framebuffer {
                     self.set_pixel(x as u32, y as u32, color);
                 }
             }
+        }
+    }
+
+    fn draw_crosshair(&mut self, pt: Point, radius_mm: f32) {
+        let radius = mm_to_px(radius_mm, CURRENT_DEVICE.dpi) as i32;
+        let center_x = pt.x as i32;
+        let center_y = pt.y as i32;
+        for i in -radius - 2..=radius + 2 {
+            for dx in -2..=2 {
+                self.set_pixel((center_x + dx) as u32, (center_y + i) as u32, WHITE);
+            }
+            for dy in -2..=2 {
+                self.set_pixel((center_x + i) as u32, (center_y + dy) as u32, WHITE);
+            }
+        }
+        for i in -radius..=radius {
+            self.set_pixel(center_x as u32, (center_y + i) as u32, BLACK);
+            self.set_pixel((center_x + i) as u32, center_y as u32, BLACK);
         }
     }
 }
