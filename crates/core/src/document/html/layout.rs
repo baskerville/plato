@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use fxhash::FxHashMap;
 use lazy_static::lazy_static;
 use kl_hyphenate::{Standard, Language, Load};
+use crate::color::Color;
 use crate::geom::{Point, Rectangle, Edge};
 use crate::font::{FontFamily, Font, RenderPlan};
 pub use crate::metadata::TextAlign;
@@ -63,7 +64,7 @@ pub struct StyleData {
     pub font_weight: FontWeight,
     pub font_size: f32,
     pub font_features: Option<Vec<String>>,
-    pub color: u8,
+    pub color: Color,
     pub letter_spacing: i32,
     pub word_spacing: WordSpacing,
     pub vertical_align: i32,
@@ -334,7 +335,7 @@ pub struct TextElement {
     pub font_size: u32,
     pub letter_spacing: i32,
     pub vertical_align: i32,
-    pub color: u8,
+    pub color: Color,
     pub uri: Option<String>,
 }
 
@@ -370,7 +371,7 @@ pub struct TextCommand {
     pub font_style: FontStyle,
     pub font_weight: FontWeight,
     pub font_size: u32,
-    pub color: u8,
+    pub color: Color,
     pub uri: Option<String>,
     pub rect: Rectangle,
 }

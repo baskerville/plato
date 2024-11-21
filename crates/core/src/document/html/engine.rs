@@ -1669,10 +1669,10 @@ impl Engine {
         merged_items
     }
 
-    pub fn render_page(&mut self, page: &[DrawCommand], scale_factor: f32, resource_fetcher: &mut dyn ResourceFetcher) -> Option<Pixmap> {
+    pub fn render_page(&mut self, page: &[DrawCommand], scale_factor: f32, samples: usize, resource_fetcher: &mut dyn ResourceFetcher) -> Option<Pixmap> {
         let width = (self.dims.0 as f32 * scale_factor) as u32;
         let height = (self.dims.1 as f32 * scale_factor) as u32;
-        let mut fb = Pixmap::try_new(width, height)?;
+        let mut fb = Pixmap::try_new(width, height, samples)?;
 
         for dc in page {
             match dc {
@@ -1693,7 +1693,7 @@ impl Engine {
                         if let Some((pixmap, _)) = PdfOpener::new().and_then(|opener| {
                             opener.open_memory(path, &buf)
                         }).and_then(|mut doc| {
-                            doc.pixmap(Location::Exact(0), scale_factor * *scale)
+                            doc.pixmap(Location::Exact(0), scale_factor * *scale, samples)
                         }) {
                             let position = Point::from(scale_factor * Vec2::from(*position));
                             fb.draw_pixmap(&pixmap, position);

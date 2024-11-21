@@ -111,9 +111,9 @@ impl Document for DjvuDocument {
         unsafe { ddjvu_document_get_pagenum(self.doc) as usize }
     }
 
-    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, usize)> {
+    fn pixmap(&mut self, loc: Location, scale: f32, samples: usize) -> Option<(Pixmap, usize)> {
         let index = self.resolve_location(loc)? as usize;
-        self.page(index).and_then(|page| page.pixmap(scale)).map(|pixmap| (pixmap, index))
+        self.page(index).and_then(|page| page.pixmap(scale, samples)).map(|pixmap| (pixmap, index))
     }
 
     fn toc(&mut self) -> Option<Vec<TocEntry>> {
@@ -388,7 +388,7 @@ impl DjvuDocument {
 }
 
 impl<'a> DjvuPage<'a> {
-    pub fn pixmap(&self, scale: f32) -> Option<Pixmap> {
+    pub fn pixmap(&self, scale: f32, samples: usize) -> Option<Pixmap> {
         unsafe {
             let (width, height) = self.dims();
             let rect = DjvuRect {
@@ -398,7 +398,12 @@ impl<'a> DjvuPage<'a> {
                 h: (scale * height as f32) as libc::c_uint,
             };
 
-            let fmt = ddjvu_format_create(DDJVU_FORMAT_GREY8, 0, ptr::null());
+            let style = if samples == 1 {
+                DDJVU_FORMAT_GREY8
+            } else {
+                DDJVU_FORMAT_RGB24
+            };
+            let fmt = ddjvu_format_create(style, 0, ptr::null());
 
             if fmt.is_null() {
                 return None;
@@ -407,7 +412,7 @@ impl<'a> DjvuPage<'a> {
             ddjvu_format_set_row_order(fmt, 1);
             ddjvu_format_set_y_direction(fmt, 1);
 
-            let len = (rect.w * rect.h) as usize;
+            let len = samples * (rect.w * rect.h) as usize;
             let mut data = Vec::new();
             if data.try_reserve_exact(len).is_err() {
                 ddjvu_format_release(fmt);
@@ -415,9 +420,10 @@ impl<'a> DjvuPage<'a> {
             }
             data.resize(len, 0xff);
 
+            let row_size = (samples * rect.w as usize) as libc::c_ulong;
             ddjvu_page_render(self.page, DDJVU_RENDER_COLOR,
                               &rect, &rect, fmt,
-                              rect.w as libc::c_ulong, data.as_mut_ptr());
+                              row_size, data.as_mut_ptr());
 
             let job = ddjvu_page_job(self.page);
 
@@ -433,6 +439,7 @@ impl<'a> DjvuPage<'a> {
 
             Some(Pixmap { width: rect.w as u32,
                           height: rect.h as u32,
+                          samples,
                           data })
         }
     }

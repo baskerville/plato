@@ -5,7 +5,7 @@ use crate::gesture::GestureEvent;
 use super::{View, Event, ViewId, KeyboardEvent, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, TextKind};
 use super::BORDER_RADIUS_LARGE;
 use super::icon::ICONS_PIXMAPS;
-use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD, KEYBOARD_BG};
+use crate::color::{Color, TEXT_NORMAL, TEXT_INVERTED_HARD, KEYBOARD_BG};
 use crate::font::{Fonts, font_from_style, KBD_CHAR, KBD_LABEL};
 use crate::geom::{Rectangle, LinearDir, CornerSpec};
 use crate::context::Context;
@@ -208,7 +208,7 @@ impl View for Key {
     fn render(&self, fb: &mut dyn Framebuffer, _rect: Rectangle, fonts: &mut Fonts) {
         let dpi = CURRENT_DEVICE.dpi;
         fb.draw_rectangle(&self.rect, KEYBOARD_BG);
-        let scheme: [u8; 3] = if self.active ^ (self.pressure == 2) {
+        let scheme: [Color; 3] = if self.active ^ (self.pressure == 2) {
             TEXT_INVERTED_HARD
         } else {
             TEXT_NORMAL

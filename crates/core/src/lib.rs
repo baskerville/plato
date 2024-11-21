@@ -1,7 +1,7 @@
 #[macro_use] pub mod geom;
 
 mod unit;
-mod color;
+pub mod color;
 pub mod device;
 pub mod framebuffer;
 pub mod frontlight;
@@ -14,7 +14,6 @@ pub mod document;
 pub mod library;
 pub mod view;
 pub mod metadata;
-mod symbolic_path;
 pub mod rtc;
 pub mod settings;
 pub mod font;

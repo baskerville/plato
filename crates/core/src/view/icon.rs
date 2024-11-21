@@ -7,7 +7,7 @@ use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewI
 use crate::gesture::GestureEvent;
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::document::pdf::PdfOpener;
-use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
+use crate::color::{Color, TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::unit::scale_by_dpi_raw;
 use crate::geom::{Rectangle, CornerSpec};
 use crate::font::Fonts;
@@ -30,7 +30,7 @@ lazy_static! {
                      "align-center", "margin", "plug", "cover", "enclosed_menu", "contrast", "gray"].iter().cloned() {
             let path = dir.join(&format!("{}.svg", name));
             let doc = PdfOpener::new().and_then(|o| o.open(path)).unwrap();
-            let pixmap = doc.page(0).and_then(|p| p.pixmap(scale)).unwrap();
+            let pixmap = doc.page(0).and_then(|p| p.pixmap(scale, 1)).unwrap();
             m.insert(name, pixmap);
         }
         m
@@ -42,7 +42,7 @@ pub struct Icon {
     pub rect: Rectangle,
     children: Vec<Box<dyn View>>,
     pub name: String,
-    background: u8,
+    background: Color,
     align: Align,
     corners: Option<CornerSpec>,
     event: Event,
@@ -64,7 +64,7 @@ impl Icon {
         }
     }
 
-    pub fn background(mut self, background: u8) -> Icon {
+    pub fn background(mut self, background: Color) -> Icon {
         self.background = background;
         self
     }

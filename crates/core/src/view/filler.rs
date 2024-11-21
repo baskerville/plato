@@ -3,16 +3,17 @@ use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue};
 use crate::geom::Rectangle;
 use crate::context::Context;
 use crate::font::Fonts;
+use crate::color::Color;
 
 pub struct Filler {
     id: Id,
     pub rect: Rectangle,
     children: Vec<Box<dyn View>>,
-    color: u8,
+    color: Color,
 }
 
 impl Filler {
-    pub fn new(rect: Rectangle, color: u8) -> Filler {
+    pub fn new(rect: Rectangle, color: Color) -> Filler {
         Filler {
             id: ID_FEEDER.next(),
             rect,

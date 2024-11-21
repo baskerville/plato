@@ -184,7 +184,7 @@ notify-success = true
 size = 2
 # The current pen color.
 # Possible values: 0 … 255.
-color = 0
+color = { gray = 0 }
 # Vary the diameter according to the pen's velocity.
 dynamic = true
 # The amplitude of the diameter variation when `dynamic` is set.

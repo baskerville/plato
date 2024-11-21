@@ -8,6 +8,7 @@ use std::fs::File;
 use std::os::unix::io::AsRawFd;
 use std::ops::Drop;
 use anyhow::{Error, Context};
+use crate::color::Color;
 use crate::geom::Rectangle;
 use crate::device::CURRENT_DEVICE;
 use super::{UpdateMode, Framebuffer};
@@ -220,36 +221,35 @@ impl KoboFramebuffer2 {
         unsafe { slice::from_raw_parts(self.frame as *const u8, self.frame_size) }
     }
 
-    fn get_pixel(&self, x: u32, y: u32) -> u8 {
+    fn get_pixel(&self, x: u32, y: u32) -> Color {
         let addr = (x + y * self.fix_info.line_length) as isize;
         let c = unsafe { *(self.frame.offset(addr) as *const u8) };
-        if self.inverted {
+        Color::Gray(if self.inverted {
             255 - c
         } else {
             c
-        }
+        })
     }
 }
 
 impl Framebuffer for KoboFramebuffer2 {
-    fn set_pixel(&mut self, x: u32, y: u32, color: u8) {
+    fn set_pixel(&mut self, x: u32, y: u32, color: Color) {
         let mut c = (self.transform)(x, y, color);
         if self.inverted {
-            c = 255 - c;
+            c.invert();
         }
         let addr = (x + y * self.fix_info.line_length) as isize;
         let spot = unsafe { self.frame.offset(addr) as *mut u8 };
-        unsafe { *spot = c };
+        unsafe { *spot = c.gray() };
     }
 
-    fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32) {
+    fn set_blended_pixel(&mut self, x: u32, y: u32, color: Color, alpha: f32) {
         if alpha >= 1.0 {
             self.set_pixel(x, y, color);
             return;
         }
-        let cur = self.get_pixel(x, y);
-        let color_alpha = color as f32 * alpha;
-        let interp = (color_alpha + (1.0 - alpha) * cur as f32) as u8;
+        let background = self.get_pixel(x, y);
+        let interp = background.lerp(color, alpha);
         let c = (self.transform)(x, y, interp);
         self.set_pixel(x, y, c);
     }
@@ -257,8 +257,8 @@ impl Framebuffer for KoboFramebuffer2 {
     fn invert_region(&mut self, rect: &Rectangle) {
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
-                let cur = self.get_pixel(x as u32, y as u32);
-                let color = 255 - cur;
+                let mut color = self.get_pixel(x as u32, y as u32);
+                color.invert();
                 self.set_pixel(x as u32, y as u32, color);
             }
         }
@@ -267,8 +267,8 @@ impl Framebuffer for KoboFramebuffer2 {
     fn shift_region(&mut self, rect: &Rectangle, drift: u8) {
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
-                let cur = self.get_pixel(x as u32, y as u32);
-                let color = cur.saturating_sub(drift);
+                let mut color = self.get_pixel(x as u32, y as u32);
+                color.shift(drift);
                 self.set_pixel(x as u32, y as u32, color);
             }
         }

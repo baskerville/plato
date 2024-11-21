@@ -10,7 +10,7 @@ mod kobo2;
 use anyhow::Error;
 use crate::geom::{Point, Rectangle, surface_area, nearest_segment_point, lerp};
 use crate::geom::{CornerSpec, BorderSpec, ColorSource, Vec2};
-use crate::color::{BLACK, WHITE};
+use crate::color::{Color, BLACK, WHITE};
 
 pub use self::kobo1::KoboFramebuffer1;
 pub use self::kobo2::KoboFramebuffer2;
@@ -32,8 +32,8 @@ pub enum UpdateMode {
 }
 
 pub trait Framebuffer {
-    fn set_pixel(&mut self, x: u32, y: u32, color: u8);
-    fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32);
+    fn set_pixel(&mut self, x: u32, y: u32, color: Color);
+    fn set_blended_pixel(&mut self, x: u32, y: u32, color: Color, alpha: f32);
     fn invert_region(&mut self, rect: &Rectangle);
     fn shift_region(&mut self, rect: &Rectangle, drift: u8);
     fn update(&mut self, rect: &Rectangle, mode: UpdateMode) -> Result<u32, Error>;
@@ -74,12 +74,12 @@ pub trait Framebuffer {
         rect![0, 0, width as i32, height as i32]
     }
 
-    fn clear(&mut self, color: u8) {
+    fn clear(&mut self, color: Color) {
         let rect = self.rect();
         self.draw_rectangle(&rect, color);
     }
 
-    fn draw_rectangle(&mut self, rect: &Rectangle, color: u8) {
+    fn draw_rectangle(&mut self, rect: &Rectangle, color: Color) {
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
                 self.set_pixel(x as u32, y as u32, color);
@@ -87,7 +87,7 @@ pub trait Framebuffer {
         }
     }
 
-    fn draw_blended_rectangle(&mut self, rect: &Rectangle, color: u8, alpha: f32) {
+    fn draw_blended_rectangle(&mut self, rect: &Rectangle, color: Color, alpha: f32) {
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
                 self.set_blended_pixel(x as u32, y as u32, color, alpha);
@@ -148,14 +148,17 @@ pub trait Framebuffer {
             for x in rect.min.x..rect.max.x {
                 let px = x - rect.min.x + pt.x;
                 let py = y - rect.min.y + pt.y;
-                let raw_color = pixmap.get_pixel(x as u32, y as u32) as f32;
-                let color = if raw_color < gray {
-                    (gray * (raw_color / gray).powf(exponent)) as u8
-                } else if raw_color > gray {
-                    (gray + rem_gray * ((raw_color - gray) / rem_gray).powf(inv_exponent)) as u8
-                } else {
-                    gray as u8
-                };
+                let raw_color = pixmap.get_pixel(x as u32, y as u32);
+                let color = raw_color.apply(|comp| {
+                    let c = comp as f32;
+                    if c < gray {
+                        (gray * (c / gray).powf(exponent)) as u8
+                    } else if c > gray {
+                        (gray + rem_gray * ((c - gray) / rem_gray).powf(inv_exponent)) as u8
+                    } else {
+                        gray as u8
+                    }
+                });
                 self.set_pixel(px as u32, py as u32, color);
             }
         }
@@ -179,18 +182,18 @@ pub trait Framebuffer {
         }
     }
 
-    fn draw_blended_pixmap(&mut self, pixmap: &Pixmap, pt: Point, color: u8) {
+    fn draw_blended_pixmap(&mut self, pixmap: &Pixmap, pt: Point, color: Color) {
         for y in 0..pixmap.height {
             for x in 0..pixmap.width {
                 let px = x + pt.x as u32;
                 let py = y + pt.y as u32;
-                let alpha = (255.0 - pixmap.get_pixel(x, y) as f32) / 255.0;
+                let alpha = (255.0 - pixmap.get_pixel(x, y).gray() as f32) / 255.0;
                 self.set_blended_pixel(px as u32, py as u32, color, alpha);
             }
         }
     }
 
-    fn draw_rounded_rectangle(&mut self, rect: &Rectangle, corners: &CornerSpec, color: u8) {
+    fn draw_rounded_rectangle(&mut self, rect: &Rectangle, corners: &CornerSpec, color: Color) {
         let (nw, ne, se, sw) = match *corners {
             CornerSpec::Uniform(v) => (v, v, v, v),
             CornerSpec::North(v) => (v, v, 0, 0),
@@ -277,7 +280,7 @@ pub trait Framebuffer {
                     if dist < mid_radius {
                         let delta_dist = small_radius as f32 - dist;
                         alpha = surface_area(delta_dist, angle);
-                        color = lerp(color as f32, border_color as f32, alpha) as u8;
+                        color = color.lerp(border_color, alpha);
                         alpha = 1.0;
                     } else {
                         let delta_dist = dist - radius as f32;
@@ -295,7 +298,7 @@ pub trait Framebuffer {
         }
     }
 
-    fn draw_triangle(&mut self, triangle: &[Point], color: u8) {
+    fn draw_triangle(&mut self, triangle: &[Point], color: Color) {
         let mut x_min = ::std::i32::MAX;
         let mut x_max = ::std::i32::MIN;
         let mut y_min = ::std::i32::MAX;
@@ -363,7 +366,7 @@ pub trait Framebuffer {
         }
     }
 
-    fn draw_disk(&mut self, center: Point, radius: i32, color: u8) {
+    fn draw_disk(&mut self, center: Point, radius: i32, color: Color) {
         let rect = Rectangle::from_disk(center, radius);
 
         for y in rect.min.y..rect.max.y {
@@ -377,7 +380,7 @@ pub trait Framebuffer {
         }
     }
 
-    fn draw_segment(&mut self, start: Point, end: Point, start_radius: f32, end_radius: f32, color: u8) {
+    fn draw_segment(&mut self, start: Point, end: Point, start_radius: f32, end_radius: f32, color: Color) {
         let rect = Rectangle::from_segment(start, end, start_radius.ceil() as i32, end_radius.ceil() as i32);
         let a = vec2!(start.x as f32, start.y as f32) + 0.5;
         let b = vec2!(end.x as f32, end.y as f32) + 0.5;

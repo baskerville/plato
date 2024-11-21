@@ -202,7 +202,7 @@ fn scaling_factor(rect: &Rectangle, cropping_margin: &Margin, screen_margin_widt
 
 fn build_pixmap(rect: &Rectangle, doc: &mut dyn Document, location: usize) -> (Pixmap, usize) {
     let scale = scaling_factor(rect, &Margin::default(), 0, doc.dims(location).unwrap(), ZoomMode::FitToPage);
-    doc.pixmap(Location::Exact(location), scale).unwrap()
+    doc.pixmap(Location::Exact(location), scale, CURRENT_DEVICE.color_samples()).unwrap()
 }
 
 fn find_cut(frame: &Rectangle, y_pos: i32, scale: f32, dir: LinearDir, lines: &[BoundedText]) -> Option<i32> {
@@ -471,7 +471,7 @@ impl Reader {
         let dims = doc.dims(location).unwrap_or((3.0, 4.0));
         let screen_margin_width = self.view_port.margin_width;
         let scale = scaling_factor(&self.rect, &cropping_margin, screen_margin_width, dims, self.view_port.zoom_mode);
-        if let Some((pixmap, _)) = doc.pixmap(Location::Exact(location), scale) {
+        if let Some((pixmap, _)) = doc.pixmap(Location::Exact(location), scale, CURRENT_DEVICE.color_samples()) {
             let frame = rect![(cropping_margin.left * pixmap.width as f32).ceil() as i32,
                               (cropping_margin.top * pixmap.height as f32).ceil() as i32,
                               ((1.0 - cropping_margin.right) * pixmap.width as f32).floor() as i32,
@@ -480,7 +480,7 @@ impl Reader {
         } else {
             let width = (dims.0 as f32 * scale).max(1.0) as u32;
             let height = (dims.1 as f32 * scale).max(1.0) as u32;
-            let pixmap = Pixmap::empty(width, height);
+            let pixmap = Pixmap::empty(width, height, CURRENT_DEVICE.color_samples());
             let frame = pixmap.rect();
             self.cache.insert(location, Resource { pixmap, frame, scale });
         }

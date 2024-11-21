@@ -581,7 +581,7 @@ impl EpubDocument {
 }
 
 impl Document for EpubDocument {
-    fn preview_pixmap(&mut self, width: f32, height: f32) -> Option<Pixmap> {
+    fn preview_pixmap(&mut self, width: f32, height: f32, samples: usize) -> Option<Pixmap> {
         let opener = PdfOpener::new()?;
         self.cover_image()
             .map(|path| self.parent.join(path)
@@ -592,14 +592,14 @@ impl Document for EpubDocument {
                     .and_then(|mut doc| {
                         doc.dims(0).and_then(|dims| {
                             let scale = (width / dims.0).min(height / dims.1);
-                            doc.pixmap(Location::Exact(0), scale)
+                            doc.pixmap(Location::Exact(0), scale, samples)
                         })
                     })
             })
             .or_else(|| {
                 self.dims(0).and_then(|dims| {
                     let scale = (width / dims.0).min(height / dims.1);
-                    self.pixmap(Location::Exact(0), scale)
+                    self.pixmap(Location::Exact(0), scale, samples)
                 })
             })
             .map(|(pixmap, _)| pixmap)
@@ -854,7 +854,7 @@ impl Document for EpubDocument {
         })
     }
 
-    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, usize)> {
+    fn pixmap(&mut self, loc: Location, scale: f32, samples: usize) -> Option<(Pixmap, usize)> {
         if self.spine.is_empty() {
             return None;
         }
@@ -865,7 +865,7 @@ impl Document for EpubDocument {
         let page_index = self.page_index(offset, index, start_offset)?;
         let page = self.cache.get(&index)?.get(page_index)?.clone();
 
-        let pixmap = self.engine.render_page(&page, scale, &mut self.archive)?;
+        let pixmap = self.engine.render_page(&page, scale, samples, &mut self.archive)?;
 
         Some((pixmap, offset))
     }
