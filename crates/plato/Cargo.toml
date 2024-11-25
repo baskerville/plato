@@ -1,7 +1,7 @@
 [package]
 authors = ["Bastien Dejean <nihilhill@gmail.com>"]
 name = "plato"
-version = "0.9.43"
+version = "0.9.44"
 edition = "2021"
 
 [[bin]]
