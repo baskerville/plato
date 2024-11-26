@@ -125,6 +125,7 @@ pub struct Settings {
     pub calculator: CalculatorSettings,
     pub battery: BatterySettings,
     pub frontlight_levels: LightLevels,
+    pub opds: Vec<OpdsSettings>
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -489,6 +490,28 @@ impl Default for BatterySettings {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct OpdsSettings {
+    pub name: String,
+    pub url: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub download_location: PathBuf,
+}
+
+impl Default for OpdsSettings {
+    fn default() -> Self {
+        OpdsSettings {
+            name: "Unnamed".to_string(),
+            url: String::default(),
+            username: None,
+            password: None,
+            download_location: PathBuf::default()
+        }
+    }
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {
@@ -551,6 +574,15 @@ impl Default for Settings {
             battery: BatterySettings::default(),
             frontlight_levels: LightLevels::default(),
             frontlight_presets: Vec::new(),
+            opds: vec![
+                OpdsSettings {
+                    name: "Project Gutenberg".to_string(),
+                    url: "https://m.gutenberg.org/ebooks.opds/".to_string(),
+                    username: None,
+                    password: None,
+                    download_location: PathBuf::from(INTERNAL_CARD_ROOT)
+                }
+            ],
         }
     }
 }
