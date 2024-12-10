@@ -42,6 +42,7 @@ pub mod calculator;
 pub mod sketch;
 pub mod touch_events;
 pub mod rotation_values;
+pub mod remote_display;
 
 use std::ops::{Deref, DerefMut};
 use std::time::{Instant, Duration};
@@ -364,6 +365,8 @@ pub enum Event {
     Back,
     Quit,
     WakeUp,
+    UpdateRemoteView(Box<Vec<u8>>),
+    SendRemoteViewSize
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -376,6 +379,7 @@ pub enum AppCmd {
     },
     TouchEvents,
     RotationValues,
+    RemoteDisplay
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
