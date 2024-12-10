@@ -90,7 +90,7 @@ impl Shelf {
                         // triggered by loading multiple jp2 pixmaps in parallel.
                         let _guard = EXCLUSIVE_ACCESS.lock().unwrap();
                         open(full_path).and_then(|mut doc| {
-                            doc.preview_pixmap(tw as f32, th as f32)
+                            doc.preview_pixmap(tw as f32, th as f32, CURRENT_DEVICE.color_samples())
                         }).map(|pixmap| {
                             if pixmap.save(&thumb_path2).is_ok() {
                                 hub2.send(Event::RefreshBookPreview(path, Some(PathBuf::from(thumb_path2)))).ok();

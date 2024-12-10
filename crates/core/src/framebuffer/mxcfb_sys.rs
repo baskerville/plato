@@ -153,12 +153,15 @@ pub const EPDC_FLAG_USE_DITHERING_ORDERED: libc::c_int = 3;
 // pub const EPDC_FLAG_USE_DITHERING_QUANT_ONLY: libc::c_int = 4;
 
 /* Mark 11 */
-pub const HWTCON_WAVEFORM_MODE_GL16  :u32 = 3;
-pub const HWTCON_WAVEFORM_MODE_GLR16 :u32 = 4;
-pub const HWTCON_WAVEFORM_MODE_REAGL :u32 = 4;
-pub const HWTCON_WAVEFORM_MODE_A2    :u32 = 6;
-pub const HWTCON_WAVEFORM_MODE_GCK16 :u32 = 8;
-pub const HWTCON_WAVEFORM_MODE_GLKW16:u32 = 9;
+pub const HWTCON_WAVEFORM_MODE_GL16  :u32 =  3;
+pub const HWTCON_WAVEFORM_MODE_GLR16 :u32 =  4;
+pub const HWTCON_WAVEFORM_MODE_REAGL :u32 =  4;
+pub const HWTCON_WAVEFORM_MODE_A2    :u32 =  6;
+pub const HWTCON_WAVEFORM_MODE_GCK16 :u32 =  8;
+pub const HWTCON_WAVEFORM_MODE_GLKW16:u32 =  9;
+/* Mark 12 */
+pub const HWTCON_WAVEFORM_MODE_GCC16 :u32 = 10;
+pub const HWTCON_WAVEFORM_MODE_GLRC16:u32 = 11;
 
 pub const HWTCON_FLAG_USE_DITHERING: libc::c_uint = 0x1;
 pub const HWTCON_FLAG_FORCE_A2_OUTPUT: libc::c_uint = 16;

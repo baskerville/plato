@@ -372,11 +372,11 @@ impl Document for HtmlDocument {
         }).collect(), offset))
     }
 
-    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, usize)> {
+    fn pixmap(&mut self, loc: Location, scale: f32, samples: usize) -> Option<(Pixmap, usize)> {
         let offset = self.resolve_location(loc)?;
         let page_index = self.page_index(offset)?;
         let page = self.pages[page_index].clone();
-        let pixmap = self.engine.render_page(&page, scale, &mut self.parent)?;
+        let pixmap = self.engine.render_page(&page, scale, samples, &mut self.parent)?;
 
         Some((pixmap, offset))
     }

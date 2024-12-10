@@ -265,7 +265,7 @@ fn main() -> Result<(), Error> {
                         }
                     }
 
-                    if let Some(opened) = entry.pointer("/reader/opened")
+                    if let Some(opened) = entry.pointer("/readerInfo/opened")
                                                .and_then(JsonValue::as_str) {
                         session.last_opened = opened.to_string();
                     }

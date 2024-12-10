@@ -10,7 +10,7 @@ const FRONTLIGHT_WHITE: &str = "/sys/class/backlight/mxc_msp430.0/brightness";
 
 // Forma
 const FRONTLIGHT_ORANGE_A: &str = "/sys/class/backlight/tlc5947_bl/color";
-// Libra H₂O, Clara HD, Libra 2, Clara BW
+// Libra H₂O, Clara HD, Libra 2, Clara BW, Libra Colour, Clara Colour
 const FRONTLIGHT_ORANGE_B: &str = "/sys/class/backlight/lm3630a_led/color";
 // Sage, Libra 2, Clara 2E, Elipsa 2E
 const FRONTLIGHT_ORANGE_C: &str =  "/sys/class/leds/aw99703-bl_FL1/color";

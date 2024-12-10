@@ -200,7 +200,7 @@ impl RemoteDisplay {
             id,
             rect,
             children,
-            pixmap: Pixmap::new(rect.width(), rect.height()),
+            pixmap: Pixmap::new(rect.width(), rect.height(), 1),
             message_tx,
         }
     }
@@ -219,7 +219,7 @@ impl RemoteDisplay {
             .iter()
             .map(|&f| (f * 255.0).round() as u8)
             .collect::<Vec<u8>>();
-        let mut pixmap = Pixmap::new(jxl.width(), jxl.height());
+        let mut pixmap = Pixmap::new(jxl.width(), jxl.height(), 1);
         pixmap.data_mut().copy_from_slice(&render);
         self.pixmap = pixmap;
         self.message_tx
@@ -328,7 +328,7 @@ impl View for RemoteDisplay {
         let out_of_bounds = addr >= self.pixmap.data.len();
         if out_of_bounds {
             // Blank to prevent a panic when the pixmap is not the expected size.
-            let pixmap = Pixmap::new(fb.width(), fb.height());
+            let pixmap = Pixmap::new(fb.width(), fb.height(), 1);
             fb.draw_framed_pixmap(&pixmap, &rect, rect.min);
             return;
         }

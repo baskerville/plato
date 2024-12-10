@@ -37,6 +37,7 @@ use plato_core::view::common::{toggle_input_history_menu, toggle_keyboard_layout
 use plato_core::helpers::{load_toml, save_toml};
 use plato_core::settings::{Settings, SETTINGS_PATH, IntermKind};
 use plato_core::geom::{Rectangle, Axis};
+use plato_core::color::Color;
 use plato_core::gesture::{GestureEvent, gesture_events};
 use plato_core::device::CURRENT_DEVICE;
 use plato_core::battery::{Battery, FakeBattery};
@@ -110,13 +111,15 @@ fn code_from_key(key: Scancode) -> Option<ButtonCode> {
 struct FBCanvas(WindowCanvas);
 
 impl Framebuffer for FBCanvas {
-    fn set_pixel(&mut self, x: u32, y: u32, color: u8) {
-        self.0.set_draw_color(SdlColor::RGB(color, color, color));
+    fn set_pixel(&mut self, x: u32, y: u32, color: Color) {
+        let [red, green, blue] = color.rgb();
+        self.0.set_draw_color(SdlColor::RGB(red, green, blue));
         self.0.draw_point(SdlPoint::new(x as i32, y as i32)).unwrap();
     }
 
-    fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32) {
-        self.0.set_draw_color(SdlColor::RGBA(color, color, color, (alpha * 255.0) as u8));
+    fn set_blended_pixel(&mut self, x: u32, y: u32, color: Color, alpha: f32) {
+        let [red, green, blue] = color.rgb();
+        self.0.set_draw_color(SdlColor::RGBA(red, green, blue, (alpha * 255.0) as u8));
         self.0.draw_point(SdlPoint::new(x as i32, y as i32)).unwrap();
     }
 
@@ -130,7 +133,11 @@ impl Framebuffer for FBCanvas {
                 for x in rect.min.x..rect.max.x {
                     let u = (x - rect.min.x) as u32;
                     let addr = 3 * (v * width + u);
-                    let color = 255 - data[addr as usize];
+                    let red = data[addr as usize];
+                    let green = data[(addr+1) as usize];
+                    let blue = data[(addr+2) as usize];
+                    let mut color = Color::Rgb(red, green, blue);
+                    color.invert();
                     self.set_pixel(x as u32, y as u32, color);
                 }
             }
@@ -147,7 +154,11 @@ impl Framebuffer for FBCanvas {
                 for x in rect.min.x..rect.max.x {
                     let u = (x - rect.min.x) as u32;
                     let addr = 3 * (v * width + u);
-                    let color = data[addr as usize].saturating_sub(drift);
+                    let red = data[addr as usize];
+                    let green = data[(addr+1) as usize];
+                    let blue = data[(addr+2) as usize];
+                    let mut color = Color::Rgb(red, green, blue);
+                    color.shift(drift);
                     self.set_pixel(x as u32, y as u32, color);
                 }
             }

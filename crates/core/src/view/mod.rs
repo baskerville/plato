@@ -54,6 +54,7 @@ use std::fmt::{self, Debug};
 use fxhash::FxHashMap;
 use downcast_rs::{Downcast, impl_downcast};
 use crate::font::Fonts;
+use crate::color::Color;
 use crate::document::{Location, TextLocation};
 use crate::settings::{ButtonScheme, FirstColumn, SecondColumn, RotationLock};
 use crate::metadata::{Info, ZoomMode, ScrollMode, SortMethod, TextAlign, SimpleStatus, PageScheme, Margin};
@@ -572,7 +573,7 @@ pub enum EntryId {
     Rotate(i8),
     Launch(AppCmd),
     SetPenSize(i32),
-    SetPenColor(u8),
+    SetPenColor(Color),
     TogglePenDynamism,
     ReloadDictionaries,
     New,

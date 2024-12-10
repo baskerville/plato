@@ -19,6 +19,7 @@ use anyhow::{Error, format_err};
 use thiserror::Error;
 use globset::Glob;
 use walkdir::WalkDir;
+use crate::color::Color;
 use crate::geom::{Point, Vec2};
 use crate::helpers::IsHidden;
 use crate::framebuffer::Framebuffer;
@@ -1510,7 +1511,7 @@ impl Font {
         (i, width)
     }
 
-    pub fn render(&mut self, fb: &mut dyn Framebuffer, color: u8, render_plan: &RenderPlan, origin: Point) {
+    pub fn render(&mut self, fb: &mut dyn Framebuffer, color: Color, render_plan: &RenderPlan, origin: Point) {
         unsafe {
             let mut pos = origin;
             let mut fallback_faces = FxHashMap::default();
