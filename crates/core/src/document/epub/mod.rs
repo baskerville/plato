@@ -410,6 +410,8 @@ impl EpubDocument {
             if display_list.is_empty() {
                 display_list.push(vec![DrawCommand::Marker(start_offset + body.offset())]);
             }
+        } else {
+            display_list.push(vec![DrawCommand::Marker(start_offset)]);
         }
 
         display_list
