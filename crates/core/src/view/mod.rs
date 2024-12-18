@@ -42,6 +42,7 @@ pub mod calculator;
 pub mod sketch;
 pub mod touch_events;
 pub mod rotation_values;
+pub mod opds;
 
 use std::ops::{Deref, DerefMut};
 use std::time::{Instant, Duration};
@@ -364,6 +365,8 @@ pub enum Event {
     Back,
     Quit,
     WakeUp,
+    OpdsHome,
+    OpdsDocumentDownloaded
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -376,6 +379,7 @@ pub enum AppCmd {
     },
     TouchEvents,
     RotationValues,
+    Opds,
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -436,6 +440,8 @@ pub enum ViewId {
     TableOfContents,
     MessageNotif(Id),
     SubMenu(u8),
+    Opds,
+    OpdsServerMenu
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -577,6 +583,8 @@ pub enum EntryId {
     TakeScreenshot,
     Reboot,
     Quit,
+    OpdsEntry(String),
+    OpdsServer(usize)
 }
 
 impl EntryKind {

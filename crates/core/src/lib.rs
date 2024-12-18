@@ -19,6 +19,7 @@ pub mod settings;
 pub mod font;
 pub mod context;
 pub mod gesture;
+pub mod opds;
 
 pub use anyhow;
 pub use fxhash;
