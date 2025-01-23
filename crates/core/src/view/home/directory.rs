@@ -1,10 +1,11 @@
 use std::path::{PathBuf, Path};
-use crate::device::CURRENT_DEVICE;
+use display::device::CURRENT_DEVICE;
 use crate::gesture::GestureEvent;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
-use crate::color::{WHITE, BLACK, TEXT_BUMP_SMALL};
-use crate::geom::{Rectangle, CornerSpec, BorderSpec};
-use crate::framebuffer::Framebuffer;
+use display::color::{WHITE, BLACK, TEXT_BUMP_SMALL};
+use display::geom::{Rectangle, CornerSpec, BorderSpec};
+use display::framebuffer::Framebuffer;
+use display::{rect, pt};
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, Align};
 use crate::view::{THICKNESS_SMALL, BORDER_RADIUS_SMALL};
 use crate::unit::scale_by_dpi;

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use fxhash::FxHashMap;
 use lazy_static::lazy_static;
 use anyhow::Error;
-use crate::device::{CURRENT_DEVICE, Model};
+use display::device::{CURRENT_DEVICE, Model};
 use super::{Frontlight, LightLevels};
 
 const FRONTLIGHT_INTERFACE: &str = "/sys/class/backlight";

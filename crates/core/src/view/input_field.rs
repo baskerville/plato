@@ -1,13 +1,14 @@
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, KeyboardEvent, ViewId, EntryId, TextKind};
 use super::THICKNESS_MEDIUM;
 use crate::gesture::GestureEvent;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE, FONT_SIZES};
-use crate::geom::{Rectangle, Point, LinearDir, BorderSpec, halves};
-use crate::color::{TEXT_NORMAL, BLACK};
+use display::geom::{Rectangle, Point, LinearDir, BorderSpec, halves};
+use display::color::{TEXT_NORMAL, BLACK};
 use crate::context::Context;
 use crate::unit::scale_by_dpi;
+use display::{rect, pt};
 
 pub struct InputField {
     id: Id,

@@ -12,9 +12,10 @@ use std::os::unix::ffi::OsStrExt;
 use super::{Document, Location, TextLocation, BoundedText, TocEntry};
 use super::{chapter, chapter_relative};
 use crate::metadata::TextAlign;
-use crate::geom::{Boundary, CycleDir};
+use display::geom::{Boundary, CycleDir};
 use crate::unit::pt_to_px;
-use crate::framebuffer::Pixmap;
+use display::framebuffer::Pixmap;
+use display::vec2;
 
 const USER_STYLESHEET: &str = "css/html-user.css";
 

@@ -1,11 +1,12 @@
-use crate::device::CURRENT_DEVICE;
+use display::device::CURRENT_DEVICE;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, Align};
 use crate::gesture::GestureEvent;
-use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::geom::Rectangle;
-use crate::color::TEXT_NORMAL;
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::geom::Rectangle;
+use display::color::TEXT_NORMAL;
 use crate::context::Context;
+use display::pt;
 
 pub struct Label {
     id: Id,

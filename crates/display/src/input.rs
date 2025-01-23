@@ -9,10 +9,11 @@ use std::os::unix::io::AsRawFd;
 use std::ffi::CString;
 use fxhash::FxHashMap;
 use crate::framebuffer::Display;
-use crate::settings::ButtonScheme;
 use crate::device::CURRENT_DEVICE;
 use crate::geom::{Point, LinearDir};
 use anyhow::{Error, Context};
+use serde::{Serialize, Deserialize};
+use std::fmt::{self, Debug};
 
 // Event types
 pub const EV_SYN: u16 = 0x00;
@@ -218,6 +219,20 @@ pub enum PowerSource {
     Host,
     Wall,
 }
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ButtonScheme {
+    Natural,
+    Inverted,
+}
+
+impl fmt::Display for ButtonScheme {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Debug::fmt(self, f)
+    }
+}
+
 
 pub fn seconds(time: libc::timeval) -> f64 {
     time.tv_sec as f64 + time.tv_usec as f64 / 1e6

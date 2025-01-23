@@ -1,8 +1,9 @@
-use crate::device::CURRENT_DEVICE;
+use display::device::CURRENT_DEVICE;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
-use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::color::TEXT_NORMAL;
-use crate::geom::{Rectangle};
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::color::TEXT_NORMAL;
+use display::geom::Rectangle;
+use display::pt;
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use crate::context::Context;
 

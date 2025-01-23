@@ -1,9 +1,9 @@
-use crate::framebuffer::Framebuffer;
+use display::framebuffer::Framebuffer;
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue};
-use crate::geom::Rectangle;
+use display::geom::Rectangle;
 use crate::context::Context;
 use crate::font::Fonts;
-use crate::color::Color;
+use display::color::Color;
 
 pub struct Filler {
     id: Id,

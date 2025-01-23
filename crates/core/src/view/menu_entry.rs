@@ -1,13 +1,14 @@
 use std::mem;
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::geom::{Rectangle, CornerSpec};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::geom::{Rectangle, CornerSpec};
+use display::pt;
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, EntryKind};
 use super::icon::ICONS_PIXMAPS;
-use crate::input::{DeviceEvent, FingerStatus};
+use display::input::{DeviceEvent, FingerStatus};
 use crate::gesture::GestureEvent;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE, SPECIAL_STYLE};
-use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
+use display::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::context::Context;
 
 pub struct MenuEntry {

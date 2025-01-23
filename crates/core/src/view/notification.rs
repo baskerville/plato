@@ -1,16 +1,17 @@
 use std::thread;
 use std::time::Duration;
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::geom::{Rectangle, CornerSpec, BorderSpec};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::geom::{Rectangle, CornerSpec, BorderSpec};
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
-use crate::color::{BLACK, WHITE, TEXT_NORMAL};
+use display::color::{BLACK, WHITE, TEXT_NORMAL};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId};
 use super::{SMALL_BAR_HEIGHT, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
 use crate::gesture::GestureEvent;
-use crate::input::DeviceEvent;
+use display::input::DeviceEvent;
 use crate::unit::scale_by_dpi;
 use crate::context::Context;
+use display::{rect, pt};
 
 const NOTIFICATION_CLOSE_DELAY: Duration = Duration::from_secs(4);
 

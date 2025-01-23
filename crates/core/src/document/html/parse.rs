@@ -3,8 +3,8 @@ use regex::Regex;
 use super::layout::{FontKind, FontStyle, FontWeight, WordSpacing};
 use super::layout::{TextAlign, Display, Float, ListStyleType};
 use super::layout::{InlineMaterial, GlueMaterial, PenaltyMaterial};
-use crate::geom::Edge;
-use crate::color::{Color, BLACK, WHITE};
+use display::geom::Edge;
+use display::color::{Color, BLACK, WHITE};
 use crate::unit::{pt_to_px, pc_to_px, mm_to_px, in_to_px};
 use crate::unit::{POINTS_PER_INCH, PICAS_PER_INCH, MILLIMETERS_PER_INCH, CENTIMETERS_PER_INCH};
 

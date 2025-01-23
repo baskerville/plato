@@ -1,7 +1,7 @@
 use chrono::{Local, Timelike};
 use serde::{Serialize, Deserialize};
 use crate::frontlight::LightLevels;
-use crate::geom::circular_distances;
+use display::geom::circular_distances;
 
 const MINUTES_PER_DAY: u16 = 24 * 60;
 

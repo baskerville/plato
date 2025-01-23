@@ -26,11 +26,11 @@ use self::djvu::DjvuOpener;
 use self::pdf::PdfOpener;
 use self::epub::EpubDocument;
 use self::html::HtmlDocument;
-use crate::geom::{Boundary, CycleDir};
+use display::geom::{Boundary, CycleDir};
 use crate::metadata::{TextAlign, Annotation};
-use crate::framebuffer::Pixmap;
+use display::framebuffer::Pixmap;
 use crate::settings::INTERNAL_CARD_ROOT;
-use crate::device::CURRENT_DEVICE;
+use display::device::CURRENT_DEVICE;
 
 pub const BYTES_PER_PAGE: f64 = 2048.0;
 

@@ -1,12 +1,13 @@
-use crate::device::CURRENT_DEVICE;
-use crate::geom::{Rectangle, Dir, CycleDir};
+use display::device::CURRENT_DEVICE;
+use display::geom::{Rectangle, Dir, CycleDir};
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::framebuffer::{Framebuffer, UpdateMode};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use super::preset::{Preset, PresetKind};
 use crate::gesture::GestureEvent;
 use crate::settings::LightPreset;
-use crate::color::WHITE;
+use display::color::WHITE;
+use display::rect;
 use crate::context::Context;
 
 pub struct PresetsList {

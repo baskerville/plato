@@ -1,5 +1,6 @@
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::rect;
 use crate::settings::ReaderSettings;
 use crate::metadata::{ReaderInfo, TextAlign};
 use crate::metadata::{DEFAULT_CONTRAST_EXPONENT, DEFAULT_CONTRAST_GRAY};
@@ -9,11 +10,11 @@ use crate::view::slider::Slider;
 use crate::view::icon::Icon;
 use crate::view::labeled_icon::LabeledIcon;
 use crate::gesture::GestureEvent;
-use crate::input::DeviceEvent;
+use display::input::DeviceEvent;
 use crate::unit::scale_by_dpi;
-use crate::geom::Rectangle;
+use display::geom::Rectangle;
 use crate::font::Fonts;
-use crate::color::{SEPARATOR_NORMAL, WHITE};
+use display::color::{SEPARATOR_NORMAL, WHITE};
 use crate::context::Context;
 
 #[derive(Debug)]

@@ -1,12 +1,13 @@
 use std::mem;
-use crate::device::CURRENT_DEVICE;
-use crate::geom::{Point, Rectangle};
+use display::device::CURRENT_DEVICE;
+use display::geom::{Point, Rectangle};
 use crate::view::{View, Event, Hub, Bus, RenderQueue, RenderData};
 use crate::view::{Id, ID_FEEDER};
 use crate::gesture::GestureEvent;
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::framebuffer::{Framebuffer, UpdateMode};
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE, DISPLAY_STYLE};
-use crate::color::{BLACK, WHITE, GRAY07};
+use display::color::{BLACK, WHITE, GRAY07};
+use display::pt;
 use crate::context::Context;
 
 const MESSAGE_1: &str = "Hold you device in portrait mode\n\

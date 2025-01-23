@@ -2,15 +2,15 @@ mod preset;
 
 use std::env;
 use std::ops::Index;
-use std::fmt::{self, Debug};
 use std::path::PathBuf;
 use std::collections::{BTreeMap, HashMap};
 use fxhash::FxHashSet;
 use serde::{Serialize, Deserialize};
 use crate::metadata::{SortMethod, TextAlign};
 use crate::frontlight::LightLevels;
-use crate::color::{Color, BLACK};
-use crate::device::CURRENT_DEVICE;
+use display::color::{Color, BLACK};
+use display::device::CURRENT_DEVICE;
+use display::input::ButtonScheme;
 use crate::unit::mm_to_px;
 
 pub use self::preset::{LightPreset, guess_frontlight};
@@ -40,19 +40,6 @@ pub enum RotationLock {
     Landscape,
     Portrait,
     Current,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum ButtonScheme {
-    Natural,
-    Inverted,
-}
-
-impl fmt::Display for ButtonScheme {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Debug::fmt(self, f)
-    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]

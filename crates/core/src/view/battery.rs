@@ -1,7 +1,8 @@
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::geom::{Rectangle, BorderSpec, CornerSpec};
-use crate::color::{BLACK, WHITE, BATTERY_FILL};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::geom::{Rectangle, BorderSpec, CornerSpec};
+use display::color::{BLACK, WHITE, BATTERY_FILL};
+use display::{rect, pt};
 use super::{View, ViewId, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use super::{THICKNESS_LARGE, THICKNESS_MEDIUM, BORDER_RADIUS_SMALL};
 use super::icon::ICONS_PIXMAPS;

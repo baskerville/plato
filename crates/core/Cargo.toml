@@ -8,6 +8,7 @@ edition = "2021"
 crate-type = ["rlib"]
 
 [dependencies]
+display = { path = "../display" }
 bitflags = "2.6.0"
 downcast-rs = "1.2.1"
 lazy_static = "1.5.0"

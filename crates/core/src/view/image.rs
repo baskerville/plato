@@ -1,9 +1,10 @@
-use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
+use display::framebuffer::{Framebuffer, UpdateMode, Pixmap};
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
-use crate::color::WHITE;
-use crate::geom::Rectangle;
+use display::color::WHITE;
+use display::geom::Rectangle;
 use crate::context::Context;
 use crate::font::Fonts;
+use display::{rect, pt};
 
 pub struct Image {
     id: Id,

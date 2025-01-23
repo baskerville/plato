@@ -1,0 +1,17 @@
+[package]
+name = "display"
+version = "0.9.44"
+edition = "2021"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { version = "1.0.215", features = ["derive"] }
+nix = { version = "0.29.0", features = ["fs", "ioctl"] }
+anyhow = "1.0.93"
+libc = "0.2.164"
+lazy_static = "1.5.0"
+png = "0.17.14"
+fxhash = "0.2.1"
+

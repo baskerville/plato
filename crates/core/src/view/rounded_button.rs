@@ -1,15 +1,16 @@
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use super::THICKNESS_MEDIUM;
 use super::icon::ICONS_PIXMAPS;
 use crate::gesture::GestureEvent;
-use crate::input::{DeviceEvent, FingerStatus};
+use display::input::{DeviceEvent, FingerStatus};
 use crate::unit::scale_by_dpi;
 use crate::font::Fonts;
 use crate::context::Context;
-use crate::geom::{Rectangle, CornerSpec, BorderSpec};
-use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
+use display::geom::{Rectangle, CornerSpec, BorderSpec};
+use display::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
+use display::pt;
 
 pub struct RoundedButton {
     id: Id,

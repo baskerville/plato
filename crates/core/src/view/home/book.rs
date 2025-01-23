@@ -1,10 +1,11 @@
 use std::path::PathBuf;
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::{rect, pt};
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, THICKNESS_SMALL};
 use crate::font::{MD_TITLE, MD_AUTHOR, MD_YEAR, MD_KIND, MD_SIZE};
-use crate::color::{BLACK, WHITE, READING_PROGRESS};
-use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
+use display::color::{BLACK, WHITE, READING_PROGRESS};
+use display::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::gesture::GestureEvent;
 use crate::metadata::{Info, Status};
 use crate::settings::{FirstColumn, SecondColumn};
@@ -12,7 +13,7 @@ use crate::unit::scale_by_dpi;
 use crate::document::{HumanSize, Location, Document};
 use crate::document::pdf::PdfOpener;
 use crate::font::{Fonts, font_from_style};
-use crate::geom::{Rectangle, CornerSpec, BorderSpec, halves};
+use display::geom::{Rectangle, CornerSpec, BorderSpec, halves};
 use crate::context::Context;
 
 const PROGRESS_HEIGHT: f32 = 13.0;

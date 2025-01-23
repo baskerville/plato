@@ -1,11 +1,12 @@
 use std::thread;
-use crate::device::CURRENT_DEVICE;
+use display::device::CURRENT_DEVICE;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
-use crate::geom::{Point, Rectangle, CornerSpec, BorderSpec, small_half, big_half};
+use display::geom::{Point, Rectangle, CornerSpec, BorderSpec, small_half, big_half};
 use crate::gesture::GestureEvent;
 use crate::unit::scale_by_dpi;
-use crate::color::{BLACK, WHITE, SEPARATOR_NORMAL, SEPARATOR_STRONG};
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::color::{BLACK, WHITE, SEPARATOR_NORMAL, SEPARATOR_STRONG};
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::{rect, pt};
 use super::filler::Filler;
 use super::menu_entry::MenuEntry;
 use super::common::locate_by_id;

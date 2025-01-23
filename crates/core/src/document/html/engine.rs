@@ -8,12 +8,12 @@ use xi_unicode::LineBreakIterator;
 use percent_encoding::percent_decode_str;
 use septem::Roman;
 use crate::helpers::{Normalize, decode_entities};
-use crate::framebuffer::{Framebuffer, Pixmap};
+use display::framebuffer::{Framebuffer, Pixmap};
 use crate::font::{FontOpener, FontFamily};
 use crate::document::{Document, Location};
 use crate::document::pdf::PdfOpener;
 use crate::unit::{mm_to_px, pt_to_px};
-use crate::geom::{Point, Vec2, Rectangle, Edge};
+use display::geom::{Point, Vec2, Rectangle, Edge};
 use crate::settings::{HYPHEN_PENALTY, STRETCH_TOLERANCE};
 use crate::settings::{DEFAULT_FONT_SIZE, DEFAULT_MARGIN_WIDTH, DEFAULT_TEXT_ALIGN, DEFAULT_LINE_HEIGHT};
 use super::parse::{parse_display, parse_edge, parse_float, parse_text_align, parse_text_indent};
@@ -31,6 +31,7 @@ use super::layout::{hyph_lang, collapse_margins, DEFAULT_HYPH_LANG, HYPHENATION_
 use super::layout::{EM_SPACE_RATIOS, WORD_SPACE_RATIOS, FONT_SPACES};
 use super::style::{StyleSheet, specified_values};
 use super::xml::XmlExt;
+use display::{rect, pt};
 
 const DEFAULT_DPI: u16 = 300;
 const DEFAULT_WIDTH: u32 = 1404;
