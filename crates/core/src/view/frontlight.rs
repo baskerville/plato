@@ -1,6 +1,7 @@
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::geom::{Rectangle, CornerSpec, BorderSpec};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::geom::{Rectangle, CornerSpec, BorderSpec};
+use display::{rect, pt};
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId, EntryId, SliderId, Align};
 use super::{SMALL_BAR_HEIGHT, THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
@@ -13,7 +14,7 @@ use super::common::shift;
 use crate::frontlight::LightLevels;
 use crate::gesture::GestureEvent;
 use crate::settings::{LightPreset, guess_frontlight};
-use crate::color::{BLACK, WHITE};
+use display::color::{BLACK, WHITE};
 use crate::unit::scale_by_dpi;
 use crate::context::Context;
 

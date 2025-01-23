@@ -1,6 +1,6 @@
-use crate::framebuffer::Framebuffer;
+use display::framebuffer::Framebuffer;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
-use crate::geom::{Rectangle, CornerSpec, BorderSpec, halves, big_half};
+use display::geom::{Rectangle, CornerSpec, BorderSpec, halves, big_half};
 use crate::gesture::GestureEvent;
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, ViewId, Align};
 use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM};
@@ -8,9 +8,10 @@ use super::common::shift;
 use super::label::Label;
 use super::input_field::InputField;
 use crate::unit::scale_by_dpi;
-use crate::color::{BLACK, WHITE};
-use crate::device::CURRENT_DEVICE;
+use display::color::{BLACK, WHITE};
+use display::device::CURRENT_DEVICE;
 use crate::context::Context;
+use display::{rect, pt};
 
 pub struct NamedInput {
     id: Id,

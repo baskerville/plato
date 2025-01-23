@@ -1,12 +1,13 @@
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::framebuffer::{Framebuffer, UpdateMode};
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId, Align};
 use crate::view::icon::Icon;
 use crate::view::filler::Filler;
 use crate::view::label::Label;
 use crate::gesture::GestureEvent;
-use crate::input::DeviceEvent;
-use crate::geom::{Rectangle, CycleDir};
-use crate::color::WHITE;
+use display::input::DeviceEvent;
+use display::geom::{Rectangle, CycleDir};
+use display::color::WHITE;
+use display::{rect, pt};
 use crate::font::Fonts;
 use crate::context::Context;
 

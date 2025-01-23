@@ -2,15 +2,15 @@ mod preset;
 
 use std::env;
 use std::ops::Index;
-use std::fmt::{self, Debug};
 use std::path::PathBuf;
 use std::collections::{BTreeMap, HashMap};
 use fxhash::FxHashSet;
 use serde::{Serialize, Deserialize};
 use crate::metadata::{SortMethod, TextAlign};
 use crate::frontlight::LightLevels;
-use crate::color::{Color, BLACK};
-use crate::device::CURRENT_DEVICE;
+use display::color::{Color, BLACK};
+use display::device::CURRENT_DEVICE;
+use display::input::ButtonScheme;
 use crate::unit::mm_to_px;
 
 pub use self::preset::{LightPreset, guess_frontlight};

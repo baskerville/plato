@@ -3,7 +3,7 @@ use std::io::Write;
 use std::fs::File;
 use std::fs::OpenOptions;
 use anyhow::Error;
-use crate::device::CURRENT_DEVICE;
+use display::device::CURRENT_DEVICE;
 use super::{Frontlight, LightLevels};
 
 const FRONTLIGHT_WHITE: &str = "/sys/class/backlight/mxc_msp430.0/brightness";

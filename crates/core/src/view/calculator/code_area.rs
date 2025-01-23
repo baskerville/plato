@@ -1,13 +1,14 @@
-use crate::device::CURRENT_DEVICE;
+use display::device::CURRENT_DEVICE;
 use crate::font::Fonts;
-use crate::input::{DeviceEvent, ButtonCode, ButtonStatus};
+use display::input::{DeviceEvent, ButtonCode, ButtonStatus};
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue};
 use super::{Line, LineOrigin};
 use crate::gesture::GestureEvent;
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::framebuffer::{Framebuffer, UpdateMode};
 use crate::unit::mm_to_px;
-use crate::geom::{Rectangle, Dir, CycleDir};
-use crate::color::TEXT_NORMAL;
+use display::geom::{Rectangle, Dir, CycleDir};
+use display::color::TEXT_NORMAL;
+use display::{rect, pt};
 use crate::context::Context;
 
 pub struct CodeArea {

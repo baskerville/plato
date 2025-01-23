@@ -1,15 +1,16 @@
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::input::{DeviceEvent, FingerStatus};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::input::{DeviceEvent, FingerStatus};
 use crate::gesture::GestureEvent;
 use super::{View, Event, ViewId, KeyboardEvent, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, TextKind};
 use super::BORDER_RADIUS_LARGE;
 use super::icon::ICONS_PIXMAPS;
-use crate::color::{Color, TEXT_NORMAL, TEXT_INVERTED_HARD, KEYBOARD_BG};
+use display::color::{Color, TEXT_NORMAL, TEXT_INVERTED_HARD, KEYBOARD_BG};
 use crate::font::{Fonts, font_from_style, KBD_CHAR, KBD_LABEL};
-use crate::geom::{Rectangle, LinearDir, CornerSpec};
+use display::geom::{Rectangle, LinearDir, CornerSpec};
 use crate::context::Context;
 use crate::unit::scale_by_dpi;
+use display::pt;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum KeyKind {

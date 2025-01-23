@@ -1,14 +1,15 @@
-use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
+use display::framebuffer::{Framebuffer, UpdateMode, Pixmap};
+use display::{rect, pt};
 use crate::metadata::Margin;
 use crate::gesture::GestureEvent;
 use crate::font::Fonts;
-use crate::geom::{Rectangle, Point, CornerSpec, BorderSpec};
+use display::geom::{Rectangle, Point, CornerSpec, BorderSpec};
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId};
 use crate::view::{SMALL_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::view::rounded_button::RoundedButton;
 use crate::unit::scale_by_dpi;
-use crate::color::{BLACK, WHITE, GRAY12};
-use crate::device::CURRENT_DEVICE;
+use display::color::{BLACK, WHITE, GRAY12};
+use display::device::CURRENT_DEVICE;
 use crate::context::Context;
 
 pub const BUTTON_DIAMETER: f32 = 30.0;

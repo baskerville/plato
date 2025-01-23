@@ -1,12 +1,12 @@
 mod bottom_bar;
 
 use regex::Regex;
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
-use crate::geom::{Rectangle, Point, Dir, CycleDir, halves};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode, Pixmap};
+use display::geom::{Rectangle, Point, Dir, CycleDir, halves};
 use crate::unit::scale_by_dpi;
 use crate::font::Fonts;
-use crate::input::{DeviceEvent, ButtonCode, ButtonStatus};
+use display::input::{DeviceEvent, ButtonCode, ButtonStatus};
 use crate::view::{View, Event, Hub, Bus, RenderQueue, RenderData};
 use crate::view::{ViewId, Id, ID_FEEDER, EntryId, EntryKind};
 use crate::view::{SMALL_BAR_HEIGHT, BIG_BAR_HEIGHT, THICKNESS_MEDIUM};
@@ -15,7 +15,8 @@ use crate::document::html::HtmlDocument;
 use crate::view::common::{locate_by_id, locate};
 use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
 use crate::gesture::GestureEvent;
-use crate::color::BLACK;
+use display::color::BLACK;
+use display::{rect, pt};
 use crate::context::Context;
 use crate::view::filler::Filler;
 use crate::view::named_input::NamedInput;

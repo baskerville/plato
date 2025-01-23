@@ -10,7 +10,7 @@ use fxhash::FxHashMap;
 use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use titlecase::titlecase;
-use crate::geom::Point;
+use display::geom::Point;
 use crate::document::{Document, SimpleTocEntry, TextLocation};
 use crate::document::asciify;
 use crate::document::epub::EpubDocument;

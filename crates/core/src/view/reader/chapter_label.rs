@@ -1,9 +1,10 @@
-use crate::device::CURRENT_DEVICE;
+use display::device::CURRENT_DEVICE;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
-use crate::color::{BLACK, WHITE};
+use display::color::{BLACK, WHITE};
 use crate::gesture::GestureEvent;
-use crate::geom::{Rectangle};
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::geom::Rectangle;
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::pt;
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId};
 use crate::context::Context;
 

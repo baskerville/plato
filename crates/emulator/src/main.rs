@@ -15,7 +15,7 @@ use sdl2::mouse::MouseState;
 use sdl2::rect::Point as SdlPoint;
 use sdl2::rect::Rect as SdlRect;
 use display::framebuffer::{Framebuffer, UpdateMode};
-use plato_core::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
+use display::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use plato_core::document::sys_info_as_html;
 use plato_core::view::{View, Event, ViewId, EntryId, AppCmd, EntryKind};
 use plato_core::view::{process_render_queue, wait_for_all, handle_event, RenderQueue, RenderData};
@@ -36,16 +36,16 @@ use plato_core::view::common::{toggle_input_history_menu, toggle_keyboard_layout
 use plato_core::helpers::{load_toml, save_toml};
 use plato_core::settings::{Settings, SETTINGS_PATH, IntermKind};
 use display::geom::{Rectangle, Axis};
-use plato_core::color::Color;
+use display::color::Color;
 use plato_core::gesture::{GestureEvent, gesture_events};
-use plato_core::device::CURRENT_DEVICE;
+use display::device::CURRENT_DEVICE;
 use plato_core::battery::{Battery, FakeBattery};
 use plato_core::frontlight::{Frontlight, LightLevels};
 use plato_core::lightsensor::LightSensor;
 use plato_core::library::Library;
 use plato_core::font::Fonts;
 use plato_core::context::Context;
-use plato_core::pt;
+use display::pt;
 use plato_core::png;
 
 pub const APP_NAME: &str = "Plato";

@@ -4,11 +4,11 @@ use std::fmt::Debug;
 use fxhash::FxHashMap;
 use lazy_static::lazy_static;
 use kl_hyphenate::{Standard, Language, Load};
-use crate::color::Color;
-use crate::geom::{Point, Rectangle, Edge};
+use display::color::Color;
+use display::geom::{Point, Rectangle, Edge};
 use crate::font::{FontFamily, Font, RenderPlan};
 pub use crate::metadata::TextAlign;
-use crate::color::BLACK;
+use display::color::BLACK;
 
 pub const DEFAULT_HYPH_LANG: &str = "en";
 

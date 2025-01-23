@@ -1,12 +1,13 @@
-use crate::framebuffer::Framebuffer;
+use display::framebuffer::Framebuffer;
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, ViewId};
 use crate::view::filler::Filler;
 use crate::view::labeled_icon::LabeledIcon;
 use crate::gesture::GestureEvent;
-use crate::input::DeviceEvent;
-use crate::geom::{Rectangle, divide};
+use display::input::DeviceEvent;
+use display::geom::{Rectangle, divide};
 use crate::font::Fonts;
-use crate::color::WHITE;
+use display::color::WHITE;
+use display::rect;
 use crate::context::Context;
 
 #[derive(Debug)]

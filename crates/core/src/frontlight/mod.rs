@@ -6,7 +6,7 @@ use serde::{Serialize, Deserialize};
 pub use self::standard::StandardFrontlight;
 pub use self::natural::NaturalFrontlight;
 pub use self::premixed::PremixedFrontlight;
-use crate::geom::lerp;
+use display::geom::lerp;
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct LightLevels {

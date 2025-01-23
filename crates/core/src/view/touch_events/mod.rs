@@ -1,14 +1,15 @@
-use crate::device::CURRENT_DEVICE;
-use crate::geom::{Rectangle, Region, Dir, CornerSpec};
+use display::device::CURRENT_DEVICE;
+use display::geom::{Rectangle, Region, Dir, CornerSpec};
 use crate::view::icon::Icon;
 use crate::view::notification::Notification;
 use crate::view::{View, Event, Hub, Bus, RenderQueue, RenderData};
 use crate::view::{Id, ID_FEEDER};
 use crate::view::SMALL_BAR_HEIGHT;
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::framebuffer::{Framebuffer, UpdateMode};
 use crate::font::Fonts;
 use crate::unit::scale_by_dpi;
-use crate::color::{BLACK, WHITE, GRAY05, GRAY10};
+use display::color::{BLACK, WHITE, GRAY05, GRAY10};
+use display::{rect, pt};
 use crate::context::Context;
 
 pub struct TouchEvents {

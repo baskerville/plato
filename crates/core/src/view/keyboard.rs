@@ -1,17 +1,18 @@
 use fxhash::FxHashMap;
 use lazy_static::lazy_static;
 use serde::Deserialize;
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode};
 use crate::gesture::GestureEvent;
-use crate::input::DeviceEvent;
+use display::input::DeviceEvent;
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, KeyboardEvent, EntryId, TextKind};
 use super::key::{Key, KeyKind};
 use super::BIG_BAR_HEIGHT;
-use crate::color::KEYBOARD_BG;
+use display::color::KEYBOARD_BG;
 use crate::font::Fonts;
 use crate::context::Context;
-use crate::geom::Rectangle;
+use display::geom::Rectangle;
+use display::rect;
 use crate::unit::scale_by_dpi;
 
 const PADDING_RATIO: f32 = 0.06;

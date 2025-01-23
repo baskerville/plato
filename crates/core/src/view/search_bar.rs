@@ -1,16 +1,17 @@
-use crate::framebuffer::Framebuffer;
-use crate::device::CURRENT_DEVICE;
+use display::framebuffer::Framebuffer;
+use display::device::CURRENT_DEVICE;
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, ViewId, THICKNESS_MEDIUM};
 use super::icon::Icon;
 use super::input_field::InputField;
 use super::filler::Filler;
 use crate::gesture::GestureEvent;
-use crate::input::DeviceEvent;
-use crate::color::{TEXT_BUMP_SMALL, SEPARATOR_NORMAL};
-use crate::geom::Rectangle;
+use display::input::DeviceEvent;
+use display::color::{TEXT_BUMP_SMALL, SEPARATOR_NORMAL};
+use display::geom::Rectangle;
 use crate::context::Context;
 use crate::unit::scale_by_dpi;
 use crate::font::Fonts;
+use display::{rect, pt};
 
 #[derive(Debug)]
 pub struct SearchBar {

@@ -1,18 +1,19 @@
 use std::path::{PathBuf, Path};
 use std::collections::BTreeSet;
 use fxhash::FxHashMap;
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::{rect, pt};
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use crate::view::{SMALL_BAR_HEIGHT, THICKNESS_MEDIUM};
 use crate::unit::scale_by_dpi;
 use crate::view::filler::Filler;
 use super::directories_bar::DirectoriesBar;
 use crate::gesture::GestureEvent;
-use crate::color::SEPARATOR_NORMAL;
+use display::color::SEPARATOR_NORMAL;
 use crate::context::Context;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
-use crate::geom::{Point, Rectangle, Dir};
+use display::geom::{Point, Rectangle, Dir};
 
 #[derive(Debug)]
 pub struct NavigationBar {

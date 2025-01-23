@@ -2,7 +2,7 @@ use std::fs::File;
 use std::path::Path;
 use std::io::{Read, Seek, SeekFrom};
 use anyhow::{Error, format_err};
-use crate::device::CURRENT_DEVICE;
+use display::device::CURRENT_DEVICE;
 use super::{Battery, Status};
 
 const BATTERY_INTERFACES: [&str; 3] = ["/sys/class/power_supply/bd71827_bat",

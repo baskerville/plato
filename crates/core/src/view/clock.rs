@@ -1,11 +1,12 @@
 use chrono::{Local, DateTime};
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, UpdateMode};
 use super::{View, ViewId, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use crate::gesture::GestureEvent;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
-use crate::color::{BLACK, WHITE};
-use crate::geom::{Rectangle};
+use display::color::{BLACK, WHITE};
+use display::geom::Rectangle;
+use display::pt;
 use crate::context::Context;
 
 pub struct Clock {

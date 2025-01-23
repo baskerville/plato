@@ -1,14 +1,16 @@
-use crate::device::CURRENT_DEVICE;
-use crate::geom::{Rectangle, CornerSpec, BorderSpec};
+use display::device::CURRENT_DEVICE;
+use display::geom::{Rectangle, CornerSpec, BorderSpec};
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use super::{THICKNESS_MEDIUM, BORDER_RADIUS_LARGE};
-use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::input::{DeviceEvent, FingerStatus};
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::input::{DeviceEvent, FingerStatus};
 use crate::gesture::GestureEvent;
-use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
+use display::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::unit::scale_by_dpi;
 use crate::context::Context;
+use display::pt;
+
 
 pub struct Button {
     id: Id,

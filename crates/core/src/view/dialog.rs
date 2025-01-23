@@ -1,14 +1,15 @@
 use std::thread;
-use crate::device::CURRENT_DEVICE;
-use crate::geom::{Rectangle, CornerSpec, BorderSpec};
+use display::device::CURRENT_DEVICE;
+use display::geom::{Rectangle, CornerSpec, BorderSpec};
+use display::rect;
 use crate::font::{Fonts, font_from_style, NORMAL_STYLE};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, ViewId, Align};
 use super::{THICKNESS_LARGE, BORDER_RADIUS_MEDIUM, CLOSE_IGNITION_DELAY};
 use super::button::Button;
 use super::label::Label;
-use crate::framebuffer::Framebuffer;
+use display::framebuffer::Framebuffer;
 use crate::gesture::GestureEvent;
-use crate::color::{BLACK, WHITE};
+use display::color::{BLACK, WHITE};
 use crate::unit::scale_by_dpi;
 use crate::context::Context;
 

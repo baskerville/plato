@@ -1,11 +1,12 @@
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::framebuffer::{Framebuffer, UpdateMode};
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
 use crate::view::icon::Icon;
 use crate::view::filler::Filler;
 use crate::view::page_label::PageLabel;
 use super::library_label::LibraryLabel;
-use crate::geom::{Rectangle, CycleDir, halves};
-use crate::color::WHITE;
+use display::geom::{Rectangle, CycleDir, halves};
+use display::color::WHITE;
+use display::rect;
 use crate::context::Context;
 use crate::font::Fonts;
 

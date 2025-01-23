@@ -1,7 +1,8 @@
 use std::path::{PathBuf, Path};
-use crate::device::CURRENT_DEVICE;
+use display::device::CURRENT_DEVICE;
 use std::collections::BTreeSet;
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use display::framebuffer::{Framebuffer, UpdateMode};
+use display::{rect, pt};
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, Align};
 use crate::view::icon::{Icon, ICONS_PIXMAPS};
 use crate::view::{SMALL_BAR_HEIGHT, THICKNESS_MEDIUM};
@@ -9,8 +10,8 @@ use crate::view::filler::Filler;
 use super::directory::Directory;
 use crate::gesture::GestureEvent;
 use crate::font::{Font, Fonts, font_from_style, NORMAL_STYLE};
-use crate::geom::{Point, Rectangle, Dir, CycleDir, divide, small_half, big_half};
-use crate::color::TEXT_BUMP_SMALL;
+use display::geom::{Point, Rectangle, Dir, CycleDir, divide, small_half, big_half};
+use display::color::TEXT_BUMP_SMALL;
 use crate::unit::scale_by_dpi;
 use crate::context::Context;
 

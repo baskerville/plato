@@ -1,17 +1,18 @@
 use std::path::Path;
 use fxhash::FxHashMap;
 use lazy_static::lazy_static;
-use crate::device::CURRENT_DEVICE;
-use crate::framebuffer::{Framebuffer, Pixmap, UpdateMode};
+use display::device::CURRENT_DEVICE;
+use display::framebuffer::{Framebuffer, Pixmap, UpdateMode};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId, Align};
 use crate::gesture::GestureEvent;
-use crate::input::{DeviceEvent, FingerStatus};
+use display::input::{DeviceEvent, FingerStatus};
 use crate::document::pdf::PdfOpener;
-use crate::color::{Color, TEXT_NORMAL, TEXT_INVERTED_HARD};
+use display::color::{Color, TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::unit::scale_by_dpi_raw;
-use crate::geom::{Rectangle, CornerSpec};
+use display::geom::{Rectangle, CornerSpec};
 use crate::font::Fonts;
 use crate::context::Context;
+use display::pt;
 
 const ICON_SCALE: f32 = 1.0 / 32.0;
 

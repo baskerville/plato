@@ -1,14 +1,15 @@
 use std::path::PathBuf;
-use crate::device::CURRENT_DEVICE;
+use display::device::CURRENT_DEVICE;
 use crate::document::{Location, open};
-use crate::geom::Rectangle;
+use display::geom::Rectangle;
 use crate::font::{Fonts, font_from_style, DISPLAY_STYLE};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue};
-use crate::framebuffer::Framebuffer;
+use display::framebuffer::Framebuffer;
 use crate::settings::{IntermKind, LOGO_SPECIAL_PATH, COVER_SPECIAL_PATH};
 use crate::metadata::{SortMethod, BookQuery, sort};
-use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
+use display::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::context::Context;
+use display::pt;
 
 pub struct Intermission {
     id: Id,

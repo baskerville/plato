@@ -8,8 +8,9 @@ use std::os::unix::ffi::OsStrExt;
 use super::{Document, Location, TextLocation, BoundedText, TocEntry};
 use super::{chapter, chapter_relative};
 use crate::metadata::TextAlign;
-use crate::framebuffer::Pixmap;
-use crate::geom::{Rectangle, Boundary, CycleDir};
+use display::framebuffer::Pixmap;
+use display::geom::{Rectangle, Boundary, CycleDir};
+use display::bndr;
 
 impl Into<DjvuRect> for Rectangle {
     fn into(self) -> DjvuRect {

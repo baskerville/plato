@@ -1,9 +1,10 @@
 use std::sync::mpsc;
 use chrono::Local;
-use crate::device::CURRENT_DEVICE;
-use crate::settings::{ButtonScheme, RotationLock};
-use crate::framebuffer::UpdateMode;
-use crate::geom::{Point, Rectangle};
+use display::device::CURRENT_DEVICE;
+use crate::settings::RotationLock;
+use display::input::ButtonScheme;
+use display::framebuffer::UpdateMode;
+use display::geom::{Point, Rectangle};
 use super::{View, RenderQueue, RenderData, ViewId, AppCmd, EntryId, EntryKind};
 use super::menu::{Menu, MenuKind};
 use super::notification::Notification;

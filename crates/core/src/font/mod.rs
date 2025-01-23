@@ -19,11 +19,12 @@ use anyhow::{Error, format_err};
 use thiserror::Error;
 use globset::Glob;
 use walkdir::WalkDir;
-use crate::color::Color;
-use crate::geom::{Point, Vec2};
+use display::color::Color;
+use display::geom::{Point, Vec2};
 use crate::helpers::IsHidden;
-use crate::framebuffer::Framebuffer;
-use crate::device::CURRENT_DEVICE;
+use display::framebuffer::Framebuffer;
+use display::device::CURRENT_DEVICE;
+use display::pt;
 
 // Font sizes in 1/64th of a point
 pub const FONT_SIZES: [u32; 3] = [349, 524, 629];
