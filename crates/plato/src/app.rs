@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
+use display::input::ButtonScheme;
 use plato_core::anyhow::{Error, Context as ResultExt, format_err};
 use plato_core::chrono::Local;
 use plato_core::framebuffer::{Framebuffer, KoboFramebuffer1, KoboFramebuffer2, UpdateMode};
@@ -25,7 +26,7 @@ use plato_core::input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus, VAL_
 use plato_core::input::{raw_events, device_events, usb_events, display_rotate_event, button_scheme_event};
 use plato_core::gesture::{GestureEvent, gesture_events};
 use plato_core::helpers::{load_toml, save_toml};
-use plato_core::settings::{ButtonScheme, Settings, SETTINGS_PATH, RotationLock, IntermKind};
+use plato_core::settings::{Settings, SETTINGS_PATH, RotationLock, IntermKind};
 use plato_core::frontlight::{Frontlight, StandardFrontlight, NaturalFrontlight, PremixedFrontlight};
 use plato_core::lightsensor::{LightSensor, KoboLightSensor};
 use plato_core::battery::{Battery, KoboBattery};

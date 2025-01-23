@@ -1,13 +1,7 @@
-#[macro_use] pub mod geom;
-
 mod unit;
-pub mod color;
-pub mod device;
-pub mod framebuffer;
 pub mod frontlight;
 pub mod lightsensor;
 pub mod battery;
-pub mod input;
 pub mod helpers;
 mod dictionary;
 pub mod document;

@@ -6,6 +6,7 @@ members = [
   "crates/emulator",
   "crates/importer",
   "crates/fetcher",
+  "crates/display",
 ]
 
 [profile.release-minsized]

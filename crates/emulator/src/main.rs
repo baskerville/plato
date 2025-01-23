@@ -14,7 +14,7 @@ use sdl2::pixels::{Color as SdlColor, PixelFormatEnum};
 use sdl2::mouse::MouseState;
 use sdl2::rect::Point as SdlPoint;
 use sdl2::rect::Rect as SdlRect;
-use plato_core::framebuffer::{Framebuffer, UpdateMode};
+use display::framebuffer::{Framebuffer, UpdateMode};
 use plato_core::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use plato_core::document::sys_info_as_html;
 use plato_core::view::{View, Event, ViewId, EntryId, AppCmd, EntryKind};
@@ -35,7 +35,7 @@ use plato_core::view::common::{locate, locate_by_id, transfer_notifications, ove
 use plato_core::view::common::{toggle_input_history_menu, toggle_keyboard_layout_menu};
 use plato_core::helpers::{load_toml, save_toml};
 use plato_core::settings::{Settings, SETTINGS_PATH, IntermKind};
-use plato_core::geom::{Rectangle, Axis};
+use display::geom::{Rectangle, Axis};
 use plato_core::color::Color;
 use plato_core::gesture::{GestureEvent, gesture_events};
 use plato_core::device::CURRENT_DEVICE;
