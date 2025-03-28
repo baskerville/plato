@@ -322,12 +322,11 @@ impl View for RemoteDisplay {
     }
 
     fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, _fonts: &mut Fonts) {
-        let max_pixel_x = (rect.max.x - 1) as u32;
-        let max_pixel_y = (rect.max.y - 1) as u32;
-        let addr = (max_pixel_y * self.pixmap.width + max_pixel_x) as usize;
-        let out_of_bounds = addr >= self.pixmap.data.len();
-        if out_of_bounds {
-            // Blank to prevent a panic when the pixmap is not the expected size.
+        if fb.width() != self.pixmap.width
+            || fb.height() != self.pixmap.height
+            || self.pixmap.data.is_empty()
+        {
+            // Create a blank pixmap with correct dimensions to prevent panics
             let pixmap = Pixmap::new(fb.width(), fb.height(), 1);
             fb.draw_framed_pixmap(&pixmap, &rect, rect.min);
             return;
