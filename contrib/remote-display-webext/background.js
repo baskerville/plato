@@ -44,14 +44,43 @@ async function scroll(pctX, pctY, pct) {
   const { id } = await currentTab();
   await browser.tabs.executeScript(id, {
     code: `(() => {
-      const el = [...document.elementsFromPoint(
-        window.innerWidth * ${pctX}, window.innerHeight * ${pctY}
-      )].find((e) => Math.abs(e.scrollHeight - e.clientHeight) > 10);
-      const prevTop = el?.scrollTop;
-      el?.scrollBy(0, window.innerHeight * ${pct});
-      if (!el || el?.scrollTop === prevTop) {
-        window.scrollBy(0, window.innerHeight * ${pct});
+      function isScrollable(element) {
+        if (!element) return false;
+
+        const hasOverflow = Math.abs(element.scrollHeight - element.clientHeight) > 10;
+        if (!hasOverflow) return false;
+        
+        const style = window.getComputedStyle(element);
+        const overflowY = style.getPropertyValue('overflow-y');
+        const isScrollableStyle = ['auto', 'scroll', 'overlay'].includes(overflowY);
+        
+        // Some elements are scrollable even without explicit overflow
+        const isDefaultScrollable = element.tagName === 'BODY' ||
+          element.tagName === 'HTML' ||
+          element.tagName === 'DIV' && hasOverflow;
+                                   
+        return isScrollableStyle || isDefaultScrollable;
       }
+      
+      const elements = [...document.elementsFromPoint(
+        window.innerWidth * ${pctX}, window.innerHeight * ${pctY}
+      )];
+
+      if (elements[0]?.tagName === "IFRAME") {
+        const iframeElements = elements[0].contentDocument?.elementsFromPoint(
+          window.innerWidth * ${pctX}, window.innerHeight * ${pctY}
+        );
+        elements.unshift(...(iframeElements ?? []));
+      }
+      
+      for (const el of elements) {
+        if (!isScrollable(el)) continue;
+        const prevTop = el.scrollTop;
+        el.scrollBy(0, window.innerHeight * ${pct});
+        if (el.scrollTop !== prevTop) return;
+      }
+      
+      window.scrollBy(0, window.innerHeight * ${pct});
     })()`,
   });
 }
