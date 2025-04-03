@@ -11,6 +11,13 @@
     "default_popup": "popup.html"
   },
   "content_security_policy": "script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://esm.sh; object-src 'self'; worker-src 'self' blob: https://esm.sh",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "permissions": [
     "tabs",
     "<all_urls>",

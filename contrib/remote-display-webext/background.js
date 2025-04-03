@@ -83,6 +83,7 @@ async function scroll(pctX, pctY, pct) {
       window.scrollBy(0, window.innerHeight * ${pct});
     })()`,
   });
+  browser.tabs.sendMessage(id, { type: 'WAIT_FOR_ANIMATIONS' });
 }
 
 async function zoomPage(addFactor) {
@@ -166,6 +167,7 @@ async function clickUnderTap(pctX, pctY) {
     code:
       `document.elementFromPoint(window.innerWidth * ${pctX}, window.innerHeight * ${pctY})?.click()`,
   });
+  browser.tabs.sendMessage(id, { type: 'WAIT_FOR_ANIMATIONS' });
 }
 
 async function offsetContrastFilter(offset) {
@@ -193,6 +195,15 @@ async function offsetContrastFilter(offset) {
 // #endregion
 
 // #region main loop
+
+// Message listener for content script communication
+browser.runtime.onMessage.addListener(async (message, sender) => {
+  if (message.type === 'CAPTURE_SCREENSHOT') {
+    console.log('Received screenshot request from content script');
+    await sendImage();
+    return true;
+  }
+});
 
 let scaleFactor = 1;
 let deviceWidth = 0;
