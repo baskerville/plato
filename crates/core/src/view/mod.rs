@@ -365,7 +365,7 @@ pub enum Event {
     Back,
     Quit,
     WakeUp,
-    UpdateRemoteView(Box<Vec<u8>>),
+    UpdateRemoteView(Box<Vec<u8>>, bool),
     SendRemoteViewSize
 }
 

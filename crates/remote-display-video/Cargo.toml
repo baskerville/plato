@@ -1,0 +1,27 @@
+[package]
+name = "crates-remote-display-video"
+version = "0.1.0"
+authors = ["ewired <37567272+ewired@users.noreply.github.com>"]
+edition = "2021"
+
+[lib]
+doctest = false
+test = false
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+wasm-bindgen = "0.2.84"
+lazy_static = "1.4.0"
+ciborium = "0.2.2"
+serde = "1.0.219"
+image = { version = "0.25.6", features = [ "qoi", "jpeg", "png" ], default-features = false }
+zstd = "0.13.3"
+bidiff = { git = "https://github.com/divvun/bidiff.git", rev = "b05865403c196225c8fcffcc89b540472de9ca4c" }
+web-sys = { version = "0.3.77", features = ["console"] }
+console_error_panic_hook = { version = "0.1.7", optional = true }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.34"

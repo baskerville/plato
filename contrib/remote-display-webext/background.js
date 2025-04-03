@@ -199,15 +199,6 @@ let deviceWidth = 0;
 let deviceHeight = 0;
 let mq;
 
-import {
-  ColorSpace,
-  DitherMethod,
-  ImageMagick,
-  initializeImageMagick,
-  MagickFormat,
-  QuantizeSettings,
-  MagickGeometry
-} from "https://esm.sh/@imagemagick/magick-wasm@0.0.31";
 import mqtt from "https://esm.sh/mqtt@5.10.1";
 import { encode, decode } from "https://esm.sh/cborg@4.2.4";
 import { Encrypt0Message } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/encrypt0?dev";
@@ -215,13 +206,9 @@ import { hexToBytes } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/utils?dev";
 import { Header } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/header?dev";
 import { ChaCha20Poly1305Key } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/chacha20poly1305?dev";
 import * as iana from "https://esm.sh/@ldclabs/cose-ts@1.3.2/iana?dev";
-import pDebounce from "https://esm.sh/p-debounce@4.0.0";
 
-const wasmFile =
-  "https://esm.sh/@imagemagick/magick-wasm@0.0.31/dist/magick.wasm";
-await fetch(wasmFile, { cache: "force-cache" })
-  .then(a => a.arrayBuffer())
-  .then(a => initializeImageMagick(a));
+import init, { png_to_display_update } from "./enc/crates_remote_display_video.js";
+await init();
 
 let topic = "remote-display-webext";
 let key;
@@ -233,7 +220,7 @@ async function encodeCipher(msg) {
   const nonce = new Uint8Array(12);
   crypto.getRandomValues(nonce);
   return await new Encrypt0Message(
-    encode(msg),
+    msg instanceof Uint8Array ? msg : encode(msg),
     new Header().setParam(iana.HeaderParameterAlg, iana.AlgorithmChaCha20Poly1305),
     new Header().setParam(iana.HeaderParameterIV, nonce),
   ).toBytes(key);
@@ -257,7 +244,7 @@ async function sendNotice(notice) {
   await send({ type: "notify", value: notice });
 }
 
-const sendImage = pDebounce(async () => {
+const sendImage = async (keyframe = false) => {
   if (!mq?.connected) return;
   if (!deviceWidth || !deviceHeight) {
     await send({ type: "updateSize" });
@@ -273,39 +260,31 @@ const sendImage = pDebounce(async () => {
     .then(a => a.arrayBuffer())
     .then(a => new Uint8Array(a));
 
-  const { monochrome = false, quality = "100" } =
-    await browser.storage.local.get(['monochrome', 'quality']);
-
-  ImageMagick.read(buf, (img) => {
-    const mg = new MagickGeometry(deviceWidth, deviceHeight);
-    mg.ignoreAspectRatio = true;
-    const qs = new QuantizeSettings();
-    qs.colorSpace = ColorSpace.Gray;
-    qs.ditherMethod = DitherMethod.FloydSteinberg;
-    if (monochrome) qs.colors = 2;
-    img.resize(mg);
-    img.quantize(qs);
-    img.quality = parseInt(quality);
-    img.settings.setDefine("jxl:effort", "10")
-    img.write(MagickFormat.Jxl, (value) => {
-      const size = value.length / 1024;
-      console.log(`captured JXL size: ${size.toFixed(2)} KB`);
-      send({ type: "updateDisplay", value });
-    });
-  });
-
-  await new Promise((resolve) => {
-    const updated = async (_, m) => {
-      const msg = await decodeCipher(m);
-      if (msg.type === "displayUpdated") {
-        mq.off("message", updated);
-        console.log("resolved display update roundtrip")
-        resolve();
-      }
+  try {
+    const qoi = png_to_display_update(buf, deviceWidth, deviceHeight, keyframe);
+    if (qoi) {
+      const size = qoi.length / 1024;
+      console.log(`captured display update size: ${size.toFixed(2)} KB`);
+      await send(qoi);
+    } else {
+      console.error("Failed to encode display updates");
     }
-    mq.on("message", updated);
-  });
-}, 175);
+
+    await new Promise((resolve) => {
+      const updated = async (_, m) => {
+        const msg = await decodeCipher(m);
+        if (msg.type === "displayUpdated") {
+          mq.off("message", updated);
+          console.log("resolved display update roundtrip")
+          resolve();
+        }
+      }
+      mq.on("message", updated);
+    });
+  } catch (e) {
+    console.error(e);
+  }
+};
 
 let timeout;
 browser.tabs.onUpdated.addListener(async (_id, changeInfo, tab) => {
@@ -320,7 +299,7 @@ browser.tabs.onUpdated.addListener(async (_id, changeInfo, tab) => {
     console.log("updating from tab load", changeInfo, tab);
     const info = await currentTabInfo();
     await sendNotice(info);
-    await sendImage();
+    await sendImage(true);
   }, 1000);
 });
 
@@ -331,7 +310,7 @@ async function onMessage(msg) {
       const { width, height } = msg.value;
       deviceWidth = width;
       deviceHeight = height;
-      await sendImage();
+      await sendImage(true);
       break;
     }
     case "swipe": {
@@ -358,7 +337,7 @@ async function onMessage(msg) {
             : tabOffset(offset));
           const info = await currentTabInfo();
           await sendNotice(info);
-          await sendImage();
+          await sendImage(true);
           break;
         }
       }
@@ -422,7 +401,7 @@ async function onMessage(msg) {
       break;
     case "holdFingerShort":
       await resizeViewport(deviceWidth / scaleFactor, deviceHeight / scaleFactor);
-      await sendImage();
+      await sendImage(true);
       await send({ type: "refreshDisplay" });
       break;
     case "holdFingerLong": {
@@ -448,7 +427,7 @@ async function onMessage(msg) {
               dir === "southWest" ? -25 : 25,
             );
             await sendNotice(`contrast ${newContrast}%`);
-            await sendImage();
+            await sendImage(true);
           }
           break;
         case "northWest":
@@ -458,7 +437,7 @@ async function onMessage(msg) {
           scaleFactor = newScaleFactor;
           await sendNotice(`scale ${Math.round(scaleFactor * 100)}%`);
           await resizeViewport(deviceWidth / scaleFactor, deviceHeight / scaleFactor);
-          await sendImage();
+          await sendImage(true);
         }
       }
       break;

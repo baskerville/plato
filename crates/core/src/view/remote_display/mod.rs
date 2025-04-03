@@ -14,13 +14,13 @@ use chacha20poly1305::{
 };
 use coset::cbor::{cbor, de::from_reader, ser::into_writer, Value};
 use coset::{CborSerializable, CoseEncrypt0, CoseEncrypt0Builder, HeaderBuilder};
-use jxl_oxide::JxlImage;
 use rumqttc::tokio_rustls::rustls::ClientConfig;
 use rumqttc::{
     AsyncClient, ConnAck, ConnectReturnCode, Incoming, MqttOptions, QoS, TlsConfiguration,
     Transport,
 };
 use serde::Deserialize;
+use std::io::{Cursor, Read};
 use std::sync::{mpsc as std_mpsc, Arc};
 use std::thread::spawn;
 use std::time::Duration;
@@ -40,6 +40,7 @@ enum ServerMessage {
     RefreshDisplay,
     UpdateSize,
     UpdateDisplay(Vec<u8>),
+    PatchDisplay(Vec<u8>),
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -134,7 +135,10 @@ async fn display_connection(
                                 Event::SendRemoteViewSize
                             }
                             ServerMessage::UpdateDisplay(data) => {
-                                Event::UpdateRemoteView(Box::new(data))
+                                Event::UpdateRemoteView(Box::new(data), true)
+                            }
+                            ServerMessage::PatchDisplay(data) => {
+                                Event::UpdateRemoteView(Box::new(data), false)
                             }
                         })?;
                     }
@@ -166,6 +170,7 @@ pub struct RemoteDisplay {
     children: Vec<Box<dyn View>>,
     pixmap: Pixmap,
     message_tx: tokio_mpsc::Sender<SocketEvent>,
+    prev_frame: Option<Vec<u8>>,
 }
 
 impl RemoteDisplay {
@@ -202,30 +207,38 @@ impl RemoteDisplay {
             children,
             pixmap: Pixmap::new(rect.width(), rect.height(), 1),
             message_tx,
+            prev_frame: None,
         }
     }
 
-    fn update_remote_view(&mut self, jxl_data: &Box<Vec<u8>>) -> Result<(), Error> { 
-        let jxl = JxlImage::builder()
-            .read(jxl_data.as_slice())
-            .map_err(|e| anyhow::anyhow!("JXL decoding error: {}", e))?;
-        let render = jxl
-            .render_frame(jxl.num_loaded_keyframes() - 1)
-            .map_err(|e| anyhow::anyhow!("JXL rendering error: {}", e))?
-            .image_planar()
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("No channels in JXL image"))?
-            .buf()
-            .iter()
-            .map(|&f| (f * 255.0).round() as u8)
-            .collect::<Vec<u8>>();
-        let mut pixmap = Pixmap::new(jxl.width(), jxl.height(), 1);
-        pixmap.data_mut().copy_from_slice(&render);
+    fn update_remote_view(&mut self, zst_data: &Box<Vec<u8>>, keyframe: bool) -> Result<(), Error> {
+        let decompressed = zstd::stream::decode_all(zst_data.as_slice())?;
+        let qoi = if keyframe {
+            decompressed
+        } else {
+            let prev_frame = self
+                .prev_frame
+                .as_mut()
+                .ok_or(anyhow::anyhow!("Served interframe with no previous frame"))?;
+
+            let mut slice = decompressed.as_slice();
+            let mut patched = bipatch::Reader::new(&mut slice, Cursor::new(prev_frame))?;
+            let mut buf = Vec::new();
+            patched.read_to_end(&mut buf)?;
+            buf
+        };
+
+        self.prev_frame = Some(qoi.clone());
+        let img = image::load_from_memory(&qoi)?;
+        let rgb = img.to_rgb8();
+        let mut pixmap = Pixmap::new(rgb.width() as u32, rgb.height() as u32, 3);
+        pixmap.data.copy_from_slice(rgb.as_raw());
         self.pixmap = pixmap;
-        self.message_tx
-            .try_send(SocketEvent::SendMessage(cbor!({
-                "type" => "displayUpdated",
-            })?))?;
+        self.message_tx.try_send(SocketEvent::SendMessage(cbor!({
+            "type" => "displayUpdated",
+            "full" => keyframe
+        })?))?;
+
         Ok(())
     }
 }
@@ -287,8 +300,8 @@ impl View for RemoteDisplay {
                     .ok();
                 true
             }
-            Event::UpdateRemoteView(ref jxl_data) => {
-                match self.update_remote_view(jxl_data) {
+            Event::UpdateRemoteView(ref zst_data, keyframe) => {
+                match self.update_remote_view(zst_data, keyframe) {
                     Ok(..) => {}
                     Err(e) => {
                         println!("{}", e);
