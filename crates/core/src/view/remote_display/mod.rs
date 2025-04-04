@@ -51,7 +51,7 @@ fn handle_server_message(
     let event = match message {
         ServerMessage::Notify(message) => Event::Notify(message),
         ServerMessage::RefreshDisplay => Event::Update(UpdateMode::Full),
-        ServerMessage::UpdateSize => Event::SendRemoteViewSize,
+        ServerMessage::UpdateSize => Event::Validate,
         ServerMessage::UpdateDisplay(data) => {
             let qoi = zstd::decode_all(data.as_slice())?;
             *prev_frame = Some(qoi.clone());
@@ -199,7 +199,7 @@ async fn display_connection(
                     ) => {
                         event_tx.send(Event::Notify("Connected".to_string()))?;
                         client.subscribe(sub_topic.clone(), QoS::AtMostOnce).await?;
-                        event_tx.send(Event::SendRemoteViewSize)?;
+                        event_tx.send(Event::Validate)?;
                     }
                     Ok(..) => {}
                     Err(e) => {
@@ -341,7 +341,7 @@ impl View for RemoteDisplay {
                     .ok();
                 true
             }
-            Event::SendRemoteViewSize => {
+            Event::Validate => {
                 self.message_tx
                     .try_send(SocketEvent::SendMessage(
                         cbor!({
@@ -413,7 +413,7 @@ impl View for RemoteDisplay {
         }
 
         self.rect = rect;
-        hub.send(Event::SendRemoteViewSize).unwrap();
+        hub.send(Event::Validate).ok();
         rq.add(RenderData::new(self.id, self.rect, UpdateMode::Full));
     }
 
