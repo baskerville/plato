@@ -6,7 +6,6 @@ use crate::gesture::GestureEvent;
 use crate::input::{ButtonCode, ButtonStatus, DeviceEvent};
 use crate::view::{Bus, Event, Hub, RenderData, RenderQueue, View};
 use crate::view::{Id, ID_FEEDER};
-use anyhow::Error;
 use bytes::Buf;
 use chacha20poly1305::KeyInit;
 use chacha20poly1305::{
@@ -41,6 +40,47 @@ enum ServerMessage {
     UpdateSize,
     UpdateDisplay(Vec<u8>),
     PatchDisplay(Vec<u8>),
+}
+
+fn handle_server_message(
+    message: ServerMessage,
+    event_tx: &std::sync::mpsc::Sender<Event>,
+    prev_frame: &mut Option<Vec<u8>>,
+) -> anyhow::Result<()> {
+    let event = match message {
+        ServerMessage::Notify(message) => Event::Notify(message),
+        ServerMessage::RefreshDisplay => Event::Update(UpdateMode::Full),
+        ServerMessage::UpdateSize => Event::SendRemoteViewSize,
+        ServerMessage::UpdateDisplay(data) => {
+            let qoi = zstd::decode_all(data.as_slice())?;
+            *prev_frame = Some(qoi.clone());
+            let rgb = image::load_from_memory(&qoi)?.to_rgb8();
+            let mut pixmap = Pixmap::new(rgb.width() as u32, rgb.height() as u32, 3);
+            pixmap.data.copy_from_slice(rgb.as_raw());
+            Event::UpdateRemoteView(Box::new(pixmap), true)
+        }
+        ServerMessage::PatchDisplay(data) => {
+            let decompressed = zstd::decode_all(data.as_slice())?;
+            let patched_buf = {
+                let prev = prev_frame
+                    .as_ref()
+                    .ok_or(anyhow::anyhow!("Served interframe with no previous frame"))?;
+                let mut slice = decompressed.as_slice();
+                let mut patched = bipatch::Reader::new(&mut slice, Cursor::new(prev))?;
+                let mut buf = Vec::new();
+                patched.read_to_end(&mut buf)?;
+                buf
+            };
+            *prev_frame = Some(patched_buf.clone());
+            let img = image::load_from_memory(&patched_buf)?;
+            let rgb = img.to_rgb8();
+            let mut pixmap = Pixmap::new(rgb.width() as u32, rgb.height() as u32, 3);
+            pixmap.data.copy_from_slice(rgb.as_raw());
+            Event::UpdateRemoteView(Box::new(pixmap), false)
+        }
+    };
+    event_tx.send(event)?;
+    Ok(())
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -80,6 +120,8 @@ async fn display_connection(
 
     let key = hex::decode(hex_key)?;
     let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key.as_slice()));
+
+    let mut prev_frame: Option<Vec<u8>> = None;
 
     loop {
         tokio::select! {
@@ -123,24 +165,10 @@ async fn display_connection(
                                     .map_err(|e| anyhow::anyhow!("Decryption error: {}", e.to_string()))
                                     .map(|_| out)
                             })?;
-                        let message = from_reader(pt.as_slice())?;
-                        event_tx.send(match message {
-                            ServerMessage::Notify(message) => {
-                                Event::Notify(message)
-                            }
-                            ServerMessage::RefreshDisplay => {
-                                Event::Update(UpdateMode::Full)
-                            }
-                            ServerMessage::UpdateSize => {
-                                Event::SendRemoteViewSize
-                            }
-                            ServerMessage::UpdateDisplay(data) => {
-                                Event::UpdateRemoteView(Box::new(data), true)
-                            }
-                            ServerMessage::PatchDisplay(data) => {
-                                Event::UpdateRemoteView(Box::new(data), false)
-                            }
-                        })?;
+                        let message: ServerMessage = from_reader(pt.as_slice())?;
+                        if let Err(e) = handle_server_message(message, &event_tx, &mut prev_frame) {
+                            event_tx.send(Event::Notify(format!("Error handling message: {}", e))).ok();
+                        }
                     }
                     Ok(rumqttc::Event::Incoming(
                         Incoming::ConnAck(ConnAck { session_present: _, code: ConnectReturnCode::Success }))
@@ -170,7 +198,6 @@ pub struct RemoteDisplay {
     children: Vec<Box<dyn View>>,
     pixmap: Pixmap,
     message_tx: tokio_mpsc::Sender<SocketEvent>,
-    prev_frame: Option<Vec<u8>>,
 }
 
 impl RemoteDisplay {
@@ -207,39 +234,7 @@ impl RemoteDisplay {
             children,
             pixmap: Pixmap::new(rect.width(), rect.height(), 1),
             message_tx,
-            prev_frame: None,
         }
-    }
-
-    fn update_remote_view(&mut self, zst_data: &Box<Vec<u8>>, keyframe: bool) -> Result<(), Error> {
-        let decompressed = zstd::stream::decode_all(zst_data.as_slice())?;
-        let qoi = if keyframe {
-            decompressed
-        } else {
-            let prev_frame = self
-                .prev_frame
-                .as_mut()
-                .ok_or(anyhow::anyhow!("Served interframe with no previous frame"))?;
-
-            let mut slice = decompressed.as_slice();
-            let mut patched = bipatch::Reader::new(&mut slice, Cursor::new(prev_frame))?;
-            let mut buf = Vec::new();
-            patched.read_to_end(&mut buf)?;
-            buf
-        };
-
-        self.prev_frame = Some(qoi.clone());
-        let img = image::load_from_memory(&qoi)?;
-        let rgb = img.to_rgb8();
-        let mut pixmap = Pixmap::new(rgb.width() as u32, rgb.height() as u32, 3);
-        pixmap.data.copy_from_slice(rgb.as_raw());
-        self.pixmap = pixmap;
-        self.message_tx.try_send(SocketEvent::SendMessage(cbor!({
-            "type" => "displayUpdated",
-            "full" => keyframe
-        })?))?;
-
-        Ok(())
     }
 }
 
@@ -300,15 +295,18 @@ impl View for RemoteDisplay {
                     .ok();
                 true
             }
-            Event::UpdateRemoteView(ref zst_data, keyframe) => {
-                match self.update_remote_view(zst_data, keyframe) {
-                    Ok(..) => {}
-                    Err(e) => {
-                        println!("{}", e);
-                        hub.send(Event::Notify(e.to_string())).unwrap();
-                    }
-                }
+            Event::UpdateRemoteView(ref pix, full) => {
+                self.pixmap = *pix.clone();
                 rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+                cbor!({ "type" => "displayUpdated", "full" => full })
+                    .map_err(|e| anyhow::anyhow!("Encoding displayUpdated response: {}", e))
+                    .and_then(|msg| {
+                        self.message_tx
+                            .try_send(SocketEvent::SendMessage(msg))
+                            .map_err(|e| anyhow::anyhow!("Sending displayUpdated response: {}", e))
+                    })
+                    .or_else(|e| hub.send(Event::Notify(e.to_string())))
+                    .ok();
                 true
             }
             Event::SendRemoteViewSize => {

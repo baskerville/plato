@@ -59,7 +59,7 @@ use crate::document::{Location, TextLocation};
 use crate::settings::{ButtonScheme, FirstColumn, SecondColumn, RotationLock};
 use crate::metadata::{Info, ZoomMode, ScrollMode, SortMethod, TextAlign, SimpleStatus, PageScheme, Margin};
 use crate::geom::{LinearDir, CycleDir, Rectangle, Boundary};
-use crate::framebuffer::{Framebuffer, UpdateMode};
+use crate::framebuffer::{Framebuffer, Pixmap, UpdateMode};
 use crate::input::{DeviceEvent, FingerStatus};
 use crate::gesture::GestureEvent;
 use self::calculator::LineOrigin;
@@ -365,7 +365,7 @@ pub enum Event {
     Back,
     Quit,
     WakeUp,
-    UpdateRemoteView(Box<Vec<u8>>, bool),
+    UpdateRemoteView(Box<Pixmap>, bool),
     SendRemoteViewSize
 }
 
