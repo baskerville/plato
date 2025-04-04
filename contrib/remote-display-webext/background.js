@@ -346,7 +346,7 @@ const sendImage = async (keyframe = false) => {
     console.log("cannot update image without size");
     return;
   }
-  console.log("capturing");
+  window.performance.mark("remote_display_capture");
   const { id } = await currentTab();
   const dataUrl = await browser.tabs.captureTab(id, {
     scale: scaleFactor,
@@ -354,12 +354,19 @@ const sendImage = async (keyframe = false) => {
   const buf = await fetch(dataUrl)
     .then(a => a.arrayBuffer())
     .then(a => new Uint8Array(a));
+  window.performance.mark("remote_display_capture_end");
+  const captureMeasure = window.performance.measure("remote_display_capture", "remote_display_capture", "remote_display_capture_end");
+  console.log(`captured PNG in ${captureMeasure.duration} ms`);
 
   try {
+    window.performance.mark("remote_display_encode");
     const qoi = png_to_display_update(buf, deviceWidth, deviceHeight, keyframe);
+    window.performance.mark("remote_display_encode_end");
+    const encodeMeasure = window.performance.measure("remote_display_encode", "remote_display_encode", "remote_display_encode_end");
     if (qoi) {
       const size = qoi.length / 1024;
-      console.log(`captured display update size: ${size.toFixed(2)} KB`);
+      console.log(`encoded display update of ${size.toFixed(2)} KB in ${encodeMeasure.duration} ms`);
+      window.performance.mark("remote_display_send_image");
       await send(qoi);
     } else {
       console.error("Failed to encode display updates");
@@ -370,7 +377,9 @@ const sendImage = async (keyframe = false) => {
         const msg = await decodeCipher(m);
         if (msg.type === "displayUpdated") {
           mq.off("message", updated);
-          console.log("resolved display update roundtrip")
+          window.performance.mark("remote_display_send_image_end");
+          const measure = window.performance.measure("remote_display_send_image", "remote_display_send_image", "remote_display_send_image_end");
+          console.log(`resolved display update roundtrip in ${measure.duration} ms`);
           resolve();
         }
       }
