@@ -233,7 +233,14 @@ async function clickUnderTap(pctX, pctY) {
         }
       }
       
-      // Fallback: If no clickable element found, try the topmost element
+      for (const el of elements) {
+        if (el.id && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(el.tagName)) {
+          console.log("Header with ID found:", el.id);
+          window.location.hash = el.id;
+          return;
+        }
+      }
+      
       if (elements.length > 0) {
         console.log("Fallback click on:", elements[0].tagName);
         simulatePointerEvent(elements[0], "pointerdown");
