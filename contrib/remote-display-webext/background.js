@@ -148,7 +148,7 @@ async function resizeViewport(width, height) {
 }
 
 async function openLinkUnderTap(pctX, pctY) {
-  const { id } = await currentTab();
+  const { id, windowId } = await currentTab();
   const [url] = await browser.tabs.executeScript(id, {
     code:
       `[...document.elementsFromPoint(window.innerWidth * ${pctX}, window.innerHeight * ${pctY})]
@@ -156,7 +156,7 @@ async function openLinkUnderTap(pctX, pctY) {
        ?.href`,
   });
   if (!url) return;
-  await browser.tabs.create({ url });
+  await browser.tabs.create({ url, windowId, openerTabId: id });
   await browser.tabs.update(id, { active: true });
   return new URL(url).host;
 }
