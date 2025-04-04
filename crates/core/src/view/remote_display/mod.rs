@@ -20,7 +20,7 @@ use rumqttc::{
 };
 use serde::Deserialize;
 use std::io::{Cursor, Read};
-use std::sync::{mpsc as std_mpsc, Arc};
+use std::sync::{mpsc as std_mpsc, Arc, Mutex};
 use std::thread::spawn;
 use std::time::Duration;
 use tokio::sync::mpsc as tokio_mpsc;
@@ -46,6 +46,7 @@ fn handle_server_message(
     message: ServerMessage,
     event_tx: &std::sync::mpsc::Sender<Event>,
     prev_frame: &mut Option<Vec<u8>>,
+    shared_pixmap: &Arc<Mutex<UpdatedPixmap>>,
 ) -> anyhow::Result<()> {
     let event = match message {
         ServerMessage::Notify(message) => Event::Notify(message),
@@ -55,9 +56,20 @@ fn handle_server_message(
             let qoi = zstd::decode_all(data.as_slice())?;
             *prev_frame = Some(qoi.clone());
             let rgb = image::load_from_memory(&qoi)?.to_rgb8();
-            let mut pixmap = Pixmap::new(rgb.width() as u32, rgb.height() as u32, 3);
-            pixmap.data.copy_from_slice(rgb.as_raw());
-            Event::UpdateRemoteView(Box::new(pixmap), true)
+            let width = rgb.width() as u32;
+            let height = rgb.height() as u32;
+            let data = rgb.into_raw();
+            if let Ok(mut updated) = shared_pixmap.lock() {
+                updated.pixmap = Pixmap {
+                    width,
+                    height,
+                    samples: 3,
+                    data,
+                };
+                updated.full = true;
+                updated.notified = false;
+            }
+            Event::Update(UpdateMode::Gui)
         }
         ServerMessage::PatchDisplay(data) => {
             let decompressed = zstd::decode_all(data.as_slice())?;
@@ -74,9 +86,20 @@ fn handle_server_message(
             *prev_frame = Some(patched_buf.clone());
             let img = image::load_from_memory(&patched_buf)?;
             let rgb = img.to_rgb8();
-            let mut pixmap = Pixmap::new(rgb.width() as u32, rgb.height() as u32, 3);
-            pixmap.data.copy_from_slice(rgb.as_raw());
-            Event::UpdateRemoteView(Box::new(pixmap), false)
+            let width = rgb.width() as u32;
+            let height = rgb.height() as u32;
+            let data = rgb.into_raw();
+            if let Ok(mut updated) = shared_pixmap.lock() {
+                updated.pixmap = Pixmap {
+                    width,
+                    height,
+                    samples: 3,
+                    data,
+                };
+                updated.full = false;
+                updated.notified = false;
+            }
+            Event::Update(UpdateMode::Gui)
         }
     };
     event_tx.send(event)?;
@@ -87,6 +110,7 @@ fn handle_server_message(
 async fn display_connection(
     event_tx: std_mpsc::Sender<Event>,
     mut socket_rx: tokio_mpsc::Receiver<SocketEvent>,
+    shared_pixmap: Arc<Mutex<UpdatedPixmap>>,
     address: String,
     topic: String,
     hex_key: String,
@@ -166,7 +190,7 @@ async fn display_connection(
                                     .map(|_| out)
                             })?;
                         let message: ServerMessage = from_reader(pt.as_slice())?;
-                        if let Err(e) = handle_server_message(message, &event_tx, &mut prev_frame) {
+                        if let Err(e) = handle_server_message(message, &event_tx, &mut prev_frame, &shared_pixmap) {
                             event_tx.send(Event::Notify(format!("Error handling message: {}", e))).ok();
                         }
                     }
@@ -192,11 +216,17 @@ async fn display_connection(
     Ok(())
 }
 
+struct UpdatedPixmap {
+    pixmap: Pixmap,
+    full: bool,
+    notified: bool,
+}
+
 pub struct RemoteDisplay {
     id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
-    pixmap: Pixmap,
+    pixmap: Arc<Mutex<UpdatedPixmap>>,
     message_tx: tokio_mpsc::Sender<SocketEvent>,
 }
 
@@ -218,8 +248,22 @@ impl RemoteDisplay {
         let (message_tx, message_rx) = tokio_mpsc::channel(16);
         let event_tx = hub.clone();
 
+        let pixmap = Arc::new(Mutex::new(UpdatedPixmap {
+            pixmap: Pixmap::new(rect.width(), rect.height(), 1),
+            full: false,
+            notified: true,
+        }));
+        let shared_pixmap = pixmap.clone();
+
         spawn(move || {
-            match display_connection(event_tx.clone(), message_rx, address, topic, key) {
+            match display_connection(
+                event_tx.clone(),
+                message_rx,
+                shared_pixmap,
+                address,
+                topic,
+                key,
+            ) {
                 Ok(..) => {}
                 Err(e) => {
                     event_tx.send(Event::Back).ok();
@@ -232,7 +276,7 @@ impl RemoteDisplay {
             id,
             rect,
             children,
-            pixmap: Pixmap::new(rect.width(), rect.height(), 1),
+            pixmap,
             message_tx,
         }
     }
@@ -242,7 +286,7 @@ impl View for RemoteDisplay {
     fn handle_event(
         &mut self,
         evt: &Event,
-        hub: &Hub,
+        _hub: &Hub,
         bus: &mut Bus,
         rq: &mut RenderQueue,
         _context: &mut Context,
@@ -263,7 +307,9 @@ impl View for RemoteDisplay {
                     .ok();
                 match ge {
                     GestureEvent::HoldFingerShort(pt, _) | GestureEvent::Tap(pt) => {
-                        self.pixmap.draw_crosshair(pt, 5.0);
+                        if let Ok(mut locked_pixmap) = self.pixmap.lock() {
+                            locked_pixmap.pixmap.draw_crosshair(pt, 5.0);
+                        }
                         rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                         true
                     }
@@ -295,20 +341,6 @@ impl View for RemoteDisplay {
                     .ok();
                 true
             }
-            Event::UpdateRemoteView(ref pix, full) => {
-                self.pixmap = *pix.clone();
-                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
-                cbor!({ "type" => "displayUpdated", "full" => full })
-                    .map_err(|e| anyhow::anyhow!("Encoding displayUpdated response: {}", e))
-                    .and_then(|msg| {
-                        self.message_tx
-                            .try_send(SocketEvent::SendMessage(msg))
-                            .map_err(|e| anyhow::anyhow!("Sending displayUpdated response: {}", e))
-                    })
-                    .or_else(|e| hub.send(Event::Notify(e.to_string())))
-                    .ok();
-                true
-            }
             Event::SendRemoteViewSize => {
                 self.message_tx
                     .try_send(SocketEvent::SendMessage(
@@ -328,21 +360,42 @@ impl View for RemoteDisplay {
                 rq.add(RenderData::new(self.id, self.rect, UpdateMode::Full));
                 true
             }
+            Event::Update(UpdateMode::Gui) => {
+                rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+                true
+            }
             _ => false,
         }
     }
 
     fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, _fonts: &mut Fonts) {
-        if fb.width() != self.pixmap.width
-            || fb.height() != self.pixmap.height
-            || self.pixmap.data.is_empty()
-        {
-            // Create a blank pixmap with correct dimensions to prevent panics
+        if let Ok(mut locked_pixmap) = self.pixmap.lock() {
+            let pixmap = &locked_pixmap.pixmap;
+            if fb.width() != pixmap.width || fb.height() != pixmap.height || pixmap.data.is_empty()
+            {
+                // Create a blank pixmap with correct dimensions to prevent panics
+                let blank = Pixmap::new(fb.width(), fb.height(), 1);
+                fb.draw_framed_pixmap(&blank, &rect, rect.min);
+                return;
+            }
+            fb.draw_framed_pixmap(pixmap, &rect, rect.min);
+            if !locked_pixmap.notified {
+                cbor!({ "type" => "displayUpdated", "full" => locked_pixmap.full })
+                    .map_err(|e| anyhow::anyhow!("Encoding displayUpdated response: {}", e))
+                    .and_then(|msg| {
+                        self.message_tx
+                            .try_send(SocketEvent::SendMessage(msg))
+                            .map_err(|e| anyhow::anyhow!("Sending displayUpdated response: {}", e))
+                    })
+                    .inspect_err(|e| println!("{}", e))
+                    .ok();
+                locked_pixmap.notified = true;
+            }
+        } else {
+            // If mutex is poisoned or cannot be locked, draw blank
             let pixmap = Pixmap::new(fb.width(), fb.height(), 1);
             fb.draw_framed_pixmap(&pixmap, &rect, rect.min);
-            return;
         }
-        fb.draw_framed_pixmap(&self.pixmap, &rect, rect.min);
     }
 
     fn render_rect(&self, rect: &Rectangle) -> Rectangle {
