@@ -164,8 +164,85 @@ async function openLinkUnderTap(pctX, pctY) {
 async function clickUnderTap(pctX, pctY) {
   const { id } = await currentTab();
   await browser.tabs.executeScript(id, {
-    code:
-      `document.elementFromPoint(window.innerWidth * ${pctX}, window.innerHeight * ${pctY})?.click()`,
+    code: `(() => {
+      const coordX = window.innerWidth * ${pctX};
+      const coordY = window.innerHeight * ${pctY};
+      const elements = [...document.elementsFromPoint(coordX, coordY)];
+      if (elements[0]?.tagName === "IFRAME") {
+        try {
+          const iframeElements = elements[0].contentDocument?.elementsFromPoint(coordX, coordY);
+          if (iframeElements?.length) {
+            elements.unshift(...iframeElements);
+          }
+        } catch (e) {
+          console.error("Error accessing iframe content:", e);
+        }
+      }
+      function simulateMouseEvent(element, eventName) {
+        if (!element) return false;
+        const mouseEvent = new MouseEvent(eventName, {
+          view: window,
+          bubbles: true,
+          cancelable: true,
+          clientX: coordX,
+          clientY: coordY,
+          button: 0
+        });
+        
+        const dispatched = element.dispatchEvent(mouseEvent);
+        return dispatched;
+      }
+      function simulatePointerEvent(element, eventName) {
+        if (!element) return false;
+        
+        // Create and dispatch the pointer event with coordinates
+        const pointerEvent = new PointerEvent(eventName, {
+          view: window,
+          bubbles: true,
+          cancelable: true,
+          clientX: coordX,
+          clientY: coordY,
+          pointerId: 1,
+          pointerType: 'mouse',
+          isPrimary: true,
+          pressure: 1,
+          button: 0
+        });
+        
+        const dispatched = element.dispatchEvent(pointerEvent);
+        return dispatched;
+      }
+      for (const el of elements) {
+        const isClickable = el.onclick ||
+                           el.tagName === "A" ||
+                           el.tagName === "BUTTON" ||
+                           el.tagName === "INPUT" ||
+                           el.tagName === "SELECT" ||
+                           el.tagName === "TEXTAREA" ||
+                           el.getAttribute("role") === "button" ||
+                           window.getComputedStyle(el).cursor === "pointer";
+        
+        if (isClickable) {
+          console.log("Clicking element:", el.tagName, el.className);
+          simulatePointerEvent(el, "pointerdown");
+          simulateMouseEvent(el, "mousedown");
+          simulatePointerEvent(el, "pointerup");
+          simulateMouseEvent(el, "mouseup");
+          simulateMouseEvent(el, "click");
+          return;
+        }
+      }
+      
+      // Fallback: If no clickable element found, try the topmost element
+      if (elements.length > 0) {
+        console.log("Fallback click on:", elements[0].tagName);
+        simulatePointerEvent(elements[0], "pointerdown");
+        simulateMouseEvent(elements[0], "mousedown");
+        simulatePointerEvent(elements[0], "pointerup");
+        simulateMouseEvent(elements[0], "mouseup");
+        simulateMouseEvent(elements[0], "click");
+      }
+    })()`,
   });
   browser.tabs.sendMessage(id, { type: 'WAIT_FOR_ANIMATIONS' });
 }
