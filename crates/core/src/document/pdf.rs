@@ -169,9 +169,49 @@ impl Document for PdfDocument {
         unsafe { mp_count_pages(self.ctx.0, self.doc) as usize }
     }
 
-    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, usize)> {
+    fn resolve_location(&mut self, loc: Location) -> Option<usize> {
+        if self.pages_count() == 0 {
+            return None;
+        }
+
+        match loc {
+            Location::Exact(index) => {
+                if index >= self.pages_count() {
+                    None
+                } else {
+                    Some(index)
+                }
+            },
+            Location::Previous(index) => {
+                if index > 0 {
+                    Some(index - 1)
+                } else {
+                    None
+                }
+            },
+            Location::Next(index) => {
+                if index < self.pages_count() - 1 {
+                    Some(index + 1)
+                } else {
+                    None
+                }
+            },
+            Location::LocalUri(_index, uri) => {
+                let c_uri = CString::new(uri).unwrap();
+                let dest = unsafe { fz_resolve_link_dest(self.ctx.0, self.doc, c_uri.as_ptr()) };
+                if dest.loc.page.is_positive() {
+                    Some(dest.loc.page as usize)
+                } else {
+                    None
+                }
+            },
+            _ => None,
+        }
+    }
+
+    fn pixmap(&mut self, loc: Location, scale: f32, samples: usize) -> Option<(Pixmap, usize)> {
         let index = self.resolve_location(loc)?;
-        self.page(index).and_then(|page| page.pixmap(scale)).map(|pixmap| (pixmap, index))
+        self.page(index).and_then(|page| page.pixmap(scale, samples)).map(|pixmap| (pixmap, index))
     }
 
     fn toc(&mut self) -> Option<Vec<TocEntry>> {
@@ -427,13 +467,18 @@ impl<'a> PdfPage<'a> {
         }
     }
 
-    pub fn pixmap(&self, scale: f32) -> Option<Pixmap> {
+    pub fn pixmap(&self, scale: f32, color_samples: usize) -> Option<Pixmap> {
         unsafe {
             let mat = fz_scale(scale as libc::c_float, scale as libc::c_float);
+            let color_space = if color_samples == 1 {
+                fz_device_gray(self.ctx.0)
+            } else {
+                fz_device_rgb(self.ctx.0)
+            };
             let pixmap = mp_new_pixmap_from_page(self.ctx.0,
                                                  self.page,
                                                  mat,
-                                                 fz_device_gray(self.ctx.0),
+                                                 color_space,
                                                  0);
             if pixmap.is_null() {
                 return None;
@@ -441,18 +486,18 @@ impl<'a> PdfPage<'a> {
 
             let width = (*pixmap).w as u32;
             let height = (*pixmap).h as u32;
-            let len = (width * height) as usize;
-            let samples = slice::from_raw_parts((*pixmap).samples, len);
+            let len = color_samples * (width * height) as usize;
+            let pixmap_data = slice::from_raw_parts((*pixmap).samples, len);
             let mut data = Vec::new();
             if data.try_reserve(len).is_err() {
                 fz_drop_pixmap(self.ctx.0, pixmap);
                 return None;
             }
-            data.extend(samples);
+            data.extend(pixmap_data);
 
             fz_drop_pixmap(self.ctx.0, pixmap);
 
-            Some(Pixmap { width, height, data })
+            Some(Pixmap { width, height, samples: color_samples, data })
         }
     }
 

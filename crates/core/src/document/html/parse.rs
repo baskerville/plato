@@ -4,6 +4,7 @@ use super::layout::{FontKind, FontStyle, FontWeight, WordSpacing};
 use super::layout::{TextAlign, Display, Float, ListStyleType};
 use super::layout::{InlineMaterial, GlueMaterial, PenaltyMaterial};
 use crate::geom::Edge;
+use crate::color::{Color, BLACK, WHITE};
 use crate::unit::{pt_to_px, pc_to_px, mm_to_px, in_to_px};
 use crate::unit::{POINTS_PER_INCH, PICAS_PER_INCH, MILLIMETERS_PER_INCH, CENTIMETERS_PER_INCH};
 
@@ -337,7 +338,7 @@ pub fn parse_font_variant(value: &str) -> Vec<String> {
     features.into_iter().map(String::from).collect()
 }
 
-pub fn parse_color(value: &str) -> Option<u8> {
+pub fn parse_color(value: &str) -> Option<Color> {
     if value.starts_with('#') {
         if value.len() < 4 {
             return None;
@@ -346,12 +347,12 @@ pub fn parse_color(value: &str) -> Option<u8> {
         let red = u8::from_str_radix(&value[1..=chunk_size].repeat(3 - chunk_size), 16).ok()?;
         let green = u8::from_str_radix(&value[chunk_size+1..=2*chunk_size].repeat(3 - chunk_size), 16).ok()?;
         let blue = u8::from_str_radix(&value[2*chunk_size+1..=3*chunk_size].repeat(3 - chunk_size), 16).ok()?;
-        let color = luma(red as f32, green as f32, blue as f32) as u8;
+        let color = Color::from_rgb(&[red, green, blue]);
         Some(color)
     } else {
         match value {
-            "black" => Some(0),
-            "white" => Some(255),
+            "black" => Some(BLACK),
+            "white" => Some(WHITE),
             "gray" | "grey" => parse_color("#888"),
             "silver" => parse_color("#c0c0c0"),
             "red" => parse_color("#f00"),
@@ -372,11 +373,6 @@ pub fn parse_color(value: &str) -> Option<u8> {
     }
 }
 
-#[inline]
-fn luma(r: f32, g: f32, b: f32) -> f32 {
-    r * 0.2126 + g * 0.7152 + b * 0.0722
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -388,10 +384,10 @@ mod tests {
         let c = parse_color("#0f0");
         let d = parse_color("#00f");
         let e = parse_color("#fff");
-        assert_eq!(a, Some(0));
-        assert_eq!(b, Some(54));
-        assert_eq!(c, Some(182));
-        assert_eq!(d, Some(18));
-        assert_eq!(e, Some(255));
+        assert_eq!(a, Some(Color::Rgb(0, 0, 0)));
+        assert_eq!(b, Some(Color::Rgb(255, 0, 0)));
+        assert_eq!(c, Some(Color::Rgb(0, 255, 0)));
+        assert_eq!(d, Some(Color::Rgb(0, 0, 255)));
+        assert_eq!(e, Some(Color::Rgb(255, 255, 255)));
     }
 }

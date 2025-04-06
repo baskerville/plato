@@ -15,13 +15,21 @@ sync
 killall -TERM nickel hindenburg sickel fickel adobehost foxitpdf iink dhcpcd-dbus dhcpcd fmon > /dev/null 2>&1
 
 
-STANDARD_LEDS=0
-LEDS_INTERFACE=/sys/devices/platform/pmic_light.1/lit
-if [ -e /sys/class/leds/bd71828-green-led ] ; then
+if [ -e /sys/class/leds/LED ] ; then
+	LEDS_INTERFACE=/sys/class/leds/LED/brightness
 	STANDARD_LEDS=1
-	LEDS_INTERFACE=/sys/class/leds/bd71828-green-led
+elif [ -e /sys/class/leds/GLED ] ; then
+	LEDS_INTERFACE=/sys/class/leds/GLED/brightness
+	STANDARD_LEDS=1
+elif [ -e /sys/class/leds/bd71828-green-led ] ; then
+	LEDS_INTERFACE=/sys/class/leds/bd71828-green-led/brightness
+	STANDARD_LEDS=1
 elif [ -e /sys/devices/platform/ntx_led/lit ] ; then
 	LEDS_INTERFACE=/sys/devices/platform/ntx_led/lit
+	STANDARD_LEDS=0
+elif [ -e /sys/devices/platform/pmic_light.1/lit ] ; then
+	LEDS_INTERFACE=/sys/devices/platform/pmic_light.1/lit
+	STANDARD_LEDS=0
 fi
 
 # Turn off the LEDs
@@ -49,7 +57,7 @@ if [ -e "$KOBO_TAG" ] ; then
 	# This is a combination of the information given in `FBInk/fbink_device_id.c`
 	# and `calibre/src/calibre/devices/kobo/driver.py`.
 	case "$MODEL_NUMBER" in
-		310|320) PRODUCT_ID=0x4163 ;; # Touch A/B, Touch C
+		3[12]0)  PRODUCT_ID=0x4163 ;; # Touch A/B, Touch C
 		330)     PRODUCT_ID=0x4173 ;; # Glo
 		340)     PRODUCT_ID=0x4183 ;; # Mini
 		350)     PRODUCT_ID=0x4193 ;; # Aura HD
@@ -69,6 +77,9 @@ if [ -e "$KOBO_TAG" ] ; then
 		388)     PRODUCT_ID=0x4234 ;; # Libra 2
 		386)     PRODUCT_ID=0x4235 ;; # Clara 2E
 		389)     PRODUCT_ID=0x4236 ;; # Elipsa 2E
+		390)     PRODUCT_ID=0x4237 ;; # Libra Colour
+		393)     PRODUCT_ID=0x4238 ;; # Clara Colour
+		391)     PRODUCT_ID=0x4239 ;; # Clara BW
 		*)       PRODUCT_ID=0x6666 ;;
 	esac
 
@@ -83,11 +94,11 @@ export LD_LIBRARY_PATH="libs:${LD_LIBRARY_PATH}"
 
 if [ "$PLATO_SET_FRAMEBUFFER_DEPTH" ] ; then
 	case "${PRODUCT}:${MODEL_NUMBER}" in
-		condor:*|goldfinch:*|io:*|cadmus:*|europa:*|storm:*|frost:*|nova:*|snow:378|star:379)
-			unset ORIG_BPP
+		kraken:*|pixie:*|dragon:*|phoenix:*|dahlia:*|alyssum:*|pika:*|daylight:*|star:375|snow:374)
+			ORIG_BPP=$(./bin/utils/fbdepth -g)
 			;;
 		*)
-			ORIG_BPP=$(./bin/utils/fbdepth -g)
+			unset ORIG_BPP
 			;;
 	esac
 fi

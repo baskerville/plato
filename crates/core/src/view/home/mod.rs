@@ -1725,7 +1725,7 @@ impl View for Home {
                 }
                 for entry in &mut files {
                     // Let the *reader* field pass through.
-                    mem::swap(&mut entry.reader, &mut entry._reader);
+                    mem::swap(&mut entry.reader, &mut entry.reader_info);
                 }
                 if let Some(fetcher) = self.background_fetchers.get_mut(&id) {
                     if let Some(stdin) = fetcher.process.stdin.as_mut() {

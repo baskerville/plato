@@ -20,7 +20,7 @@ use crate::settings::{ImportSettings, Pen};
 use crate::helpers::IsHidden;
 use crate::font::Fonts;
 use crate::unit::scale_by_dpi;
-use crate::color::{BLACK, WHITE};
+use crate::color::{Color, BLACK, WHITE};
 use crate::context::Context;
 
 const FILENAME_PATTERN: &str = "sketch-%Y%m%d_%H%M%S.png";
@@ -77,7 +77,7 @@ impl Sketch {
             id,
             rect,
             children,
-            pixmap: Pixmap::new(rect.width(), rect.height()),
+            pixmap: Pixmap::new(rect.width(), rect.height(), 1),
             fingers: FxHashMap::default(),
             pen: context.settings.sketch.pen.clone(),
             save_path,
@@ -130,13 +130,14 @@ impl Sketch {
             ];
 
             for i in 1..=14 {
-                let c = i * 17;
+                let level = i * 17;
                 if i % 7 == 1 {
                     colors.push(EntryKind::Separator);
                 }
+                let color = Color::Gray(level);
                 colors.push(EntryKind::RadioButton(format!("Gray {:02}", i),
-                                                   EntryId::SetPenColor(c),
-                                                   self.pen.color == c));
+                                                   EntryId::SetPenColor(color),
+                                                   self.pen.color == color));
             }
 
             let mut entries = vec![

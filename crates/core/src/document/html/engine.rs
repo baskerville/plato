@@ -1410,17 +1410,14 @@ impl Engine {
 
             if let ParagraphItem::Penalty { width, .. } = items[index] {
                 if width > 0 {
-                    let font_size = (style.font_size * 64.0) as u32;
-                    let mut hyphen_plan = {
+                    if let Some(DrawCommand::Text(tc)) = page.last_mut() {
                         let font = self.fonts.as_mut().unwrap()
-                                       .get_mut(style.font_kind, style.font_style, style.font_weight);
-                        font.set_size(font_size, self.dpi);
-                        font.plan("-", None, style.font_features.as_deref())
-                    };
-                    if let Some(DrawCommand::Text(TextCommand { ref mut rect, ref mut plan, ref mut text, .. })) = page.last_mut() {
-                        rect.max.x += hyphen_plan.width;
-                        plan.append(&mut hyphen_plan);
-                        text.push('\u{00AD}');
+                                       .get_mut(tc.font_kind, tc.font_style, tc.font_weight);
+                        font.set_size(tc.font_size, self.dpi);
+                        let mut hyphen_plan = font.plan("-", None, None);
+                        tc.rect.max.x += hyphen_plan.width;
+                        tc.plan.append(&mut hyphen_plan);
+                        tc.text.push('\u{00AD}');
                     }
                 }
             }
@@ -1672,10 +1669,10 @@ impl Engine {
         merged_items
     }
 
-    pub fn render_page(&mut self, page: &[DrawCommand], scale_factor: f32, resource_fetcher: &mut dyn ResourceFetcher) -> Option<Pixmap> {
+    pub fn render_page(&mut self, page: &[DrawCommand], scale_factor: f32, samples: usize, resource_fetcher: &mut dyn ResourceFetcher) -> Option<Pixmap> {
         let width = (self.dims.0 as f32 * scale_factor) as u32;
         let height = (self.dims.1 as f32 * scale_factor) as u32;
-        let mut fb = Pixmap::try_new(width, height)?;
+        let mut fb = Pixmap::try_new(width, height, samples)?;
 
         for dc in page {
             match dc {
@@ -1696,7 +1693,7 @@ impl Engine {
                         if let Some((pixmap, _)) = PdfOpener::new().and_then(|opener| {
                             opener.open_memory(path, &buf)
                         }).and_then(|mut doc| {
-                            doc.pixmap(Location::Exact(0), scale_factor * *scale)
+                            doc.pixmap(Location::Exact(0), scale_factor * *scale, samples)
                         }) {
                             let position = Point::from(scale_factor * Vec2::from(*position));
                             fb.draw_pixmap(&pixmap, position);

@@ -9,7 +9,7 @@ use fxhash::FxHashSet;
 use serde::{Serialize, Deserialize};
 use crate::metadata::{SortMethod, TextAlign};
 use crate::frontlight::LightLevels;
-use crate::color::BLACK;
+use crate::color::{Color, BLACK};
 use crate::device::CURRENT_DEVICE;
 use crate::unit::mm_to_px;
 
@@ -213,7 +213,7 @@ pub struct CalculatorSettings {
 #[serde(default, rename_all = "kebab-case")]
 pub struct Pen {
     pub size: i32,
-    pub color: u8,
+    pub color: Color,
     pub dynamic: bool,
     pub amplitude: f32,
     pub min_speed: f32,

@@ -101,7 +101,7 @@ pub trait Document: Send+Sync {
     fn links(&mut self, loc: Location) -> Option<(Vec<BoundedText>, usize)>;
     fn images(&mut self, loc: Location) -> Option<(Vec<Boundary>, usize)>;
 
-    fn pixmap(&mut self, loc: Location, scale: f32) -> Option<(Pixmap, usize)>;
+    fn pixmap(&mut self, loc: Location, scale: f32, samples: usize) -> Option<(Pixmap, usize)>;
     fn layout(&mut self, width: u32, height: u32, font_size: f32, dpi: u16);
     fn set_font_family(&mut self, family_name: &str, search_path: &str);
     fn set_margin_width(&mut self, width: i32);
@@ -125,10 +125,10 @@ pub trait Document: Send+Sync {
         Err(format_err!("this document can't be saved"))
     }
 
-    fn preview_pixmap(&mut self, width: f32, height: f32) -> Option<Pixmap> {
+    fn preview_pixmap(&mut self, width: f32, height: f32, samples: usize) -> Option<Pixmap> {
         self.dims(0).and_then(|dims| {
             let scale = (width / dims.0).min(height / dims.1);
-            self.pixmap(Location::Exact(0), scale)
+            self.pixmap(Location::Exact(0), scale, samples)
         }).map(|(pixmap, _)| pixmap)
     }
 

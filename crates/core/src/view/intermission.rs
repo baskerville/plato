@@ -94,7 +94,7 @@ impl View for Intermission {
                 let mut doc = open("icons/dodecahedron.svg").unwrap();
                 let (width, height) = doc.dims(0).unwrap();
                 let scale = (plan.width as f32 / width.max(height) as f32) / 4.0;
-                let (pixmap, _) = doc.pixmap(Location::Exact(0), scale).unwrap();
+                let (pixmap, _) = doc.pixmap(Location::Exact(0), scale, 1).unwrap();
                 let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
                 let dy = dy + 2 * x_height;
                 let pt = self.rect.min + pt!(dx, dy);
@@ -107,7 +107,9 @@ impl View for Intermission {
                         let w_ratio = self.rect.width() as f32 / width;
                         let h_ratio = self.rect.height() as f32 / height;
                         let scale = w_ratio.min(h_ratio);
-                        if let Some((pixmap, _)) = doc.pixmap(Location::Exact(0), scale) {
+                        if let Some((pixmap, _)) = doc.pixmap(Location::Exact(0),
+                                                              scale,
+                                                              CURRENT_DEVICE.color_samples()) {
                             let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
                             let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
                             let pt = self.rect.min + pt!(dx, dy);
@@ -122,7 +124,9 @@ impl View for Intermission {
             },
             Message::Cover(ref path) => {
                 if let Some(mut doc) = open(path) {
-                    if let Some(pixmap) = doc.preview_pixmap(self.rect.width() as f32, self.rect.height() as f32) {
+                    if let Some(pixmap) = doc.preview_pixmap(self.rect.width() as f32,
+                                                             self.rect.height() as f32,
+                                                             CURRENT_DEVICE.color_samples()) {
                         let dx = (self.rect.width() as i32 - pixmap.width as i32) / 2;
                         let dy = (self.rect.height() as i32 - pixmap.height as i32) / 2;
                         let pt = self.rect.min + pt!(dx, dy);

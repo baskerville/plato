@@ -1,7 +1,8 @@
 use lazy_static::lazy_static;
 use super::image::Pixmap;
+use crate::color::Color;
 
-pub type ColorTransform = fn(u32, u32, u8) -> u8;
+pub type ColorTransform = fn(u32, u32, Color) -> Color;
 
 const DITHER_PITCH: u32 = 128;
 
@@ -37,37 +38,39 @@ lazy_static! {
 // The input color is in {0 .. 255}.
 // The output color is in G16.
 // G16 := {17 * i | i ∈ {0 .. 15}}.
-pub fn transform_dither_g16(x: u32, y: u32, color: u8) -> u8 {
+pub fn transform_dither_g16(x: u32, y: u32, color: Color) -> Color {
+    let gray = color.gray();
     // Get the address of the drift value.
     let addr = (x % DITHER_PITCH) + (y % DITHER_PITCH) * DITHER_PITCH;
     // Apply the drift to the input color.
-    let c = (color as i16 + DITHER_G16_DRIFTS[addr as usize] as i16).clamp(0, 255);
+    let c = (gray as i16 + DITHER_G16_DRIFTS[addr as usize] as i16).clamp(0, 255);
     // Compute the distance to the previous color in G16.
     let d = c % 17;
     // Return the nearest color in G16.
-    if d < 9 {
+    Color::Gray(if d < 9 {
         (c - d) as u8
     } else {
         (c + (17 - d)) as u8
-    }
+    })
 }
 
 // Ordered dithering.
 // The input color is in {0 .. 255}.
 // The output color is in {0, 255}.
-pub fn transform_dither_g2(x: u32, y: u32, color: u8) -> u8 {
+pub fn transform_dither_g2(x: u32, y: u32, color: Color) -> Color {
+    let gray = color.gray();
     // Get the address of the drift value.
     let addr = (x % DITHER_PITCH) + (y % DITHER_PITCH) * DITHER_PITCH;
     // Apply the drift to the input color.
-    let c = (color as i16 + DITHER_G2_DRIFTS[addr as usize] as i16).clamp(0, 255);
+    let c = (gray as i16 + DITHER_G2_DRIFTS[addr as usize] as i16).clamp(0, 255);
     // Return the nearest color in G2.
-    if c < 128 {
+    Color::Gray(if c < 128 {
         0
     } else {
         255
-    }
+    })
 }
 
-pub fn transform_identity(_x: u32, _y: u32, color: u8) -> u8 {
+pub fn transform_identity(_x: u32, _y: u32, color: Color) -> Color {
     color
 }

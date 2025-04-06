@@ -2,42 +2,46 @@ use std::fs::File;
 use std::path::Path;
 use anyhow::{Error, Context, format_err};
 use super::{Framebuffer, UpdateMode};
-use crate::color::WHITE;
+use crate::color::{Color, WHITE};
 use crate::geom::{Rectangle, lerp};
 
 #[derive(Debug, Clone)]
 pub struct Pixmap {
     pub width: u32,
     pub height: u32,
+    pub samples: usize,
     pub data: Vec<u8>,
 }
 
 impl Pixmap {
-    pub fn new(width: u32, height: u32) -> Pixmap {
-        let len = (width * height) as usize;
+    pub fn new(width: u32, height: u32, samples: usize) -> Pixmap {
+        let len = samples * (width * height) as usize;
         Pixmap {
             width,
             height,
-            data: vec![WHITE; len],
+            samples,
+            data: vec![WHITE.gray(); len],
         }
     }
 
-    pub fn try_new(width: u32, height: u32) -> Option<Pixmap> {
+    pub fn try_new(width: u32, height: u32, samples: usize) -> Option<Pixmap> {
         let mut data = Vec::new();
-        let len = (width * height) as usize;
+        let len = samples * (width * height) as usize;
         data.try_reserve_exact(len).ok()?;
-        data.resize(len, WHITE);
+        data.resize(len, WHITE.gray());
         Some(Pixmap {
             width,
             height,
+            samples,
             data,
         })
     }
 
-    pub fn empty(width: u32, height: u32) -> Pixmap {
+    pub fn empty(width: u32, height: u32, samples: usize) -> Pixmap {
         Pixmap {
             width,
             height,
+            samples,
             data: Vec::new(),
         }
     }
@@ -55,34 +59,43 @@ impl Pixmap {
         let decoder = png::Decoder::new(file);
         let mut reader = decoder.read_info()?;
         let info = reader.info();
-        let mut pixmap = Pixmap::new(info.width, info.height);
+        let mut pixmap = Pixmap::new(info.width, info.height, info.color_type.samples());
         reader.next_frame(pixmap.data_mut())?;
         Ok(pixmap)
     }
 
     #[inline]
-    pub fn get_pixel(&self, x: u32, y: u32) -> u8 {
+    pub fn get_pixel(&self, x: u32, y: u32) -> Color {
         if self.data.is_empty() {
             return WHITE;
         }
-        let addr = (y * self.width + x) as usize;
-        self.data[addr]
+        let addr = self.samples * (y * self.width + x) as usize;
+        if self.samples == 1 {
+            Color::Gray(self.data[addr])
+        } else {
+            Color::from_rgb(&self.data[addr..addr+3])
+        }
     }
 }
 
 impl Framebuffer for Pixmap {
-    fn set_pixel(&mut self, x: u32, y: u32, color: u8) {
+    fn set_pixel(&mut self, x: u32, y: u32, color: Color) {
         if x >= self.width || y >= self.height {
             return;
         }
         if self.data.is_empty() {
             return;
         }
-        let addr = (y * self.width + x) as usize;
-        self.data[addr] = color;
+        let addr = self.samples * (y * self.width + x) as usize;
+        if self.samples == 1 {
+            self.data[addr] = color.gray();
+        } else {
+            let rgb = color.rgb();
+            self.data[addr..addr+3].copy_from_slice(&rgb);
+        }
     }
 
-    fn set_blended_pixel(&mut self, x: u32, y: u32, color: u8, alpha: f32) {
+    fn set_blended_pixel(&mut self, x: u32, y: u32, color: Color, alpha: f32) {
         if alpha >= 1.0 {
             self.set_pixel(x, y, color);
             return;
@@ -93,9 +106,15 @@ impl Framebuffer for Pixmap {
         if self.data.is_empty() {
             return;
         }
-        let addr = (y * self.width + x) as usize;
-        let blended_color = lerp(self.data[addr] as f32, color as f32, alpha) as u8;
-        self.data[addr] = blended_color;
+        let addr = self.samples * (y * self.width + x) as usize;
+        if self.samples == 1 {
+            self.data[addr] = lerp(self.data[addr] as f32, color.gray() as f32, alpha) as u8;
+        } else {
+            let rgb = color.rgb();
+            for (i, c) in self.data[addr..addr+3].iter_mut().enumerate() {
+                *c = lerp(*c as f32, rgb[i] as f32, alpha) as u8;
+            }
+        }
     }
 
     fn invert_region(&mut self, rect: &Rectangle) {
@@ -104,9 +123,14 @@ impl Framebuffer for Pixmap {
         }
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
-                let addr = (y * self.width as i32 + x) as usize;
-                let color = 255 - self.data[addr];
-                self.data[addr] = color;
+                let addr = self.samples * (y * self.width as i32 + x) as usize;
+                if self.samples == 1 {
+                    self.data[addr] = 255 - self.data[addr];
+                } else {
+                    for c in self.data[addr..addr+3].iter_mut() {
+                        *c = 255 - *c;
+                    }
+                }
             }
         }
     }
@@ -117,9 +141,14 @@ impl Framebuffer for Pixmap {
         }
         for y in rect.min.y..rect.max.y {
             for x in rect.min.x..rect.max.x {
-                let addr = (y * self.width as i32 + x) as usize;
-                let color = self.data[addr].saturating_sub(drift);
-                self.data[addr] = color;
+                let addr = self.samples * (y * self.width as i32 + x) as usize;
+                if self.samples == 1 {
+                    self.data[addr] = self.data[addr].saturating_sub(drift);
+                } else {
+                    for c in self.data[addr..addr+3].iter_mut() {
+                        *c = c.saturating_sub(drift);
+                    }
+                }
             }
         }
     }
@@ -140,7 +169,7 @@ impl Framebuffer for Pixmap {
         let file = File::create(path).with_context(|| format!("can't create output file {}", path))?;
         let mut encoder = png::Encoder::new(file, width, height);
         encoder.set_depth(png::BitDepth::Eight);
-        encoder.set_color(png::ColorType::Grayscale);
+        encoder.set_color(if self.samples == 3 { png::ColorType::Rgb } else { png::ColorType::Grayscale });
         let mut writer = encoder.write_header().with_context(|| format!("can't write PNG header for {}", path))?;
         writer.write_image_data(&self.data).with_context(|| format!("can't write PNG data to {}", path))?;
         Ok(())

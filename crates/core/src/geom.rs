@@ -3,6 +3,7 @@ use serde::{Serialize, Deserialize};
 use std::cmp::Ordering;
 use std::f32::consts;
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign};
+use crate::color::Color;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Dir {
@@ -215,19 +216,19 @@ pub enum CornerSpec {
 }
 
 pub trait ColorSource {
-    fn color(&self, x: i32, y: i32) -> u8;
+    fn color(&self, x: i32, y: i32) -> Color;
 }
 
-impl<F> ColorSource for F where F: Fn(i32, i32) -> u8 {
+impl<F> ColorSource for F where F: Fn(i32, i32) -> Color {
     #[inline]
-    fn color(&self, x: i32, y: i32) -> u8 {
+    fn color(&self, x: i32, y: i32) -> Color {
         (self)(x, y)
     }
 }
 
-impl ColorSource for u8 {
+impl ColorSource for Color {
     #[inline]
-    fn color(&self, _: i32, _: i32) -> u8 {
+    fn color(&self, _: i32, _: i32) -> Color {
         *self
     }
 }
@@ -235,7 +236,7 @@ impl ColorSource for u8 {
 #[derive(Debug, Copy, Clone)]
 pub struct BorderSpec {
     pub thickness: u16,
-    pub color: u8,
+    pub color: Color,
 }
 
 const HALF_PIXEL_DIAGONAL: f32 = consts::SQRT_2 / 2.0;

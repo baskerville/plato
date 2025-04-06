@@ -55,7 +55,7 @@ pub struct Info {
     #[serde(skip_serializing)]
     pub reader: Option<ReaderInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub _reader: Option<ReaderInfo>,
+    pub reader_info: Option<ReaderInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub toc: Option<Vec<SimpleTocEntry>>,
     #[serde(with = "datetime_format")]
@@ -312,7 +312,7 @@ impl Default for Info {
             file: FileInfo::default(),
             added: Local::now().naive_local(),
             reader: None,
-            _reader: None,
+            reader_info: None,
             toc: None,
         }
     }
