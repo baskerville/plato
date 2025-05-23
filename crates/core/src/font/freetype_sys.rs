@@ -23,7 +23,7 @@ pub type FtPos = libc::c_long;
 pub type FtFixed = libc::c_long;
 pub type FtGlyphFormat = libc::c_uint;
 pub type GlyphBBoxMode = libc::c_uint;
-pub type FtGenericFinalizer = extern fn(*mut libc::c_void);
+pub type FtGenericFinalizer = extern "C" fn(*mut libc::c_void);
 
 pub enum FtLibrary {}
 pub enum FtCharMap {}
@@ -36,7 +36,7 @@ pub enum FtMemory {}
 pub enum FtStream {}
 
 #[link(name="freetype")]
-extern {
+extern "C" {
     pub fn FT_Init_FreeType(lib: *mut *mut FtLibrary) -> FtError;
     pub fn FT_Done_FreeType(lib: *mut FtLibrary) -> FtError;
     pub fn FT_New_Face(lib: *mut FtLibrary, path: *const libc::c_char, idx: libc::c_long, face: *mut *mut FtFace) -> FtError;
