@@ -55,6 +55,13 @@ impl fmt::Display for ButtonScheme {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Trmnl {
+    pub api_base: String,
+    pub mac_address: String,
+    pub access_key: Option<String>,
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum IntermKind {
@@ -114,6 +121,7 @@ pub struct Settings {
     pub external_urls_queue: Option<PathBuf>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<LibrarySettings>,
+    pub trmnl: Option<Trmnl>,
     pub intermissions: Intermissions,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub frontlight_presets: Vec<LightPreset>,
@@ -537,6 +545,7 @@ impl Default for Settings {
             auto_power_off: 3.0,
             time_format: "%H:%M".to_string(),
             date_format: "%A, %B %-d, %Y".to_string(),
+            trmnl: None,
             intermissions: Intermissions {
                 suspend: PathBuf::from(LOGO_SPECIAL_PATH),
                 power_off: PathBuf::from(LOGO_SPECIAL_PATH),
