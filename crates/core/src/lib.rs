@@ -20,6 +20,8 @@ pub mod font;
 pub mod context;
 pub mod gesture;
 
+pub use rtc::{AlarmType, AlarmManager};
+
 pub use anyhow;
 pub use fxhash;
 pub use chrono;

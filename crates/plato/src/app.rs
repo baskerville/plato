@@ -40,6 +40,7 @@ use plato_core::library::Library;
 use plato_core::font::Fonts;
 use plato_core::rtc::Rtc;
 use plato_core::context::Context;
+use plato_core::AlarmType;
 
 pub const APP_NAME: &str = "Plato";
 const FB_DEVICE: &str = "/dev/fb0";
@@ -584,13 +585,14 @@ pub fn run() -> Result<(), Error> {
                               SUSPEND_WAIT_DELAY, &tx, &mut tasks);
             },
             Event::Suspend => {
-                if context.settings.auto_power_off > 0.0 {
-                    context.rtc.iter().for_each(|rtc| {
-                        rtc.set_alarm(context.settings.auto_power_off)
-                           .map_err(|e| eprintln!("Can't set alarm: {:#}.", e))
-                           .ok();
-                    });
+                if let Some(alarm_manager) = context.alarm_manager.as_mut() {
+                    if context.settings.auto_power_off > 0.0 && !alarm_manager.is_alarm_scheduled(AlarmType::AutoPowerOff) {
+                        alarm_manager.schedule_alarm(AlarmType::AutoPowerOff, (context.settings.auto_power_off * 86400.0) as i64)
+                                     .map_err(|e| eprintln!("Can't schedule auto power off alarm: {:#}.", e))
+                                     .ok();
+                    }
                 }
+
                 let before = Local::now();
                 println!("{}", before.format("Went to sleep on %B %-d, %Y at %H:%M:%S."));
                 Command::new("scripts/suspend.sh")
@@ -605,25 +607,19 @@ pub fn run() -> Result<(), Error> {
                 // If the wake is legitimate, the task will be cancelled by `resume`.
                 schedule_task(TaskId::Suspend, Event::Suspend,
                               SUSPEND_WAIT_DELAY, &tx, &mut tasks);
-                if context.settings.auto_power_off > 0.0 {
-                    let dur = plato_core::chrono::Duration::seconds((86_400.0 * context.settings.auto_power_off) as i64);
-                    if let Some(fired) = context.rtc.as_ref()
-                                                .and_then(|rtc| rtc.alarm()
-                                                                   .map_err(|e| eprintln!("Can't get alarm: {:#}", e))
-                                                                   .map(|rwa| !rwa.enabled() ||
-                                                                              (rwa.year() <= 1970 &&
-                                                                               ((after - before) - dur).num_seconds().abs() < 3))
-                                                                   .ok()) {
-                        if fired {
-                            power_off(view.as_mut(), &mut history, &mut updating, &mut context);
-                            exit_status = ExitStatus::PowerOff;
-                            break;
-                        } else {
-                            context.rtc.iter().for_each(|rtc| {
-                                rtc.disable_alarm()
-                                   .map_err(|e| eprintln!("Can't disable alarm: {:#}.", e))
-                                   .ok();
-                            });
+                if let Some(alarm_manager) = context.alarm_manager.as_mut() {
+                    match alarm_manager.check_fired_alarms(after.to_utc(), before.to_utc()) {
+                        Ok(fired_alarms) => {
+                            println!("Alarms fired: {:?}", fired_alarms);
+
+                            if fired_alarms.contains(&AlarmType::AutoPowerOff) {
+                                power_off(view.as_mut(), &mut history, &mut updating, &mut context);
+                                exit_status = ExitStatus::PowerOff;
+                                break;
+                            }
+                        },
+                        Err(e) => {
+                            eprintln!("Error checking fired alarms: {:#}.", e);
                         }
                     }
                 }
