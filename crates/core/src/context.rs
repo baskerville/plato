@@ -1,3 +1,4 @@
+use crate::trmnl::TrmnlClient;
 use crate::view::keyboard::Layout;
 use std::path::Path;
 use std::collections::{BTreeMap, VecDeque};
@@ -29,6 +30,7 @@ const INPUT_HISTORY_SIZE: usize = 32;
 pub struct Context {
     pub fb: Box<dyn Framebuffer>,
     pub alarm_manager: Option<AlarmManager>,
+    pub trmnl_client: Option<TrmnlClient>,
     pub display: Display,
     pub settings: Settings,
     pub library: Library,
@@ -57,7 +59,9 @@ impl Context {
         let rng = Xoroshiro128Plus::seed_from_u64(Local::now().timestamp_subsec_nanos() as u64);
 
         let alarm_manager = rtc.map(AlarmManager::new);
-        Context { fb, alarm_manager, display: Display { dims, rotation },
+        let trmnl_client = settings.trmnl.is_some().then(|| TrmnlClient::new());
+
+        Context { fb, alarm_manager, trmnl_client, display: Display { dims, rotation },
                   library, settings, fonts, dictionaries: BTreeMap::new(),
                   keyboard_layouts: BTreeMap::new(), input_history: FxHashMap::default(),
                   battery, frontlight, lightsensor, notification_index: 0,

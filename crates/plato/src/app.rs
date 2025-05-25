@@ -64,6 +64,7 @@ const CLOCK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 const BATTERY_REFRESH_INTERVAL: Duration = Duration::from_secs(299);
 const AUTO_SUSPEND_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 const SUSPEND_WAIT_DELAY: Duration = Duration::from_secs(15);
+const SUSPEND_WAIT_DELAY_TRMNL: Duration = Duration::from_secs(300);
 const PREPARE_SUSPEND_WAIT_DELAY: Duration = Duration::from_secs(3);
 
 struct Task {
@@ -350,7 +351,7 @@ pub fn run() -> Result<(), Error> {
                             resume(TaskId::Suspend, &mut tasks, view.as_mut(), &tx, &mut rq, &mut context);
                         } else {
                             view.handle_event(&Event::Suspend, &tx, &mut bus, &mut rq, &mut context);
-                            let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
+                            let interm = Intermission::trmnl_or_new(context.fb.rect(), IntermKind::Suspend, &mut context);
                             rq.add(RenderData::new(interm.id(), *interm.rect(), UpdateMode::Full));
                             schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
                                           PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
@@ -374,7 +375,7 @@ pub fn run() -> Result<(), Error> {
                         }
 
                         view.handle_event(&Event::Suspend, &tx, &mut bus, &mut rq, &mut context);
-                        let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
+                        let interm = Intermission::trmnl_or_new(context.fb.rect(), IntermKind::Suspend, &mut context);
                         rq.add(RenderData::new(interm.id(), *interm.rect(), UpdateMode::Full));
                         schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
                                       PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
@@ -398,6 +399,22 @@ pub fn run() -> Result<(), Error> {
                         }
                     },
                     DeviceEvent::NetUp => {
+                        if context.settings.trmnl.is_some()
+                            && tasks.iter().any(|t| t.id == TaskId::Suspend) {
+                            tasks.retain(|task| task.id != TaskId::Suspend);
+
+                            println!("Network is up, cancelling fallback suspend and preparing TRMNL refresh.");
+                            // destroy and recreate the Interm::Suspend Intermission
+                            if let Some(index) = locate::<Intermission>(view.as_ref()) {
+                                view.children_mut().remove(index);
+                                let new_interm = Intermission::trmnl_or_new(context.fb.rect(), IntermKind::Suspend, &mut context);
+                                rq.add(RenderData::new(new_interm.id(), *new_interm.rect(), UpdateMode::Full));
+                                view.children_mut().push(Box::new(new_interm) as Box<dyn View>);
+                            }
+
+                            schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
+                                          PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
+                        }
                         if tasks.iter().any(|task| task.id == TaskId::PrepareSuspend ||
                                                    task.id == TaskId::Suspend) {
                             continue;
@@ -586,6 +603,11 @@ pub fn run() -> Result<(), Error> {
             },
             Event::Suspend => {
                 if let Some(alarm_manager) = context.alarm_manager.as_mut() {
+                    if let Some(trmnl_client) = &context.trmnl_client {
+                        alarm_manager.schedule_alarm(AlarmType::TrmnlRefresh, trmnl_client.refresh_rate() as i64)
+                                     .map_err(|e| eprintln!("Can't schedule TRMNL refresh alarm: {:#}.", e))
+                                     .ok();
+                    }
                     if context.settings.auto_power_off > 0.0 && !alarm_manager.is_alarm_scheduled(AlarmType::AutoPowerOff) {
                         alarm_manager.schedule_alarm(AlarmType::AutoPowerOff, (context.settings.auto_power_off * 86400.0) as i64)
                                      .map_err(|e| eprintln!("Can't schedule auto power off alarm: {:#}.", e))
@@ -611,6 +633,18 @@ pub fn run() -> Result<(), Error> {
                     match alarm_manager.check_fired_alarms(after.to_utc(), before.to_utc()) {
                         Ok(fired_alarms) => {
                             println!("Alarms fired: {:?}", fired_alarms);
+
+                            if fired_alarms.contains(&AlarmType::TrmnlRefresh) {
+                                if context.settings.wifi {
+                                    println!("TRMNL refresh time reached, enabling Wi-Fi to fetch new image");
+                                    Command::new("scripts/wifi-enable.sh").status().ok();
+                                    tasks.retain(|task| task.id != TaskId::Suspend);
+                                    schedule_task(TaskId::Suspend, Event::Suspend,
+                                                  SUSPEND_WAIT_DELAY_TRMNL, &tx, &mut tasks);
+                                } else {
+                                    println!("TRMNL refresh time reached, but Wi-Fi is disabled. Not enabling Wi-Fi to fetch new image.");
+                                }
+                            }
 
                             if fired_alarms.contains(&AlarmType::AutoPowerOff) {
                                 power_off(view.as_mut(), &mut history, &mut updating, &mut context);
@@ -962,7 +996,7 @@ pub fn run() -> Result<(), Error> {
                 let seconds = 60.0 * context.settings.auto_suspend;
                 if inactive_since.elapsed() > Duration::from_secs_f32(seconds) {
                     view.handle_event(&Event::Suspend, &tx, &mut bus, &mut rq, &mut context);
-                    let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
+                    let interm = Intermission::trmnl_or_new(context.fb.rect(), IntermKind::Suspend, &mut context);
                     rq.add(RenderData::new(interm.id(), *interm.rect(), UpdateMode::Full));
                     schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
                                   PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
