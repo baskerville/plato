@@ -23,6 +23,20 @@ async function windowOffset(offset) {
   await new Promise((resolve) => setTimeout(resolve, 100));
 }
 
+async function moveTabToFirst() {
+  const tabs = await browser.tabs.query({ windowId });
+  const currentTab = tabs.find((tab) => tab.active);
+  if (!currentTab) return;
+  await browser.tabs.move(currentTab.id, { index: 0 });
+}
+
+async function moveTabToLast() {
+  const tabs = await browser.tabs.query({ windowId });
+  const currentTab = tabs.find((tab) => tab.active);
+  if (!currentTab) return;
+  await browser.tabs.move(currentTab.id, { index: -1 });
+}
+
 async function currentTab() {
   const [tab] = await browser.tabs.query({ windowId, active: true });
   return tab;
@@ -483,6 +497,21 @@ async function onMessage(msg) {
           break;
         }
       }
+      break;
+    }
+    case "multiArrow": {
+      const { dir } = msg.value;
+      switch (dir) {
+        case "east":
+          await moveTabToLast();
+          break;
+        case "west":
+          await moveTabToFirst();
+          break;
+      }
+      const info = await currentTabInfo();
+      await sendNotice(info);
+      await sendImage(true);
       break;
     }
     case "pinch":
