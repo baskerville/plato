@@ -472,33 +472,15 @@ async function onMessage(msg) {
     }
     case "swipe": {
       const { dir, start, end } = msg.value;
-      switch (dir) {
-        case "north":
-        case "south": {
-          const dy = end.y - start.y;
-          await scroll(
-            start.x / deviceWidth,
-            start.y / deviceHeight,
-            -(dy / deviceHeight),
-            0  // No horizontal movement
-          );
-          await sendImage();
-          break;
-        }
-        case "east":
-        case "west": {
-          const offset = dir === "east" ? -1 : 1;
-          const dx = end.x - start.x;
-          // change windows if swipe covers more than half the screen
-          await (Math.abs(dx) > deviceHeight / 2
-            ? windowOffset(offset)
-            : tabOffset(offset));
-          const info = await currentTabInfo();
-          await sendNotice(info);
-          await sendImage(true);
-          break;
-        }
-      }
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      await scroll(
+        start.x / deviceWidth,
+        start.y / deviceHeight,
+        ["north", "south"].includes(dir) ? -(dy / deviceHeight) : 0,
+        ["east", "west"].includes(dir) ? -(dx / deviceWidth) : 0
+      );
+      await sendImage();
       break;
     }
     case "button": {
@@ -543,26 +525,21 @@ async function onMessage(msg) {
       const { dir, starts, ends } = msg.value;
       switch (dir) {
         case "east":
-        case "west":
-        case "north":
-        case "south": {
+        case "west": {
+          const offset = dir === "east" ? -1 : 1;
           const avgStartX = starts.reduce((sum, point) => sum + point.x, 0) / starts.length;
-          const avgStartY = starts.reduce((sum, point) => sum + point.y, 0) / starts.length;
           const avgEndX = ends.reduce((sum, point) => sum + point.x, 0) / ends.length;
-          const avgEndY = ends.reduce((sum, point) => sum + point.y, 0) / ends.length;
-
           const dx = avgEndX - avgStartX;
-          const dy = avgEndY - avgStartY;
-          await scroll(
-            avgStartX / deviceWidth,
-            avgStartY / deviceHeight,
-            ["north", "south"].includes(dir) ? -(dy / deviceHeight) : 0,
-            ["east", "west"].includes(dir) ? -(dx / deviceWidth) : 0,
-          );
+          // change windows if swipe covers more than half the screen
+          await (Math.abs(dx) > deviceHeight / 2
+            ? windowOffset(offset)
+            : tabOffset(offset));
+          const info = await currentTabInfo();
+          await sendNotice(info);
+          await sendImage(true);
           break;
         }
       }
-      await sendImage();
       break;
     }
     case "multiArrow": {
