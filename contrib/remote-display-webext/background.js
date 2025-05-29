@@ -483,6 +483,23 @@ async function onMessage(msg) {
       await sendImage();
       break;
     }
+    case "slantedSwipe": {
+      const { start, end } = msg.value;
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+
+      const horizontalPct = -(dx / deviceWidth);
+      const verticalPct = -(dy / deviceHeight);
+
+      await scroll(
+        start.x / deviceWidth,
+        start.y / deviceHeight,
+        verticalPct,
+        horizontalPct
+      );
+      await sendImage();
+      break;
+    }
     case "button": {
       const { button, status } = msg.value;
       if (!["released", "repeated"].includes(status)) break;
