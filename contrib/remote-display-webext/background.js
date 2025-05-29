@@ -54,21 +54,25 @@ async function currentTabInfo() {
     }/${tabs.length} ${url.host}`;
 }
 
-async function scroll(pctX, pctY, pct) {
+async function scroll(pctX, pctY, verticalPct, horizontalPct = 0) {
   const { id } = await currentTab();
   await browser.tabs.executeScript(id, {
     code: `(() => {
-      function isScrollable(element) {
+      // Combined scrollability check function
+      function isScrollable(element, direction) {
         if (!element) return false;
-
-        const hasOverflow = Math.abs(element.scrollHeight - element.clientHeight) > 10;
+        
+        const isVertical = direction === 'vertical';
+        const hasOverflow = isVertical 
+          ? Math.abs(element.scrollHeight - element.clientHeight) > 10
+          : Math.abs(element.scrollWidth - element.clientWidth) > 10;
+          
         if (!hasOverflow) return false;
         
         const style = window.getComputedStyle(element);
-        const overflowY = style.getPropertyValue('overflow-y');
-        const isScrollableStyle = ['auto', 'scroll', 'overlay'].includes(overflowY);
+        const overflow = style.getPropertyValue(isVertical ? 'overflow-y' : 'overflow-x');
+        const isScrollableStyle = ['auto', 'scroll', 'overlay'].includes(overflow);
         
-        // Some elements are scrollable even without explicit overflow
         const isDefaultScrollable = element.tagName === 'BODY' ||
           element.tagName === 'HTML' ||
           element.tagName === 'DIV' && hasOverflow;
@@ -80,6 +84,7 @@ async function scroll(pctX, pctY, pct) {
         window.innerWidth * ${pctX}, window.innerHeight * ${pctY}
       )];
 
+      // Handle iframe elements
       if (elements[0]?.tagName === "IFRAME") {
         const iframeElements = elements[0].contentDocument?.elementsFromPoint(
           window.innerWidth * ${pctX}, window.innerHeight * ${pctY}
@@ -87,14 +92,48 @@ async function scroll(pctX, pctY, pct) {
         elements.unshift(...(iframeElements ?? []));
       }
       
-      for (const el of elements) {
-        if (!isScrollable(el)) continue;
-        const prevTop = el.scrollTop;
-        el.scrollBy(0, window.innerHeight * ${pct});
-        if (el.scrollTop !== prevTop) return;
+      // Try scrolling elements separately for each direction
+      let verticalScrolled = false;
+      let horizontalScrolled = false;
+
+      // Handle vertical scrolling
+      if (${verticalPct} !== 0) {
+        for (const el of elements) {
+          if (isScrollable(el, 'vertical')) {
+            const prevTop = el.scrollTop;
+            el.scrollBy(0, window.innerHeight * ${verticalPct});
+            if (el.scrollTop !== prevTop) {
+              verticalScrolled = true;
+              break; // Found and scrolled vertically, move on
+            }
+          }
+        }
+      }
+
+      // Handle horizontal scrolling independently
+      if (${horizontalPct} !== 0) {
+        for (const el of elements) {
+          if (isScrollable(el, 'horizontal')) {
+            const prevLeft = el.scrollLeft;
+            el.scrollBy(window.innerWidth * ${horizontalPct}, 0);
+            if (el.scrollLeft !== prevLeft) {
+              horizontalScrolled = true;
+              break; // Found and scrolled horizontally, move on
+            }
+          }
+        }
+      }
+
+      // Only return if both requested directions were handled
+      if ((${verticalPct} === 0 || verticalScrolled) && (${horizontalPct} === 0 || horizontalScrolled)) {
+        return;
       }
       
-      window.scrollBy(0, window.innerHeight * ${pct});
+      // Fallback to window scrolling
+      window.scrollBy(
+        window.innerWidth * ${horizontalPct}, 
+        window.innerHeight * ${verticalPct}
+      );
     })()`,
   });
   browser.tabs.sendMessage(id, { type: 'WAIT_FOR_ANIMATIONS' });
@@ -441,6 +480,7 @@ async function onMessage(msg) {
             start.x / deviceWidth,
             start.y / deviceHeight,
             -(dy / deviceHeight),
+            0  // No horizontal movement
           );
           await sendImage();
           break;
@@ -467,11 +507,11 @@ async function onMessage(msg) {
       // scroll half pages
       switch (button) {
         case "forward": {
-          await scroll(0.5, 0.5, 0.5);
+          await scroll(0.5, 0.5, 0.5, 0);
           break;
         }
         case "backward": {
-          await scroll(0.5, 0.5, -0.5);
+          await scroll(0.5, 0.5, -0.5, 0);
           break;
         }
       }
@@ -497,6 +537,32 @@ async function onMessage(msg) {
           break;
         }
       }
+      break;
+    }
+    case "multiSwipe": {
+      const { dir, starts, ends } = msg.value;
+      switch (dir) {
+        case "east":
+        case "west":
+        case "north":
+        case "south": {
+          const avgStartX = starts.reduce((sum, point) => sum + point.x, 0) / starts.length;
+          const avgStartY = starts.reduce((sum, point) => sum + point.y, 0) / starts.length;
+          const avgEndX = ends.reduce((sum, point) => sum + point.x, 0) / ends.length;
+          const avgEndY = ends.reduce((sum, point) => sum + point.y, 0) / ends.length;
+
+          const dx = avgEndX - avgStartX;
+          const dy = avgEndY - avgStartY;
+          await scroll(
+            avgStartX / deviceWidth,
+            avgStartY / deviceHeight,
+            ["north", "south"].includes(dir) ? -(dy / deviceHeight) : 0,
+            ["east", "west"].includes(dir) ? -(dx / deviceWidth) : 0,
+          );
+          break;
+        }
+      }
+      await sendImage();
       break;
     }
     case "multiArrow": {
