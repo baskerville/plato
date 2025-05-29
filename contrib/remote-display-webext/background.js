@@ -556,6 +556,16 @@ async function onMessage(msg) {
           await sendImage(true);
           break;
         }
+        case "north":
+        case "south": {
+          const tabs = await browser.tabs.query({ windowId });
+          const targetIndex = dir === "south" ? 0 : tabs.length - 1;
+          await browser.tabs.update(tabs[targetIndex].id, { active: true });
+          const info = await currentTabInfo();
+          await sendNotice(info);
+          await sendImage(true);
+          break;
+        }
       }
       break;
     }
