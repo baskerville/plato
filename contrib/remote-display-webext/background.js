@@ -296,11 +296,11 @@ let mq;
 
 import mqtt from "https://esm.sh/mqtt@5.10.1";
 import { encode, decode } from "https://esm.sh/cborg@4.2.4";
-import { Encrypt0Message } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/encrypt0?dev";
-import { hexToBytes } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/utils?dev";
-import { Header } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/header?dev";
-import { ChaCha20Poly1305Key } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/chacha20poly1305?dev";
-import * as iana from "https://esm.sh/@ldclabs/cose-ts@1.3.2/iana?dev";
+import { Encrypt0Message } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/encrypt0";
+import { hexToBytes } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/utils";
+import { Header } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/header";
+import { ChaCha20Poly1305Key } from "https://esm.sh/@ldclabs/cose-ts@1.3.2/chacha20poly1305";
+import * as iana from "https://esm.sh/@ldclabs/cose-ts@1.3.2/iana";
 
 import init, { png_to_display_update } from "./enc/crates_remote_display_video.js";
 await init();
