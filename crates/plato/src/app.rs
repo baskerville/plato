@@ -411,9 +411,11 @@ pub fn run() -> Result<(), Error> {
                                 rq.add(RenderData::new(new_interm.id(), *new_interm.rect(), UpdateMode::Full));
                                 view.children_mut().push(Box::new(new_interm) as Box<dyn View>);
                             }
+                            Command::new("scripts/wifi-disable.sh").status().ok();
+                            context.online = false;
 
-                            schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
-                                          PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
+                            schedule_task(TaskId::Suspend, Event::Suspend,
+                                          SUSPEND_WAIT_DELAY, &tx, &mut tasks);
                         }
                         if tasks.iter().any(|task| task.id == TaskId::PrepareSuspend ||
                                                    task.id == TaskId::Suspend) {
