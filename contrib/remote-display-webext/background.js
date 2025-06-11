@@ -527,9 +527,14 @@ async function onMessage(msg) {
           await goBack();
           break;
         case "north": {
+          const tabToClose = await currentTab();
+          const tabs = await browser.tabs.query({ windowId });
+          const currentTabIndex = tabs.findIndex(tab => tab.id === tabToClose.id);
+          const isLastTab = currentTabIndex === tabs.length - 1;
           const info = await currentTabInfo();
           await sendNotice(`closing ${info}`);
-          await closeCurrentTab();
+          await tabOffset(isLastTab ? -1 : 1);
+          await browser.tabs.remove(tabToClose.id);
           const newInfo = await currentTabInfo();
           await sendNotice(newInfo);
           await sendImage();
