@@ -56,7 +56,7 @@ async function currentTabInfo() {
 
 async function scroll(pctX, pctY, verticalPct, horizontalPct = 0) {
   const { id } = await currentTab();
-  await browser.tabs.executeScript(id, {
+  const result = await browser.tabs.executeScript(id, {
     code: `(() => {
       // Combined scrollability check function
       function isScrollable(element, direction) {
@@ -126,17 +126,24 @@ async function scroll(pctX, pctY, verticalPct, horizontalPct = 0) {
 
       // Only return if both requested directions were handled
       if ((${verticalPct} === 0 || verticalScrolled) && (${horizontalPct} === 0 || horizontalScrolled)) {
-        return;
+        return horizontalScrolled;
       }
       
       // Fallback to window scrolling
+      const prevWindowLeft = window.scrollX || window.pageXOffset;
       window.scrollBy(
         window.innerWidth * ${horizontalPct}, 
         window.innerHeight * ${verticalPct}
       );
+      const newWindowLeft = window.scrollX || window.pageXOffset;
+      if (${horizontalPct} !== 0 && newWindowLeft !== prevWindowLeft) {
+        horizontalScrolled = true;
+      }
+      return horizontalScrolled;
     })()`,
   });
   browser.tabs.sendMessage(id, { type: 'WAIT_FOR_ANIMATIONS' });
+  return result[0];
 }
 
 async function zoomPage(addFactor) {
@@ -474,12 +481,20 @@ async function onMessage(msg) {
       const { dir, start, end } = msg.value;
       const dx = end.x - start.x;
       const dy = end.y - start.y;
-      await scroll(
+
+      const scrolledHorizontally = await scroll(
         start.x / deviceWidth,
         start.y / deviceHeight,
         ["north", "south"].includes(dir) ? -(dy / deviceHeight) : 0,
         ["east", "west"].includes(dir) ? -(dx / deviceWidth) : 0
       );
+
+      if (["east", "west"].includes(dir) && !scrolledHorizontally) {
+        await tabOffset(dir === "east" ? -1 : 1);
+        const info = await currentTabInfo();
+        await sendNotice(info);
+      }
+
       await sendImage();
       break;
     }
