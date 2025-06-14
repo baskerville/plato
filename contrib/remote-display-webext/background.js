@@ -1,6 +1,9 @@
 // #region browser interactivity
 
 let windowId;
+let selectionInProgress = {};
+let awaitingFirstSelectionTap = {};
+
 browser.tabs.query({ active: true, currentWindow: true })
   .then((tabs) => {
     windowId = tabs[0].windowId;
@@ -221,8 +224,21 @@ async function openLinkUnderTap(pctX, pctY) {
   return new URL(url).host;
 }
 
+async function clearSelection() {
+  const { id } = await currentTab();
+  delete awaitingFirstSelectionTap[id];
+  delete selectionInProgress[id];
+  await browser.tabs.executeScript(id, {
+    code: `(() => {
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+    })()`,
+  });
+}
+
 async function clickUnderTap(pctX, pctY) {
   const { id } = await currentTab();
+  await clearSelection();
   await browser.tabs.executeScript(id, {
     code: `(() => {
       const coordX = window.innerWidth * ${pctX};
@@ -313,6 +329,104 @@ async function clickUnderTap(pctX, pctY) {
   });
   browser.tabs.sendMessage(id, { type: 'WAIT_FOR_ANIMATIONS' });
 }
+
+async function handleWordSelection(pctX, pctY) {
+  const { id } = await currentTab();
+  await browser.tabs.executeScript(id, {
+    code: `(() => {
+      const p = document.caretPositionFromPoint(window.innerWidth * ${pctX}, window.innerHeight * ${pctY});
+      if (p) {
+        const selection = window.getSelection();
+        selection.setPosition(p.offsetNode, p.offset);
+        selection.modify("move", "backward", "word");
+        selection.modify("extend", "forward", "word");
+      }
+    })()`,
+  });
+  selectionInProgress[id] = true;
+}
+
+async function getSelection() {
+  const { id } = await currentTab();
+  const code = `(() => {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0) return "";
+    return selection.toString().trim();
+  })()`;
+  const [selectedText] = await browser.tabs.executeScript(id, { code });
+  return selectedText;
+}
+
+async function openSearchTab(query) {
+  if (!query) {
+    await sendNotice("no query provided for search");
+    return;
+  }
+  const tab = await currentTab();
+  const newTab = await browser.tabs.create({
+    windowId: tab.windowId,
+    index: tab.index + 1,
+    active: false,
+  });
+  await browser.search.query({
+    tabId: newTab.id,
+    text: query,
+  });
+  await clearSelection();
+  await sendNotice("search opened");
+  await sendImage();
+}
+
+import * as pako from "https://esm.sh/pako@2.1.0";
+import * as base64 from "https://esm.sh/js-base64@3.7.7";
+async function noteSelection() {
+  const text = await getSelection();
+  if (!text) {
+    await sendNotice("no text selected");
+    return;
+  }
+  const { url: sourceUrl, index: currentIndex, windowId } = await currentTab();
+  const encoder = new TextEncoder();
+  const tabs = await browser.tabs.query({ windowId });
+  const nextTab = tabs.find(tab => tab.index === currentIndex + 1);
+  const nextTabUrl = nextTab ? new URL(nextTab.url) : null;
+
+  if (nextTab && nextTabUrl && nextTabUrl.host === "notepadtab.com") {
+    const existingBase64 = nextTabUrl.hash.slice(1);
+    let existingText = '';
+    if (existingBase64) {
+      try {
+        const compressedExisting = base64.toUint8Array(existingBase64);
+        existingText = pako.inflate(compressedExisting, { to: 'string' });
+      } catch (e) {
+        console.error('Failed to decode existing note:', e);
+        await sendNotice("error reading existing note");
+      }
+    }
+    const newText = `${existingText}\n${text}\nSource: ${sourceUrl || "unknown"}\n`;
+    const encodedText = encoder.encode(newText);
+    const compressedText = pako.deflate(encodedText, { level: 9 });
+    const base64Text = base64.fromUint8Array(compressedText);
+    const newUrl = `https://notepadtab.com/#${base64Text}`;
+    await browser.tabs.update(nextTab.id, { url: newUrl });
+    await sendNotice("text appended to existing note");
+  } else {
+    const encodedText = encoder.encode(`${text}\nSource: ${sourceUrl || "unknown"}\n\n`);
+    const compressedText = pako.deflate(encodedText, { level: 9 });
+    const base64Text = base64.fromUint8Array(compressedText);
+    const url = `https://notepadtab.com/#${base64Text}`;
+    await browser.tabs.create({
+      windowId,
+      index: currentIndex + 1,
+      active: false,
+      url,
+    });
+    await sendNotice("text opened in new tab");
+  }
+  await clearSelection();
+  await sendImage();
+}
+
 
 async function offsetContrastFilter(offset) {
   const { id } = await currentTab();
@@ -482,6 +596,51 @@ async function onMessage(msg) {
       const dx = end.x - start.x;
       const dy = end.y - start.y;
 
+      const { id } = await currentTab();
+      if (awaitingFirstSelectionTap[id] && ["east", "west"].includes(dir)) {
+        const startPctX = start.x / deviceWidth;
+        const startPctY = start.y / deviceHeight;
+        const endPctX = end.x / deviceWidth;
+        const endPctY = end.y / deviceHeight;
+        await browser.tabs.executeScript(id, {
+          code: `(() => {
+            const selection = window.getSelection();
+            const startCaret = document.caretPositionFromPoint(
+              window.innerWidth * ${startPctX}, window.innerHeight * ${startPctY}
+            );
+            const endCaret = document.caretPositionFromPoint(
+              window.innerWidth * ${endPctX}, window.innerHeight * ${endPctY}
+            );
+            if (startCaret && endCaret) {
+              selection.setPosition(startCaret.offsetNode, startCaret.offset);
+              selection.extend(endCaret.offsetNode, endCaret.offset);
+            }
+          })()`,
+        });
+        await sendNotice("swipe left/right to expand, multiSwipe to contract");
+        await sendImage();
+        delete awaitingFirstSelectionTap[id];
+        selectionInProgress[id] = true;
+        break;
+      } else if (selectionInProgress[id] && ["east", "west"].includes(dir)) {
+        await browser.tabs.executeScript(id, {
+          code: `(() => {
+            const selection = window.getSelection();
+            if (${dir === "east"}) {
+              selection.modify("extend", "forward", "character");
+            } else {
+              const fn = selection.focusNode;
+              const fo = selection.focusOffset;
+              selection.collapseToStart();
+              selection.modify("move", "backward", "character");
+              selection.extend(fn, fo);
+            }
+          })()`,
+        });
+        await sendImage();
+        break;
+      }
+
       const scrolledHorizontally = await scroll(
         start.x / deviceWidth,
         start.y / deviceHeight,
@@ -535,14 +694,31 @@ async function onMessage(msg) {
     case "arrow": {
       const { dir } = msg.value;
       switch (dir) {
-        case "east":
+        case "east": {
+          const sel = await getSelection();
+          if (sel) {
+            await openSearchTab(sel);
+            break;
+          }
           await goForward();
           break;
-        case "west":
+        }
+        case "west": {
+          if (await getSelection()) {
+            await noteSelection();
+            break;
+          }
           await goBack();
           break;
+        }
         case "north": {
           const tabToClose = await currentTab();
+          if (awaitingFirstSelectionTap[tabToClose.id] || selectionInProgress[tabToClose.id]) {
+            await clearSelection();
+            await sendNotice("cancelled text selection");
+            await sendImage();
+            break;
+          }
           const tabs = await browser.tabs.query({ windowId });
           const currentTabIndex = tabs.findIndex(tab => tab.id === tabToClose.id);
           const isLastTab = currentTabIndex === tabs.length - 1;
@@ -560,6 +736,26 @@ async function onMessage(msg) {
     }
     case "multiSwipe": {
       const { dir, starts, ends } = msg.value;
+      const { id } = await currentTab();
+      if (selectionInProgress[id] && ["east", "west"].includes(dir)) {
+        await browser.tabs.executeScript(id, {
+          code: `(() => {
+            const selection = window.getSelection();
+            if (${dir === "east"}) {
+              const fn = selection.focusNode;
+              const fo = selection.focusOffset;
+              selection.collapseToStart();
+              selection.modify("move", "forward", "character");
+              selection.extend(fn, fo);
+            } else {
+              selection.modify("extend", "backward", "character");
+            }
+          })()`,
+        });
+        await sendImage();
+        break;
+      }
+
       switch (dir) {
         case "east":
         case "west": {
@@ -636,7 +832,17 @@ async function onMessage(msg) {
     }
     case "tap": {
       const { x, y } = msg.value;
-      await clickUnderTap(x / deviceWidth, y / deviceHeight);
+      const { id } = await currentTab();
+      if (awaitingFirstSelectionTap[id]) {
+        await handleWordSelection(x / deviceWidth, y / deviceHeight);
+        await sendNotice("swipe left/right to expand, multiSwipe to contract");
+        delete awaitingFirstSelectionTap[id];
+      } else if (selectionInProgress[id]) {
+        delete selectionInProgress[id];
+        await sendNotice("selection complete, use arrow: right = search, left = note");
+      } else {
+        await clickUnderTap(x / deviceWidth, y / deviceHeight);
+      }
       await sendImage();
       break;
     }
@@ -664,6 +870,16 @@ async function onMessage(msg) {
         }
       }
       break;
+    }
+    case "multiCorner": {
+      const { dir } = msg.value;
+      switch (dir) {
+        case "northEast":
+          const { id } = await currentTab();
+          awaitingFirstSelectionTap[id] = true;
+          await sendNotice("now selecting, tap to select word or swipe to select text");
+          break;
+      }
     }
   }
 }
