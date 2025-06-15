@@ -698,6 +698,7 @@ async function onMessage(msg) {
           const sel = await getSelection();
           if (sel) {
             await openSearchTab(sel);
+            await clearSelection();
             break;
           }
           await goForward();
@@ -706,6 +707,7 @@ async function onMessage(msg) {
         case "west": {
           if (await getSelection()) {
             await noteSelection();
+            await clearSelection();
             break;
           }
           await goBack();
