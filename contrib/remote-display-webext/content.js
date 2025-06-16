@@ -51,8 +51,8 @@ class AnimationTracker {
         highestCount = Math.max(highestCount, currentCount);
       }
 
-      if (highestCount < initialCount) {
-        console.log(`There were ${highestCount} animations, but we started with ${initialCount}. Taking screenshot`);
+      if (highestCount > 0 && currentCount === 0) {
+        console.log(`There were ${highestCount} animations, but we now have zero. Taking screenshot.`);
         this.queueScreenshot();
         return;
       }
