@@ -322,11 +322,23 @@ async function clickUnderTap(pctX, pctY) {
         }
       }
       
+      function findNearestHash(element, maxDepth = 4) {
+        const semanticTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SECTION', 'ARTICLE'];
+        if (!element || maxDepth <= 0) return null;
+        if (semanticTags.includes(element.tagName) && element.id) {
+          return element.id;
+        }
+        return findNearestHash(element.parentElement, maxDepth - 1);
+      }
+
       for (const el of elements) {
-        if (el.id && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(el.tagName)) {
-          console.log("Header with ID found:", el.id);
-          window.location.hash = el.id;
-          return;
+        if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(el.tagName)) {
+          const targetId = findNearestHash(el);
+          if (targetId) {
+            console.log("Navigating to semantic element from header:", targetId);
+            window.location.hash = targetId;
+            break;
+          }
         }
       }
       
