@@ -4,6 +4,9 @@ use crate::framebuffer::{Framebuffer, Pixmap, UpdateMode};
 use crate::geom::{Dir, Rectangle};
 use crate::gesture::GestureEvent;
 use crate::input::{ButtonCode, ButtonStatus, DeviceEvent};
+use crate::settings::RemoteDisplaySettings;
+use crate::view::common::locate;
+use crate::view::intermission::Intermission;
 use crate::view::{Bus, Event, Hub, RenderData, RenderQueue, View};
 use crate::view::{Id, ID_FEEDER};
 use bytes::Buf;
@@ -228,6 +231,7 @@ pub struct RemoteDisplay {
     children: Vec<Box<dyn View>>,
     pixmap: Arc<Mutex<UpdatedPixmap>>,
     message_tx: tokio_mpsc::Sender<SocketEvent>,
+    connection_active: bool,
 }
 
 impl RemoteDisplay {
@@ -241,36 +245,16 @@ impl RemoteDisplay {
         let children = Vec::new();
         rq.add(RenderData::new(id, rect, UpdateMode::Full));
 
-        let address = context.settings.remote_display.address.clone();
-        let topic = context.settings.remote_display.topic.clone();
-        let key = context.settings.remote_display.key.clone();
-
-        let (message_tx, message_rx) = tokio_mpsc::channel(16);
-        let event_tx = hub.clone();
-
         let pixmap = Arc::new(Mutex::new(UpdatedPixmap {
             pixmap: Pixmap::new(rect.width(), rect.height(), 1),
             full: false,
             notified: true,
         }));
-        let shared_pixmap = pixmap.clone();
-
-        spawn(move || {
-            match display_connection(
-                event_tx.clone(),
-                message_rx,
-                shared_pixmap,
-                address,
-                topic,
-                key,
-            ) {
-                Ok(..) => {}
-                Err(e) => {
-                    event_tx.send(Event::Back).ok();
-                    event_tx.send(Event::Notify(e.to_string())).ok();
-                }
-            }
-        });
+        let message_tx = RemoteDisplay::spawn_connection(
+            hub.clone(),
+            pixmap.clone(),
+            &context.settings.remote_display,
+        );
 
         RemoteDisplay {
             id,
@@ -278,7 +262,32 @@ impl RemoteDisplay {
             children,
             pixmap,
             message_tx,
+            connection_active: true,
         }
+    }
+
+    fn spawn_connection(
+        hub: Hub,
+        pixmap: Arc<Mutex<UpdatedPixmap>>,
+        remote_display_settings: &RemoteDisplaySettings,
+    ) -> tokio_mpsc::Sender<SocketEvent> {
+        let (message_tx, message_rx) = tokio_mpsc::channel(16);
+
+        let address = remote_display_settings.address.clone();
+        let topic = remote_display_settings.topic.clone();
+        let key = remote_display_settings.key.clone();
+
+        spawn(move || {
+            match display_connection(hub.clone(), message_rx, pixmap, address, topic, key) {
+                Ok(..) => {}
+                Err(e) => {
+                    hub.send(Event::Back).ok();
+                    hub.send(Event::Notify(e.to_string())).ok();
+                }
+            }
+        });
+
+        message_tx
     }
 }
 
@@ -286,12 +295,19 @@ impl View for RemoteDisplay {
     fn handle_event(
         &mut self,
         evt: &Event,
-        _hub: &Hub,
+        hub: &Hub,
         bus: &mut Bus,
         rq: &mut RenderQueue,
-        _context: &mut Context,
+        context: &mut Context,
     ) -> bool {
         match *evt {
+            Event::Suspend => {
+                if self.connection_active {
+                    self.message_tx.try_send(SocketEvent::Finished).ok();
+                    self.connection_active = false;
+                }
+                true
+            }
             Event::Gesture(GestureEvent::Arrow {
                 dir: Dir::South,
                 start: _start,
@@ -315,6 +331,17 @@ impl View for RemoteDisplay {
                     }
                     _ => true,
                 }
+            }
+            Event::ClockTick => {
+                if !self.connection_active && locate::<Intermission>(self).is_none() {
+                    self.message_tx = RemoteDisplay::spawn_connection(
+                        hub.clone(),
+                        self.pixmap.clone(),
+                        &context.settings.remote_display,
+                    );
+                    self.connection_active = true;
+                }
+                false
             }
             Event::Device(DeviceEvent::Button { code, status, .. }) => {
                 let button = match code {
