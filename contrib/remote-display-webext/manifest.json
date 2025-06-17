@@ -18,6 +18,7 @@
       "run_at": "document_idle"
     }
   ],
+  "web_accessible_resources": [ "fragment-generation-utils.bundle.mjs" ],
   "permissions": [
     "tabs",
     "<all_urls>",

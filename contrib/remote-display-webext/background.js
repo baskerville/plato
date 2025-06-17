@@ -715,10 +715,10 @@ async function onMessage(msg) {
         }
         case "north": {
           const tabToClose = await currentTab();
-          if (awaitingFirstSelectionTap[tabToClose.id] || selectionInProgress[tabToClose.id]) {
-            await clearSelection();
-            await sendNotice("cancelled text selection");
-            await sendImage();
+          if (await getSelection()) {
+            await browser.tabs.sendMessage(tabToClose.id, { type: 'GENERATE_TEXT_FRAGMENT' });
+            delete awaitingFirstSelectionTap[tabToClose.id];
+            delete selectionInProgress[tabToClose.id];
             break;
           }
           const tabs = await browser.tabs.query({ windowId });
@@ -840,8 +840,8 @@ async function onMessage(msg) {
         await sendNotice("swipe left/right to expand, multiSwipe to contract");
         delete awaitingFirstSelectionTap[id];
       } else if (selectionInProgress[id]) {
-        delete selectionInProgress[id];
-        await sendNotice("selection complete, use arrow: right = search, left = note");
+        await clearSelection();
+        await sendImage();
       } else {
         await clickUnderTap(x / deviceWidth, y / deviceHeight);
       }
@@ -878,6 +878,11 @@ async function onMessage(msg) {
       switch (dir) {
         case "northEast":
           const { id } = await currentTab();
+          if (selectionInProgress[id] || awaitingFirstSelectionTap[id]) {
+            await clearSelection();
+            await sendNotice("selection cancelled");
+            break;
+          }
           awaitingFirstSelectionTap[id] = true;
           await sendNotice("now selecting, tap to select word or swipe to select text");
           break;

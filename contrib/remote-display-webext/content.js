@@ -87,10 +87,47 @@ function isInIframe() {
   }
 }
 
+const generateTextFragment = async (selection) => {
+  const src = browser.runtime.getURL('fragment-generation-utils.bundle.mjs');
+  const { generateFragment } = await import(src);
+  const result = generateFragment(selection);
+
+  if (result.status !== 0) {
+    return null;
+  }
+
+  let url = `${location.origin}${location.pathname}${location.search}`;
+
+  const fragment = result.fragment;
+  const prefix = fragment.prefix
+    ? `${encodeURIComponent(fragment.prefix)}-,`
+    : '';
+  const suffix = fragment.suffix
+    ? `,-${encodeURIComponent(fragment.suffix)}`
+    : '';
+  const start = encodeURIComponent(fragment.textStart);
+  const end = fragment.textEnd ? `,${encodeURIComponent(fragment.textEnd)}` : '';
+
+  url += `#:~:text=${prefix}${start}${end}${suffix}`;
+
+  return url;
+};
+
+
 const tracker = new AnimationTracker();
-browser.runtime.onMessage.addListener((message) => {
-  if (message.type !== 'WAIT_FOR_ANIMATIONS') return true;
-  if (isInIframe()) return true;
-  tracker.waitForAnimations();
+browser.runtime.onMessage.addListener(async (message) => {
+  if (isInIframe()) return;
+  if (message.type === 'GENERATE_TEXT_FRAGMENT') {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const url = await generateTextFragment(selection);
+      if (url) window.location.href = url;
+    } else {
+      console.log('No text selected for text fragment generation');
+    }
+  } else if (message.type === 'WAIT_FOR_ANIMATIONS') {
+    tracker.waitForAnimations();
+  }
+  return;
 });
 console.log('Animation tracking content script loaded');
