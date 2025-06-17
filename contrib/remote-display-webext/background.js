@@ -87,6 +87,15 @@ async function scroll(pctX, pctY, verticalPct, horizontalPct = 0) {
         window.innerWidth * ${pctX}, window.innerHeight * ${pctY}
       )];
 
+      const addScrollendListener = (element) => {
+        const scrollStartTime = Date.now();
+        element.addEventListener('scrollend', () => {
+          if (Date.now() - scrollStartTime > 50) {
+            browser.runtime.sendMessage({ type: 'CAPTURE_SCREENSHOT' });
+          }
+        }, { once: true });
+      };
+
       // Handle iframe elements
       if (elements[0]?.tagName === "IFRAME") {
         const iframeElements = elements[0].contentDocument?.elementsFromPoint(
@@ -107,6 +116,7 @@ async function scroll(pctX, pctY, verticalPct, horizontalPct = 0) {
             el.scrollBy(0, window.innerHeight * ${verticalPct});
             if (el.scrollTop !== prevTop) {
               verticalScrolled = true;
+              addScrollendListener(el);
               break; // Found and scrolled vertically, move on
             }
           }
@@ -121,6 +131,7 @@ async function scroll(pctX, pctY, verticalPct, horizontalPct = 0) {
             el.scrollBy(window.innerWidth * ${horizontalPct}, 0);
             if (el.scrollLeft !== prevLeft) {
               horizontalScrolled = true;
+              addScrollendListener(el);
               break; // Found and scrolled horizontally, move on
             }
           }
@@ -138,6 +149,8 @@ async function scroll(pctX, pctY, verticalPct, horizontalPct = 0) {
         window.innerWidth * ${horizontalPct}, 
         window.innerHeight * ${verticalPct}
       );
+      const scrollStartTime = Date.now();
+      addScrollendListener(window);
       const newWindowLeft = window.scrollX || window.pageXOffset;
       if (${horizontalPct} !== 0 && newWindowLeft !== prevWindowLeft) {
         horizontalScrolled = true;
