@@ -232,8 +232,7 @@ async function openLinkUnderTap(pctX, pctY) {
        ?.href`,
   });
   if (!url) return;
-  await browser.tabs.create({ url, windowId, openerTabId: id });
-  await browser.tabs.update(id, { active: true });
+  await browser.tabs.create({ url, windowId, openerTabId: id, active: false });
   return new URL(url).host;
 }
 
