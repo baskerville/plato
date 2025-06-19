@@ -613,8 +613,17 @@ browser.tabs.onUpdated.addListener(async (_id, changeInfo, tab) => {
 async function onMessage(msg) {
   console.log("message", msg);
   switch (msg.type) {
+    case "deviceDisconnected": {
+      deviceWidth = 0;
+      deviceHeight = 0;
+      await sendNotice("Device disconnected, image sending disabled");
+      break;
+    }
     case "size": {
       const { width, height } = msg.value;
+      if (deviceWidth === 0 && deviceHeight === 0) {
+        await sendNotice("Device reconnected, image sending enabled");
+      }
       deviceWidth = width;
       deviceHeight = height;
       await sendImage(true);

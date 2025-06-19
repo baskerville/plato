@@ -109,6 +109,30 @@ fn handle_server_message(
     Ok(())
 }
 
+fn build_encrypted_payload(
+    value: Value,
+    header: &coset::Header,
+    cipher: &ChaCha20Poly1305,
+) -> Result<Vec<u8>, anyhow::Error> {
+    let mut writer = Vec::new();
+    into_writer(&value, &mut writer)?;
+    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+    let payload = CoseEncrypt0Builder::new()
+        .protected(header.clone())
+        .unprotected(HeaderBuilder::new().iv(nonce.into_iter().collect()).build())
+        .try_create_ciphertext(writer.as_slice(), &[], |pt, aad| {
+            let mut out = pt.to_vec();
+            cipher
+                .encrypt_in_place(&nonce, aad, &mut out)
+                .map_err(|e| anyhow::anyhow!("Encryption error: {}", e.to_string()))
+                .map(|_| out)
+        })?
+        .build()
+        .to_vec()
+        .map_err(|e| anyhow::anyhow!("Encryption error: {}", e.to_string()))?;
+    Ok(payload)
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn display_connection(
     event_tx: std_mpsc::Sender<Event>,
@@ -118,9 +142,32 @@ async fn display_connection(
     topic: String,
     hex_key: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let pub_topic = topic.clone() + "/browser";
+    let sub_topic = topic.clone() + "/device";
+
     let mut mqo = MqttOptions::parse_url(address)?;
     mqo.set_keep_alive(Duration::from_secs(30));
     mqo.set_max_packet_size(1_048_576, 1_048_576);
+
+    let header = HeaderBuilder::new()
+        .algorithm(coset::iana::Algorithm::ChaCha20Poly1305)
+        .build();
+    let key = hex::decode(hex_key)?;
+    let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key.as_slice()));
+
+    let last_will_payload = build_encrypted_payload(
+        cbor!({ "type" => "deviceDisconnected" })
+            .map_err(|e| anyhow::anyhow!("Encoding last will: {}", e))?,
+        &header,
+        &cipher,
+    )?;
+    mqo.set_last_will(rumqttc::LastWill {
+        topic: pub_topic.clone(),
+        message: last_will_payload.into(),
+        qos: QoS::AtMostOnce,
+        retain: false,
+    });
+
     let root_store = rumqttc::tokio_rustls::rustls::RootCertStore {
         roots: webpki_roots::TLS_SERVER_ROOTS.iter().cloned().collect(),
     };
@@ -138,15 +185,6 @@ async fn display_connection(
         _ => {}
     }
     let (client, mut eventloop) = AsyncClient::new(mqo, 10);
-    let sub_topic = topic.clone() + "/device";
-    let pub_topic = topic.clone() + "/browser";
-
-    let header = HeaderBuilder::new()
-        .algorithm(coset::iana::Algorithm::ChaCha20Poly1305)
-        .build();
-
-    let key = hex::decode(hex_key)?;
-    let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key.as_slice()));
 
     let mut prev_frame: Option<Vec<u8>> = None;
 
@@ -159,21 +197,7 @@ async fn display_connection(
                         break;
                     }
                     SocketEvent::SendMessage(value) => {
-                        let mut writer = Vec::new();
-                        into_writer(&value, &mut writer)?;
-                        let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-                        let payload = CoseEncrypt0Builder::new()
-                            .protected(header.clone())
-                            .unprotected(HeaderBuilder::new().iv(nonce.into_iter().collect()).build())
-                            .try_create_ciphertext(writer.as_slice(), &[], |pt, aad| {
-                                let mut out = pt.to_vec();
-                                cipher.encrypt_in_place(&nonce, aad, &mut out)
-                                    .map_err(|e| anyhow::anyhow!("Encryption error: {}", e.to_string()))
-                                    .map(|_| out)
-                            })?
-                            .build()
-                            .to_vec()
-                            .map_err(|e| anyhow::anyhow!("Encryption error: {}", e.to_string()))?;
+                        let payload = build_encrypted_payload(value, &header, &cipher)?;
                         client.publish(pub_topic.clone(), QoS::AtMostOnce, false, payload).await?;
                     }
                 }
