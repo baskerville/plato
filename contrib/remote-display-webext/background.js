@@ -377,8 +377,13 @@ async function getSelection() {
     if (selection.rangeCount === 0) return "";
     return selection.toString().trim();
   })()`;
-  const [selectedText] = await browser.tabs.executeScript(id, { code });
-  return selectedText;
+  try {
+    const [selectedText] = await browser.tabs.executeScript(id, { code });
+    return selectedText;
+  } catch (error) {
+    console.error("Error getting selection:", error);
+    return "";
+  }
 }
 
 async function openSearchTab(query) {
