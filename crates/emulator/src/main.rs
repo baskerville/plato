@@ -220,11 +220,11 @@ impl Framebuffer for FBCanvas {
     }
 
     fn width(&self) -> u32 {
-        self.0.window().size().0
+        self.0.logical_size().0
     }
 
     fn height(&self) -> u32 {
-        self.0.window().size().1
+        self.0.logical_size().1
     }
 }
 
@@ -232,14 +232,34 @@ fn main() -> Result<(), Error> {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let (width, height) = CURRENT_DEVICE.dims;
-    let window = video_subsystem
+    let mut window = video_subsystem
                  .window("Plato Emulator", width, height)
                  .position_centered()
+                 .allow_highdpi()
                  .build()
                  .unwrap();
 
-    let mut fb = window.into_canvas().software().build().unwrap();
+    // Determine how many physical pixels we want to use per logical pixel.
+    // We round to the nearest integer number of pixels, for a pixel-perfect
+    // display without blurryness on HiDPI monitors.
+    // - Consider 100% screen scale to be 120 dpi. This is true for Apple
+    //   devices at least.
+    // - Round the device pixel ratio to prefer slightly larger windows: below
+    //   1.4 is rounded down to 1, above 1.4 is rounded up to 2.
+    let width_pixels = window.drawable_size().0; // physical window width
+    let window_scale = (width_pixels as f32) / (width as f32); // e.g. 2 means monitor is set to 200%
+    let device_pixel_ratio = ((window_scale / CURRENT_DEVICE.dpi as f32 * 120.0 + 0.6).floor() as u32).max(1);
+
+    // Set the window size so that we use the calculated number of physical
+    // pixels per logical pixel.
+    window.set_size((width as f32 / window_scale * device_pixel_ratio as f32) as u32, (height as f32 / window_scale * device_pixel_ratio as f32) as u32).unwrap();
+
+    // Note: do not use the software renderer, since it doesn't scale correctly.
+    let mut fb = window.into_canvas().build().unwrap();
     fb.set_blend_mode(BlendMode::Blend);
+
+    // The logical size is the same as the emulated Plato framebuffer.
+    fb.set_logical_size(width, height).unwrap();
 
     let mut context = build_context(Box::new(FBCanvas(fb)))?;
 
