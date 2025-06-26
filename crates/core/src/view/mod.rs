@@ -42,6 +42,7 @@ pub mod reader;
 pub mod dictionary;
 pub mod calculator;
 pub mod sketch;
+pub mod articles;
 pub mod touch_events;
 pub mod rotation_values;
 
@@ -57,7 +58,7 @@ use downcast_rs::{Downcast, impl_downcast};
 use crate::font::Fonts;
 use crate::color::Color;
 use crate::document::{Location, TextLocation};
-use crate::settings::{ButtonScheme, FirstColumn, SecondColumn, RotationLock};
+use crate::settings::{ArticleAuth, ArticleList, ButtonScheme, FirstColumn, SecondColumn, RotationLock};
 use crate::metadata::{Info, ZoomMode, ScrollMode, SortMethod, TextAlign, SimpleStatus, PageScheme, Margin};
 use crate::geom::{LinearDir, CycleDir, Rectangle, Boundary};
 use crate::framebuffer::{Framebuffer, UpdateMode};
@@ -353,6 +354,9 @@ pub enum Event {
     Scroll(i32),
     Save,
     Guess,
+    Authenticate,
+    ArticlesAuth(Result<ArticleAuth, String>),
+    ArticleUpdateProgress(ArticleUpdateProgress),
     CheckBattery,
     SetWifi(bool),
     MightSuspend,
@@ -376,6 +380,7 @@ pub enum AppCmd {
         query: String,
         language: String,
     },
+    Articles,
     TouchEvents,
     RotationValues,
 }
@@ -406,6 +411,11 @@ pub enum ViewId {
     DirectoryMenu,
     BookMenu,
     LibraryMenu,
+    ArticlesMenu,
+    ArticlesSettings,
+    ArticleInputServer,
+    ArticleInputUsername,
+    ArticleInputPassword,
     PageMenu,
     PresetMenu,
     MarginCropperMenu,
@@ -459,6 +469,14 @@ impl SliderId {
             SliderId::ContrastGray => "Contrast Gray".to_string(),
         }
     }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum ArticleUpdateProgress {
+    ListStart,
+    ListFinished,
+    Download(usize, usize),
+    Finish,
 }
 
 #[derive(Debug, Clone)]
@@ -532,6 +550,17 @@ pub enum EntryId {
     FirstColumn(FirstColumn),
     SecondColumn(SecondColumn),
     ThumbnailPreviews,
+    ArticleList(ArticleList),
+    LoginWallabag,
+    Update,
+    Logout,
+    Star(String),
+    Unstar(String),
+    Archive(String),
+    Unarchive(String),
+    Delete(String),
+    RemoveDownload(String),
+    Download(String),
     ApplyCroppings(usize, PageScheme),
     RemoveCroppings,
     SetZoomMode(ZoomMode),

@@ -28,6 +28,7 @@ use plato_core::view::menu::{Menu, MenuKind};
 use plato_core::view::intermission::Intermission;
 use plato_core::view::dictionary::Dictionary;
 use plato_core::view::calculator::Calculator;
+use plato_core::view::articles::Articles;
 use plato_core::view::sketch::Sketch;
 use plato_core::view::touch_events::TouchEvents;
 use plato_core::view::rotation_values::RotationValues;
@@ -443,6 +444,9 @@ fn main() -> Result<(), Error> {
                         },
                         AppCmd::Dictionary { ref query, ref language } => {
                             Box::new(Dictionary::new(context.fb.rect(), query, language, &tx, &mut rq, &mut context))
+                        },
+                        AppCmd::Articles => {
+                            Box::new(Articles::new(context.fb.rect(), &mut rq, &mut context))
                         },
                         AppCmd::TouchEvents => {
                             Box::new(TouchEvents::new(context.fb.rect(), &mut rq, &mut context))

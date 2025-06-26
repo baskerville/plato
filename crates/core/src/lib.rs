@@ -11,6 +11,7 @@ pub mod input;
 pub mod helpers;
 mod dictionary;
 pub mod document;
+pub mod articles;
 pub mod library;
 pub mod view;
 pub mod metadata;

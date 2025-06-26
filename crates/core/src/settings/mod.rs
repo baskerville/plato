@@ -125,6 +125,8 @@ pub struct Settings {
     pub calculator: CalculatorSettings,
     pub battery: BatterySettings,
     pub frontlight_levels: LightLevels,
+    pub article_list: ArticleList,
+    pub article_auth: ArticleAuth,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -272,6 +274,54 @@ pub enum FirstColumn {
 pub enum SecondColumn {
     Progress,
     Year,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ArticleList {
+    Unread,
+    Starred,
+    Archive,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct ArticleAuth {
+    pub api: String,
+    #[serde(default, skip_serializing_if="String::is_empty")]
+    pub server: String,
+    #[serde(default, skip_serializing_if="String::is_empty")]
+    pub client_id: String,
+    #[serde(default, skip_serializing_if="String::is_empty")]
+    pub client_secret: String,
+    #[serde(default, skip_serializing_if="String::is_empty")]
+    pub username: String,
+    #[serde(default, skip_serializing_if="String::is_empty")]
+    pub password: String,
+    #[serde(default, skip_serializing_if="String::is_empty")]
+    pub access_token: String,
+    #[serde(default, skip_serializing_if="String::is_empty")]
+    pub refresh_token: String,
+    #[serde(default, skip_serializing_if="u64_is_zero")]
+    pub access_token_expires: u64, // in seconds
+}
+
+fn u64_is_zero(n: &u64) -> bool {*n == 0}
+
+impl Default for ArticleAuth {
+    fn default() -> Self {
+        ArticleAuth {
+            api: "".to_string(),
+            server: "".to_string(),
+            client_id: "".to_string(),
+            client_secret: "".to_string(),
+            username: "".to_string(),
+            password: "".to_string(),
+            access_token: "".to_string(),
+            refresh_token: "".to_string(),
+            access_token_expires: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -551,6 +601,8 @@ impl Default for Settings {
             battery: BatterySettings::default(),
             frontlight_levels: LightLevels::default(),
             frontlight_presets: Vec::new(),
+            article_list: ArticleList::Unread,
+            article_auth: ArticleAuth::default(),
         }
     }
 }

@@ -39,3 +39,6 @@ rand_core = "0.6.4"
 rand_xoshiro = "0.6.0"
 percent-encoding = "2.3.1"
 chrono = { version = "0.4.38", features = ["serde", "clock"], default-features = false }
+ureq = { version = "3.0.12", features = ["cookies"] }
+http = "1.3.1"
+url = "2.5.4"
