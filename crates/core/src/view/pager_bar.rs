@@ -10,7 +10,7 @@ use crate::context::Context;
 use crate::font::Fonts;
 
 #[derive(Debug)]
-pub struct BottomBar {
+pub struct PagerBar {
     id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
@@ -18,8 +18,8 @@ pub struct BottomBar {
     is_next_disabled: bool,
 }
 
-impl BottomBar {
-    pub fn new(rect: Rectangle, current_page: usize, pages_count: usize, name: &str, count: usize, filter: bool) -> BottomBar {
+impl PagerBar {
+    pub fn new(rect: Rectangle, current_page: usize, pages_count: usize, name: &str, count: usize, filter: bool) -> PagerBar {
         let id = ID_FEEDER.next();
         let mut children = Vec::new();
         let side = rect.height() as i32;
@@ -65,7 +65,7 @@ impl BottomBar {
             children.push(Box::new(next_icon) as Box<dyn View>);
         }
 
-        BottomBar {
+        PagerBar {
             id,
             rect,
             children,
@@ -123,7 +123,7 @@ impl BottomBar {
     }
 }
 
-impl View for BottomBar {
+impl View for PagerBar {
     fn handle_event(&mut self, _evt: &Event, _hub: &Hub, _bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         false
     }

@@ -23,6 +23,8 @@ pub mod named_input;
 pub mod labeled_icon;
 pub mod top_bar;
 pub mod search_bar;
+pub mod pager_bar;
+mod library_label;
 pub mod dialog;
 pub mod notification;
 pub mod intermission;
