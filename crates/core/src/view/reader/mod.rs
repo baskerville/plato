@@ -2314,6 +2314,10 @@ impl Reader {
         if let Some(ref mut r) = self.info.reader {
             if self.reflowable {
                 r.margin_width = Some(width);
+
+                // Use last configured margin width (in any book) as the default
+                // margin width from now on.
+                context.settings.reader.margin_width = width;
             } else {
                 if width == 0 {
                     r.screen_margin_width = None;
