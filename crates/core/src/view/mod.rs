@@ -554,6 +554,7 @@ pub enum EntryId {
     SecondColumn(SecondColumn),
     ThumbnailPreviews,
     ArticleList(ArticleList),
+    LoginReadeck,
     LoginWallabag,
     Update,
     Logout,

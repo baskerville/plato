@@ -214,6 +214,10 @@ impl Articles {
                     "Log in to Wallabag...".to_string(),
                     EntryId::LoginWallabag,
                 ));
+                entries.push(EntryKind::Command(
+                    "Log in to Readeck...".to_string(),
+                    EntryId::LoginReadeck,
+                ));
             } else {
                 entries.push(EntryKind::Command("Logout".to_string(), EntryId::Logout));
                 entries.push(EntryKind::Command("Update".to_string(), EntryId::Update));
@@ -353,6 +357,17 @@ impl View for Articles {
         context: &mut Context,
     ) -> bool {
         match *evt {
+            Event::Select(EntryId::LoginReadeck) => {
+                let view = AccountWindow::new(
+                    context,
+                    "readeck".to_string(),
+                    "readeck.com".to_string(),
+                    "Readeck".to_string(),
+                );
+                rq.add(RenderData::new(view.id(), *view.rect(), UpdateMode::Gui));
+                self.children.push(Box::new(view) as Box<dyn View>);
+                true
+            }
             Event::Select(EntryId::LoginWallabag) => {
                 let view = AccountWindow::new(
                     context,

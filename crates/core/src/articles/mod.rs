@@ -1,4 +1,5 @@
 mod dummy;
+mod readeck;
 mod wallabag;
 
 use chrono::FixedOffset;
@@ -17,6 +18,7 @@ use std::{
 
 use crate::settings::ArticleAuth;
 use crate::{
+    articles::readeck::Readeck,
     articles::wallabag::Wallabag,
     metadata::{FileInfo, Info},
     settings::{self, ArticleList},
@@ -130,6 +132,7 @@ fn read_index() -> Result<ArticleIndex, Error> {
 pub fn load(auth: settings::ArticleAuth) -> Box<dyn Service> {
     let index = read_index().unwrap_or_default();
     match auth.api.as_str() {
+        "readeck" => Box::new(Readeck::load(auth, index)),
         "wallabag" => Box::new(Wallabag::load(auth, index)),
         _ => Box::new(dummy::Dummy::new()),
     }
@@ -142,6 +145,7 @@ pub fn authenticate(
     password: String,
 ) -> Result<ArticleAuth, String> {
     match api.as_str() {
+        "readeck" => readeck::authenticate(server, "Plato".to_string(), username, password),
         "wallabag" => wallabag::authenticate(server, "Plato".to_string(), username, password),
         _ => Err(format!("unknown API: {api}")),
     }
