@@ -4,6 +4,8 @@ mod wallabag;
 use chrono::FixedOffset;
 use fxhash::FxHashSet;
 use serde::{Deserialize, Serialize};
+use std::fs::OpenOptions;
+use std::io::prelude::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::{self, File},
@@ -175,4 +177,46 @@ fn save_index(index: &ArticleIndex) -> io::Result<()> {
         ARTICLES_DIR.to_owned() + "/index.json.tmp",
         ARTICLES_DIR.to_owned() + "/index.json",
     )
+}
+
+static QUEUE_MUTEX: Mutex<u32> = Mutex::new(0);
+
+pub fn queue_link(link: String) {
+    let lock = QUEUE_MUTEX.lock().unwrap();
+    let path = format!("{ARTICLES_DIR}/queued.txt");
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) {
+        if let Err(e) = writeln!(file, "{}", link) {
+            eprintln!("Couldn't write to {}: {:#}.", path, e);
+        }
+    }
+    std::mem::drop(lock);
+}
+
+pub fn read_queued() -> Vec<String> {
+    // Lock the queue to avoid race conditions between adding a link and reading
+    // the links.
+    let lock = QUEUE_MUTEX.lock().unwrap();
+
+    // Read all the data in the file.
+    let path = format!("{ARTICLES_DIR}/queued.txt");
+    let mut file = match File::open(&path) {
+        Ok(file) => file,
+        Err(_) => return Vec::new(),
+    };
+    let mut data = String::new();
+    if let Err(_) = file.read_to_string(&mut data) {
+        return Vec::new();
+    }
+
+    // Remove the file.
+    fs::remove_file(path).ok();
+
+    // Make sure the lock stays locked until here.
+    std::mem::drop(lock);
+
+    // Split each line in the file.
+    data.split("\n")
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect()
 }

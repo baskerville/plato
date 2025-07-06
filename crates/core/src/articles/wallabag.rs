@@ -21,7 +21,9 @@ use ureq::Agent;
 use url::Url;
 
 use crate::{
-    articles::{save_index, Article, ArticleIndex, Changes, Service, ARTICLES_DIR},
+    articles::{
+        queue_link, read_queued, save_index, Article, ArticleIndex, Changes, Service, ARTICLES_DIR,
+    },
     settings::ArticleAuth,
     view::{ArticleUpdateProgress, Event, Hub},
 };
@@ -501,6 +503,28 @@ fn update(hub: &Hub, auth: ArticleAuth, index: Arc<Mutex<ArticleIndex>>) -> Resu
         auth.refresh_token = response_values.refresh_token;
         auth.access_token_expires = now_secs + response_values.expires_in;
         hub.send(Event::ArticlesAuth(Ok(auth.clone()))).ok();
+    }
+
+    // Submit new URLs.
+    let queued = read_queued();
+    if !queued.is_empty() {
+        // Send the list of URLs via a GET parameter, because for some reason
+        // the Wallabag server only accepts those (and not a form in the POST
+        // request).
+        // See: https://github.com/wallabag/wallabag/issues/8353
+        if let Err(err) = agent
+            .post(format!("{url}api/entries/lists"))
+            .query("urls", serde_json::to_string(&queued).unwrap())
+            .header("Authorization", "Bearer ".to_owned() + &auth.access_token)
+            .send_empty()
+        {
+            // Add the links back (this is inefficient, but it should work).
+            for link in queued {
+                queue_link(link);
+            }
+
+            return Err(Error::other(format!("submitting article failed: {err}")));
+        };
     }
 
     // Sync local changes.
