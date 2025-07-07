@@ -100,7 +100,7 @@ pub const MD_SIZE: Style = Style {
 
 #[cfg(any(not(target_os = "linux"), target_arch = "arm"))]
 #[link(name="mupdf")]
-extern {
+extern "C" {
     // Based on the outputs of:
     // arm-linux-gnueabihf-readelf -Ws ./libs/libmupdf.so | grep '\b_binary_' | \
     // grep -v '_size$' | awk '{print $8, strtonum($3)-1}' | sort -u
