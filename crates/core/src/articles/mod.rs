@@ -122,6 +122,15 @@ pub trait Service {
     fn update(&mut self, hub: &Hub) -> bool;
 }
 
+/// The name of a given service (identified by API).
+pub fn name(api: &String) -> &'static str {
+    match api.as_str() {
+        "readeck" => "Readeck",
+        "wallabag" => "Wallabag",
+        _ => "(unknown)",
+    }
+}
+
 fn read_index() -> Result<ArticleIndex, Error> {
     let file = File::open(ARTICLES_DIR.to_owned() + "/index.json")?;
     let index: ArticleIndex = serde_json::from_reader(file)?;

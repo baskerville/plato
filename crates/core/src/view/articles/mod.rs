@@ -16,6 +16,7 @@ use crate::unit::scale_by_dpi;
 use crate::view::articles::shelf::Shelf;
 use crate::view::common::{locate, locate_by_id};
 use crate::view::common::{toggle_battery_menu, toggle_clock_menu, toggle_main_menu};
+use crate::view::dialog::Dialog;
 use crate::view::filler::Filler;
 use crate::view::menu::{Menu, MenuKind};
 use crate::view::pager_bar::PagerBar;
@@ -380,6 +381,25 @@ impl View for Articles {
                 true
             }
             Event::Select(EntryId::Logout) => {
+                let dialog = Dialog::new(
+                    ViewId::LogoutDialog,
+                    Some(Event::ArticlesLogout),
+                    format!(
+                        "Log out of {}?",
+                        articles::name(&context.settings.article_auth.api)
+                    )
+                    .to_string(),
+                    context,
+                );
+                rq.add(RenderData::new(
+                    dialog.id(),
+                    *dialog.rect(),
+                    UpdateMode::Gui,
+                ));
+                self.children.push(Box::new(dialog) as Box<dyn View>);
+                true
+            }
+            Event::ArticlesLogout => {
                 // TODO: remove all existing articles.
                 context.settings.article_auth = ArticleAuth::default();
                 self.service = articles::load(ArticleAuth::default());
