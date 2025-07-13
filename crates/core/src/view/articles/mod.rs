@@ -521,6 +521,26 @@ impl View for Articles {
                 true
             }
             Event::Select(EntryId::Delete(ref id)) => {
+                let title = match self.service.index().lock().unwrap().articles.get(id) {
+                    Some(article) => article.title.clone(),
+                    None => "<unknown>".to_string(), // shouldn't happen (though could happen in theory during a sync)
+                };
+
+                let dialog = Dialog::new(
+                    ViewId::ArticleDeleteDialog,
+                    Some(Event::ArticleDelete(id.clone())),
+                    format!("Delete “{}”?", title,).to_string(),
+                    context,
+                );
+                rq.add(RenderData::new(
+                    dialog.id(),
+                    *dialog.rect(),
+                    UpdateMode::Gui,
+                ));
+                self.children.push(Box::new(dialog) as Box<dyn View>);
+                true
+            }
+            Event::ArticleDelete(ref id) => {
                 let index = self.service.index();
                 if let Some(article) = index.lock().unwrap().articles.get_mut(id) {
                     article.changed.insert(articles::Changes::Deleted);
