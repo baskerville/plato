@@ -208,7 +208,7 @@ impl Device {
                 dims: (1404, 1872),
                 dpi: 227,
             },
-            "spaBW" => Device {
+            "spaBW" | "spaBWTPV" => Device {
                 model: Model::ClaraBW,
                 proto: TouchProto::MultiB,
                 dims: (1072, 1448),
