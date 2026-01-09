@@ -376,7 +376,7 @@ fn main() -> Result<(), Error> {
                                             Scancode::C => IntermKind::Share,
                                             _ => unreachable!(),
                                         };
-                                        let interm = Intermission::new(context.fb.rect(), kind, &context);
+                                        let interm = Intermission::trmnl_or_new(context.fb.rect(), kind, &mut context);
                                         rq.add(RenderData::new(interm.id(), *interm.rect(), UpdateMode::Full));
                                         view.children_mut().push(Box::new(interm) as Box<dyn View>);
                                     }

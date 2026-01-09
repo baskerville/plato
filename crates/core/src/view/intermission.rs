@@ -52,6 +52,31 @@ impl Intermission {
             halt: kind == IntermKind::PowerOff,
         }
     }
+
+    pub fn trmnl_or_new(rect: Rectangle, kind: IntermKind, context: &mut Context) -> Intermission {
+        let trmnl_client = match context.trmnl_client.as_mut() {
+            Some(client) => client,
+            None => return Intermission::new(rect, kind, context),
+        };
+
+        let trmnl_config = match context.settings.trmnl.as_mut() {
+            Some(config) => config,
+            None => return Intermission::new(rect, kind, context),
+        };
+
+        let path = match trmnl_client.save_current_display(context.display.rotation, trmnl_config) {
+            Some(path) => path,
+            None => return Intermission::new(rect, kind, context),
+        };
+
+        Intermission { 
+            id: ID_FEEDER.next(),
+            rect,
+            children: Vec::new(),
+            message: Message::Image(path),
+            halt: kind == IntermKind::PowerOff,
+        }
+    }
 }
 
 impl View for Intermission {

@@ -18,7 +18,10 @@ pub mod rtc;
 pub mod settings;
 pub mod font;
 pub mod context;
+pub mod trmnl;
 pub mod gesture;
+
+pub use rtc::{AlarmType, AlarmManager};
 
 pub use anyhow;
 pub use fxhash;

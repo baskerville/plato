@@ -1,3 +1,4 @@
+use crate::trmnl::TrmnlClient;
 use crate::view::keyboard::Layout;
 use std::path::Path;
 use std::collections::{BTreeMap, VecDeque};
@@ -19,7 +20,7 @@ use crate::geom::Rectangle;
 use crate::device::CURRENT_DEVICE;
 use crate::library::Library;
 use crate::font::Fonts;
-use crate::rtc::Rtc;
+use crate::rtc::{Rtc, AlarmManager};
 
 const KEYBOARD_LAYOUTS_DIRNAME: &str = "keyboard-layouts";
 const DICTIONARIES_DIRNAME: &str = "dictionaries";
@@ -28,7 +29,8 @@ const INPUT_HISTORY_SIZE: usize = 32;
 
 pub struct Context {
     pub fb: Box<dyn Framebuffer>,
-    pub rtc: Option<Rtc>,
+    pub alarm_manager: Option<AlarmManager>,
+    pub trmnl_client: Option<TrmnlClient>,
     pub display: Display,
     pub settings: Settings,
     pub library: Library,
@@ -55,7 +57,11 @@ impl Context {
         let dims = fb.dims();
         let rotation = CURRENT_DEVICE.transformed_rotation(fb.rotation());
         let rng = Xoroshiro128Plus::seed_from_u64(Local::now().timestamp_subsec_nanos() as u64);
-        Context { fb, rtc, display: Display { dims, rotation },
+
+        let alarm_manager = rtc.map(AlarmManager::new);
+        let trmnl_client = settings.trmnl.is_some().then(|| TrmnlClient::new());
+
+        Context { fb, alarm_manager, trmnl_client, display: Display { dims, rotation },
                   library, settings, fonts, dictionaries: BTreeMap::new(),
                   keyboard_layouts: BTreeMap::new(), input_history: FxHashMap::default(),
                   battery, frontlight, lightsensor, notification_index: 0,
