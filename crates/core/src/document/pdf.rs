@@ -106,7 +106,7 @@ unsafe impl Send for PdfDocument {}
 unsafe impl Sync for PdfDocument {}
 
 impl PdfDocument {
-    pub fn page(&self, index: usize) -> Option<PdfPage> {
+    pub fn page(&self, index: usize) -> Option<PdfPage<'_>> {
         unsafe {
             let page = mp_load_page(self.ctx.0, self.doc, index as libc::c_int);
             if page.is_null() {

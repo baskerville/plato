@@ -266,7 +266,7 @@ impl Document for DjvuDocument {
 }
 
 impl DjvuDocument {
-    pub fn page(&self, index: usize) -> Option<DjvuPage> {
+    pub fn page(&self, index: usize) -> Option<DjvuPage<'_>> {
         unsafe {
             let page = ddjvu_page_create_by_pageno(self.doc, index as libc::c_int);
             if page.is_null() {

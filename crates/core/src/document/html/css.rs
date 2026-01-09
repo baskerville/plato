@@ -120,7 +120,7 @@ pub struct CssParser<'a> {
 }
 
 impl<'a> CssParser<'a> {
-    pub fn new(input: &str) -> CssParser {
+    pub fn new(input: &str) -> CssParser<'_> {
         CssParser {
             input,
             offset: 0,

@@ -42,7 +42,7 @@ pub type RenderMode = libc::c_uint;
 pub type FormatStyle = libc::c_uint;
 
 #[link(name="djvulibre")]
-extern {
+extern "C" {
     pub fn ddjvu_context_create(name: *const libc::c_char) -> *mut ExoContext;
     pub fn ddjvu_context_release(ctx: *mut ExoContext);
     pub fn ddjvu_cache_set_size(ctx: *mut ExoContext, size: libc::c_ulong);

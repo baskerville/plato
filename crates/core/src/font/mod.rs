@@ -100,7 +100,7 @@ pub const MD_SIZE: Style = Style {
 
 #[cfg(any(not(target_os = "linux"), target_arch = "arm"))]
 #[link(name="mupdf")]
-extern {
+extern "C" {
     // Based on the outputs of:
     // arm-linux-gnueabihf-readelf -Ws ./libs/libmupdf.so | grep '\b_binary_' | \
     // grep -v '_size$' | awk '{print $8, strtonum($3)-1}' | sort -u
@@ -267,7 +267,7 @@ extern {
 
 #[cfg(all(target_os = "linux", not(target_arch = "arm")))]
 #[link(name="mupdf")]
-extern {
+extern "C" {
     pub static _binary_resources_fonts_droid_DroidSansFallback_ttf_start: [libc::c_uchar; 3556308];
     pub static _binary_resources_fonts_noto_NotoEmoji_Regular_ttf_start: [libc::c_uchar; 418804];
     pub static _binary_resources_fonts_noto_NotoMusic_Regular_otf_start: [libc::c_uchar; 60812];

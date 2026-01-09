@@ -9,7 +9,7 @@ pub struct XmlParser<'a> {
 }
 
 impl<'a> XmlParser<'a> {
-    pub fn new(input: &str) -> XmlParser {
+    pub fn new(input: &str) -> XmlParser<'_> {
         XmlParser {
             input,
             offset: 0,

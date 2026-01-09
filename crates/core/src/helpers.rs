@@ -26,7 +26,7 @@ lazy_static! {
     };
 }
 
-pub fn decode_entities(text: &str) -> Cow<str> {
+pub fn decode_entities(text: &str) -> Cow<'_, str> {
     if text.find('&').is_none() {
         return Cow::Borrowed(text);
     }

@@ -151,19 +151,19 @@ impl XmlTree {
         unsafe { self.nodes.get_unchecked_mut(id.to_index()) }
     }
 
-    pub fn get(&self, id: NodeId) -> NodeRef {
+    pub fn get(&self, id: NodeId) -> NodeRef<'_> {
         NodeRef { id, node: self.node(id), tree: self }
     }
 
-    pub fn get_mut(&mut self, id: NodeId) -> NodeMut {
+    pub fn get_mut(&mut self, id: NodeId) -> NodeMut<'_> {
         NodeMut { id, tree: self }
     }
 
-    pub fn root(&self) -> NodeRef {
+    pub fn root(&self) -> NodeRef<'_> {
         self.get(NodeId::from_index(0))
     }
 
-    pub fn root_mut(&mut self) -> NodeMut {
+    pub fn root_mut(&mut self) -> NodeMut<'_> {
         self.get_mut(NodeId::from_index(0))
     }
 
