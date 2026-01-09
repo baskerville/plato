@@ -4,6 +4,7 @@ mod results_bar;
 mod margin_cropper;
 mod chapter_label;
 mod results_label;
+mod external_link;
 
 use std::thread;
 use std::sync::{Arc, Mutex};
@@ -19,8 +20,10 @@ use regex::Regex;
 use septem::prelude::*;
 use septem::{Roman, Digit};
 use rand_core::RngCore;
+use crate::articles;
 use crate::input::{DeviceEvent, FingerStatus, ButtonCode, ButtonStatus};
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
+use crate::view::reader::external_link::ExternalLink;
 use crate::view::{View, Event, AppCmd, Hub, Bus, RenderQueue, RenderData};
 use crate::view::{ViewId, Id, ID_FEEDER, EntryKind, EntryId, SliderId};
 use crate::view::{SMALL_BAR_HEIGHT, BIG_BAR_HEIGHT, THICKNESS_MEDIUM};
@@ -2173,6 +2176,13 @@ impl Reader {
         }
     }
 
+    fn close_external_link_popup(&mut self, rq: &mut RenderQueue) {
+        if let Some(index) = locate::<ExternalLink>(self) {
+            self.children.remove(index);
+            rq.add(RenderData::expose(self.rect, UpdateMode::Gui));
+        }
+    }
+
     fn set_font_size(&mut self, font_size: f32, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         if Arc::strong_count(&self.doc) > 1 {
             return;
@@ -2314,6 +2324,10 @@ impl Reader {
         if let Some(ref mut r) = self.info.reader {
             if self.reflowable {
                 r.margin_width = Some(width);
+
+                // Use last configured margin width (in any book) as the default
+                // margin width from now on.
+                context.settings.reader.margin_width = width;
             } else {
                 if width == 0 {
                     r.screen_margin_width = None;
@@ -3135,19 +3149,9 @@ impl View for Reader {
                             hub.send(Event::GoTo(location)).ok();
                         } else {
                             if link.text.starts_with("https:") || link.text.starts_with("http:") {
-                                if let Some(path) = context.settings.external_urls_queue.as_ref() {
-                                    if let Ok(mut file) = OpenOptions::new().create(true)
-                                                                            .append(true)
-                                                                            .open(path) {
-                                        if let Err(e) = writeln!(file, "{}", link.text) {
-                                            eprintln!("Couldn't write to {}: {:#}.", path.display(), e);
-                                        } else {
-                                            let message = format!("Queued {}.", link.text);
-                                            let notif = Notification::new(message, hub, rq, context);
-                                            self.children.push(Box::new(notif) as Box<dyn View>);
-                                        }
-                                    }
-                                }
+                                let view = ExternalLink::new(context, link.text);
+                                rq.add(RenderData::new(view.id(), *view.rect(), UpdateMode::Gui));
+                                self.children.push(Box::new(view) as Box<dyn View>);
                             } else {
                                 eprintln!("Can't resolve URI: {}.", link.text);
                             }
@@ -3589,6 +3593,10 @@ impl View for Reader {
                 self.toggle_keyboard(false, None, hub, rq, context);
                 false
             },
+            Event::Close(ViewId::ExternalLink) => {
+                self.close_external_link_popup(rq);
+                true
+            }
             Event::Show(ViewId::TableOfContents) => {
                 {
                     self.toggle_bars(Some(false), hub, rq, context);
@@ -3922,6 +3930,28 @@ impl View for Reader {
                 }
                 true
             },
+            Event::QueueLink(ref link) => {
+                self.close_external_link_popup(rq);
+                if let Some(path) = context.settings.external_urls_queue.as_ref() {
+                    if let Ok(mut file) = OpenOptions::new().create(true)
+                                                            .append(true)
+                                                            .open(path) {
+                        if let Err(e) = writeln!(file, "{}", link) {
+                            eprintln!("Couldn't write to {}: {:#}.", path.display(), e);
+                        } else {
+                            let message = format!("Queued {}.", link);
+                            let notif = Notification::new(message, hub, rq, context);
+                            self.children.push(Box::new(notif) as Box<dyn View>);
+                        }
+                    }
+                }
+                true
+            },
+            Event::AddArticleLink(ref link) => {
+                self.close_external_link_popup(rq);
+                articles::queue_link(link.clone());
+                true
+            }
             _ => false,
         }
     }

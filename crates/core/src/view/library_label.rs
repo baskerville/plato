@@ -7,28 +7,35 @@ use crate::geom::{Rectangle};
 use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, ViewId};
 use crate::context::Context;
 
+#[derive(PartialEq)]
+pub enum Kind {
+    Books,
+    Results,
+    Articles,
+}
+
 pub struct LibraryLabel {
     id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
     name: String,
     count: usize,
-    filter: bool,
+    kind: Kind,
 }
 
 impl LibraryLabel {
-    pub fn new(rect: Rectangle, name: &str, count: usize, filter: bool)  -> LibraryLabel {
+    pub fn new(rect: Rectangle, name: &str, count: usize, kind: Kind)  -> LibraryLabel {
         LibraryLabel {
             id: ID_FEEDER.next(),
             rect,
             children: Vec::new(),
             name: name.to_string(),
             count,
-            filter,
+            kind,
         }
     }
 
-    pub fn update(&mut self, name: &str, count: usize, filter: bool, rq: &mut RenderQueue) {
+    pub fn update(&mut self, name: &str, count: usize, kind: Kind, rq: &mut RenderQueue) {
         let mut render = false;
         if self.name != name {
             self.name = name.to_string();
@@ -38,8 +45,8 @@ impl LibraryLabel {
             self.count = count;
             render = true;
         }
-        if self.filter != filter {
-            self.filter = filter;
+        if self.kind != kind {
+            self.kind = kind;
             render = true;
         }
         if render {
@@ -48,18 +55,28 @@ impl LibraryLabel {
     }
 
     fn text(&self) -> String {
-        let subject = if self.filter {
-            if self.count != 1 {
-                "matches"
-            } else {
-                "match"
-            }
-        } else {
-            if self.count != 1 {
-                "books"
-            } else {
-                "book"
-            }
+        let subject = match self.kind {
+            Kind::Books => {
+                if self.count != 1 {
+                    "books"
+                } else {
+                    "book"
+                }
+            },
+            Kind::Results => {
+                if self.count != 1 {
+                    "matches"
+                } else {
+                    "match"
+                }
+            },
+            Kind::Articles => {
+                if self.count != 1 {
+                    "articles"
+                } else {
+                    "article"
+                }
+            },
         };
 
         if self.count == 0 {

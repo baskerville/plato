@@ -1,11 +1,9 @@
-mod library_label;
 mod address_bar;
 mod navigation_bar;
 mod directories_bar;
 mod directory;
 mod shelf;
 mod book;
-mod bottom_bar;
 
 use std::fs;
 use std::mem;
@@ -21,6 +19,7 @@ use anyhow::{Error, format_err};
 use crate::library::Library;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::metadata::{Info, Metadata, SortMethod, BookQuery, SimpleStatus, sort};
+use crate::view::library_label;
 use crate::view::{View, Event, Hub, Bus, RenderQueue, RenderData};
 use crate::view::{Id, ID_FEEDER, ViewId, EntryId, EntryKind};
 use crate::view::{SMALL_BAR_HEIGHT, BIG_BAR_HEIGHT, THICKNESS_MEDIUM};
@@ -38,7 +37,7 @@ use super::top_bar::TopBar;
 use self::address_bar::AddressBar;
 use self::navigation_bar::NavigationBar;
 use self::shelf::Shelf;
-use self::bottom_bar::BottomBar;
+use crate::view::pager_bar::PagerBar;
 use crate::gesture::GestureEvent;
 use crate::geom::{Rectangle, Dir, DiagDir, CycleDir, halves};
 use crate::input::{DeviceEvent, ButtonCode, ButtonStatus};
@@ -177,13 +176,13 @@ impl Home {
                                     BLACK);
         children.push(Box::new(separator) as Box<dyn View>);
 
-        let bottom_bar = BottomBar::new(rect![rect.min.x, rect.max.y - small_height + big_thickness,
+        let bottom_bar = PagerBar::new(rect![rect.min.x, rect.max.y - small_height + big_thickness,
                                               rect.max.x, rect.max.y],
                                         current_page,
                                         pages_count,
                                         &library_settings.name,
                                         count,
-                                        false);
+                                        library_label::Kind::Books);
         children.push(Box::new(bottom_bar) as Box<dyn View>);
 
         rq.add(RenderData::new(id, rect, UpdateMode::Full));
@@ -411,13 +410,17 @@ impl Home {
     }
 
     fn update_bottom_bar(&mut self, rq: &mut RenderQueue, context: &Context) {
-        if let Some(index) = rlocate::<BottomBar>(self) {
-            let bottom_bar = self.children[index].as_mut().downcast_mut::<BottomBar>().unwrap();
-            let filter = self.query.is_some() ||
-                         self.current_directory != context.library.home;
+        if let Some(index) = rlocate::<PagerBar>(self) {
+            let bottom_bar = self.children[index].as_mut().downcast_mut::<PagerBar>().unwrap();
+            let kind = if self.query.is_some() ||
+                         self.current_directory != context.library.home {
+                            library_label::Kind::Results
+                         } else {
+                            library_label::Kind::Books
+                         };
             let selected_library = context.settings.selected_library;
             let library_settings = &context.settings.libraries[selected_library];
-            bottom_bar.update_library_label(&library_settings.name, self.visible_books.len(), filter, rq);
+            bottom_bar.update_library_label(&library_settings.name, self.visible_books.len(), kind, rq);
             bottom_bar.update_page_label(self.current_page, self.pages_count, rq);
             bottom_bar.update_icons(self.current_page, self.pages_count, rq);
         }
@@ -463,7 +466,7 @@ impl Home {
                 return;
             }
 
-            let index = rlocate::<BottomBar>(self).unwrap() - 1;
+            let index = rlocate::<PagerBar>(self).unwrap() - 1;
             let mut kb_rect = rect![self.rect.min.x,
                                     self.rect.max.y - (small_height + 3 * big_height) as i32 + big_thickness,
                                     self.rect.max.x,
@@ -1822,7 +1825,7 @@ impl View for Home {
         }
 
         // Bottom bar.
-        let bottom_bar_index = rlocate::<BottomBar>(self).unwrap();
+        let bottom_bar_index = rlocate::<PagerBar>(self).unwrap();
         index = bottom_bar_index;
 
         let separator_rect = rect![rect.min.x, rect.max.y - small_height - small_thickness,

@@ -37,6 +37,14 @@ impl Button {
         self.disabled = value;
         self
     }
+
+    // Set the disabled state of the button.
+    pub fn update(&mut self, disabled: bool, rq: &mut RenderQueue) {
+        if self.disabled != disabled {
+            self.disabled = disabled;
+            rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
+        }
+    }
 }
 
 impl View for Button {

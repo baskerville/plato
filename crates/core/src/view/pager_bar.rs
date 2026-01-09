@@ -1,5 +1,5 @@
 use crate::framebuffer::{Framebuffer, UpdateMode};
-use crate::view::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData};
+use crate::view::{library_label, Bus, Event, Hub, Id, RenderData, RenderQueue, View, ID_FEEDER};
 use crate::view::icon::Icon;
 use crate::view::filler::Filler;
 use crate::view::page_label::PageLabel;
@@ -10,7 +10,7 @@ use crate::context::Context;
 use crate::font::Fonts;
 
 #[derive(Debug)]
-pub struct BottomBar {
+pub struct PagerBar {
     id: Id,
     rect: Rectangle,
     children: Vec<Box<dyn View>>,
@@ -18,8 +18,8 @@ pub struct BottomBar {
     is_next_disabled: bool,
 }
 
-impl BottomBar {
-    pub fn new(rect: Rectangle, current_page: usize, pages_count: usize, name: &str, count: usize, filter: bool) -> BottomBar {
+impl PagerBar {
+    pub fn new(rect: Rectangle, current_page: usize, pages_count: usize, name: &str, count: usize, kind: library_label::Kind) -> PagerBar {
         let id = ID_FEEDER.next();
         let mut children = Vec::new();
         let side = rect.height() as i32;
@@ -43,7 +43,7 @@ impl BottomBar {
                                                     rect.min.x + side + small_half_width, rect.max.y],
                                               name,
                                               count,
-                                              filter);
+                                              kind);
         children.push(Box::new(library_label) as Box<dyn View>);
 
         let page_label = PageLabel::new(rect![rect.max.x - side - big_half_width, rect.min.y,
@@ -65,7 +65,7 @@ impl BottomBar {
             children.push(Box::new(next_icon) as Box<dyn View>);
         }
 
-        BottomBar {
+        PagerBar {
             id,
             rect,
             children,
@@ -74,9 +74,9 @@ impl BottomBar {
         }
     }
 
-    pub fn update_library_label(&mut self, name: &str, count: usize, filter: bool, rq: &mut RenderQueue) {
+    pub fn update_library_label(&mut self, name: &str, count: usize, kind: library_label::Kind, rq: &mut RenderQueue) {
         let library_label = self.children[1].as_mut().downcast_mut::<LibraryLabel>().unwrap();
-        library_label.update(name, count, filter, rq);
+        library_label.update(name, count, kind, rq);
     }
 
     pub fn update_page_label(&mut self, current_page: usize, pages_count: usize, rq: &mut RenderQueue) {
@@ -123,7 +123,7 @@ impl BottomBar {
     }
 }
 
-impl View for BottomBar {
+impl View for PagerBar {
     fn handle_event(&mut self, _evt: &Event, _hub: &Hub, _bus: &mut Bus, _rq: &mut RenderQueue, _context: &mut Context) -> bool {
         false
     }
