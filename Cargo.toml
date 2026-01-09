@@ -6,6 +6,7 @@ members = [
   "crates/emulator",
   "crates/importer",
   "crates/fetcher",
+  "crates/remote-display-video"
 ]
 
 [profile.release-minsized]

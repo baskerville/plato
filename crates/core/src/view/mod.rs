@@ -42,6 +42,7 @@ pub mod calculator;
 pub mod sketch;
 pub mod touch_events;
 pub mod rotation_values;
+pub mod remote_display;
 
 use std::ops::{Deref, DerefMut};
 use std::time::{Instant, Duration};
@@ -376,6 +377,7 @@ pub enum AppCmd {
     },
     TouchEvents,
     RotationValues,
+    RemoteDisplay
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]

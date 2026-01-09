@@ -5,7 +5,13 @@ use std::ops::Index;
 use std::fmt::{self, Debug};
 use std::path::PathBuf;
 use std::collections::{BTreeMap, HashMap};
+use chacha20poly1305::KeyInit;
+use chacha20poly1305::{
+    aead::OsRng, ChaCha20Poly1305,
+};
 use fxhash::FxHashSet;
+use rand::distributions::Alphanumeric;
+use rand::Rng;
 use serde::{Serialize, Deserialize};
 use crate::metadata::{SortMethod, TextAlign};
 use crate::frontlight::LightLevels;
@@ -121,6 +127,7 @@ pub struct Settings {
     pub reader: ReaderSettings,
     pub import: ImportSettings,
     pub dictionary: DictionarySettings,
+    pub remote_display: RemoteDisplaySettings,
     pub sketch: SketchSettings,
     pub calculator: CalculatorSettings,
     pub battery: BatterySettings,
@@ -190,6 +197,33 @@ impl Default for DictionarySettings {
             margin_width: 4,
             languages: BTreeMap::new(),
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct RemoteDisplaySettings {
+    pub address: String,
+    pub topic: String,
+    pub key: String,
+}
+
+impl Default for RemoteDisplaySettings {
+    fn default() -> Self {
+        let topic: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(16)
+            .map(char::from)
+            .collect();
+        let client_id: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(16)
+            .map(char::from)
+            .collect();
+        let address = format!("mqtts://broker.hivemq.com?client_id={}", client_id);
+        let cha_key = ChaCha20Poly1305::generate_key(&mut OsRng);
+        let key = hex::encode(cha_key.as_slice());
+        RemoteDisplaySettings { address, topic, key }
     }
 }
 
@@ -546,6 +580,7 @@ impl Default for Settings {
             reader: ReaderSettings::default(),
             import: ImportSettings::default(),
             dictionary: DictionarySettings::default(),
+            remote_display: RemoteDisplaySettings::default(),
             sketch: SketchSettings::default(),
             calculator: CalculatorSettings::default(),
             battery: BatterySettings::default(),

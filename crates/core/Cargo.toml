@@ -39,3 +39,16 @@ rand_core = "0.6.4"
 rand_xoshiro = "0.6.0"
 percent-encoding = "2.3.1"
 chrono = { version = "0.4.38", features = ["serde", "clock"], default-features = false }
+url = { version = "2.1.0" }
+base64 = "0.21.4"
+tokio = { version = "1.32.0", features = ["macros", "rt", "net", "sync"] }
+rumqttc = { version = "0.24.0", features = ["use-rustls", "websocket", "url"] }
+rand = "=0.8.5"
+webpki-roots = "0.26.1"
+coset = "0.3.6"
+bytes = "^1.5"
+chacha20poly1305 = "0.10.1"
+hex = "0.4.3"
+image = { version = "0.25.6", features = ["qoi", "jpeg"], default-features = false }
+zstd = "0.13.3"
+bipatch = { git = "https://github.com/divvun/bidiff.git", rev = "b05865403c196225c8fcffcc89b540472de9ca4c" }

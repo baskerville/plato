@@ -20,6 +20,7 @@ use plato_core::view::calculator::Calculator;
 use plato_core::view::sketch::Sketch;
 use plato_core::view::touch_events::TouchEvents;
 use plato_core::view::rotation_values::RotationValues;
+use plato_core::view::remote_display::RemoteDisplay;
 use plato_core::document::sys_info_as_html;
 use plato_core::input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus, VAL_RELEASE, VAL_PRESS};
 use plato_core::input::{raw_events, device_events, usb_events, display_rotate_event, button_scheme_event};
@@ -807,6 +808,9 @@ pub fn run() -> Result<(), Error> {
                     AppCmd::RotationValues => {
                         Box::new(RotationValues::new(context.fb.rect(), &mut rq, &mut context))
                     },
+                    AppCmd::RemoteDisplay => {
+                        Box::new(RemoteDisplay::new(context.fb.rect(), &tx, &mut rq, &mut context))
+                    }
                 };
                 transfer_notifications(view.as_mut(), next_view.as_mut(), &mut rq, &mut context);
                 history.push(HistoryItem {
