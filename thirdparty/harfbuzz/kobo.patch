@@ -1,0 +1,16 @@
+diff -ru a/meson.build b/meson.build
+--- a/meson.build	2026-01-08 21:58:37
++++ b/meson.build	2026-01-08 22:03:29
+@@ -107,7 +107,11 @@
+ 
+ m_dep = cpp.find_library('m', required: false)
+ 
+-freetype_dep = dependency('freetype2', version: freetype_min_version, required: get_option('freetype'), default_options: ['harfbuzz=disabled'])
++freetype_dep = declare_dependency(dependencies : [cpp.find_library('freetype', dirs : [meson.current_source_dir() / '..' / 'freetype2/objs/.libs']),
++                                                  cpp.find_library('png16', dirs: [meson.current_source_dir() / '..' / 'libpng/.libs']),
++                                                  cpp.find_library('bz2', dirs: [meson.current_source_dir() / '..' / 'bzip2']),
++                                                  cpp.find_library('z', dirs: [meson.current_source_dir() / '..' / 'zlib'])],
++                                  include_directories : include_directories('../freetype2/include'))
+ glib_dep = dependency('glib-2.0', version: glib_min_version, required: get_option('glib'))
+ gobject_dep = dependency('gobject-2.0', version: glib_min_version, required: get_option('gobject'))
+ graphite2_dep = dependency('graphite2', version: graphite2_min_version, required: get_option('graphite2'))

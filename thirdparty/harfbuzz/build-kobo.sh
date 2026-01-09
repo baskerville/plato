@@ -10,4 +10,5 @@ export CXXFLAGS="$CFLAGS"
 export FREETYPE_CFLAGS="-I${FREETYPE_DIR}/include"
 export FREETYPE_LIBS="-L${FREETYPE_DIR}/objs/.libs -L${LIBPNG_DIR}/.libs -L${BZIP2_DIR} -L${ZLIB_DIR} -lfreetype -lpng16 -lbz2 -lz"
 
-./autogen.sh --host=${TRIPLE} --disable-static --with-freetype=yes --with-glib=no --with-icu=no --with-cairo=no --with-fontconfig=no && make
+meson setup -Dglib=disabled -Dicu=disabled -Dcairo=disabled -Dfreetype=enabled --cross-file kobo-options.txt build
+meson compile -C build

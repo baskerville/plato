@@ -1,29 +1,17 @@
-diff -ru a/Makefile b/Makefile
---- a/Makefile	2023-11-14 09:46:57
-+++ b/Makefile	2023-11-14 09:47:11
-@@ -150,7 +150,7 @@
-
- THIRD_GLUT_OBJ := $(THIRD_GLUT_SRC:%.c=$(OUT)/%.o)
-
--MUPDF_SRC := $(sort $(wildcard source/fitz/*.c))
-+MUPDF_SRC := $(sort $(filter-out source/fitz/output-docx.c, $(wildcard source/fitz/*.c)))
- MUPDF_SRC += $(sort $(wildcard source/fitz/*.cpp))
- MUPDF_SRC += $(sort $(wildcard source/pdf/*.c))
- MUPDF_SRC += $(sort $(wildcard source/xps/*.c))
 diff -ru a/Makerules b/Makerules
---- a/Makerules	2023-11-14 09:46:58
-+++ b/Makerules	2023-11-14 09:47:11
-@@ -321,6 +321,35 @@
-   HAVE_WIN32=yes
- endif
-
+--- a/Makerules	2026-01-09 12:19:57
++++ b/Makerules	2026-01-09 12:19:36
+@@ -354,6 +354,35 @@
+ # This does rely on the generated directory being populated with the font files.
+ # Run 'make generate' before doing the cross compile.
+ 
 +ifeq "$(OS)" "kobo"
 +  CC = arm-linux-gnueabihf-gcc
 +  CXX = arm-linux-gnueabihf-g++
 +  LD = arm-linux-gnueabihf-ld
 +  AR = arm-linux-gnueabihf-ar
 +  AS = arm-linux-gnueabihf-as
-+  CFLAGS += -O2 -fPIC -mcpu=cortex-a9 -mfpu=neon -DTOFU_CJK_LANG -DTOFU_CJK_EXT -DFZ_ENABLE_ICC=0 -DFZ_ENABLE_JS=0 -DFZ_ENABLE_SPOT_RENDERING=0 -DFZ_ENABLE_ODT_OUTPUT=0 -DFZ_ENABLE_DOCX_OUTPUT=0 -DFZ_ENABLE_OCR_OUTPUT=0
++  CFLAGS += -O2 -fPIC -mcpu=cortex-a9 -mfpu=neon -DTOFU_CJK_LANG -DTOFU_CJK_EXT -DFZ_ENABLE_ICC=0 -DFZ_ENABLE_SPOT_RENDERING=0 -DFZ_ENABLE_ODT_OUTPUT=0 -DFZ_ENABLE_OCR_OUTPUT=0
 +  HAVE_PTHREAD := yes
 +  HAVE_LIBCRYPTO := no
 +  HAVE_X11 := no
@@ -35,7 +23,7 @@ diff -ru a/Makerules b/Makerules
 +  SYS_GUMBO_CFLAGS := -I../gumbo/src
 +  SYS_GUMBO_LIBS := -L../gumbo/.libs -lgumbo
 +  SYS_HARFBUZZ_CFLAGS := -I../harfbuzz/src
-+  SYS_HARFBUZZ_LIBS := -L../harfbuzz/src/.libs -lharfbuzz
++  SYS_HARFBUZZ_LIBS := -L../harfbuzz/build/src -lharfbuzz
 +  SYS_OPENJPEG_CFLAGS := -I../openjpeg/src/lib/openjp2
 +  SYS_OPENJPEG_LIBS := -L../openjpeg/build/bin -lopenjpeg
 +  SYS_JBIG2DEC_CFLAGS := -I../jbig2dec
@@ -46,81 +34,20 @@ diff -ru a/Makerules b/Makerules
 +  SYS_ZLIB_LIBS := -L../zlib -lz
 +endif
 +
- # Most variables when building for iOS are set up in ios/build_libs.sh,
- # which is called from the Xcode project as a "Run Script" build step.
- # The following section works for both device and simulator builds.
+ ifeq "$(OS)" "wasm"
+   build_prefix += wasm/
+   CC = emcc
 diff -ru a/Makethird b/Makethird
---- a/Makethird	2023-11-14 09:46:58
-+++ b/Makethird	2023-11-14 09:47:11
-@@ -43,10 +43,6 @@
+--- a/Makethird	2026-01-09 12:19:57
++++ b/Makethird	2026-01-09 12:19:36
+@@ -83,10 +83,6 @@
    endif
  endif
-
+ 
 -# --- Include source file lists ---
 -
 -include Makelists
 -
- # --- FREETYPE 2 ---
-
- ifeq ($(USE_SYSTEM_FREETYPE),yes)
-@@ -235,36 +231,3 @@
- 	$(CXX_CMD) $(LIB_CFLAGS) $(TESSERACT_CFLAGS) $(TESSERACT_BUILD_CFLAGS)
- endif
- endif
--
--# --- EXTRACT ---
--
--THIRD_CFLAGS += $(EXTRACT_CFLAGS)
--THIRD_LIBS += $(EXTRACT_LIBS)
--THIRD_SRC += $(EXTRACT_SRC)
--$(OUT)/thirdparty/extract/%.o: thirdparty/extract/%.c
--	$(CC_CMD) $(WARNING_CFLAGS) $(LIB_CFLAGS) $(EXTRACT_CFLAGS) $(ZLIB_CFLAGS) $(EXTRACT_BUILD_CFLAGS)
--
--# The first python3 command in the next two rules returns 0 (success) iff
--# python3 exists and is version 3.6 or later.
--
--thirdparty/extract/src/docx_template.c: thirdparty/extract/src/template.docx thirdparty/extract/src/docx_template_build.py
--	$(QUIET_GEN) if python3 -c 'import sys; sys.exit(sys.version_info < (3,6))'; \
--		then python3 thirdparty/extract/src/docx_template_build.py \
--			-i thirdparty/extract/src/template.docx \
--			-n docx \
--			-o thirdparty/extract/src/docx_template ; \
--		else echo python3 is older than 3.6 so not running docx_template_build.py; \
--		fi
--	@touch $@
--
--thirdparty/extract/src/odt_template.c: thirdparty/extract/src/template.odt thirdparty/extract/src/docx_template_build.py
--	$(QUIET_GEN) if python3 -c 'import sys; sys.exit(sys.version_info < (3,6))'; \
--		then python3 thirdparty/extract/src/docx_template_build.py \
--			-i thirdparty/extract/src/template.odt \
--			-n odt \
--			-o thirdparty/extract/src/odt_template ; \
--		else echo python3 is older than 3.6 so not running docx_template_build.py; \
--		fi
--	@touch $@
--
--generate: thirdparty/extract/src/docx_template.c
-diff -ru a/source/html/html-parse.c b/source/html/html-parse.c
---- a/source/html/html-parse.c	2023-11-14 09:46:58
-+++ b/source/html/html-parse.c	2023-11-14 09:59:43
-@@ -1615,13 +1615,13 @@
- }
-
- static const char *mobi_font_size[7] = {
--	"8pt",
--	"10pt",
--	"12pt",
--	"14pt",
--	"16pt",
--	"18pt",
--	"20pt",
-+	"0.67em",
-+	"0.83em",
-+	"1em",
-+	"1.17em",
-+	"1.33em",
-+	"1.5em",
-+	"1.67em",
- };
-
- static void
+ # --- BROTLI ---
+ 
+ ifeq ($(USE_BROTLI),yes)

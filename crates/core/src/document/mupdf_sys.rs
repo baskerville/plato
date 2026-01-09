@@ -3,7 +3,7 @@
 use std::mem;
 
 pub const FZ_MAX_COLORS: usize = 32;
-pub const FZ_VERSION: &str = "1.23.11";
+pub const FZ_VERSION: &str = "1.27.0";
 
 pub const FZ_META_INFO_AUTHOR: &str = "info:Author";
 pub const FZ_META_INFO_TITLE: &str = "info:Title";
@@ -14,10 +14,25 @@ pub const FZ_TEXT_PRESERVE_IMAGES: libc::c_int = 4;
 pub const FZ_TEXT_INHIBIT_SPACES: libc::c_int = 8;
 pub const FZ_TEXT_DEHYPHENATE: libc::c_int = 16;
 pub const FZ_TEXT_PRESERVE_SPANS: libc::c_int = 32;
-pub const FZ_TEXT_MEDIABOX_CLIP: libc::c_int = 64;
+pub const FZ_TEXT_CLIP: libc::c_int = 64;
+pub const FZ_TEXT_CLIP_RECT: libc::c_int = 1<<17;
+pub const FZ_TEXT_COLLECT_STRUCTURE: libc::c_int = 256;
+pub const FZ_TEXT_COLLECT_VECTORS: libc::c_int = 1024;
+pub const FZ_TEXT_ACCURATE_BBOXES: libc::c_int = 512;
+pub const FZ_TEXT_ACCURATE_ASCENDERS: libc::c_int = 1<<18;
+pub const FZ_TEXT_ACCURATE_SIDE_BEARINGS: libc::c_int = 1<<19;
+pub const FZ_TEXT_IGNORE_ACTUALTEXT: libc::c_int = 2048;
+pub const FZ_TEXT_SEGMENT: libc::c_int = 4096;
+pub const FZ_TEXT_PARAGRAPH_BREAK: libc::c_int = 8192;
+pub const FZ_TEXT_TABLE_HUNT: libc::c_int = 16384;
+pub const FZ_TEXT_USE_CID_FOR_UNKNOWN_UNICODE: libc::c_int = 128;
+pub const FZ_TEXT_USE_GID_FOR_UNKNOWN_UNICODE: libc::c_int = 65536;
 
 pub const FZ_PAGE_BLOCK_TEXT: libc::c_int = 0;
 pub const FZ_PAGE_BLOCK_IMAGE: libc::c_int = 1;
+pub const FZ_PAGE_BLOCK_STRUCT: libc::c_int = 2;
+pub const FZ_PAGE_BLOCK_VECTOR: libc::c_int = 3;
+pub const FZ_PAGE_BLOCK_GRID: libc::c_int = 4;
 
 pub const CACHE_SIZE: libc::size_t = 32 * 1024 * 1024;
 
@@ -33,10 +48,15 @@ pub enum FzAllocContext {}
 pub enum FzLocksContext {}
 pub enum FzCookie {}
 pub enum FzStoreDropFn {}
+pub enum FzStoreDroppableFn {}
 pub enum FzLinkSetRectFn {}
 pub enum FzLinkSetUriFn {}
 pub enum FzLinkDropLinkFn {}
 pub enum FzSeparations {}
+pub enum FzTextStruct {}
+pub enum FzGridPositions {}
+pub enum FzGridInfo {}
+pub enum FzPoolArray {}
 pub enum FzImage {}
 
 #[link(name="mupdf")]
@@ -137,23 +157,25 @@ pub struct FzMatrix {
 pub struct FzStorable {
     refs: libc::c_int,
     drop: *mut FzStoreDropFn,
+    droppable: *mut FzStoreDroppableFn,
 }
 
 #[repr(C)]
 pub struct FzTextOptions {
     pub flags: libc::c_int,
     pub scale: libc::c_float,
+    pub clip: FzRect,
 }
 
 #[repr(C)]
 pub struct FzLinkDest {
     pub loc: FzLocation,
-    pub kind: libc::c_int,
-    pub x: libc::c_float,
-    pub y: libc::c_float,
-    pub w: libc::c_float,
-    pub h: libc::c_float,
-    pub zoom: libc::c_float,
+    kind: libc::c_int,
+    x: libc::c_float,
+    y: libc::c_float,
+    w: libc::c_float,
+    h: libc::c_float,
+    zoom: libc::c_float,
 }
 
 #[repr(C)]
@@ -195,15 +217,19 @@ pub struct FzLink {
 
 #[repr(C)]
 pub struct FzTextPage {
+    refs: libc::c_int,
     pool: *mut FzPool,
-    media_box: FzRect,
+    mediabox: FzRect,
     pub first_block: *mut FzTextBlock,
     last_block: *mut FzTextBlock,
+    last_struct: *mut FzTextStruct,
+    id_list: *mut FzPoolArray,
 }
 
 #[repr(C)]
 pub struct FzTextBlock {
     pub kind: libc::c_int,
+    id: libc::c_int,
     pub bbox: FzRect,
     pub u: FzTextBlockTextImage,
     prev: *mut FzTextBlock,
@@ -215,6 +241,7 @@ pub struct FzTextBlock {
 pub struct FzTextBlockText {
     pub first_line: *mut FzTextLine,
     last_line: *mut FzTextLine,
+    flags: libc::c_int,
 }
 
 #[derive(Copy, Clone)]
@@ -224,15 +251,41 @@ pub struct FzTextBlockImage {
     image: *mut FzImage,
 }
 
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct FzTextBlockStruct{
+    down: *mut FzTextStruct,
+    index: libc::c_int,
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct FzTextBlockVector {
+    flags: u32,
+    argb: u32,
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct FzTextBlockGrid {
+    xs: *mut FzGridPositions,
+    ys: *mut FzGridPositions,
+    info: *mut FzGridInfo,
+}
+
 #[repr(C)]
 pub union FzTextBlockTextImage {
     pub text: FzTextBlockText,
     pub image: FzTextBlockImage,
+    pub stru: FzTextBlockStruct,
+    pub vector: FzTextBlockVector,
+    pub grid: FzTextBlockGrid,
 }
 
 #[repr(C)]
 pub struct FzTextLine {
-    wmode: libc::c_int,
+    wmode: u8,
+    flags: u8,
     dir: FzPoint,
     pub bbox: FzRect,
     pub first_char: *mut FzTextChar,
@@ -244,7 +297,9 @@ pub struct FzTextLine {
 #[repr(C)]
 pub struct FzTextChar {
     pub c: libc::c_int,
-    color: libc::c_int,
+    bidi: u16,
+    flags: u16,
+    argb: u32,
     origin: FzPoint,
     pub quad: FzQuad,
     size: libc::c_float,
@@ -269,7 +324,11 @@ pub struct FzOutline {
     y: libc::c_float,
     pub next: *mut FzOutline,
     pub down: *mut FzOutline,
-    is_open: libc::c_int,
+    is_open: libc::c_uint,
+    flags: libc::c_uint,
+    r: libc::c_uint,
+    g: libc::c_uint,
+    b: libc::c_uint,
 }
 
 impl Default for FzOutline {
