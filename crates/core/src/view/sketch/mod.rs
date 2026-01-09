@@ -1,3 +1,4 @@
+use std::io::BufReader;
 use std::fs::{self, File};
 use std::path::PathBuf;
 use fxhash::FxHashMap;
@@ -165,7 +166,8 @@ impl Sketch {
 
     fn load(&mut self, filename: &PathBuf) -> Result<(), Error> {
         let path = self.save_path.join(filename);
-        let decoder = png::Decoder::new(File::open(path)?);
+        let file = File::open(path)?;
+        let decoder = png::Decoder::new(BufReader::new(file));
         let mut reader = decoder.read_info()?;
         reader.next_frame(self.pixmap.data_mut())?;
         self.filename = filename.to_string_lossy().into_owned();

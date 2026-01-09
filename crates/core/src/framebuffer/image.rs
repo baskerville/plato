@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::io::BufReader;
 use std::path::Path;
 use anyhow::{Error, Context, format_err};
 use super::{Framebuffer, UpdateMode};
@@ -56,7 +57,7 @@ impl Pixmap {
 
     pub fn from_png<P: AsRef<Path>>(path: P) -> Result<Pixmap, Error> {
         let file = File::open(path.as_ref())?;
-        let decoder = png::Decoder::new(file);
+        let decoder = png::Decoder::new(BufReader::new(file));
         let mut reader = decoder.read_info()?;
         let info = reader.info();
         let mut pixmap = Pixmap::new(info.width, info.height, info.color_type.samples());

@@ -10,9 +10,9 @@ path = "src/main.rs"
 
 [dependencies]
 plato-core = { path = "../core" }
-signal-hook = "0.3.17"
+signal-hook = "0.4.1"
 
 [dependencies.reqwest]
-version = "0.12.9"
-features = ["rustls-tls", "json", "blocking"]
+version = "0.13.1"
+features = ["blocking", "json", "query"]
 default-features = false

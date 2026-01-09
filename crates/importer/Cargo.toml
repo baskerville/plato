@@ -10,5 +10,5 @@ path = "src/main.rs"
 
 [dependencies]
 plato-core = { path = "../core" }
-getopts = "0.2.21"
+getopts = "0.2.24"
 
