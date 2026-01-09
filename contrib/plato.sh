@@ -79,7 +79,7 @@ if [ -e "$KOBO_TAG" ] ; then
 		389)     PRODUCT_ID=0x4236 ;; # Elipsa 2E
 		390)     PRODUCT_ID=0x4237 ;; # Libra Colour
 		393)     PRODUCT_ID=0x4238 ;; # Clara Colour
-		391)     PRODUCT_ID=0x4239 ;; # Clara BW
+		391|395) PRODUCT_ID=0x4239 ;; # Clara BW
 		*)       PRODUCT_ID=0x6666 ;;
 	esac
 
