@@ -79,6 +79,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "attohttpc"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a13149d0cf3f7f9b9261fad4ec63b2efbf9a80665f52def86282d26255e6331"
+dependencies = [
+ "base64",
+ "flate2",
+ "http",
+ "log",
+ "rustls 0.22.4",
+ "url",
+ "webpki-roots",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -608,7 +623,7 @@ dependencies = [
  "http",
  "hyper",
  "hyper-util",
- "rustls",
+ "rustls 0.23.18",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
@@ -1051,6 +1066,7 @@ name = "plato-core"
 version = "0.9.44"
 dependencies = [
  "anyhow",
+ "attohttpc",
  "bitflags 2.6.0",
  "byteorder",
  "chrono",
@@ -1078,6 +1094,7 @@ dependencies = [
  "titlecase",
  "toml",
  "unicode-normalization",
+ "url",
  "walkdir",
  "xi-unicode",
  "zip",
@@ -1131,7 +1148,7 @@ dependencies = [
  "quinn-proto",
  "quinn-udp",
  "rustc-hash",
- "rustls",
+ "rustls 0.23.18",
  "socket2",
  "thiserror",
  "tokio",
@@ -1149,7 +1166,7 @@ dependencies = [
  "rand",
  "ring",
  "rustc-hash",
- "rustls",
+ "rustls 0.23.18",
  "rustls-pki-types",
  "slab",
  "thiserror",
@@ -1274,7 +1291,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "quinn",
- "rustls",
+ "rustls 0.23.18",
  "rustls-pemfile",
  "rustls-pki-types",
  "serde",
@@ -1318,6 +1335,20 @@ name = "rustc-hash"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "583034fd73374156e66797ed8e5b0d5690409c9226b22d87cb7f19821c05d152"
+
+[[package]]
+name = "rustls"
+version = "0.22.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf4ef73721ac7bcd79b2b315da7779d8fc09718c6b3d2d1b2d94850eb8c18432"
+dependencies = [
+ "log",
+ "ring",
+ "rustls-pki-types",
+ "rustls-webpki",
+ "subtle",
+ "zeroize",
+]
 
 [[package]]
 name = "rustls"
@@ -1669,7 +1700,7 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c7bc40d0e5a97695bb96e27995cd3a08538541b0a846f65bba7a359f36700d4"
 dependencies = [
- "rustls",
+ "rustls 0.23.18",
  "rustls-pki-types",
  "tokio",
 ]
