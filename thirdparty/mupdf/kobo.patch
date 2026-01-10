@@ -1,6 +1,6 @@
 diff -ru a/Makerules b/Makerules
---- a/Makerules	2026-01-09 12:19:57
-+++ b/Makerules	2026-01-09 12:19:36
+--- a/Makerules	2026-01-10 14:42:16
++++ b/Makerules	2026-01-10 14:41:59
 @@ -354,6 +354,35 @@
  # This does rely on the generated directory being populated with the font files.
  # Run 'make generate' before doing the cross compile.
@@ -37,17 +37,3 @@ diff -ru a/Makerules b/Makerules
  ifeq "$(OS)" "wasm"
    build_prefix += wasm/
    CC = emcc
-diff -ru a/Makethird b/Makethird
---- a/Makethird	2026-01-09 12:19:57
-+++ b/Makethird	2026-01-09 12:19:36
-@@ -83,10 +83,6 @@
-   endif
- endif
- 
--# --- Include source file lists ---
--
--include Makelists
--
- # --- BROTLI ---
- 
- ifeq ($(USE_BROTLI),yes)
