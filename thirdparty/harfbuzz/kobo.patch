@@ -1,6 +1,6 @@
 diff -ru a/meson.build b/meson.build
---- a/meson.build	2026-01-08 21:58:37
-+++ b/meson.build	2026-01-08 22:03:29
+--- a/meson.build	2026-01-10 14:25:18
++++ b/meson.build	2026-01-10 14:25:43
 @@ -107,7 +107,11 @@
  
  m_dep = cpp.find_library('m', required: false)
@@ -14,3 +14,63 @@ diff -ru a/meson.build b/meson.build
  glib_dep = dependency('glib-2.0', version: glib_min_version, required: get_option('glib'))
  gobject_dep = dependency('gobject-2.0', version: glib_min_version, required: get_option('gobject'))
  graphite2_dep = dependency('graphite2', version: graphite2_min_version, required: get_option('graphite2'))
+diff -ru a/src/hb-map.hh b/src/hb-map.hh
+--- a/src/hb-map.hh	2026-01-10 14:25:18
++++ b/src/hb-map.hh	2026-01-10 14:27:34
+@@ -492,16 +492,16 @@
+   hb_hashmap_t& operator << (const hb_pair_t<K, V>& v)
+   { set (v.first, v.second); return *this; }
+   template <typename V2 = V,
+-	    hb_enable_if (!std::is_trivially_copyable<V2>::value)>
++	    hb_enable_if (!hb_is_trivially_copyable (V2))>
+   hb_hashmap_t& operator << (const hb_pair_t<K, V&&>& v)
+   { set (v.first, std::move (v.second)); return *this; }
+   template <typename K2 = K,
+-	    hb_enable_if (!std::is_trivially_copyable<K2>::value)>
++	    hb_enable_if (!hb_is_trivially_copyable (K2))>
+   hb_hashmap_t& operator << (const hb_pair_t<K&&, V>& v)
+   { set (std::move (v.first), v.second); return *this; }
+   template <typename K2 = K, typename V2 = V,
+-	    hb_enable_if (!std::is_trivially_copyable<K2>::value &&
+-			  !std::is_trivially_copyable<V2>::value)>
++	    hb_enable_if (!hb_is_trivially_copyable (K2) &&
++			  !hb_is_trivially_copyable (V2))>
+   hb_hashmap_t& operator << (const hb_pair_t<K&&, V&&>& v)
+   { set (std::move (v.first), std::move (v.second)); return *this; }
+ 
+diff -ru a/src/hb-ot-var-common.hh b/src/hb-ot-var-common.hh
+--- a/src/hb-ot-var-common.hh	2026-01-10 14:25:18
++++ b/src/hb-ot-var-common.hh	2026-01-10 14:25:43
+@@ -320,13 +320,13 @@
+   void copy_from (const tuple_delta_t& o, hb_alloc_pool_t *pool = nullptr)
+   {
+     axis_tuples = o.axis_tuples;
+-    indices.allocate_from_pool (pool, o.indices);
+-    deltas_x.allocate_from_pool (pool, o.deltas_x);
+-    deltas_y.allocate_from_pool (pool, o.deltas_y);
+-    compiled_tuple_header.allocate_from_pool (pool, o.compiled_tuple_header);
+-    compiled_deltas.allocate_from_pool (pool, o.compiled_deltas);
+-    compiled_peak_coords.allocate_from_pool (pool, o.compiled_peak_coords);
+-    compiled_interm_coords.allocate_from_pool (pool, o.compiled_interm_coords);
++    indices.duplicate_vector_from_pool (pool, o.indices);
++    deltas_x.duplicate_vector_from_pool (pool, o.deltas_x);
++    deltas_y.duplicate_vector_from_pool (pool, o.deltas_y);
++    compiled_tuple_header.duplicate_vector_from_pool (pool, o.compiled_tuple_header);
++    compiled_deltas.duplicate_vector_from_pool (pool, o.compiled_deltas);
++    compiled_peak_coords.duplicate_vector_from_pool (pool, o.compiled_peak_coords);
++    compiled_interm_coords.duplicate_vector_from_pool (pool, o.compiled_interm_coords);
+   }
+ 
+   void remove_axis (hb_tag_t axis_tag)
+diff -ru a/src/hb-vector.hh b/src/hb-vector.hh
+--- a/src/hb-vector.hh	2026-01-10 14:25:18
++++ b/src/hb-vector.hh	2026-01-10 14:25:43
+@@ -570,7 +570,7 @@
+ 
+   template <typename allocator_t>
+   HB_ALWAYS_INLINE_VECTOR_ALLOCS
+-  bool allocate_from_pool (allocator_t *allocator, const hb_vector_t &other)
++  bool duplicate_vector_from_pool (allocator_t *allocator, const hb_vector_t &other)
+   {
+     if (unlikely (!allocate_from_pool (allocator, other.length, false)))
+       return false;

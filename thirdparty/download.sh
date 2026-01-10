@@ -11,7 +11,7 @@ declare -A urls=(
 	["jbig2dec"]="https://github.com/ArtifexSoftware/jbig2dec/releases/download/0.20/jbig2dec-0.20.tar.gz"
 	# Fonts
 	["freetype2"]="https://download.savannah.gnu.org/releases/freetype/freetype-2.14.1.tar.gz"
-	["harfbuzz"]="https://github.com/harfbuzz/harfbuzz/archive/11.5.0.tar.gz"
+	["harfbuzz"]="https://github.com/harfbuzz/harfbuzz/archive/12.3.0.tar.gz"
 	# Documents
 	["gumbo"]="https://github.com/google/gumbo-parser/archive/v0.10.1.tar.gz"
 	["djvulibre"]="http://downloads.sourceforge.net/djvu/djvulibre-3.5.29.tar.gz"
