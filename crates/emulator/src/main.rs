@@ -315,7 +315,7 @@ fn main() -> Result<(), Error> {
                 },
                 SdlEvent::KeyDown { scancode: Some(scancode), keymod, timestamp, repeat, .. } => {
                     match keymod {
-                        Mod::NOMOD => {
+                        Mod::NOMOD | Mod::NUMMOD => {
                             match scancode {
                                 Scancode::LeftBracket => {
                                     let rot = (3 + context.display.rotation) % 4;
@@ -361,7 +361,11 @@ fn main() -> Result<(), Error> {
                                 _ => (),
                             }
                         },
-                        Mod::LSHIFTMOD | Mod::RSHIFTMOD => {
+                        _ if keymod.contains(Mod::LSHIFTMOD) ||
+                            keymod.contains(Mod::RSHIFTMOD) ||
+                            (keymod.contains(Mod::LSHIFTMOD) && keymod.contains(Mod::NUMMOD)) ||
+                            (keymod.contains(Mod::RSHIFTMOD) && keymod.contains(Mod::NUMMOD)) 
+                        => {
                             match scancode {
                                 Scancode::S | Scancode::P | Scancode::C => {
                                     if let Some(index) = locate::<Intermission>(view.as_ref()) {
