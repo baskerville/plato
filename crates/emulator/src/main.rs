@@ -292,6 +292,10 @@ fn main() -> Result<(), Error> {
 
     let mut bus = VecDeque::with_capacity(4);
 
+    let (mut back_pressed, mut fwd_pressed) = (false, false);
+    let (mut swallow_back_release, mut swallow_fwd_release) = (false, false);
+    let mut is_screen_locked = false;
+
     'outer: loop {
         let mut event_pump = sdl_context.event_pump().unwrap();
         while let Some(sdl_evt) = event_pump.poll_event() {
@@ -560,6 +564,10 @@ fn main() -> Result<(), Error> {
                     let notif = Notification::new(msg, &tx, &mut rq, &mut context);
                     view.children_mut().push(Box::new(notif) as Box<dyn View>);
                 },
+                Event::Select(EntryId::LockScreenInput) => {
+                    is_screen_locked = true;
+                    tx.send(Event::Toggle(ViewId::TopBottomBars)).ok();
+                }
                 Event::Notify(msg) => {
                     let notif = Notification::new(msg, &tx, &mut rq, &mut context);
                     view.children_mut().push(Box::new(notif) as Box<dyn View>);
@@ -588,6 +596,71 @@ fn main() -> Result<(), Error> {
                         }
                     }
                 },
+                Event::Device(DeviceEvent::Button { code, status: ButtonStatus::Pressed, .. }) => {
+                    // IDK how we can catch the initial starting press.
+                    // Seems impossible without delay.
+                    if is_screen_locked {
+                        match code {
+                            ButtonCode::Backward => {
+                                back_pressed = true;
+
+                                // When both buttons are pressed during lock screen
+                                // then unlock the screen.
+                                if fwd_pressed {
+                                    is_screen_locked = false;
+                                    continue;
+                                }
+                            },
+                            ButtonCode::Forward => {
+                                fwd_pressed = true;
+
+                                // When both buttons are pressed during lock screen
+                                // then unlock the screen.
+                                if back_pressed {
+                                    is_screen_locked = false;
+                                    continue;
+                                }
+                            },
+                            _ => (),
+                        }
+                    }
+
+                    handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut rq, &mut context);
+                },
+                Event::Device(DeviceEvent::Button { code, status: ButtonStatus::Released, .. }) => {
+                    match code {
+                        ButtonCode::Backward => {
+                            // User was holding both buttons, but released back first
+                            // Now catch the foward release event and swallow it.
+                            if fwd_pressed && back_pressed {
+                                swallow_fwd_release = true;
+                            }
+
+                            back_pressed = false;
+
+                            if swallow_back_release {
+                                swallow_back_release = false;
+                                continue;
+                            }
+                        },
+                        ButtonCode::Forward => {
+                            // Same but the user released forward first. We catch back release.
+                            if fwd_pressed && back_pressed {
+                                swallow_back_release = true;
+                            }
+
+                            fwd_pressed = false;
+
+                            if swallow_fwd_release {
+                                swallow_fwd_release = false;
+                                continue
+                            }
+                        },
+                        _ => (),
+                    }
+
+                    handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut rq, &mut context);
+                },
                 Event::Device(DeviceEvent::RotateScreen(n)) => {
                     tx.send(Event::Select(EntryId::Rotate(n))).ok();
                 },
@@ -595,6 +668,10 @@ fn main() -> Result<(), Error> {
                     break 'outer;
                 },
                 _ => {
+                    if is_screen_locked && is_gesture_event(&evt) {
+                        // Skip this event
+                        continue;
+                    }
                     handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut rq, &mut context);
                 },
             }
@@ -626,3 +703,11 @@ fn main() -> Result<(), Error> {
 
     Ok(())
 }
+
+fn is_gesture_event(evt: &Event) -> bool {
+    match evt {
+        Event::Gesture(_) => true,
+        _ => false,
+    }
+}
+
