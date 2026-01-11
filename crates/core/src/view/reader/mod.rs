@@ -36,6 +36,7 @@ use self::bottom_bar::BottomBar;
 use self::results_bar::ResultsBar;
 use crate::view::common::{locate, rlocate, locate_by_id};
 use crate::view::common::{toggle_main_menu, toggle_battery_menu, toggle_clock_menu};
+use crate::view::dialog::Dialog;
 use crate::view::filler::Filler;
 use crate::view::named_input::NamedInput;
 use crate::view::search_bar::SearchBar;
@@ -3135,19 +3136,12 @@ impl View for Reader {
                             hub.send(Event::GoTo(location)).ok();
                         } else {
                             if link.text.starts_with("https:") || link.text.starts_with("http:") {
-                                if let Some(path) = context.settings.external_urls_queue.as_ref() {
-                                    if let Ok(mut file) = OpenOptions::new().create(true)
-                                                                            .append(true)
-                                                                            .open(path) {
-                                        if let Err(e) = writeln!(file, "{}", link.text) {
-                                            eprintln!("Couldn't write to {}: {:#}.", path.display(), e);
-                                        } else {
-                                            let message = format!("Queued {}.", link.text);
-                                            let notif = Notification::new(message, hub, rq, context);
-                                            self.children.push(Box::new(notif) as Box<dyn View>);
-                                        }
-                                    }
-                                }
+                                let dialog = Dialog::new(ViewId::ShareDialog,
+                                    Some(Event::QueueAddUrl(link.text)),
+                                    "Add url to queue?".to_string(),
+                                    context);
+                                rq.add(RenderData::new(dialog.id(), *dialog.rect(), UpdateMode::Gui));
+                                self.children.push(Box::new(dialog) as Box<dyn View>);
                             } else {
                                 eprintln!("Can't resolve URI: {}.", link.text);
                             }
@@ -3267,6 +3261,22 @@ impl View for Reader {
 
                 true
             },
+            Event::QueueAddUrl(ref link) => {
+                if let Some(path) = context.settings.external_urls_queue.as_ref() {
+                    if let Ok(mut file) = OpenOptions::new().create(true)
+                                                            .append(true)
+                                                            .open(path) {
+                        if let Err(e) = writeln!(file, "{}", link) {
+                            eprintln!("Couldn't write to {}: {:#}.", path.display(), e);
+                        } else {
+                            let message = format!("Queued {}.", link);
+                            let notif = Notification::new(message, hub, rq, context);
+                            self.children.push(Box::new(notif) as Box<dyn View>);
+                        }
+                    }
+                }
+                true
+            }
             Event::Gesture(GestureEvent::HoldFingerShort(center, id)) if self.rect.includes(center) => {
                 if self.focus.is_some() {
                     return true;
