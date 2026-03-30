@@ -29,6 +29,8 @@ pub const DEFAULT_MARGIN_WIDTH: i32 = 8;
 pub const DEFAULT_LINE_HEIGHT: f32 = 1.2;
 // Default font family name.
 pub const DEFAULT_FONT_FAMILY: &str = "Libertinus Serif";
+pub const DEFAULT_UI_FONT_FAMILY_SANS: &str = "Noto Sans";
+pub const DEFAULT_UI_FONT_FAMILY_SERIF: &str = "Noto Serif";
 // Default text alignment.
 pub const DEFAULT_TEXT_ALIGN: TextAlign = TextAlign::Left;
 pub const HYPHEN_PENALTY: i32 = 50;
@@ -112,6 +114,8 @@ pub struct Settings {
     pub date_format: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub external_urls_queue: Option<PathBuf>,
+    pub font_family_sans: Option<String>,
+    pub font_family_serif: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<LibrarySettings>,
     pub intermissions: Intermissions,
@@ -531,6 +535,8 @@ impl Default for Settings {
             inverted: false,
             sleep_cover: true,
             auto_share: false,
+            font_family_sans: None,
+            font_family_serif: None,
             rotation_lock: None,
             button_scheme: ButtonScheme::Natural,
             auto_suspend: 30.0,

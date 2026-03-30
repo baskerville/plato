@@ -61,7 +61,7 @@ pub fn build_context(fb: Box<dyn Framebuffer>) -> Result<Context, Error> {
     let battery = Box::new(FakeBattery::new()) as Box<dyn Battery>;
     let frontlight = Box::new(LightLevels::default()) as Box<dyn Frontlight>;
     let lightsensor = Box::new(0u16) as Box<dyn LightSensor>;
-    let fonts = Fonts::load()?;
+    let fonts = Fonts::load(&settings)?;
 
     Ok(Context::new(fb, None, library, settings,
                     fonts, battery, frontlight, lightsensor))

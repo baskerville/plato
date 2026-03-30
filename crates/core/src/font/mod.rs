@@ -24,6 +24,7 @@ use crate::geom::{Point, Vec2};
 use crate::helpers::IsHidden;
 use crate::framebuffer::Framebuffer;
 use crate::device::CURRENT_DEVICE;
+use crate::settings::{Settings, DEFAULT_UI_FONT_FAMILY_SANS, DEFAULT_UI_FONT_FAMILY_SERIF};
 
 // Font sizes in 1/64th of a point
 pub const FONT_SIZES: [u32; 3] = [349, 524, 629];
@@ -501,7 +502,7 @@ impl FontFamily {
             styles.get("Regular")
                   .or_else(|| styles.get("Roman"))
                   .or_else(|| styles.get("Book"))
-                  .ok_or_else(|| format_err!("can't find regular style"))?
+                  .ok_or_else(|| format_err!("can't find regular style for {family_name}"))?
         };
         let italic_path = styles.get("Italic")
                                 .or_else(|| styles.get("Book Italic"))
@@ -534,21 +535,34 @@ pub struct Fonts {
 }
 
 impl Fonts {
-    pub fn load() -> Result<Fonts, Error> {
+    pub fn load(settings: &Settings) -> Result<Fonts, Error> {
         let opener = FontOpener::new()?;
+
+        // Default to builtin fonts
+        let mut sans_path = "fonts";
+        let mut serif_path = "fonts";
+        let mut font_family_sans = DEFAULT_UI_FONT_FAMILY_SANS;
+        let mut font_family_serif = DEFAULT_UI_FONT_FAMILY_SERIF;
+
+        // Look for fonts in settings path if a custom font is given
+        if let Some(custom_sans) = &settings.font_family_sans {
+            sans_path = &settings.reader.font_path;
+            font_family_sans = custom_sans.as_str()
+        }
+        if let Some(custom_serif) = &settings.font_family_serif {
+            serif_path = &settings.reader.font_path;
+            font_family_serif = custom_serif.as_str()
+        }
+
         let mut fonts = Fonts {
-            sans_serif: FontFamily {
-                regular: opener.open("fonts/NotoSans-Regular.ttf")?,
-                italic: opener.open("fonts/NotoSans-Italic.ttf")?,
-                bold: opener.open("fonts/NotoSans-Bold.ttf")?,
-                bold_italic: opener.open("fonts/NotoSans-BoldItalic.ttf")?,
-            },
-            serif: FontFamily {
-                regular: opener.open("fonts/NotoSerif-Regular.ttf")?,
-                italic: opener.open("fonts/NotoSerif-Italic.ttf")?,
-                bold: opener.open("fonts/NotoSerif-Bold.ttf")?,
-                bold_italic: opener.open("fonts/NotoSerif-BoldItalic.ttf")?,
-            },
+            sans_serif: FontFamily::from_name(
+                font_family_sans,
+                sans_path,
+            )?,
+            serif: FontFamily::from_name(
+                font_family_serif,
+                serif_path,
+            )?,
             monospace: FontFamily {
                 regular: opener.open("fonts/SourceCodeVariable-Roman.otf")?,
                 italic: opener.open("fonts/SourceCodeVariable-Italic.otf")?,
