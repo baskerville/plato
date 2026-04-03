@@ -166,7 +166,16 @@ impl Document for PdfDocument {
     }
 
     fn pages_count(&self) -> usize {
-        unsafe { mp_count_pages(self.ctx.0, self.doc) as usize }
+        unsafe {
+            let page_count: i32 = mp_count_pages(self.ctx.0, self.doc);
+
+            if page_count <= 0 {
+                eprintln!("Error: MuPDF Fitz count_pages function returned {}.", page_count);
+                return 0;
+            }
+
+            return page_count as usize;
+        }
     }
 
     fn resolve_location(&mut self, loc: Location) -> Option<usize> {
