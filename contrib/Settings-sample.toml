@@ -1,5 +1,5 @@
 # selected-library = 0
-# Possible values: "English", "Russian".
+# Possible values: "English", "Russian", "Spanish".
 keyboard-layout = "English"
 frontlight = true
 wifi = false
