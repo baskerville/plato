@@ -334,6 +334,10 @@ pub fn run() -> Result<(), Error> {
                   BATTERY_REFRESH_INTERVAL, &tx, &mut tasks);
     tx.send(Event::WakeUp).ok();
 
+    let (mut back_pressed, mut fwd_pressed) = (false, false);
+    let (mut swallow_back_release, mut swallow_fwd_release) = (false, false);
+    let mut is_screen_locked = false;
+
     while let Ok(evt) = rx.recv() {
         match evt {
             Event::Device(de) => {
@@ -356,8 +360,73 @@ pub fn run() -> Result<(), Error> {
                             view.children_mut().push(Box::new(interm) as Box<dyn View>);
                         }
                     },
-                    DeviceEvent::Button { code: ButtonCode::Light, status: ButtonStatus::Pressed, .. } => {
+                    DeviceEvent::Button { code: ButtonCode::Light, status, .. } => {
                         tx.send(Event::ToggleFrontlight).ok();
+                    },
+                    DeviceEvent::Button { code, status: ButtonStatus::Pressed, .. } => {
+                        // IDK how we can catch the initial starting press.
+                        // Seems impossible without delay.
+                        if is_screen_locked {
+                            match code {
+                                ButtonCode::Backward => {
+                                    back_pressed = true;
+
+                                    // When both buttons are pressed during lock screen
+                                    // then unlock the screen.
+                                    if fwd_pressed {
+                                        is_screen_locked = false;
+                                        continue;
+                                    }
+                                },
+                                ButtonCode::Forward => {
+                                    fwd_pressed = true;
+
+                                    // When both buttons are pressed during lock screen
+                                    // then unlock the screen.
+                                    if back_pressed {
+                                        is_screen_locked = false;
+                                        continue;
+                                    }
+                                },
+                                _ => (),
+                            }
+                        }
+
+                        handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut rq, &mut context);
+                    },
+                    DeviceEvent::Button { code, status: ButtonStatus::Released, .. } => {
+                        match code {
+                            ButtonCode::Backward => {
+                                // User was holding both buttons, but released back first
+                                // Now catch the foward release event and swallow it.
+                                if fwd_pressed && back_pressed {
+                                    swallow_fwd_release = true;
+                                }
+
+                                back_pressed = false;
+
+                                if swallow_back_release {
+                                    swallow_back_release = false;
+                                    continue;
+                                }
+                            },
+                            ButtonCode::Forward => {
+                                // Same but the user released forward first. We catch back release.
+                                if fwd_pressed && back_pressed {
+                                    swallow_back_release = true;
+                                }
+
+                                fwd_pressed = false;
+
+                                if swallow_fwd_release {
+                                    swallow_fwd_release = false;
+                                    continue
+                                }
+                            },
+                            _ => (),
+                        }
+
+                        handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut rq, &mut context);
                     },
                     DeviceEvent::CoverOn => {
                         if context.covered {
@@ -685,28 +754,32 @@ pub fn run() -> Result<(), Error> {
                         break;
                     },
                     GestureEvent::MultiTap(mut points) => {
-                        if points[0].x > points[1].x {
-                            points.swap(0, 1);
-                        }
-                        let rect = context.fb.rect();
-                        let r1 = Region::from_point(points[0], rect,
-                                                    context.settings.reader.strip_width,
-                                                    context.settings.reader.corner_width);
-                        let r2 = Region::from_point(points[1], rect,
-                                                    context.settings.reader.strip_width,
-                                                    context.settings.reader.corner_width);
-                        match (r1, r2) {
-                            (Region::Corner(DiagDir::SouthWest), Region::Corner(DiagDir::NorthEast)) => {
-                                rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Full));
-                            },
-                            (Region::Corner(DiagDir::NorthWest), Region::Corner(DiagDir::SouthEast)) => {
-                                tx.send(Event::Select(EntryId::TakeScreenshot)).ok();
-                            },
-                            _ => (),
+                        if !is_screen_locked {
+                            if points[0].x > points[1].x {
+                                points.swap(0, 1);
+                            }
+                            let rect = context.fb.rect();
+                            let r1 = Region::from_point(points[0], rect,
+                                                        context.settings.reader.strip_width,
+                                                        context.settings.reader.corner_width);
+                            let r2 = Region::from_point(points[1], rect,
+                                                        context.settings.reader.strip_width,
+                                                        context.settings.reader.corner_width);
+                            match (r1, r2) {
+                                (Region::Corner(DiagDir::SouthWest), Region::Corner(DiagDir::NorthEast)) => {
+                                    rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Full));
+                                },
+                                (Region::Corner(DiagDir::NorthWest), Region::Corner(DiagDir::SouthEast)) => {
+                                    tx.send(Event::Select(EntryId::TakeScreenshot)).ok();
+                                },
+                                _ => (),
+                            }
                         }
                     },
                     _ => {
-                        handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut rq, &mut context);
+                        if !is_screen_locked {
+                            handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut rq, &mut context);
+                        }
                     },
                 }
             },
@@ -937,6 +1010,10 @@ pub fn run() -> Result<(), Error> {
                 let notif = Notification::new(msg, &tx, &mut rq, &mut context);
                 view.children_mut().push(Box::new(notif) as Box<dyn View>);
             },
+            Event::Select(EntryId::LockScreenInput) => {
+                is_screen_locked = true;
+                tx.send(Event::Toggle(ViewId::TopBottomBars)).ok();
+            }
             Event::CheckFetcher(..) |
             Event::FetcherAddDocument(..) |
             Event::FetcherRemoveDocument(..) |
@@ -974,6 +1051,10 @@ pub fn run() -> Result<(), Error> {
                 }
             },
             _ => {
+                if is_screen_locked && is_gesture_event(&evt) {
+                    // Skip this event
+                    continue;
+                }
                 handle_event(view.as_mut(), &evt, &tx, &mut bus, &mut rq, &mut context);
             },
         }
@@ -1012,3 +1093,11 @@ pub fn run() -> Result<(), Error> {
 
     Ok(())
 }
+
+fn is_gesture_event(evt: &Event) -> bool {
+    match evt {
+        Event::Gesture(_) => true,
+        _ => false,
+    }
+}
+
