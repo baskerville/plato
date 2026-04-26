@@ -7,6 +7,33 @@ git clone https://github.com/baskerville/plato.git
 cd plato
 ```
 
+## Nix (recommended)
+
+A `flake.nix` is provided that supplies every dependency automatically on macOS and Linux.
+
+Enable flakes (once, user-level):
+```sh
+mkdir -p ~/.config/nix
+echo 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
+```
+
+Enter the development shell:
+```sh
+nix develop
+```
+
+This gives you the Linaro cross-compiler, Rust stable with the ARM target, and all libraries needed for the emulator. From inside the shell, the usual commands apply:
+
+```sh
+./build.sh        # cross-compile for Kobo
+./run-emulator.sh # run the emulator
+./dist.sh         # build the distribution archive
+```
+
+---
+
+## Manual Setup
+
 ## Plato
 
 #### Preliminary
