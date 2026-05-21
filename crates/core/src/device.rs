@@ -426,9 +426,37 @@ impl Device {
     }
 }
 
+fn detect_product_from_devicetree() -> Option<String> {
+    let paths = [
+        "/proc/device-tree/compatible",
+        "/sys/firmware/devicetree/base/compatible",
+    ];
+
+    for path in &paths {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            // Device tree compatible strings are null-separated.
+            for part in content.split('\0') {
+                if let Some(product) = part.strip_prefix("kobo,") {
+                    // Map device tree identifier to product codename:
+                    let codename = match product {
+                        "clarahd" => "nova",
+                        // TODO: add other devices here.
+                        _ => continue,
+                    };
+                    return Some(codename.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
 lazy_static! {
     pub static ref CURRENT_DEVICE: Device = {
-        let product = env::var("PRODUCT").unwrap_or_default();
+        let product = env::var("PRODUCT")
+            .ok()
+            .or_else(detect_product_from_devicetree)
+            .unwrap_or_default();
         let model_number = env::var("MODEL_NUMBER").unwrap_or_default();
 
         Device::new(&product, &model_number)
