@@ -24,21 +24,11 @@ pub struct DirectoriesBar {
     current_page: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 struct Page<'a> {
     start_index: usize,
     end_index: usize,
     lines: Vec<Line<'a>>,
-}
-
-impl<'a> Default for Page<'a> {
-    fn default() -> Page<'a> {
-        Page {
-            start_index: 0,
-            end_index: 0,
-            lines: Vec::new(),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -49,21 +39,11 @@ struct Layout {
     max_lines: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 struct Line<'a> {
     width: i32,
     labels_count: usize,
     items: Vec<Item<'a>>,
-}
-
-impl<'a> Default for Line<'a> {
-    fn default() -> Line<'a> {
-        Line {
-            width: 0,
-            labels_count: 0,
-            items: Vec::new(),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

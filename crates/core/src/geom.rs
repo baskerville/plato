@@ -128,7 +128,7 @@ impl fmt::Display for Point {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct Edge {
     pub top: i32,
     pub right: i32,
@@ -143,17 +143,6 @@ impl Edge {
             right: value,
             bottom: value,
             left: value,
-        }
-    }
-}
-
-impl Default for Edge {
-    fn default() -> Self {
-        Edge {
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 0,
         }
     }
 }

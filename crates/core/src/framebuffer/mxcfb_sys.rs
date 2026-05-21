@@ -69,23 +69,12 @@ pub struct MxcfbUpdateMarkerData {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct MxcfbAltBufferDataV2 {
     pub phys_addr: u32,
     pub width: u32,
     pub height: u32,
     pub alt_update_region: MxcfbRect,
-}
-
-impl Default for MxcfbAltBufferDataV2 {
-    fn default() -> Self {
-        MxcfbAltBufferDataV2 {
-            phys_addr: 0,
-            width: 0,
-            height: 0,
-            alt_update_region: MxcfbRect::default(),
-        }
-    }
 }
 
 #[repr(C)]

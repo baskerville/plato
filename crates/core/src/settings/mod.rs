@@ -274,7 +274,7 @@ pub enum SecondColumn {
     Year,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct Hook {
     pub path: PathBuf,
@@ -282,18 +282,6 @@ pub struct Hook {
     pub sort_method: Option<SortMethod>,
     pub first_column: Option<FirstColumn>,
     pub second_column: Option<SecondColumn>,
-}
-
-impl Default for Hook {
-    fn default() -> Self {
-        Hook {
-            path: PathBuf::default(),
-            program: PathBuf::default(),
-            sort_method: None,
-            first_column: None,
-            second_column: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

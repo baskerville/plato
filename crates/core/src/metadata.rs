@@ -62,22 +62,12 @@ pub struct Info {
     pub added: NaiveDateTime,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct FileInfo {
     pub path: PathBuf,
     pub kind: String,
     pub size: u64,
-}
-
-impl Default for FileInfo {
-    fn default() -> Self {
-        FileInfo {
-            path: PathBuf::default(),
-            kind: String::default(),
-            size: u64::default(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

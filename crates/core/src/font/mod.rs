@@ -1645,21 +1645,11 @@ struct GlyphPlan {
     advance: Point,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RenderPlan {
     pub width: i32,
     scripts: FxHashMap<usize, HbScript>,
     glyphs: Vec<GlyphPlan>,
-}
-
-impl Default for RenderPlan {
-    fn default() -> RenderPlan {
-        RenderPlan {
-            width: 0,
-            scripts: FxHashMap::default(),
-            glyphs: Vec::new(),
-        }
-    }
 }
 
 impl RenderPlan {
