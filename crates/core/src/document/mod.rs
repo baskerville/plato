@@ -557,7 +557,7 @@ pub fn sys_info_as_html() -> String {
     buf.push_str("\t\t\t<tr class=\"sep\"></tr>\n");
 
     let output = Command::new("/bin/ntx_hwconfig")
-                         .args(&["-s", "/dev/mmcblk0"])
+                         .args(["-s", "/dev/mmcblk0"])
                          .output()
                          .map_err(|e| eprintln!("Can't execute command: {:#}.", e))
                          .ok();

@@ -406,7 +406,7 @@ fn main() -> Result<(), Error> {
 
                 session.since = updated_at.timestamp();
 
-                let epub_path = save_path.join(&format!("{}.epub", id));
+                let epub_path = save_path.join(format!("{}.epub", id));
                 if epub_path.exists() {
                     continue;
                 }

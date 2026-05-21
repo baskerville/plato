@@ -132,7 +132,7 @@ impl View for Slider {
                                               &fill_color);
 
         let font = font_from_style(fonts, &SLIDER_VALUE, dpi);
-        let plan = font.plan(&format!("{:.1}", self.value), None, None);
+        let plan = font.plan(format!("{:.1}", self.value), None, None);
         let x_height = font.x_heights.1 as i32;
 
         let x_drift = if self.value > (self.min_value + self.max_value) / 2.0 {
