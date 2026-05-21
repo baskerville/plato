@@ -186,7 +186,7 @@ impl Library {
                             continue;
                         }
 
-                        let kind = file_kind(&path).unwrap_or_default();
+                        let kind = file_kind(path).unwrap_or_default();
                         let md = entry.metadata().unwrap();
                         let size = md.len();
                         let fp = md.fingerprint(self.fat32_epoch).unwrap();
@@ -303,7 +303,7 @@ impl Library {
                     }
                 // We found a new file: add it to the db.
                 } else {
-                    let kind = file_kind(&path).unwrap_or_default();
+                    let kind = file_kind(path).unwrap_or_default();
                     if !settings.allowed_kinds.contains(&kind) {
                         continue;
                     }

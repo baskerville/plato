@@ -87,12 +87,12 @@ impl View for PageLabel {
         let font = font_from_style(fonts, &NORMAL_STYLE, dpi);
         let padding = font.em() as i32 / 2;
         let max_width = self.rect.width().saturating_sub(2 * padding as u32) as i32;
-        let mut plan = font.plan(&self.text(0), None, None);
+        let mut plan = font.plan(self.text(0), None, None);
         for size in 1..=4 {
             if plan.width <= max_width {
                 break;
             }
-            plan = font.plan(&self.text(size), None, None);
+            plan = font.plan(self.text(size), None, None);
         }
         font.crop_right(&mut plan, max_width);
         let dx = padding + (max_width - plan.width) / 2;

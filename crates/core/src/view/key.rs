@@ -221,7 +221,7 @@ impl View for Key {
         match self.kind.label(ratio) {
             KeyLabel::Char(ch) => {
                 let font = font_from_style(fonts, &KBD_CHAR, dpi);
-                let plan = font.plan(&ch.to_string(), None, None);
+                let plan = font.plan(ch.to_string(), None, None);
                 let dx = (self.rect.width() as i32 - plan.width) / 2;
                 let dy = (self.rect.height() - font.x_heights.0) as i32 / 2;
                 let pt = pt!(self.rect.min.x + dx, self.rect.max.y - dy);
