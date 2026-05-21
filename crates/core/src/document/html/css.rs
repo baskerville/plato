@@ -1,13 +1,13 @@
 use fxhash::FxHashSet;
 use super::style::StyleSheet;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Selector {
     pub simple_selectors: Vec<SimpleSelector>,
     pub combinators: Vec<Combinator>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SimpleSelector {
     pub tag_name: Option<String>,
     pub classes: FxHashSet<String>,
@@ -53,27 +53,6 @@ pub enum Combinator {
     SubsequentSibling,
 }
 
-impl Default for Selector {
-    fn default() -> Self {
-        Selector {
-            simple_selectors: Vec::new(),
-            combinators: Vec::new(),
-        }
-    }
-}
-
-impl Default for SimpleSelector {
-    fn default() -> Self {
-        SimpleSelector {
-            tag_name: None,
-            classes: FxHashSet::default(),
-            pseudo_classes: Vec::new(),
-            attributes: Vec::new(),
-            id: None,
-        }
-    }
-}
-
 pub type Specificity = [usize; 3];
 
 impl Selector {
@@ -90,21 +69,11 @@ impl Selector {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Declaration {
     pub name: String,
     pub value: String,
     pub important: bool,
-}
-
-impl Default for Declaration {
-    fn default() -> Declaration {
-        Declaration {
-            name: String::default(),
-            value: String::default(),
-            important: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

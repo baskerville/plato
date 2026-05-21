@@ -333,18 +333,10 @@ pub fn device_events(rx: Receiver<InputEvent>, display: Display, button_scheme: 
     ry
 }
 
+#[derive(Default)]
 struct TouchState {
     position: Point,
     pressure: i32,
-}
-
-impl Default for TouchState {
-    fn default() -> Self {
-        TouchState {
-            position: Point::default(),
-            pressure: 0,
-        }
-    }
 }
 
 pub fn parse_device_events(rx: &Receiver<InputEvent>, ty: &Sender<DeviceEvent>, display: Display, button_scheme: ButtonScheme) {

@@ -19,7 +19,7 @@ pub struct RootData {
     pub rect: Rectangle,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DrawState {
     pub position: Point,
     pub floats: FxHashMap<usize, Vec<Rectangle>>,
@@ -30,19 +30,6 @@ pub struct DrawState {
     pub center_table: bool,
 }
 
-impl Default for DrawState {
-    fn default() -> Self {
-        DrawState {
-            position: Point::default(),
-            floats: FxHashMap::default(),
-            prefix: None,
-            min_column_widths: Vec::new(),
-            max_column_widths: Vec::new(),
-            column_widths: Vec::new(),
-            center_table: false,
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct StyleData {
@@ -114,13 +101,13 @@ pub struct ChildArtifact {
     pub rects: Vec<Option<Rectangle>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SiblingStyle {
     pub padding: Edge,
     pub margin: Edge,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct LineStats {
     pub width: i32,
     pub merged_width: i32,
@@ -128,43 +115,12 @@ pub struct LineStats {
     pub started: bool,
 }
 
-impl Default for LineStats {
-    fn default() -> Self {
-        LineStats {
-            width: 0,
-            merged_width: 0,
-            glues_count: 0,
-            started: false,
-        }
-    }
-}
-
-impl Default for SiblingStyle {
-    fn default() -> Self {
-        SiblingStyle {
-            padding: Edge::default(),
-            margin: Edge::default(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct LoopContext {
     pub index: usize,
     pub sibling_style: SiblingStyle,
     pub is_first: bool,
     pub is_last: bool,
-}
-
-impl Default for LoopContext {
-    fn default() -> Self {
-        LoopContext {
-            index: 0,
-            sibling_style: SiblingStyle::default(),
-            is_first: false,
-            is_last: false,
-        }
-    }
 }
 
 impl Default for StyleData {
