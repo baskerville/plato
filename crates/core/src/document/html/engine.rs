@@ -1504,6 +1504,11 @@ impl Engine {
                         (plan.glyph_advance(1), 3 * plan.glyph_advance(0))
                     };
 
+                    // The merge range spans the whole token, so that the
+                    // punctuation boxes split off below are glued back to
+                    // their word by `cleanup_paragraph`.
+                    let token_start = hyph_items.len();
+
                     let mut index_before = text.find(char::is_alphabetic).unwrap_or_else(|| text.len());
                     if index_before > 0 {
                         let subelem = self.box_from_chunk(&text[0..index_before],
@@ -1518,7 +1523,6 @@ impl Engine {
                     while index_before < index_after {
                         let mut index = 0;
                         let chunk = &text[index_before..index_after];
-                        let len_before = hyph_items.len();
 
                         for segment in dictionary.hyphenate(chunk).iter().segments() {
                             let subelem = self.box_from_chunk(segment,
@@ -1538,10 +1542,6 @@ impl Engine {
                             }
                         }
 
-                        let len_after = hyph_items.len();
-                        if len_after > 1 + len_before {
-                            hyph_indices.push([len_before, len_after]);
-                        }
                         index_before = text[index_after..].find(char::is_alphabetic)
                                                            .map(|i| index_after + i)
                                                            .unwrap_or_else(|| text.len());
@@ -1555,6 +1555,11 @@ impl Engine {
                         index_after = text[index_before..].find(|c: char| !c.is_alphabetic())
                                                            .map(|i| index_before + i)
                                                            .unwrap_or_else(|| text.len());
+                    }
+
+                    let token_end = hyph_items.len();
+                    if token_end > 1 + token_start {
+                        hyph_indices.push([token_start, token_end]);
                     }
                 },
                 _ => { hyph_items.push(itm) },
