@@ -19,11 +19,14 @@ pub struct ElementData {
     pub name: String,
     pub qualified_name: Option<String>,
     pub attributes: Attributes,
+    // Set when an otherwise inline element contains block-level descendants
+    // (invalid block-in-inline markup); it's then laid out as a block.
+    pub force_block: bool,
 }
 
 impl ElementData {
     fn is_block(&self) -> bool {
-        matches!(self.name.as_str(),
+        self.force_block || matches!(self.name.as_str(),
                  "address" | "article" | "aside" | "blockquote" | "body" | "head" |
                  "details" | "dialog" | "dd" | "div" | "dl" | "dt" | "fieldset" | "figcaption" |
                  "figure" | "footer" | "form" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "header" |
@@ -65,6 +68,7 @@ pub fn element(name: &str, offset: usize, attributes: Attributes) -> NodeData {
         name: name[colon.map(|index| index+1).unwrap_or(0)..].to_string(),
         qualified_name: colon.map(|_| name.to_string()),
         attributes,
+        force_block: false,
     })
 }
 
@@ -167,7 +171,31 @@ impl XmlTree {
         self.get_mut(NodeId::from_index(0))
     }
 
+    // Lay out an inline element that contains block-level descendants as a block.
+    // Such block-in-inline nesting is invalid HTML (e.g. `<span><div>…</div></span>`,
+    // common in converter output) and would otherwise be flattened into a single
+    // inline run, dropping the block content. Must run before `wrap_lost_inlines`
+    // so the promoted elements aren't wrapped as lost inlines.
+    pub fn promote_blockish_inlines(&mut self) {
+        let mut ids = Vec::new();
+
+        for n in self.root().descendants() {
+            if matches!(n.data(), NodeData::Element(..)) && n.is_inline() &&
+               n.descendants().any(|d| d.is_block()) {
+                ids.push(n.id);
+            }
+        }
+
+        for id in ids {
+            if let NodeData::Element(e) = &mut self.node_mut(id).data {
+                e.force_block = true;
+            }
+        }
+    }
+
     pub fn wrap_lost_inlines(&mut self) {
+        self.promote_blockish_inlines();
+
         let mut ids = Vec::new();
         let mut known_ids = FxHashSet::default();
 
