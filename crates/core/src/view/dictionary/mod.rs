@@ -1,5 +1,6 @@
 mod bottom_bar;
 
+use lazy_static::lazy_static;
 use regex::Regex;
 use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode, Pixmap};
@@ -28,6 +29,13 @@ use self::bottom_bar::BottomBar;
 
 const VIEWER_STYLESHEET: &str = "css/dictionary.css";
 const USER_STYLESHEET: &str = "css/dictionary-user.css";
+
+lazy_static! {
+    // Many dict-format entries mix plain text with inline markup (e.g. `<br>` between senses,
+    // `<a href="...">` cross-references) instead of being pure HTML from the very first
+    // character, so `starts_with('<')` alone misses them.
+    static ref HTML_TAG: Regex = Regex::new(r"</?[a-zA-Z][a-zA-Z0-9]*(?:\s[^<>]*)?/?>").unwrap();
+}
 
 pub struct Dictionary {
     id: Id,
@@ -67,7 +75,7 @@ fn query_to_content(query: &str, language: &String, fuzzy: bool, target: Option<
                 if !body.trim_start().starts_with("<h2") {
                     content.push_str(&format!("<h2 class=\"headword\">{}</h2>\n", head.replace('<', "&lt;").replace('>', "&gt;")));
                 }
-                if body.trim_start().starts_with('<') {
+                if HTML_TAG.is_match(&body) {
                     content.push_str(&body);
                 } else {
                     content.push_str(&format!("<pre>{}</pre>", body.replace('<', "&lt;").replace('>', "&gt;")));
