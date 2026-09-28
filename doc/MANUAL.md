@@ -97,6 +97,8 @@ Swipe west/east to go to the next/previous page.
 
 Swipe north/south to scroll the page stream when the zoom mode is fit-to-width. If the scroll mode is set to *page*, the scrolling is limited to the current page.
 
+Swipe north/south on the *West Strip* to adjust the frontlight intensity, or on the *East Strip* to adjust the warmth (swipe up to increase, down to decrease). The change is proportional to the swipe's length and a notification reports the resulting level. This requires the frontlight to be enabled in the user settings.
+
 Rotate to change the screen orientation (one finger is the center, the other describes the desired rotation with a circular motion around the center: the two fingers should land and take off simultaneously).
 
 Spread (resp. pinch) horizontally to switch the zoom mode to fit-to-width (resp. fit-to-page).
@@ -251,4 +253,4 @@ Tap and hold inside an input field to bring up the input history menu.
 	Z '   Ź       I :   Ï       . <   ‹       o p   ℗
 	S '   Ś       O :   Ö       ' 1   ′       t m   ™
 	C '   Ć       U :   Ü       ' 2   ″       
-	N '   Ń       Y :   Ÿ       [ [   ⟦       
+	N '   Ń       Y :   Ÿ       [ [   ⟦
