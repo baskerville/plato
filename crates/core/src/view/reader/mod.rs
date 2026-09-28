@@ -2707,7 +2707,34 @@ impl View for Reader {
                         match dir {
                             Dir::West => self.go_to_neighbor(CycleDir::Next, hub, rq, context),
                             Dir::East => self.go_to_neighbor(CycleDir::Previous, hub, rq, context),
-                            Dir::South | Dir::North => self.vertical_scroll(start.y - end.y, hub, rq, context),
+                            Dir::South | Dir::North => {
+                                // A vertical swipe starting on a side strip adjusts the
+                                // frontlight instead of scrolling: up increases, down
+                                // decreases. West strip controls intensity (brightness),
+                                // east strip controls warmth.
+                                let region = Region::from_point(start, self.rect,
+                                                                context.settings.reader.strip_width,
+                                                                context.settings.reader.corner_width);
+                                let delta = (start.y - end.y) as f32
+                                            / self.rect.height() as f32 * 100.0;
+                                if context.settings.frontlight && matches!(region, Region::Strip(Dir::West)) {
+                                    let current = context.frontlight.levels().intensity;
+                                    let intensity = (current + delta).clamp(0.0, 100.0);
+                                    context.frontlight.set_intensity(intensity);
+                                    let message = format!("Frontlight: {}%.", intensity.round() as i32);
+                                    let notif = Notification::new(message, hub, rq, context);
+                                    self.children.push(Box::new(notif) as Box<dyn View>);
+                                } else if context.settings.frontlight && matches!(region, Region::Strip(Dir::East)) {
+                                    let current = context.frontlight.levels().warmth;
+                                    let warmth = (current + delta).clamp(0.0, 100.0);
+                                    context.frontlight.set_warmth(warmth);
+                                    let message = format!("Warmth: {}%.", warmth.round() as i32);
+                                    let notif = Notification::new(message, hub, rq, context);
+                                    self.children.push(Box::new(notif) as Box<dyn View>);
+                                } else {
+                                    self.vertical_scroll(start.y - end.y, hub, rq, context);
+                                }
+                            },
                         };
                     },
                     ZoomMode::Custom(_) => {
